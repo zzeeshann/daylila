@@ -1,10 +1,15 @@
 ---
-import { getCollection, type CollectionEntry } from 'astro:content';
+import { getCollection } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import {
+  bundleFromEntries,
+  groupBySlug,
+  isLowQuality,
+  LOW_QUALITY_NOTE,
+  type InteractiveEntry,
+} from '../../lib/interactives';
 import '../../styles/quiz.css';
 import '../../styles/interactive-frame.css';
-
-type InteractiveEntry = CollectionEntry<'interactives'>;
 
 /**
  * One static path per slug, regardless of how many artefact types
@@ -16,13 +21,7 @@ type InteractiveEntry = CollectionEntry<'interactives'>;
  */
 export async function getStaticPaths() {
   const all = await getCollection('interactives');
-  const bySlug = new Map<string, InteractiveEntry[]>();
-  for (const entry of all) {
-    const slug = entry.data.slug;
-    const arr = bySlug.get(slug) ?? [];
-    arr.push(entry);
-    bySlug.set(slug, arr);
-  }
+  const bySlug = groupBySlug(all);
   return Array.from(bySlug.entries()).map(([slug, entries]) => ({
     params: { slug },
     props: { entries },
@@ -30,29 +29,13 @@ export async function getStaticPaths() {
 }
 
 const { entries } = Astro.props as { entries: InteractiveEntry[] };
-
-// Pick out each artefact type (zero or one of each per slug, post-2.5).
-const quizEntry = entries.find((e) => e.data.type === 'quiz');
-const htmlEntry = entries.find((e) => e.data.type === 'html');
-
-// Page header uses the quiz's metadata when present (the dominant case
-// pre-Phase-2; quiz commits first when both run in the same generation
-// pass and sets the canonical title for the URL). HTML's metadata as
-// fallback when quiz declined or hasn't run yet.
-const primary = quizEntry ?? htmlEntry;
-if (!primary) {
+const bundle = bundleFromEntries(entries);
+if (!bundle) {
   // Empty group — shouldn't happen given the static-paths grouping,
   // but Astro's type narrowing wants this guard.
   throw new Error(`No interactive entries for slug ${Astro.params.slug}`);
 }
-
-const isLowQuality = (e: InteractiveEntry) => e.data.qualityFlag === 'low';
-const lowNote = "This interactive didn't pass all auditor gates. Kept live so nothing goes dark, but it may have rough edges.";
-
-// JSON payload for the quiz's content — mirrors the existing pattern.
-const quizContentJson = quizEntry && quizEntry.data.content.type === 'quiz'
-  ? JSON.stringify(quizEntry.data.content)
-  : null;
+const { primary, quizEntry, htmlEntry, quizContentJson } = bundle;
 ---
 
 <BaseLayout title={primary.data.title} description={primary.data.concept} ogType="article">
@@ -74,7 +57,7 @@ const quizContentJson = quizEntry && quizEntry.data.content.type === 'quiz'
         <h2 class="text-sm uppercase tracking-wider text-zee-muted mb-3">Try the model</h2>
         {isLowQuality(htmlEntry) && (
           <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-3">
-            {lowNote}
+            {LOW_QUALITY_NOTE}
           </div>
         )}
         <interactive-frame
@@ -101,7 +84,7 @@ const quizContentJson = quizEntry && quizEntry.data.content.type === 'quiz'
         )}
         {isLowQuality(quizEntry) && (
           <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-3">
-            {lowNote}
+            {LOW_QUALITY_NOTE}
           </div>
         )}
         <quiz-card data-interactive-id={quizEntry.data.interactiveId}>

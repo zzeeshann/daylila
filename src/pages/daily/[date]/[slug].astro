@@ -3,47 +3,34 @@ import { getCollection, render } from 'astro:content';
 import LessonLayout from '../../../layouts/LessonLayout.astro';
 import MadeBy from '../../../components/MadeBy.astro';
 import { deriveSlug } from '../../../lib/slug';
+import { bundleByPieceId, type InteractiveBundle } from '../../../lib/interactives';
 import '../../../styles/made.css';
+import '../../../styles/quiz.css';
+import '../../../styles/interactive-frame.css';
+import '../../../styles/lesson-finish.css';
 
 export async function getStaticPaths() {
   const pieces = await getCollection('dailyPieces');
-  // Cross-collection self-join — for each daily piece, find the
-  // interactive whose sourcePieceId matches (Area 4 sub-task 4.6).
-  // The content collection is the source of truth (per 4.2); no D1
-  // lookup or runtime fetch needed. The prior `qualityFlag !== 'low'`
-  // filter was dropped 2026-04-24 when Generator switched from
-  // abandon-on-max-fail to ship-as-low — flagged-low interactives are
-  // still useful to readers (same posture as flagged-low daily pieces)
-  // and surface via the last-beat prompt alongside clean passes.
+  // Cross-collection self-join — for each daily piece, find all
+  // interactives whose sourcePieceId matches (Area 4 sub-task 4.6,
+  // widened to multiple-per-piece in Phase 2 sub-task 2.5: a piece can
+  // have BOTH a quiz AND an html artefact).
   const interactives = await getCollection('interactives');
-  const interactiveByPiece = new Map<string, (typeof interactives)[number]>();
-  for (const i of interactives) {
-    if (i.data.sourcePieceId) {
-      interactiveByPiece.set(i.data.sourcePieceId, i);
-    }
-  }
+  const bundleByPiece = bundleByPieceId(interactives);
   return pieces.map((piece) => {
-    const interactive = interactiveByPiece.get(piece.data.pieceId) ?? null;
+    const bundle = bundleByPiece.get(piece.data.pieceId) ?? null;
     return {
       params: { date: piece.data.date, slug: deriveSlug(piece.id) },
-      props: { piece, interactive },
+      props: { piece, bundle },
     };
   });
 }
 
-const { piece, interactive } = Astro.props;
+const { piece, bundle } = Astro.props as {
+  piece: Awaited<ReturnType<typeof getCollection<'dailyPieces'>>>[number];
+  bundle: InteractiveBundle | null;
+};
 const { Content } = await render(piece);
-
-const interactivePayload = interactive
-  ? {
-      slug: interactive.data.slug,
-      title: interactive.data.title,
-      questionCount:
-        interactive.data.content.type === 'quiz'
-          ? interactive.data.content.questions.length
-          : null,
-    }
-  : null;
 ---
 
 <LessonLayout
@@ -59,7 +46,7 @@ const interactivePayload = interactive
   voiceScore={piece.data.voiceScore}
   qualityFlag={piece.data.qualityFlag}
   description={piece.data.description}
-  interactive={interactivePayload}
+  interactiveBundle={bundle}
 >
   <Content />
   <MadeBy date={piece.data.date} pieceId={piece.data.pieceId} />

@@ -1,0 +1,180 @@
+/*
+ * Lesson interactive + finish state — single-scroll layout (Area 5).
+ *
+ * Two sibling sections that sit below the article (after <slot/>):
+ *   .lesson-interactive  — embedded companion interactive(s)
+ *   .lesson-finish       — tagline + read-another / library / share row
+ *
+ * Standalone, not Tailwind-processed, so the data-attribute selectors
+ * are never purged. Palette matches beats.css / quiz.css / made.css.
+ */
+
+/* --- Lesson interactive (inline embed) --------------------------- */
+
+.lesson-interactive {
+  margin-top: 4rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid #E8E4DE;
+  scroll-margin-top: 1.5rem;
+}
+
+.lesson-interactive-eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6B6B6B;
+  margin: 0 0 0.75rem 0;
+}
+
+.lesson-interactive-title {
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  color: #1A1A1A;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.25;
+}
+
+@media (min-width: 768px) {
+  .lesson-interactive-title {
+    font-size: 1.75rem;
+  }
+}
+
+.lesson-interactive-concept {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: rgba(26, 26, 26, 0.8);
+  margin: 0 0 2rem 0;
+}
+
+.lesson-interactive-block {
+  margin-top: 2.5rem;
+}
+
+.lesson-interactive-block:first-of-type {
+  margin-top: 0;
+}
+
+.lesson-interactive-subhead {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6B6B6B;
+  margin: 0 0 0.75rem 0;
+}
+
+.lesson-interactive-low {
+  font-size: 0.75rem;
+  color: #6B6B6B;
+  border: 1px solid rgba(232, 228, 222, 0.5);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.lesson-interactive-noscript {
+  list-style: decimal;
+  list-style-position: inside;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.lesson-interactive-noscript ul {
+  list-style: disc;
+  list-style-position: inside;
+  padding-left: 1rem;
+  color: rgba(26, 26, 26, 0.8);
+  margin-top: 0.5rem;
+}
+
+.lesson-interactive-answer {
+  font-size: 0.75rem;
+  color: #6B6B6B;
+  margin-top: 0.5rem;
+}
+
+/* --- Lesson finish state ----------------------------------------- */
+
+.lesson-finish {
+  margin-top: 4rem;
+  padding-top: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-top: 1px solid #E8E4DE;
+  text-align: center;
+  scroll-margin-top: 1.5rem;
+}
+
+.lesson-finish-tagline {
+  font-size: 1.0625rem;
+  color: #1A1A1A;
+  font-style: italic;
+  margin: 0 0 1.75rem 0;
+  letter-spacing: -0.005em;
+}
+
+.lesson-finish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+}
+
+.lesson-finish-link,
+.lesson-finish-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #1A6B62;
+  background: transparent;
+  border: 0;
+  padding: 0.5rem 0.25rem;
+  min-height: 44px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease, gap 0.2s ease;
+}
+
+.lesson-finish-link:hover,
+.lesson-finish-share:hover {
+  color: #155951;
+}
+
+.lesson-finish-link:hover {
+  gap: 0.6rem;
+}
+
+.lesson-finish-link:focus-visible,
+.lesson-finish-share:focus-visible {
+  outline: 2px solid #1A6B62;
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+}
+
+.lesson-finish-toast {
+  font-size: 0.8125rem;
+  color: #6B6B6B;
+  font-style: italic;
+}
+
+@media (max-width: 480px) {
+  .lesson-finish-actions {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .lesson-finish-link,
+  .lesson-finish-share {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesson-finish-link,
+  .lesson-finish-share {
+    transition: none;
+  }
+}

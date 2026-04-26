@@ -2,6 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import AudioPlayer from '../components/AudioPlayer.astro';
 import { auditTier, auditTierLabel } from '../lib/audit-tier';
+import { isLowQuality, LOW_QUALITY_NOTE, type InteractiveBundle } from '../lib/interactives';
 import '../styles/beats.css';
 import '../styles/zita.css';
 
@@ -28,18 +29,28 @@ interface Props {
   qualityFlag?: 'low';
   /** Optional one-line description for social-share meta. */
   description?: string;
-  /** Optional interactive metadata for the last-beat prompt (sub-task 4.6).
-   *  When present, <lesson-shell> reads it from the embedded JSON
-   *  script tag and surfaces a link to /interactives/<slug>/ on the
-   *  last beat, above the Finish button. */
-  interactive?: {
-    slug: string;
-    title: string;
-    questionCount: number | null;
-  } | null;
+  /** Optional interactive(s) bundle for the inline section after the
+   *  beats. With Area 5's single-scroll layout, the companion quiz +
+   *  HTML interactive embed directly on the daily piece page; the
+   *  standalone /interactives/<slug>/ URL still works (essence-not-
+   *  reference posture from Area 4). */
+  interactiveBundle?: InteractiveBundle | null;
 }
 
-const { title, estimatedTime, audioBeats, audioSrc, beatCount, subject, date, pieceId, publishedAt, voiceScore, qualityFlag, description, interactive } = Astro.props;
+const {
+  title,
+  estimatedTime,
+  audioBeats,
+  audioSrc,
+  subject,
+  date,
+  pieceId,
+  publishedAt,
+  voiceScore,
+  qualityFlag,
+  description,
+  interactiveBundle,
+} = Astro.props;
 
 // Pick a representative audio URL for the JSON-LD AudioObject (v1 emits
 // one per Article — array-per-beat is deferred). Prefer legacy
@@ -72,6 +83,12 @@ if (date) {
     });
   }
 }
+
+const primary = interactiveBundle?.primary ?? null;
+const quizEntry = interactiveBundle?.quizEntry ?? null;
+const htmlEntry = interactiveBundle?.htmlEntry ?? null;
+const quizContentJson = interactiveBundle?.quizContentJson ?? null;
+const interactiveSlug = primary?.data.slug ?? null;
 ---
 
 <BaseLayout
@@ -110,13 +127,89 @@ if (date) {
     <slot />
   </article>
 
-  {interactive && (
-    <script
-      type="application/json"
-      data-page-interactive
-      set:html={JSON.stringify(interactive)}
-    />
+  {interactiveBundle && primary && (
+    <section
+      class="lesson-interactive"
+      id="interactive"
+      data-lesson-interactive
+      data-interactive-slug={interactiveSlug}
+    >
+      <p class="lesson-interactive-eyebrow">Companion interactive</p>
+      <h2 class="lesson-interactive-title">{primary.data.title}</h2>
+      {primary.data.concept && (
+        <p class="lesson-interactive-concept">{primary.data.concept}</p>
+      )}
+
+      {htmlEntry && htmlEntry.data.content.type === 'html' && (
+        <div class="lesson-interactive-block">
+          <h3 class="lesson-interactive-subhead">Try the model</h3>
+          {isLowQuality(htmlEntry) && (
+            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+          )}
+          <interactive-frame
+            data-interactive-id={htmlEntry.data.interactiveId}
+            data-concept={htmlEntry.data.concept}
+          >
+            <iframe
+              class="interactive-frame-iframe"
+              sandbox="allow-scripts"
+              loading="lazy"
+              referrerpolicy="no-referrer"
+              title={htmlEntry.data.concept}
+              srcdoc={htmlEntry.data.content.html}
+            ></iframe>
+          </interactive-frame>
+        </div>
+      )}
+
+      {quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
+        <div class="lesson-interactive-block">
+          {htmlEntry && (
+            <h3 class="lesson-interactive-subhead">Then check the pattern</h3>
+          )}
+          {isLowQuality(quizEntry) && (
+            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+          )}
+          <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
+            <script type="application/json" data-quiz-content set:html={quizContentJson} />
+            <noscript>
+              <ol class="lesson-interactive-noscript">
+                {quizEntry.data.content.questions.map((q) => (
+                  <li>
+                    <p>{q.question}</p>
+                    <ul>
+                      {q.options.map((opt) => (
+                        <li>{opt}</li>
+                      ))}
+                    </ul>
+                    <p class="lesson-interactive-answer">
+                      Answer: {q.options[q.correctIndex]}. {q.explanation}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </noscript>
+          </quiz-card>
+        </div>
+      )}
+    </section>
   )}
+
+  <footer class="lesson-finish" data-lesson-finish>
+    <p class="lesson-finish-tagline">Educate myself for humble decisions.</p>
+    <div class="lesson-finish-actions">
+      <a class="lesson-finish-link" href="/daily/">Read another <span aria-hidden="true">→</span></a>
+      <a class="lesson-finish-link" href="/library/">Browse library <span aria-hidden="true">→</span></a>
+      <button type="button" class="lesson-finish-share" data-share aria-label="Share this piece">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M11 5L8 2M8 2L5 5M8 2V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 9V12C3 12.5523 3.44772 13 4 13H12C12.5523 13 13 12.5523 13 12V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Share this piece
+      </button>
+      <span class="lesson-finish-toast" data-share-toast aria-live="polite" hidden>Link copied</span>
+    </div>
+  </footer>
 
   <zita-chat
     course="daily"
@@ -126,3 +219,30 @@ if (date) {
     title={title}
   />
 </BaseLayout>
+
+<script is:inline define:vars={{ shareTitle: title }}>
+  // Inline share button handler — Web Share API on mobile (native sheet),
+  // clipboard fallback on desktop with a "Link copied" toast.
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const btn = target.closest('[data-share]');
+    if (!btn) return;
+    e.preventDefault();
+    const url = window.location.href;
+    const data = { title: shareTitle, url };
+    const showToast = () => {
+      const toast = document.querySelector('[data-share-toast]');
+      if (!(toast instanceof HTMLElement)) return;
+      toast.hidden = false;
+      setTimeout(() => { toast.hidden = true; }, 2400);
+    };
+    if (navigator.share) {
+      navigator.share(data).catch(() => {
+        // User dismissed the share sheet — silent.
+      });
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(showToast).catch(() => {});
+    }
+  });
+</script>
