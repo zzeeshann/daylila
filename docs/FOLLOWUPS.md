@@ -13,6 +13,30 @@ Format per entry:
 
 ---
 
+## [open] 2026-04-26: Curator regression — list-number prefix being returned as `selectedCandidateId`
+
+**Surfaced:** 2026-04-26 11:01 UTC observer feed during Interactives v3 Phase 2 closeout. Auto-cron at the U.S. Mint slot fired warn event:
+
+> `Error: curator` — `Pipeline error: selectedCandidateId 10 matched 0 rows in daily_candidates — id shape drift from Curator`
+
+Same bug class as 2026-04-22's `[resolved]` Curator selectedCandidateId entry (commit `6999c5e`), but a NEW failure mode: Claude returned `"10"` instead of a UUID. 10 is the LIST INDEX, not the id.
+
+**Hypothesis:** The prompt at [`agents/src/curator-prompt.ts:92`](../agents/src/curator-prompt.ts) renders each candidate as `${i + 1}. id: ${c.id}\n   [${c.category}] ...`. When Claude renders 10+ candidates (Scanner pulls 50), the numbered prefix `10.` looks structurally like an id — Claude grabbed the visible-first-token instead of the explicit `id: <uuid>` field. The 2026-04-22 fix added the `id: <uuid>` annotation + the "MUST be the exact id string" instruction (line 99) but didn't remove the leading `${i + 1}.` numbering. With <10 candidates the index is 1 char and easy to ignore; once we cross into 2-digit indices Claude gets confused.
+
+User's manual retrigger from admin worked — the pipeline can recover via `/daily-trigger` or by scaling back. Auto-cron path is brittle until fixed.
+
+**Investigation hints:**
+- Re-read the 2026-04-22 fix (`6999c5e`) — the exception path it added is what fired the observer event today; that part works. The defect is upstream in the prompt rendering.
+- Two candidate fixes:
+  1. **Drop the numbered prefix entirely.** Render `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}` with no leading number. Claude doesn't need the index.
+  2. **Move the UUID to the front.** Render `[${c.id}] [${c.category}] "${c.headline}" ...` so the first visible token IS the id.
+- Also worth tightening the response-format example (line 59): "`selectedCandidateId`": "the id of the chosen story" — replace with a concrete UUID-shaped placeholder so Claude pattern-matches on shape.
+- Verification: re-run `/daily-trigger` against today's slot post-fix; confirm `selectedCandidateId` is a UUID matching a `daily_candidates.id`.
+
+**Priority:** medium — auto-cron robustness regression. Each cron firing has some probability of hitting this when candidate count crosses 10 (which it always does at Scanner's default 50/feed). Manual retrigger is the workaround until fixed. Doesn't block Phase 3 work.
+
+---
+
 ## [observing] 2026-04-25: Categoriser novel-category rate after floor 60→75 — track next 10 cron firings
 
 **Surfaced:** 2026-04-25 same-day Categoriser post-mortem on the firing-squads piece. The piece picked up a cross-domain stretch ("Commodity Shocks" at 70% confidence on a state-violence subject). Floor raised 60 → 75 same session to cut off the stretch zone. See DECISIONS 2026-04-25 "Tighten Categoriser reuse floor + surface existing assignments on skipped log + delete bad firing-squads → Commodity Shocks assignment".
