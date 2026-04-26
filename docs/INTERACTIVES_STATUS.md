@@ -70,4 +70,4 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | Tag | Date | Commit |
 |---|---|---|
 | `interactives-v3.0-complete` | 2026-04-26 | `cbfb8bf` |
-| `interactives-v3.1-complete` | 2026-04-26 | (set at commit time) |
+| `interactives-v3.1-complete` | 2026-04-26 | `f01dac1` |
