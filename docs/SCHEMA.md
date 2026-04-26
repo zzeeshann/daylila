@@ -305,14 +305,14 @@ Standalone teaching artefacts — first-class concept, not a piece sub-feature. 
 Indexes: `idx_interactives_slug` (explicit), `idx_interactives_source_piece` on `source_piece_id`, `idx_interactives_published_at` on `published_at DESC`, plus `sqlite_autoindex_interactives_1` from the composite `UNIQUE(slug, type)`. Migration: `0022_interactives.sql` (table) + `0025_interactives_quality_tier.sql` (`quality_tier` column) + `0026_interactives_unique_slug_type.sql` (relaxed UNIQUE).
 
 ### interactive_engagement
-Append-only event log of reader interactions with interactives. Not aggregated per day like `engagement` — per-question correctness arrays don't aggregate cleanly, and the natural shape is events (offered / started / completed / skipped). Aggregation happens at query time.
+Append-only event log of reader interactions with interactives. Not aggregated per day like `engagement` — per-question correctness arrays don't aggregate cleanly, and the natural shape is events (offered / started / viewed / completed / skipped). Aggregation happens at query time. Read by `LearnerAgent.analysePiecePostPublish` from Interactives v3 Phase 4.2 onward to inform `category='engagement'` producer learnings.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | id | TEXT PK | UUID |
 | user_id | TEXT NOT NULL | `users.id`. Anonymous-first — middleware always guarantees a user. Non-enforced FK. |
 | interactive_id | TEXT NOT NULL | `interactives.id`. Non-enforced FK. |
-| event_type | TEXT NOT NULL | `'offered'` \| `'started'` \| `'completed'` \| `'skipped'`. Loose TEXT. |
+| event_type | TEXT NOT NULL | `'offered'` \| `'started'` \| `'viewed'` \| `'completed'` \| `'skipped'`. Loose TEXT. `'viewed'` added in Interactives v3 Phase 4.1 (HTML interactive scrolled ≥50% into view, fired once per session via `<interactive-frame>` IntersectionObserver). No CHECK constraint, so the addition is description-only. |
 | score | INTEGER | Correct-count for `completed` rows; null otherwise. |
 | per_question_correctness | TEXT | JSON array e.g. `[1,0,1,1,0]` for `completed` rows; null otherwise. |
 | created_at | INTEGER NOT NULL | Unix ms |

@@ -10,16 +10,23 @@ Interactives v3 — adding HTML interactives (sliders, scrubbable timelines, wha
 
 ## Current phase
 
-**Phases 0 / 1 / 2 / 3 all complete and tagged on origin.**
+**Project complete. All 5 phases (0 / 1 / 2 / 3 / 4) tagged on origin; project milestone tag `interactives-v3-complete` placed on the Phase 4 closeout commit.**
 
 - Phase 0 — `interactives-v3.0-complete` (spec, rubric, validator rules, sandbox, decisions, book ch.9).
 - Phase 1 — `interactives-v3.1-complete` (`interactives_html_enabled` flag, `interactives.quality_tier` column).
 - Phase 2 — `interactives-v3.2-complete` on `347f10e` (machine-side 2.1–2.6 + reference HTML 2.7 + Zishan's prod review + flag flipped to `'true'`). The morning 02:00 UTC cron on 2026-04-26 produced the **first auto-generated HTML interactive ever** for the U.S. Mint piece (committed `d1e2e31` "Mixing and Traceability", clean pass; quiz `683cee9` "Identity Loss Through Transformation" shipped flagged-low). Live at `/interactives/identity-loss-through-transformation/`.
 - Phase 3 — `interactives-v3.3-complete` on `332f932` (admin toggle, list view, destructive regenerate, MTD cost telemetry with cache-token capture, doc sync).
+- Phase 4 — `interactives-v3.4-complete` (engagement signals into Learner). `<interactive-frame>` fires `interactive_viewed` via parent-level IntersectionObserver (once per session, threshold 0.5). `Learner.analysePiecePostPublish` reads an aggregated `interactive_engagement` rollup over the last 14 days (capped 20 rows, joined to `interactives`) into the post-publish prompt context. Producer learnings land with `source='producer'`, `category='engagement'`. Same SHA carries `interactives-v3-complete` as the project milestone tag.
 
-**Next: Phase 4** — engagement signals into Learner. Unblock condition: ≥3 HTML interactives shipped + ≥48h of reader traffic on them (~2 days from 2026-04-26 at `interval_hours=12`).
+**Next:** verification window for the four `[observing]` FOLLOWUPS entries that gate confidence in the v3 surface — 3.3 destructive regenerate end-to-end, 3.4 cost telemetry post-cache, Mint drawer dual-render, Phase 4 Learner output mentioning engagement. None block further work; they're observation tasks over the next 2–5 days as cron firings accumulate signal. After that, the next project starts from a fresh plan in `~/.claude/plans/`.
 
 ## Last completed sub-task
+
+**Phase 4, sub-task 4.3 — Doc sync + tags.** Shipped 2026-04-26. AGENTS.md Learner section gains the engagement-aggregation extension paragraph (14-day window, `category='engagement'` mapping). INTERACTIVES.md gains a "Phase 4 — Engagement signals into Learner" section before "Reference: hand-built example" covering the IntersectionObserver firing rule, the new endpoint event type, the inline aggregation in Learner with the analytic-frame ratios (starts/views, completions/starts, avgScore), and what's NOT in this phase (no iframe-content changes, no quiz-card extension, no new alarm, no admin engagement view). SCHEMA.md `interactive_engagement.event_type` description gains `'viewed'` in the values list. CLAUDE.md "Currently working on" lead flipped to v3 complete + the four `[observing]` verification windows. Tags `interactives-v3.4-complete` + `interactives-v3-complete` placed on the same SHA (project milestone is the same point in history as the final phase tag).
+
+**Phase 4, sub-task 4.2 — Learner reads `interactive_engagement` aggregates.** Shipped 2026-04-26 (commit `b05f57c`). `Learner.analysePiecePostPublish` gains a 4th D1 query reading aggregated engagement over the last 14 days (capped 20 rows, joined to `interactives` for slug/type/title/quality_flag/voice_score). Compact per-interactive rollup block inserted into prompt context between "Audit results" and "Pipeline timeline". `LEARNER_POST_PUBLISH_PROMPT` extended: new "You see:" bullet for engagement; new analytic-frame paragraph naming the meaningful ratios; new example learning under "Good producer-side learnings:" demonstrating the engagement→category mapping. Empty-engagement case renders `(no engagement data in window)`. agents typecheck unchanged at 27 (server.ts SDK-typing baseline). SQL preview against remote D1 confirms the rollup shape.
+
+**Phase 4, sub-task 4.1 — `<interactive-frame>` IntersectionObserver + `viewed` event.** Shipped 2026-04-26 (commit `9b17b2c`). `<interactive-frame>` adds an `IntersectionObserver` (threshold 0.5, `rootMargin: '0px'`) in `connectedCallback` that fires `interactive_viewed` once per session per interactive, with a `sessionStorage` de-dup key (`zeemish-interactive-viewed:<id>`) matching the existing `<lesson-shell>` `interactive_offered` pattern. Observer disconnects after first fire and on `disconnectedCallback`. `/api/interactive/track` `VALID_EVENT_TYPES` set extended to accept `'viewed'`; doc-comment + 400 error message updated to list it. No migration (loose TEXT, no CHECK constraint per migration 0022 decision #2). Quiz-card untouched. Verified end-to-end in dev preview: fresh load fires 2 `started` + 1 `viewed`; re-mount with sessionStorage flag set fires zero events; build clean.
 
 **Phase 3, sub-task 3.5 — Doc sync.** Shipped 2026-04-26. `docs/INTERACTIVES.md` gains an "Admin surfaces" section before "Reference: hand-built example" covering all four Phase 3 surfaces (toggle, list view, regenerate, cost telemetry) with cross-refs to RUNBOOK fallback recipes and AGENTS.md behaviour. `docs/AGENTS.md` Generator + Auditor entries extended with HTML-path support (Phase 2), cache-token capture via `extractUsage` (Phase 3.4), and the destructive regenerate endpoint (Phase 3.3). `docs/RUNBOOK.md` gains an "Interactives v3 — month-to-date cost" section pointing operators at `/dashboard/admin/interactives/` and naming where the rate constant lives if Anthropic changes pricing.
 
@@ -69,9 +76,11 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Phase 4 — Engagement signals into Learner.** The `interactive_engagement` table from migration 0022 is populated for quiz events but unread by any agent. Phase 4 extends the surface area: `<interactive-frame>` fires engagement events to the existing `/api/interactive/track` endpoint via postMessage from the sandboxed iframe (the sandbox allows postMessage to parent by default); per-interactive aggregates feed Learner's input as `source='producer'` learnings about which interactive shapes get used vs. skipped. AGENTS.md Learner section + INTERACTIVES.md updated alongside.
+**None — project complete.** The next session starts from a fresh plan in `~/.claude/plans/`. Four `[observing]` FOLLOWUPS entries (3.3 destructive regen, 3.4 cost telemetry post-cache, Mint drawer dual-render, Phase 4 Learner output) carry the verification window over the next 2–5 days; each has its own unblock condition.
 
-Phase 4 unblocks once today's HTML interactives have collected at least a few days of engagement data — the Learner aggregation needs real signal to write meaningful patterns. Concrete trigger: ≥3 HTML interactives shipped + ≥48h of reader traffic with engagement events landing in `interactive_engagement`. At `interval_hours=12`, that's ~2 days from 2026-04-26. Tag at end: `interactives-v3.4-complete` + project milestone tag `interactives-v3-complete`.
+Phase 4 was the architectural decision Phase 4.1 actually made (parent IntersectionObserver, not iframe-content postMessage). The deferred postMessage protocol is recorded as v2 work in `INTERACTIVES.md`'s Phase 4 section if the manipulation signal ever becomes worth designing.
+
+**Definition of done for Phase 4** (✅ all met as of 2026-04-26): `<interactive-frame>` fires `interactive_viewed`; Learner reads aggregated engagement and is positioned to mention it in the next post-publish run; AGENTS.md + INTERACTIVES.md + SCHEMA.md + CLAUDE.md all reflect the closed loop; tag `interactives-v3.4-complete` + project milestone `interactives-v3-complete` placed.
 
 **Definition of done for Phase 2** (✅ all met as of 2026-04-26): flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -87,13 +96,13 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 
 ## Live state
 
-- `interactives_html_enabled = 'false'`: row exists in `admin_settings` (migration 0024). No reader yet — Phase 2 ships the read site.
-- `interactives` table: exists (migration 0022 + 0025). Quiz path live, HTML path not yet. New column `quality_tier` populated for the 3 historical low rows; NULL on the 5 clean ones.
-- `interactive_engagement` table: exists (migration 0022). Populated for quizzes; will extend to HTML in Phase 4.
-- `interactive_audit_results` table: exists (migration 0023). Per-round per-dimension audit notes.
-- `InteractiveGenerator` (#15): producing quizzes only.
-- `InteractiveAuditor` (#16): auditing quizzes only.
-- Site: 8 quizzes published. No HTML interactives yet. `/interactives/<slug>/` route serves quiz content via `<quiz-card>`.
+- `interactives_html_enabled = 'true'`: HTML path live since Phase 2.7 (2026-04-26). Both `<quiz-card>` and `<interactive-frame>` ship per piece when the auto-cron fires.
+- `interactives` table: exists (migration 0022 + 0025 + 0026). Quiz + HTML paths both live.
+- `interactive_engagement` table: exists (migration 0022). Populated for quizzes since Area 4; HTML interactives gain `interactive_viewed` events via the parent-level IntersectionObserver shipped in Phase 4.1.
+- `interactive_audit_results` table: exists (migration 0023). Per-round per-dimension audit notes for both quiz and HTML.
+- `InteractiveGenerator` (#15) + `InteractiveAuditor` (#16): producing quizzes + HTML interactives in parallel loops with prompt caching on the system prompt.
+- `LearnerAgent` (#12): `analysePiecePostPublish` reads aggregated `interactive_engagement` over the last 14 days (Phase 4.2) and writes `category='engagement'` learnings on the next daily piece's post-publish run.
+- Site: 8+ quizzes published, 2 HTML interactives shipped (Mint "Mixing and Traceability" + Chernobyl "Generational Cycling Under Damage"). `/interactives/<slug>/` route serves both stacked when present.
 
 ## Sessions log
 
@@ -116,6 +125,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 3 | 3.3 — Per-piece destructive interactive regenerate | New endpoint `/interactive-regenerate-trigger?piece_id=<uuid>&type=<quiz\|html>` + site proxy + Publisher.deleteInteractiveFile (path-prefix-guarded to content/interactives/) + Director.regenerateInteractive + observer.logInteractiveRegenerated. List view's placeholder cell replaced with working Regenerate button + confirm dialog enumerating the wipe steps. Synchronous wipe (operator sees real failure), async fresh generation via existing alarm path. HTML regen refused when flag is false (400). Slug-drift on quiz-only regen accepted as v1 known limitation; v2 fix is a `slugLock` parameter on Generator.generate. Build clean; agents typecheck +2 (SDK-typing); local preview 401 on all 4 input shapes. End-to-end regen verifies post-deploy. |
 | 2026-04-26 | 3 | 3.4 — Cost telemetry on admin interactives page | New `agents/src/shared/usage.ts` `extractUsage()` helper. InteractiveGenerator + InteractiveAuditor both threaded with `cacheCreateTokens` + `cacheReadTokens` at every Claude call site; cumulative accumulators in `runQuizLoop` + `runHtmlLoop`; new fields on `QuizArtefactResult` + `HtmlArtefactResult`; observer event `logInteractiveGeneratorMetered` metrics shape + body summary extended with the 4-up token breakdown. Admin/interactives page gains "Cost (MTD · MMM YYYY)" section: 5-stat row (spend / runs / uncached input / cache write·read / output) with per-line costs computed at Sonnet 4.5 rates ($3/M input, $15/M output, cache write 1.25×, cache read 0.1×). Auto-footnotes when any event in the window pre-dates cache capture. Build clean; agents typecheck unchanged at 27 (server.ts SDK-typing only). Surface verifies post-deploy as today's runs populate cache fields in real events. |
 | 2026-04-26 | 3 | 3.5 — Doc sync | INTERACTIVES.md gains an "Admin surfaces" section covering toggle/list-view/regenerate/cost-telemetry. AGENTS.md Generator + Auditor entries extended with HTML support, cache-token capture via `extractUsage`, and the destructive regenerate endpoint. RUNBOOK.md gains an "Interactives v3 — month-to-date cost" section pointing operators at the admin page and naming the rate-constant location for future Anthropic price changes. INTERACTIVES_STATUS.md marks Phase 3 complete; Phase 4 (engagement signals into Learner) named as next. Tag `interactives-v3.3-complete` ready to push. |
+| 2026-04-26 | 4 | 4.1 — `<interactive-frame>` IntersectionObserver + `viewed` event; 4.2 — Learner reads `interactive_engagement` aggregates; 4.3 — Doc sync + tags | Three commits. 4.1 (`9b17b2c`) wires parent-level IntersectionObserver firing `interactive_viewed` once per session per interactive (sessionStorage de-dup, threshold 0.5); endpoint `VALID_EVENT_TYPES` extended; verified end-to-end in dev preview (3 POSTs on fresh load — 2 started + 1 viewed; zero on re-mount with flag set). 4.2 (`b05f57c`) extends `Learner.analysePiecePostPublish` with a 4th D1 query (14-day window, 20-row cap) and a per-interactive rollup block in the prompt context; `LEARNER_POST_PUBLISH_PROMPT` extended with engagement bullet, analytic-frame ratios, and a new example learning. 4.3 doc sync + tag push. agents typecheck unchanged at 27. Phase 4 + project complete. Tags `interactives-v3.4-complete` + `interactives-v3-complete` placed on the 4.3 SHA. |
 
 ## Tags
 
@@ -123,3 +133,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 |---|---|---|
 | `interactives-v3.0-complete` | 2026-04-26 | `cbfb8bf` |
 | `interactives-v3.1-complete` | 2026-04-26 | `f01dac1` |
+| `interactives-v3.2-complete` | 2026-04-26 | `347f10e` |
+| `interactives-v3.3-complete` | 2026-04-26 | `332f932` |
+| `interactives-v3.4-complete` | 2026-04-26 | (4.3 commit SHA — set on push) |
+| `interactives-v3-complete` | 2026-04-26 | (4.3 commit SHA — project milestone, same point in history) |

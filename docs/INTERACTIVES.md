@@ -587,6 +587,46 @@ Pre-3.4 events have no cache fields. The page auto-detects the gap and footnotes
 
 Scope: covers InteractiveGenerator + InteractiveAuditor only. Drafter / Curator / Categoriser / Learner / Reflector / Voice/Structure/Fact auditors aren't in the surface yet — each needs its own `extractUsage` call at the call site; the helper is shared and ready.
 
+## Phase 4 — Engagement signals into Learner
+
+The v3 self-improvement loop closes by routing reader engagement on shipped interactives back into the prompts that produce future ones. Two surfaces, both small.
+
+### Reader signal: `<interactive-frame>` `interactive_viewed`
+
+`<interactive-frame>` (parent of the sandboxed iframe) wires an `IntersectionObserver` in `connectedCallback` with `threshold: 0.5`. The first time the iframe is at least 50% on-screen, the component POSTs `{event_type: 'interactive_viewed', interactive_id}` to `/api/interactive/track` and disconnects the observer. A `sessionStorage` key (`zeemish-interactive-viewed:<id>`) makes the event fire **once per session per interactive** — back-nav within a session doesn't double-count. The same component still fires `interactive_started` on mount; the two signals are deliberately distinct, because the `started/viewed` ratio measures "did the reader scroll deep enough into the piece to actually see the HTML interactive?".
+
+Iframe-content postMessage protocol is **deferred to v2**. The parent-level observer works for every HTML interactive Claude generates without prompt changes, doesn't add an iframe-content surface to maintain, and doesn't have to design around the sandbox's no-`allow-same-origin` posture. The cost is that "manipulated the slider" isn't measurable — only "looked at it" is. If engagement learnings start asking the manipulation question, v2 revisits.
+
+The endpoint accepts `'viewed'` alongside the existing `offered | started | completed | skipped` event types. No migration: `interactive_engagement.event_type` is loose TEXT per migration 0022's decision #2.
+
+### Aggregation: Learner reads `interactive_engagement`
+
+`Learner.analysePiecePostPublish` (the post-publish run that fires ~1s after every daily piece publishes) gains a fourth D1 query reading aggregated engagement over the last 14 days, capped at 20 rows, joined to `interactives` for slug/type/title/quality_flag/voice_score. The rollup goes into the prompt context as a "Recent interactive engagement" block between the audit results and the pipeline timeline.
+
+Because Learner runs ~1s after publish — before the `InteractiveGenerator` alarm fires for THIS piece — the rollup is necessarily across **prior** pieces' interactives. Same shape as Drafter's `getRecentLearnings` loop: past data informs future work. Learnings derived land in `learnings` with `source='producer'` and `category='engagement'` (the category was already accepted by `normalizeProducerCategory`; only the prompt was extended to teach Claude when to use it).
+
+`LEARNER_POST_PUBLISH_PROMPT` adds an analytic frame for the data:
+- `starts / views` — did readers who scrolled to the iframe actually engage? (Low ratio = the artefact's affordances aren't obvious.)
+- `completions / starts` — for quizzes, did the question set hold attention?
+- `avgScore` (quizzes only) — high score with low starts means the quiz is too easy AND nobody's playing; low score with high starts means readers misread the underlying concept.
+
+For HTML interactives, `views=0` is normal pre-deploy and signals "not yet measured" rather than "skipped".
+
+### Surfaces
+
+The new learnings flow through the existing reader views without further code:
+- `/dashboard/` "What we've learned so far" panel — the aggregate counts include the new `engagement`-category producer rows alongside reader/self-reflection/zita rows.
+- `/daily/[date]/<slug>/` "How this was made" drawer — per-piece "What the system learned from this piece" section grouped by source includes the new engagement learnings under the producer group.
+
+No standalone admin engagement view ships in this phase. Cost telemetry (Phase 3.4) covers the operator-side observability surface; engagement aggregates are a pedagogical signal, not an operational one.
+
+### What is NOT in Phase 4
+
+- **No iframe-content changes.** HTML interactives Claude generates don't gain a postMessage protocol.
+- **No quiz-card extension.** `viewed` event is HTML-only this round; `<quiz-card>` continues to fire `started` + `completed` as before.
+- **No new alarm.** Engagement aggregation rides the existing 1-second post-publish alarm; no second 23h delayed pass like Zita synthesis.
+- **No engagement dashboard surface.** A standalone admin view becomes worth building once we have weeks of data.
+
 ## Reference: hand-built example
 
 The canonical "good looks like this" file lives at [`docs/examples/interactive-reference.html`](examples/interactive-reference.html). It is created in Phase 2 (sub-task 2.7), is **permanent** (never deleted), and is updated in place if voice or style evolves.
