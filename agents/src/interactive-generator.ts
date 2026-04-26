@@ -169,6 +169,7 @@ interface InteractiveGeneratorState {
   htmlInteractivesGenerated: number;
   htmlInteractivesDeclined: number;
   htmlInteractivesValidatorMaxFailed: number;
+  htmlInteractivesAuditorMaxFailed: number;
 }
 
 /**
@@ -236,6 +237,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     htmlInteractivesGenerated: 0,
     htmlInteractivesDeclined: 0,
     htmlInteractivesValidatorMaxFailed: 0,
+    htmlInteractivesAuditorMaxFailed: 0,
   };
 
   async generate(
@@ -488,10 +490,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
       const audit = await auditor.audit(
         {
-          slug: produced.slug,
-          title: produced.title,
-          concept: produced.concept,
-          questions: produced.questions,
+          type: 'quiz',
+          quiz: {
+            slug: produced.slug,
+            title: produced.title,
+            concept: produced.concept,
+            questions: produced.questions,
+          },
         },
         {
           headline: pieceHeadline,
@@ -677,9 +682,16 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let cumulativeTokensOut = 0;
     let lastHtml: ValidatedHtml | null = null;
     let lastValidatorViolations: RevisionValidatorViolation[] = [];
+    let lastAudit: InteractiveAuditResult | null = null;
     let validatorPassed = false;
+    let auditPassed = false;
     let declinedInLoop = false;
     let roundsUsed = 0;
+
+    const auditor = await this.subAgent(
+      InteractiveAuditorAgent,
+      `interactive-auditor-html-${pieceId}`,
+    );
 
     for (let round = 1; round <= INTERACTIVE_MAX_ROUNDS; round += 1) {
       roundsUsed = round;
@@ -699,9 +711,18 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
             `runHtmlLoop: round ${round} has no previous html to revise from`,
           );
         }
+        // Build audit feedback for the revision prompt — only when the
+        // PRIOR round's failure was at the audit gate (validator passed
+        // but auditor rejected). When the prior round failed validator,
+        // lastAudit stays null and the revision is validator-feedback-only.
+        const auditFeedback: RevisionFeedback | null =
+          lastAudit && validatorPassed
+            ? buildAuditFeedback(lastAudit)
+            : null;
         const res = await this.reviseHtml(
           lastHtml,
           lastValidatorViolations,
+          auditFeedback,
           pieceContext,
           recent,
           round,
@@ -721,24 +742,66 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
       lastHtml = produced;
 
+      // ── Validator gate ──
       const validation = validateHtml(produced.html);
-      if (validation.passed) {
-        validatorPassed = true;
-        // TODO sub-task 2.4 — call auditor.audit() for voice / structure /
-        // essence / factual on the validator-passed HTML. On audit fail,
-        // continue the revise loop with auditor feedback. On audit pass,
-        // break to commit. On audit max-fail (round 3), ship as
-        // quality_flag='low' (mirrors quiz path).
-        break;
+      if (!validation.passed) {
+        // Validator failed → revise with violations next round (if any).
+        // Reset validator state so the audit-feedback path is skipped on
+        // the next iteration.
+        lastValidatorViolations = validation.violations.map((v) => ({
+          rule: v.rule,
+          message: v.message,
+          snippet: v.snippet,
+        }));
+        validatorPassed = false;
+        lastAudit = null;
+        continue;
       }
 
-      // Validator failed — collect violations for the revision prompt.
-      lastValidatorViolations = validation.violations.map((v) => ({
-        rule: v.rule,
-        message: v.message,
-        snippet: v.snippet,
-      }));
-      // Loop continues if rounds remain; otherwise validatorMaxFailed terminal.
+      // Validator passed.
+      validatorPassed = true;
+      lastValidatorViolations = [];
+
+      // ── Auditor gate (sub-task 2.4) ──
+      const audit = await auditor.audit(
+        {
+          type: 'html',
+          html: {
+            slug: produced.slug,
+            title: produced.title,
+            concept: produced.concept,
+            html: produced.html,
+          },
+        },
+        {
+          headline: pieceContext.headline,
+          underlyingSubject: pieceContext.underlyingSubject,
+          bodyExcerpt: pieceContext.bodyExcerpt,
+        },
+      );
+      lastAudit = audit;
+      cumulativeTokensIn += audit.tokensIn;
+      cumulativeTokensOut += audit.tokensOut;
+
+      // Persist 4 rows (one per dimension) keyed to the pre-allocated
+      // interactiveId + this round. Best-effort — a write failure here
+      // must NOT abort the loop; the auditor's verdict drives commit
+      // regardless of forensic persistence.
+      try {
+        await this.persistAuditRows(interactiveId, round, audit);
+      } catch (e) {
+        console.error(
+          `interactive-generator: failed to persist html audit rows for ${interactiveId} round ${round}`,
+          e,
+        );
+      }
+
+      if (audit.passed) {
+        auditPassed = true;
+        break;
+      }
+      // Audit failed — revise with audit feedback on next round (if any).
+      // Otherwise fall through to ship-as-low terminal.
     }
 
     // ── Terminal handling ────────────────────────────────────────
@@ -762,8 +825,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         htmlByteLength: 0,
         revisionCount: Math.max(0, roundsUsed - 1),
         roundsUsed,
-        voiceScore: null,
-        finalAudit: null,
+        voiceScore: lastAudit?.voice.score ?? null,
+        finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         durationMs: Date.now() - started,
@@ -773,8 +836,9 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     if (!validatorPassed || !lastHtml) {
       // 3 rounds of validator failures, no commit. Distinct from
       // declined — Claude tried but kept producing structurally
-      // unsound files. Operator inspects `lastValidatorViolations`
-      // (logged by Director's observer) to diagnose.
+      // unsound files. Operator inspects per-round audit rows (none
+      // were written — auditor never ran) and observer feed for the
+      // validator violation list.
       this.setState({
         ...this.state,
         htmlInteractivesValidatorMaxFailed:
@@ -803,8 +867,17 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       };
     }
 
-    // ── Commit path (validator passed; 2.4 will gate on audit too) ──
-    const qualityFlag: 'low' | null = null; // 2.4 sets 'low' on auditor max-fail
+    // ── Commit path — passed cleanly OR shipped-as-low ───────────
+    //
+    // Validator passed at some round. If audit also passed → commit
+    // with quality_flag=null. If audit max-failed across all rounds
+    // that reached the audit gate → ship the LAST validator-passing
+    // attempt with quality_flag='low' (mirrors quiz path's 2026-04-24
+    // ship-as-low reversal of abandon-on-max-fail). The newspaper-
+    // never-skips rule applies: a 3-rounds-refined HTML is a better
+    // reader artefact than a 404.
+    const qualityFlag: 'low' | null = auditPassed ? null : 'low';
+    const auditorMaxFailed = !auditPassed;
 
     const finalSlug = await this.resolveFreeSlug(lastHtml.slug);
     lastHtml.slug = finalSlug;
@@ -816,11 +889,14 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       PublisherAgent,
       `interactive-publisher-html-${lastHtml.slug}`,
     );
-    const commitMsg = `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html]`;
+    const commitMsg = qualityFlag === 'low'
+      ? `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html, flagged low]`
+      : `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html]`;
     await publisher.publishToPath(filePath, lastHtml.html, commitMsg);
 
     const htmlByteLength = new TextEncoder().encode(lastHtml.html).length;
     const revisionCount = roundsUsed - 1;
+    const voiceScore = lastAudit?.voice.score ?? null;
 
     await this.env.DB
       .prepare(
@@ -836,8 +912,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         lastHtml.title,
         lastHtml.concept,
         pieceId,
-        null,        // voice_score — 2.4 wires
-        qualityFlag, // 2.4 sets 'low' on auditor max-fail
+        voiceScore,
+        qualityFlag,
         revisionCount,
         publishedAt,
         publishedAt,
@@ -847,6 +923,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     this.setState({
       ...this.state,
       htmlInteractivesGenerated: this.state.htmlInteractivesGenerated + 1,
+      htmlInteractivesAuditorMaxFailed:
+        this.state.htmlInteractivesAuditorMaxFailed + (auditorMaxFailed ? 1 : 0),
     });
 
     return {
@@ -855,7 +933,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       declined: false,
       committed: true,
       validatorMaxFailed: false,
-      auditorMaxFailed: false,
+      auditorMaxFailed,
       qualityFlag,
       interactiveId,
       slug: lastHtml.slug,
@@ -864,8 +942,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       htmlByteLength,
       revisionCount,
       roundsUsed,
-      voiceScore: null,
-      finalAudit: null,
+      voiceScore,
+      finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       durationMs: Date.now() - started,
@@ -916,29 +994,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     round: number,
   ): Promise<{ quiz: ValidatedQuiz | null; tokensIn: number; tokensOut: number }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
-    const feedback: RevisionFeedback = {
-      voice: {
-        passed: audit.voice.passed,
-        score: audit.voice.score,
-        issues: audit.voice.violations,
-        suggestions: audit.voice.suggestions,
-      },
-      structure: {
-        passed: audit.structure.passed,
-        issues: audit.structure.issues,
-        suggestions: audit.structure.suggestions,
-      },
-      essence: {
-        passed: audit.essence.passed,
-        issues: audit.essence.violations,
-        suggestions: audit.essence.suggestions,
-      },
-      factual: {
-        passed: audit.factual.passed,
-        issues: audit.factual.issues,
-        suggestions: audit.factual.suggestions,
-      },
-    };
+    const feedback = buildAuditFeedback(audit);
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 3000,
@@ -1009,13 +1065,23 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   }
 
   /**
-   * Rounds 2+ — revise the previous HTML attempt with validator
-   * (and, in 2.4, auditor) feedback. Same cached system prompt as
-   * round 1; the prefix matches so the cache hits.
+   * Rounds 2+ — revise the previous HTML attempt with validator OR
+   * auditor feedback (or, in principle, both — though they're
+   * mutually exclusive in practice since audit only runs after
+   * validator passes). Same cached system prompt as round 1; the
+   * prefix matches so the cache hits.
+   *
+   * @param auditFeedback null when the prior round failed validator
+   *   (audit didn't run); populated when the prior round passed
+   *   validator but failed audit.
+   * @param validatorViolations empty when the prior round passed
+   *   validator (audit failed instead); populated when the prior
+   *   round failed validator.
    */
   private async reviseHtml(
     previous: ValidatedHtml,
     validatorViolations: RevisionValidatorViolation[],
+    auditFeedback: RevisionFeedback | null,
     pieceContext: PieceContextForInteractive,
     recent: RecentInteractive[],
     round: number,
@@ -1042,7 +1108,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           role: 'user',
           content: buildHtmlRevisionPrompt(
             previousShape,
-            null, // 2.4 wires audit feedback; for now validator-only
+            auditFeedback,
             validatorViolations,
             pieceContext,
             recent,
@@ -1085,6 +1151,9 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       score: number | null;
       notes: string[];
     };
+    // Quiz path leaves score undefined on structure/essence/factual
+    // (binary pass/fail) → null in the row. HTML path populates all
+    // four scores. Same row shape covers both.
     const rows: Row[] = [
       {
         dimension: 'voice',
@@ -1095,19 +1164,19 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       {
         dimension: 'structure',
         passed: audit.structure.passed,
-        score: null,
+        score: audit.structure.score ?? null,
         notes: [...audit.structure.issues, ...audit.structure.suggestions],
       },
       {
         dimension: 'essence',
         passed: audit.essence.passed,
-        score: null,
+        score: audit.essence.score ?? null,
         notes: [...audit.essence.violations, ...audit.essence.suggestions],
       },
       {
         dimension: 'factual',
         passed: audit.factual.passed,
-        score: null,
+        score: audit.factual.score ?? null,
         notes: [...audit.factual.issues, ...audit.factual.suggestions],
       },
     ];
@@ -1316,5 +1385,42 @@ function summariseAudit(audit: InteractiveAuditResult): FinalAuditSummary {
     essencePassed: audit.essence.passed,
     factualPassed: audit.factual.passed,
     topIssues: issues,
+  };
+}
+
+/**
+ * Convert an InteractiveAuditResult into the RevisionFeedback shape
+ * the prompt builder expects. Quiz auditor leaves structure/essence/
+ * factual scores undefined (binary pass/fail); HTML auditor sets
+ * them — the prompt builder ignores `score` on the binary
+ * dimensions either way (the score field is voice-only in the
+ * RevisionDimensionFeedback type).
+ */
+function buildAuditFeedback(audit: InteractiveAuditResult): RevisionFeedback {
+  return {
+    voice: {
+      passed: audit.voice.passed,
+      score: audit.voice.score,
+      issues: audit.voice.violations,
+      suggestions: audit.voice.suggestions,
+    },
+    structure: {
+      passed: audit.structure.passed,
+      issues: audit.structure.issues,
+      suggestions: audit.structure.suggestions,
+      score: audit.structure.score,
+    },
+    essence: {
+      passed: audit.essence.passed,
+      issues: audit.essence.violations,
+      suggestions: audit.essence.suggestions,
+      score: audit.essence.score,
+    },
+    factual: {
+      passed: audit.factual.passed,
+      issues: audit.factual.issues,
+      suggestions: audit.factual.suggestions,
+      score: audit.factual.score,
+    },
   };
 }

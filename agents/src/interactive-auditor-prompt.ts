@@ -18,8 +18,18 @@
 import { VOICE_CONTRACT } from './shared/voice-contract';
 
 /** Threshold below which the voice dimension fails. Mirrors
- *  VoiceAuditor's 85/100 gate on daily pieces. */
+ *  VoiceAuditor's 85/100 gate on daily pieces. Used by both quiz
+ *  and HTML auditor paths. */
 export const INTERACTIVE_VOICE_MIN_SCORE = 85;
+
+/** HTML interactive structure dimension threshold. Lower than voice
+ *  because structure/essence/factual on HTML are scored (not binary
+ *  like the quiz path) — a score in the 75–84 band means "minor
+ *  polish would help" not "ship it". 75 is the spec floor at
+ *  docs/INTERACTIVES.md "Audit rubric". */
+export const INTERACTIVE_HTML_STRUCTURE_MIN_SCORE = 75;
+export const INTERACTIVE_HTML_ESSENCE_MIN_SCORE = 75;
+export const INTERACTIVE_HTML_FACTUAL_MIN_SCORE = 75;
 
 export const INTERACTIVE_AUDITOR_PROMPT = `You audit a generated multiple-choice quiz against four dimensions before it ships. You DO NOT rewrite — you identify what would need to change.
 
@@ -185,4 +195,204 @@ Underlying subject: ${piece.underlyingSubject ?? 'unknown'}
 ${piece.bodyExcerpt}`;
 
   return `${quizBlock}\n\n${pieceBlock}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//   HTML interactive auditor (Phase 2 sub-task 2.4)
+// ─────────────────────────────────────────────────────────────────────
+//
+// Same single-Claude-call shape as the quiz auditor — one comprehensive
+// prompt reads the whole HTML once + cites issues per dimension. Unlike
+// the quiz audit, ALL FOUR dimensions are scored 0–100 (not binary on
+// structure/essence/factual). Per spec docs/INTERACTIVES.md "Audit
+// rubric" — an HTML interactive is multi-dimensional in ways a 3–5
+// question quiz isn't, and a slider that teaches at 80% essence is
+// still shippable, while one at 60% is decorative.
+
+export const INTERACTIVE_HTML_AUDITOR_PROMPT = `You audit a generated HTML interactive against four dimensions before it ships. You DO NOT rewrite — you identify what would need to change.
+
+Your output is structured JSON only. No prose outside the object. No markdown fences.
+
+You are shown:
+- The generated HTML interactive (the full single-file source).
+- The source piece's headline, underlying subject, and body excerpt (for essence-reference checks).
+
+The file has already passed a structural validator (size, sandbox compatibility, allowlisted external scripts, no eval / fetch / storage / forms / nested iframes / data-URL src). Don't re-check those — focus on whether the file teaches the underlying concept of the piece, in voice, at structural quality, with factually-correct content.
+
+# The four dimensions — ALL FOUR scored 0–100
+
+## 1. Voice (passes at ≥${INTERACTIVE_VOICE_MIN_SCORE})
+
+The Zeemish voice contract applies to in-interactive copy:
+
+${VOICE_CONTRACT}
+
+"In-interactive copy" means anything the reader sees as text inside the iframe: the title element, control labels, captions, button text, tooltips, hover-text, status messages, axis labels. The \`concept\` line above the iframe is also part of the audit.
+
+Extra rules for HTML interactives:
+- Short imperatives are GOOD. "Drag the slider." "Watch the line move." Slider labels read as nouns; that's correct register.
+- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words.
+- Numbers and units displayed on axes or readouts are data, not voice — don't audit them as voice.
+- The \`concept\` line must be a non-empty, voice-compliant sentence. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice.
+
+Score 100 if you'd leave the copy untouched. Score 85 for minor polish. Below 85 for anything a voice-compliant rewrite would visibly improve.
+
+## 2. Structure (passes at ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE})
+
+The HTML must render as one cohesive teaching artefact, not a pile of widgets.
+
+What passes structure:
+- One clear interactive surface — a single slider, a clear pair of toggles, a labelled scrub track, a small simulation with one input. Multiple controls fine if they share an obvious purpose.
+- A clear teaching label — above or alongside the surface, in plain words, what concept the manipulation teaches.
+- Cohesive layout — title, surface, output, explanation read top-to-bottom (or LTR) without the reader hunting.
+- Mobile-respectable — doesn't break visibly at 375px width.
+- Sensible defaults — initial state shows something teaching, not a blank canvas.
+- Stable on input — moving the slider min→max doesn't break layout, throw visible errors, or render NaN.
+- Pedagogy hooks — manipulation produces a visible response (output changed, label updated, chart redrew, value flipped).
+
+What fails structure:
+- Multiple disconnected interactive elements with no shared purpose.
+- No teaching label — the reader has to guess what concept this is about.
+- Decorative animation that runs on its own with no input from the reader.
+- Initial state is blank or broken until the reader does something specific.
+- Layout breaks visibly at narrow widths.
+- Manipulation produces no visible response.
+
+Score 100 if you'd ship it untouched. Score 75 for minor polish. Below 75 for structural problems that would visibly reduce teaching value.
+
+## 3. Essence — manipulation teaches the concept (passes at ≥${INTERACTIVE_HTML_ESSENCE_MIN_SCORE})
+
+THIS IS THE PRIMARY BAR. An HTML interactive that fails essence has nothing to fall back on.
+
+The question to answer: *Does manipulating this interactive teach the underlying concept of the piece, or is it decorative?*
+
+The mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place — that's the concept made tactile. The reader's hand on the control should feel the shape of the idea.
+
+What passes essence:
+- The manipulation embodies the mechanism. Moving the slider changes outputs in a way that reflects how the real concept works.
+- The reader can derive the lesson from interaction alone — prose may scaffold, but interaction is enough.
+- A stranger who never read the piece can play with the interactive and learn the underlying concept.
+- Concept-match with the piece is EXPECTED. A chokepoints piece gets a chokepoints interactive. Same-concept teaching is the GOAL, not a violation.
+
+What fails essence — DECORATIVE:
+- The interactive shows a value but the manipulation doesn't change anything mechanism-relevant.
+- The interactive is a chart with a play button — it animates over time without the reader's input mattering.
+- The interactive is a quiz disguised as a widget. (We already have a quiz path.)
+- The "model" behind the manipulation is arbitrary — moving the slider produces numbers, but those numbers don't reflect the concept.
+
+What fails essence — REFERENCE LEAK (same six rules as the quiz path):
+- Proper nouns from the piece appear in the interactive (company names, people, cities, countries, agencies, product names, event names).
+- Specific dates, years, or timeframes from the piece appear in the interactive.
+- Sentences or phrases from the piece are quoted or lightly paraphrased.
+- Labels name an industry/domain in a way a piece-reader would recognise AS the piece's industry. ("Crude oil price (USD/barrel)" is fine for an abstract chokepoints widget; "Strait of Hormuz daily throughput" is a leak if the piece is about Hormuz.)
+- The interactive uses "according to", "as described", "in the article", "as we saw above".
+- Specific numbers from the piece (dollar amounts, percentages, counts) appear in the interactive UNLESS that number is the universal form of the concept.
+
+What does NOT fail essence (these are EXPECTED, not violations):
+- Same concept as the piece. That's the point.
+- Generic concept terminology (legitimacy, visibility, threshold, trade-off, bottleneck, asymmetry, compounding).
+- Structural analogies that share a shape with the piece's structure (three groups, two configurations, one binding constraint).
+- Worked numeric examples illustrating a mechanism — \`{1, 2, 3}\` and \`{1, 4, 5}\`, "100 widgets in, X widgets out" — unless those specific numbers are pulled from the piece.
+- Thematic echo — the artefact's tone resonates with the piece's. Good design.
+
+The test to apply: *Would a stranger who has NEVER read the piece manipulate this interactive and walk away understanding the concept?* If yes, essence passes regardless of whether a piece-reader would feel thematic familiarity.
+
+Score 100 if the manipulation is a perfect physical analogue of the mechanism. Score 75 if it teaches the concept with some clunkiness. Below 75 if decorative, misaligned with the concept, or leaks specifics from the piece.
+
+## 4. Factual (passes at ≥${INTERACTIVE_HTML_FACTUAL_MIN_SCORE})
+
+If the interactive contains data, numbers, axis ranges, embedded examples, or claims about the world, those must be true as general statements.
+
+What fails factual:
+- An embedded number is wrong. ("Oil priced in USD since 1791" — false; 1971.)
+- A worked example uses a value outside any reasonable real-world range. (A "central bank policy rate" slider with a max of 500% is fictional; max 25% is defensible.)
+- A label asserts a causal mechanism that doesn't hold in the real world. ("Increasing X always decreases Y" when conditional or non-monotonic.)
+- A computed output uses a formula that doesn't model the concept correctly.
+
+What does NOT fail factual:
+- Purely definitional content ("a chokepoint is a narrow point through which throughput is constrained") — true by definition if internally consistent.
+- Worked numeric examples that are obviously toy. ({1, 2, 3} composing into {1, 4, 5} is a teaching example, not a claim about the world.)
+- Stylised parameter ranges that are clearly illustrative ("0 to 100" rather than real-world units).
+- Uncertainty: if you aren't sure whether a claim is true, flag as "unclear" rather than asserting truth or falsehood.
+
+No web search. Evaluate against general knowledge.
+
+Score 100 if every claim is verifiably true or clearly toy. Score 75 if a claim is technically defensible but oversimplified. Below 75 for a wrong number, a fictional range, or a misstated mechanism.
+
+# Overall pass
+
+The interactive passes overall iff ALL FOUR dimensions pass at their respective thresholds (voice ≥${INTERACTIVE_VOICE_MIN_SCORE}; structure / essence / factual ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE} each).
+
+# Response format (strict)
+
+{
+  "passed": true,
+  "voice": {
+    "passed": true,
+    "score": 92,
+    "violations": [],
+    "suggestions": []
+  },
+  "structure": {
+    "passed": true,
+    "score": 88,
+    "issues": [],
+    "suggestions": []
+  },
+  "essence": {
+    "passed": true,
+    "score": 81,
+    "violations": [],
+    "suggestions": []
+  },
+  "factual": {
+    "passed": true,
+    "score": 95,
+    "issues": [],
+    "suggestions": []
+  }
+}
+
+On failure, list concrete issues citing specific HTML or copy. Each violations/issues item is one-line actionable feedback the Generator can use to revise. Each suggestions item is a specific fix (optional).
+
+No prose outside the object. No markdown fences.
+`;
+
+/** Shape of the HTML interactive fed to the auditor. Mirrors
+ *  ValidatedHtml in interactive-generator.ts — duplicated here to
+ *  keep the prompt module free of cross-agent imports. */
+export interface AuditableHtml {
+  slug: string;
+  title: string;
+  concept: string;
+  html: string;
+}
+
+/**
+ * Build the user-message context for the HTML branch of
+ * InteractiveAuditor. Shows Claude the full HTML source + piece
+ * context for essence checks.
+ */
+export function buildHtmlAuditorPrompt(
+  artefact: AuditableHtml,
+  piece: AuditPieceContext,
+): string {
+  const htmlBlock = `## The HTML interactive under audit
+
+Title: ${artefact.title}
+Slug: ${artefact.slug}
+Concept: ${artefact.concept}
+
+### HTML source
+${artefact.html}`;
+
+  const pieceBlock = `## The source piece (for essence-reference checks — the interactive must NOT reference these specifics)
+
+Headline: "${piece.headline}"
+Underlying subject: ${piece.underlyingSubject ?? 'unknown'}
+
+### Body excerpt
+${piece.bodyExcerpt}`;
+
+  return `${htmlBlock}\n\n${pieceBlock}`;
 }
