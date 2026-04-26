@@ -6,29 +6,31 @@ This is the live source of truth for the HTML-interactives-alongside-quizzes wor
 
 ## Active project
 
-Interactives v3 — adding HTML interactives (sliders, scrubbable timelines, whatever shape Claude judges fits the concept) alongside the quiz system that shipped in Area 4. Plan in `docs/INTERACTIVES_PLAN.md`. Protocol in `docs/SESSION_PROTOCOL.md`.
+Interactives v3 — adding HTML interactives (sliders, scrubbable timelines, whatever shape Claude judges fits the concept) alongside the quiz system that shipped in Area 4. Plan in `docs/INTERACTIVES_PLAN.md`. Spec in `docs/INTERACTIVES.md`. Protocol in `docs/SESSION_PROTOCOL.md`.
 
 ## Current phase
 
-**Phase 0 — Spec, rubric, validator rules, sandbox rules** (not started)
+**Phase 1 — Feature flag + (maybe) schema additions** (not started)
+
+Phase 0 (spec, rubric, validator rules, sandbox rules, decisions, book) complete and tagged.
 
 ## Last completed sub-task
 
-None. v3 plan + status doc + session protocol installed. Empty `INTERACTIVES_PLAN_NOTES.md` ready for use. No code written. No commits made for v3 work yet other than the plan-install commit.
+**Phase 0, sub-task 0.1 — `[phase-0.1]` commit cluster.** All Phase 0 deliverables landed in one commit:
+- `docs/INTERACTIVES.md` — full spec including non-technical sections, audit rubric (4 dimensions: voice ≥85, structure / essence / factual ≥75 each), validator rule list (8 rules with regex/check shapes), iframe sandbox shape (`sandbox="allow-scripts"` only, full token-by-token rationale), rough-marker UX rule (drawer-only, exact reader text), pause toggle behaviour, prompt caching strategy.
+- `docs/DECISIONS.md` — appended the 2026-04-26 entry covering all six v3 architectural decisions (no new agents, no type registry, sandbox shape, both-per-piece, ship-rough, prompt caching).
+- `book/09-the-sixteen-roles.md` — additive paragraphs at end of sections 14 (Interactive Generator) and 15 (Interactive Auditor) noting the v3 HTML extension. Existing prose left intact.
+- `CLAUDE.md` — added "Currently working on" line per `SESSION_PROTOCOL.md` requirement.
+
+Tag `interactives-v3.0-complete` pushed.
 
 ## Next sub-task
 
-**Phase 0, sub-task 0.1: write `docs/INTERACTIVES.md`.**
+**Phase 1, sub-task 1.1 — feature flag.** Add `interactives_html_enabled` (default `false`) to `admin_settings`. The longer name (vs. `interactives_enabled`) avoids implying that quizzes are gated. Then **sub-task 1.2 — schema decision and (maybe) migration:**
 
-Specifically:
-1. Write `docs/INTERACTIVES.md` — covers what HTML interactives are, how they relate to quizzes, iframe sandbox shape, validator rule list, audit rubric, drawer-only rough-marker UX rule (with the exact reader text from the plan), pause toggle behaviour, prompt caching strategy.
-2. Append `docs/DECISIONS.md` entry for the v3 architectural decisions.
-3. Update `book/09-the-fourteen-roles.md` Generator + Auditor sections.
-4. Append `docs/FOLLOWUPS.md` `[open]` entry for the book chapter filename rename.
+The leading option per the v3 spec is to add `interactives.quality_tier TEXT` with values `'polished' | 'solid' | 'rough'`, mirroring the daily-piece tier vocabulary at [`src/lib/audit-tier.ts`](../src/lib/audit-tier.ts). Backfill the 2 existing `quality_flag='low'` rows to `quality_tier='rough'`. The alternative is to keep `quality_flag='low'` and render it as "Rough" at read time, but the 2026-04-25-pm drawer fix dropped the "Rough" label *because* of the daily-piece tier collision, so reusing the word for any-dimension max-fail brings that collision back. Decide before writing the migration.
 
-Both open implementation calls from the v2-→-v3 conversation are resolved in the v3 plan itself (rough-marker = drawer only; hand-built example = permanent reference at `docs/examples/interactive-reference.html`). Phase 0 just writes them down in `docs/INTERACTIVES.md`; no fresh decision needed.
-
-This is one logical phase. Ends with a `[phase-0.1]` commit cluster, then `git tag interactives-v3.0-complete` once the Phase 0 "Definition of done" passes (per `docs/INTERACTIVES_PLAN.md`).
+Update `docs/SCHEMA.md` (table + migration counts) and `docs/RUNBOOK.md` (how to flip the flag, how to roll back). Verify `interactives_html_enabled = false` post-migration (Generator + Auditor behaviour unchanged on prod). Tag `interactives-v3.1-complete`.
 
 ## Blockers
 
@@ -36,7 +38,7 @@ None.
 
 ## Plan vs repo notes
 
-(Empty. v3 plan was written with full repo knowledge. Will be populated only if Phase 1+ implementation surfaces a mismatch.)
+One entry in `docs/INTERACTIVES_PLAN_NOTES.md` from this session — book chapter filename was already renamed to `09-the-sixteen-roles.md` on 2026-04-24 (commit `41edf46`), two days before v3 was commissioned. The plan's task to add a FOLLOWUPS book-rename entry was skipped because the rename is already done; chapter content was updated under the correct filename. See PLAN_NOTES for the full audit trail.
 
 ## Live state
 
@@ -55,10 +57,10 @@ None.
 | Date | Phase | Sub-tasks completed | Notes |
 |---|---|---|---|
 | 2026-04-26 | n/a | v3 plan + status + session protocol installed; empty PLAN_NOTES created | Replaces v2 seed plan (in `~/Downloads/files/`) which pre-dated Area 4 and described building things that already exist. Commit `[interactives-plan-v3]`. |
+| 2026-04-26 | 0 | 0.1 — spec + rubric + validator rules + sandbox shape + decisions + book ch9 update | All Phase 0 deliverables in one `[phase-0.1]` commit. Plan-vs-repo: book chapter filename already renamed (recorded in PLAN_NOTES). Tag `interactives-v3.0-complete`. |
 
 ## Tags
 
 | Tag | Date | Commit |
 |---|---|---|
-
-(Empty until Phase 0 completes.)
+| `interactives-v3.0-complete` | 2026-04-26 | (set at commit time) |

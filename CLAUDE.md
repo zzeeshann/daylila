@@ -2,6 +2,8 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
+**Currently working on:** Interactives v3 — Phase 1 next (feature flag + schema). Phase 0 (spec, rubric, validator rules, sandbox rules) complete. See `docs/INTERACTIVES_STATUS.md` and `docs/SESSION_PROTOCOL.md`.
+
 ## The Zeemish Protocol
 
 **"Educate myself for humble decisions."**

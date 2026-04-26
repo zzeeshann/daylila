@@ -2,6 +2,67 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-26: Interactives v3 — six architectural decisions for the HTML interactives extension
+
+**Context / trigger:** Commissioning the v3 plan to extend the shipped Area 4 quiz pipeline with a second artefact type — HTML interactives (sliders, scrubbable timelines, simulations — whatever shape Claude judges fits the concept). The original v2 seed plan in `~/Downloads/files/` predated Area 4 (which shipped 2026-04-23 → 2026-04-25) and described building things that already exist (the `InteractiveGenerator` and `InteractiveAuditor` agents, the `interactives` table, the `interactive_engagement` table, the `<quiz-card>` Web Component, the `/interactives/<slug>/` route). Rewriting the plan against the shipped repo surfaced six architectural questions that needed to be settled before any code change. Settled here, recorded so Phase 1+ implementation doesn't re-litigate them.
+
+The full plan lives in [`docs/INTERACTIVES_PLAN.md`](INTERACTIVES_PLAN.md); the spec implementing these decisions lives in [`docs/INTERACTIVES.md`](INTERACTIVES.md). Phase 0 (this commit) writes the decisions; Phase 1 adds the feature flag + schema; Phase 2 ships the Generator extension; Phases 3 + 4 follow.
+
+**Decisions (six):**
+
+1. **No new agents.** `InteractiveGenerator` (#15) and `InteractiveAuditor` (#16) extend their responsibilities to cover the HTML shape. Same files, same Director hooks, same observer-event surface (extended). Rejected: introducing a "Curator" / "Composer" / "Selector" agent for HTML. Rationale: (a) "Curator" already collides with the established Curator-the-news-picker; (b) the existing Generator + Auditor already own the produce → audit → revise loop, and HTML is just a second artefact type going through the same loop; (c) agent count is a load-bearing number on the brand surface (footer, MadeBy drawer, OG description, book chapter) — bumping from 16 to 18 would cascade through ~30 living surfaces for no architectural gain.
+
+2. **No type registry. Free-form HTML, generated per piece against one prompt.** Rejected: a registry of "interactive types" (slider / chart / timeline / simulation), each with its own template and parameters. The v2 seed plan was a registry; for a system being built from scratch that would have been the right shape. For the system that already shipped, it would have been parallel architecture without justification — the existing pipeline produces one quiz per piece via one prompt, and the natural extension is one HTML interactive per piece via one (additional) prompt. Adding a "type" later means tuning the prompt and giving Claude another worked example, not creating folders. The validator + audit rubric are the architecture; the prompt is the interface.
+
+3. **Iframe sandbox shape: `sandbox="allow-scripts"` only. Non-negotiable.** No `allow-same-origin`. No `allow-top-navigation`. No `allow-forms`. No `allow-popups`. No `allow-modals`. No anything else. Rationale: with only `allow-scripts` the iframe is treated as an opaque origin — storage isolation, DOM isolation, navigation isolation, no credentialed requests, CSS/JS isolation. Adding `allow-same-origin` collapses every isolation boundary at once (the iframe could read `document.cookie`, manipulate `localStorage` for `zeemish.io`, and break out of all the other constraints). Future shapes that genuinely need a non-`allow-scripts` token are a fresh DECISIONS entry, not a quiet attribute change. Full token-by-token rationale at [`docs/INTERACTIVES.md`](INTERACTIVES.md) "The iframe sandbox shape".
+
+4. **Every piece gets BOTH quiz AND HTML interactive. Always.** Like audio. Like categorisation. Rejected: a per-piece "is this concept teachable as an HTML interactive" gate, or a manipulability score, or a curator-style decline path. Rationale: (a) the system is already built around the post-publish-alarm pattern producing artefacts unconditionally; quizzes don't have a "should we make one" gate either; (b) per-piece gating would require a new scoring agent (rejected by decision #1); (c) the validator + Auditor + 3-round revise loop are the gate — if a piece's concept truly cannot become a manipulable interactive, the Auditor's essence dimension will catch it and the artefact will ship flagged (decision #5). This is acceptable cost for keeping the pipeline shape symmetric across artefact types.
+
+5. **Always ship — newspaper never skips a day. Max-fail ships flagged, not abandoned.** If the HTML interactive max-fails round 3 of the audit, the file commits with the rough flag set (column name resolved in Phase 1 — `quality_tier='rough'` is the leading option, mirroring `src/lib/audit-tier.ts`). Mirrors the 2026-04-24 reversal of Area 4 sub-task 4.5 that did the same thing for quizzes (originally abandon-on-max-fail; reversed when the FISA piece ran and the failure mode was Auditor-over-strict, not Generator-produces-garbage). The drawer's "How this was made" section is the only reader-facing surface for the flag — text quoted at [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Rough-marker UX rule". Rationale: (a) better one flagged interactive than half a piece's post-publish artefacts missing; (b) a 3-rounds-refined artefact is better than a 404, even when round 3 still has a flagged dimension; (c) the dimension-named drawer copy from the 2026-04-25 commit gives readers (and admins) the specifics so the flag is honest, not vague.
+
+6. **Prompt caching, not cost gating.** The HTML generation prompt + voice contract + structural rules + sandbox spec + few-shot examples are stable across every call. They go in cached prompt blocks; the per-piece brief is the uncached portion. Cache reads cost 0.1× standard rate. Estimated ~$2–3/month additional spend at 2 pieces/day on Sonnet 4.5. Rejected: a cost-driven "only generate HTML for some pieces" mechanism, a token budget per call, a confidence-gated decline path. Rationale: (a) caching closes the cost gap; (b) cost-gating an artefact type would re-introduce the per-piece score that decision #4 explicitly rejected; (c) the admin pause toggle (Phase 3) exists as a quality circuit-breaker for bad output, not a cost defence — those are different operations that want different controls.
+
+**Trade-offs:**
+
+- **Decision #1 cost:** Generator + Auditor become more complex per-file. Two artefact code paths inside one agent class. Mitigated by the existing structure: both agents already have a shape that takes "audit dimension" or "produce → audit → revise" as core methods; HTML is an artefact-type parameter, not an architecture branch. If the per-file complexity ever stops paying its way, the option to split is preserved (the agent definitions are local to one file each).
+
+- **Decision #2 cost:** the validator + Auditor have to handle every shape Claude generates rather than enforcing a known parameter space. Mitigated by: the validator's 8 rejection rules cover the entire safety surface; the Auditor's 4 dimensions cover the entire quality surface; the iframe sandbox covers the entire runtime surface. The combinatorial space inside those bounds is exactly the freedom we want — a slider, a scrubbable timeline, two side-by-side configurations, or a small simulation are all reachable from the same prompt without any new code.
+
+- **Decision #3 cost:** some interactive shapes are unreachable. Anything that genuinely needs `allow-forms` (form-driven submission), `allow-modals` (alert/confirm/prompt), or `allow-popups` (new tabs) is out. Acceptable — none of those are teaching primitives we want; they're UI patterns from a different document genre. If a future shape genuinely requires loosening the sandbox, that's a fresh DECISIONS entry and a fresh look at whether the shape is one we actually want to ship.
+
+- **Decision #4 cost:** flagged-low ratio may be higher for HTML than for quizzes. A quiz can hit all 4 dimensions on virtually any concept (3–5 multiple-choice questions is a low bar). An HTML interactive's essence dimension — "manipulating this teaches the concept" — is harder to clear on concepts that don't have an obvious mechanism. Mitigated by: the audit rubric's scored-not-binary shape on essence (≥75 instead of pass/fail) gives some headroom; the dimension-named drawer copy keeps the flag honest when it does fire.
+
+- **Decision #5 cost:** flagged-low artefacts are visible to readers. Same cost the quiz path already accepts since the 2026-04-24 reversal. The drawer's transparency framing turns it into a feature ("we shipped what we had rather than leave the day blank") rather than an embarrassment. The cost the system is NOT willing to pay is "no interactive on a piece" (which would be inconsistent with the always-ship rule).
+
+- **Decision #6 cost:** dependency on Anthropic prompt cache TTL behaviour (5 minutes). At 2 pieces/day cadence this is irrelevant — back-to-back calls within one publish event share cache; calls across publish events don't, and that's fine because we're not optimising the cross-publish path. If the cache TTL ever changes, the cost re-estimates; the architecture doesn't need to.
+
+**Won't fix this session (Phase 0):**
+
+- **The validator implementation.** The rule list is specified at [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Validator rules" with regex/check shapes per rule, but the actual `agents/src/interactive-validator.ts` lands in Phase 2.
+- **The HTML generation prompt.** Spec'd in the prompt-caching section; written in Phase 2.
+- **The `<interactive-frame>` Web Component.** Spec'd in the sandbox section; written in Phase 2.
+- **The hand-built reference HTML.** Phase 2 sub-task 2.7 (manual proof step). Lives at `docs/examples/interactive-reference.html` permanently per Phase 0 decision (b) in the plan.
+- **The schema column for the rough flag.** `quality_tier TEXT` (leading option) vs reusing `quality_flag='low'` is a Phase 1 decision; the spec is written agnostic of the choice.
+- **Admin surface.** Phase 3 (list view, regenerate button, pause toggle wiring, cost telemetry).
+- **Engagement signals into Learner.** Phase 4 (postMessage from sandboxed iframe to parent, then to `/api/interactive/track`, then aggregated by Learner).
+- **Book chapter filename rename** (`09-the-fourteen-roles.md` → `09-the-sixteen-roles.md`). Tracked as `[open]` in `docs/FOLLOWUPS.md` per the Phase 0 task list — touches every cross-chapter reference, separate sweep.
+
+**Verification:**
+
+- This DECISIONS entry exists.
+- [`docs/INTERACTIVES.md`](INTERACTIVES.md) exists and contains: (a) the spec intro, (b) the audit rubric for HTML, (c) the validator rule list, (d) the iframe sandbox shape, (e) the rough-marker UX rule with the exact reader text, (f) the pause toggle behaviour, (g) the prompt caching strategy.
+- [`book/09-the-fourteen-roles.md`](../book/09-the-fourteen-roles.md) has updated Generator + Auditor sections noting the two-artefact-type extension.
+- [`docs/FOLLOWUPS.md`](FOLLOWUPS.md) has the `[open]` book filename rename entry.
+- Tag `interactives-v3.0-complete` pushed at end of session.
+
+**Out of scope (intentional):**
+
+- Re-architecting the existing quiz pipeline. Quizzes ship as they do today.
+- New external dependencies. The validator is regex + light pre-processing; no `htmlparser2`, no Babel AST.
+- Cross-piece interactive composition. Each interactive is 1:1 with its piece; no "see how this concept relates to last week's piece" cross-references at the artefact layer.
+- Per-piece off-switch for interactives. Global pause only (decision #4 rules out per-piece gating; the Phase 3 regenerate button handles single-interactive recovery).
+- Accessibility audit of generated HTML beyond the iframe `title` attribute. Tracked as a future hardening item in [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Future hardening" section; not Phase 2.
+
 ## 2026-04-25: Tighten Categoriser reuse floor + surface existing assignments on skipped log + delete bad firing-squads → Commodity Shocks assignment
 
 **Context / trigger:** Post-mortem on the firing-squads piece (`piece_id=7eb5f8a3-…`, the 2026-04-25 14:00 UTC slot piece that the new Curator picked) surfaced two real Categoriser issues alongside one harmless deploy-timing artefact:
