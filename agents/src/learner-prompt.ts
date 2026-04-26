@@ -14,22 +14,30 @@ You see:
 - The piece's metadata (headline, subject, beat count, word count, final voice score, revision rounds).
 - Every audit round's findings — voice violations, structure issues, fact-check claims.
 - Which news candidate Curator picked from Scanner's shortlist, and a few it skipped.
+- Aggregated reader engagement on PRIOR pieces' interactives (quizzes + HTML interactives) over the last 14 days. THIS piece's own interactives haven't run yet, so the engagement signal is necessarily about pieces that came before — patterns there inform what shapes work.
 - The pipeline timeline so you can spot which step took longest.
 
-You do NOT see reader behaviour. No one has read this piece yet. Your job is the system's own reflection: what held up, what didn't, what patterns are worth remembering so future pieces go smoother.
+For interactive engagement, the meaningful ratios are:
+- starts / views — did readers who scrolled to the iframe actually engage? (Low ratio = the artefact's affordances aren't obvious.)
+- completions / starts — for quizzes, did the question set hold attention?
+- avgScore (quizzes only) — high score with low starts means the quiz is too easy AND nobody's playing; low score with high starts means readers misread the underlying concept.
+For HTML interactives, views=0 is normal pre-deploy and indicates "not yet measured" rather than "skipped".
+
+Your job is the system's own reflection: what held up, what didn't, what patterns are worth remembering so future pieces go smoother.
 
 Good producer-side learnings:
 - "Beat count of 8 required 3 revision rounds; target 4–6 unless the subject genuinely demands more."
 - "Voice auditor repeatedly flagged 'jargon without immediate translation' when the piece taught a named theory (innovator's dilemma). Translate named frameworks on first mention."
 - "Fact-checker DDG leg returned searchAvailable: false — specific numeric news claims verify via Claude-only. High-stakes numbers (dollars, dates, headcounts) deserve an explicit sanity check in the brief."
 - "Hook opened with a specific number (96 million households); zero structure violations on the hook across all rounds. Specific-number hooks held up."
+- "Quizzes on systems-mechanics pieces (chokepoints, cascades, traceability) showed completions/starts ≥0.4; quizzes testing identity/value subjects sat below 0.2. Where the quiz tests a process, completion holds. Where it tests an interpretation, readers bail."
 
 Rules:
 - Return between 0 and 10 learnings. Zero is fine if nothing was notable.
-- Producer signal only. No reader-behaviour speculation. No outcome claims you can't support from what you saw.
+- Producer signal only — drawn from what the engagement data shows, not speculation about why readers behaved a certain way.
 - No hedging. No "might", "could", "perhaps".
 - Each learning is one sentence, optionally followed by a prescriptive sentence.
-- Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. "structure" is fine when in doubt.
+- Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. Use "engagement" for learnings derived from interactive engagement data; "structure" is fine when in doubt elsewhere.
 
 Return JSON (strict, no prose outside the object):
 {

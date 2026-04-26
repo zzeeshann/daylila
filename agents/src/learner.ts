@@ -361,10 +361,58 @@ Extract learnings for future pieces. What should the Drafter do differently next
       .bind(pieceId)
       .all<{ step: string; status: string; data: string | null; created_at: number }>();
 
+    // Recent interactives' engagement — Phase 4.2. THIS piece's
+    // own interactives haven't published yet (Generator runs on a
+    // separate post-publish alarm) and have zero engagement; the
+    // rollup is necessarily across PRIOR pieces. Learnings derived
+    // from it inform FUTURE pieces (same shape as Drafter's
+    // getRecentLearnings loop). started/viewed ratio measures
+    // "did the reader scroll deep enough to see the HTML
+    // interactive?"; started/completed measures "did the quiz hold
+    // attention?".
+    const engagementWindowMs = 14 * 24 * 60 * 60 * 1000;
+    const engagementSinceMs = Date.now() - engagementWindowMs;
+    const engagementRes = await this.env.DB
+      .prepare(
+        `SELECT i.slug, i.type, i.title, i.quality_flag, i.voice_score,
+                SUM(CASE WHEN ie.event_type = 'viewed'    THEN 1 ELSE 0 END) AS views,
+                SUM(CASE WHEN ie.event_type = 'started'   THEN 1 ELSE 0 END) AS starts,
+                SUM(CASE WHEN ie.event_type = 'completed' THEN 1 ELSE 0 END) AS completions,
+                COUNT(DISTINCT ie.user_id) AS unique_users,
+                AVG(CASE WHEN ie.event_type = 'completed' THEN ie.score END) AS avg_score
+         FROM interactives i
+         LEFT JOIN interactive_engagement ie ON ie.interactive_id = i.id
+         WHERE i.published_at >= ?
+         GROUP BY i.id
+         ORDER BY i.published_at DESC
+         LIMIT 20`,
+      )
+      .bind(engagementSinceMs)
+      .all<{
+        slug: string;
+        type: string;
+        title: string;
+        quality_flag: string | null;
+        voice_score: number | null;
+        views: number;
+        starts: number;
+        completions: number;
+        unique_users: number;
+        avg_score: number | null;
+      }>();
+
     // ── 2. Build a compact, readable context for Claude ──────────
     const roundsCount = logRes.results.filter((r) => r.step.startsWith('auditing_') && r.status === 'done').length;
     const pickedCandidate = candsRes.results.find((c) => c.selected === 1);
     const skipped = candsRes.results.filter((c) => c.selected === 0).slice(0, 5);
+
+    const engagementBlock = engagementRes.results.length === 0
+      ? '(no engagement data in window)'
+      : engagementRes.results.map((e) => {
+          const flag = e.quality_flag === 'low' ? ' (flagged low)' : '';
+          const avg = e.avg_score == null ? '—' : e.avg_score.toFixed(1);
+          return `- [${e.type}] "${e.title}"${flag} — views=${e.views} starts=${e.starts} completions=${e.completions} users=${e.unique_users} avgScore=${avg}`;
+        }).join('\n');
 
     const context = `## Piece
 - Date: ${date}
@@ -391,6 +439,9 @@ ${auditsRes.results.length === 0 ? '(no audit_results rows)' : auditsRes.results
   const notes = (a.notes ?? '').slice(0, 1500);
   return `- ${a.auditor} ${verdict}${scoreStr}\n  notes: ${notes}`;
 }).join('\n')}
+
+## Recent interactive engagement (last 14 days, prior pieces)
+${engagementBlock}
 
 ## Pipeline timeline (step — status)
 ${logRes.results.map((r) => `- ${r.step} — ${r.status}`).join('\n')}`;
