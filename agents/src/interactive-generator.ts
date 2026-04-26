@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
 import { getAdminSetting } from './shared/admin-settings';
+import { extractUsage } from './shared/usage';
 import { PublisherAgent } from './publisher';
 import { InteractiveAuditorAgent, type InteractiveAuditResult } from './interactive-auditor';
 import {
@@ -114,8 +115,13 @@ export interface QuizArtefactResult {
   roundsUsed: number;          // total rounds executed (1, 2, or 3)
   voiceScore: number | null;
   finalAudit: FinalAuditSummary | null;
+  /** Aggregated token totals across every Claude call in this loop —
+   *  produce + revise + audit. Cache fields land in observer events
+   *  too; powers Phase 3.4 cost telemetry. See `shared/usage.ts`. */
   tokensIn: number;
   tokensOut: number;
+  cacheCreateTokens: number;
+  cacheReadTokens: number;
   durationMs: number;
 }
 
@@ -145,8 +151,11 @@ export interface HtmlArtefactResult {
   roundsUsed: number;
   voiceScore: number | null;        // null in 2.3 (auditor not yet wired)
   finalAudit: FinalAuditSummary | null; // null in 2.3
+  /** Aggregated token totals — see QuizArtefactResult comment. */
   tokensIn: number;
   tokensOut: number;
+  cacheCreateTokens: number;
+  cacheReadTokens: number;
   durationMs: number;
 }
 
@@ -374,6 +383,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: null,
         tokensIn: 0,
         tokensOut: 0,
+        cacheCreateTokens: 0,
+        cacheReadTokens: 0,
         durationMs: 0,
       };
     }
@@ -403,6 +414,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: null,
         tokensIn: 0,
         tokensOut: 0,
+        cacheCreateTokens: 0,
+        cacheReadTokens: 0,
         durationMs: 0,
       };
     }
@@ -442,6 +455,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
     let cumulativeTokensIn = 0;
     let cumulativeTokensOut = 0;
+    let cumulativeCacheCreate = 0;
+    let cumulativeCacheRead = 0;
     let lastQuiz: ValidatedQuiz | null = null;
     let lastAudit: InteractiveAuditResult | null = null;
     let passed = false;
@@ -454,12 +469,16 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let produced: ValidatedQuiz | null;
       let tokensIn = 0;
       let tokensOut = 0;
+      let cacheCreate = 0;
+      let cacheRead = 0;
 
       if (round === 1) {
         const res = await this.produceQuiz(pieceContext, recent);
         produced = res.quiz;
         tokensIn = res.tokensIn;
         tokensOut = res.tokensOut;
+        cacheCreate = res.cacheCreateTokens;
+        cacheRead = res.cacheReadTokens;
       } else {
         if (!lastQuiz || !lastAudit) {
           throw new Error(
@@ -476,10 +495,14 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         produced = res.quiz;
         tokensIn = res.tokensIn;
         tokensOut = res.tokensOut;
+        cacheCreate = res.cacheCreateTokens;
+        cacheRead = res.cacheReadTokens;
       }
 
       cumulativeTokensIn += tokensIn;
       cumulativeTokensOut += tokensOut;
+      cumulativeCacheCreate += cacheCreate;
+      cumulativeCacheRead += cacheRead;
 
       if (!produced) {
         declinedInLoop = true;
@@ -507,6 +530,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       lastAudit = audit;
       cumulativeTokensIn += audit.tokensIn;
       cumulativeTokensOut += audit.tokensOut;
+      cumulativeCacheCreate += audit.cacheCreateTokens;
+      cumulativeCacheRead += audit.cacheReadTokens;
 
       try {
         await this.persistAuditRows(interactiveId, round, audit);
@@ -546,6 +571,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
+        cacheCreateTokens: cumulativeCacheCreate,
+        cacheReadTokens: cumulativeCacheRead,
         durationMs: Date.now() - started,
       };
     }
@@ -646,6 +673,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
+      cacheCreateTokens: cumulativeCacheCreate,
+      cacheReadTokens: cumulativeCacheRead,
       durationMs: Date.now() - started,
     };
   }
@@ -680,6 +709,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
     let cumulativeTokensIn = 0;
     let cumulativeTokensOut = 0;
+    let cumulativeCacheCreate = 0;
+    let cumulativeCacheRead = 0;
     let lastHtml: ValidatedHtml | null = null;
     let lastValidatorViolations: RevisionValidatorViolation[] = [];
     let lastAudit: InteractiveAuditResult | null = null;
@@ -699,12 +730,16 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let produced: ValidatedHtml | null;
       let tokensIn = 0;
       let tokensOut = 0;
+      let cacheCreate = 0;
+      let cacheRead = 0;
 
       if (round === 1) {
         const res = await this.produceHtml(pieceContext, recent);
         produced = res.html;
         tokensIn = res.tokensIn;
         tokensOut = res.tokensOut;
+        cacheCreate = res.cacheCreateTokens;
+        cacheRead = res.cacheReadTokens;
       } else {
         if (!lastHtml) {
           throw new Error(
@@ -730,10 +765,14 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         produced = res.html;
         tokensIn = res.tokensIn;
         tokensOut = res.tokensOut;
+        cacheCreate = res.cacheCreateTokens;
+        cacheRead = res.cacheReadTokens;
       }
 
       cumulativeTokensIn += tokensIn;
       cumulativeTokensOut += tokensOut;
+      cumulativeCacheCreate += cacheCreate;
+      cumulativeCacheRead += cacheRead;
 
       if (!produced) {
         declinedInLoop = true;
@@ -782,6 +821,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       lastAudit = audit;
       cumulativeTokensIn += audit.tokensIn;
       cumulativeTokensOut += audit.tokensOut;
+      cumulativeCacheCreate += audit.cacheCreateTokens;
+      cumulativeCacheRead += audit.cacheReadTokens;
 
       // Persist 4 rows (one per dimension) keyed to the pre-allocated
       // interactiveId + this round. Best-effort — a write failure here
@@ -829,6 +870,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
+        cacheCreateTokens: cumulativeCacheCreate,
+        cacheReadTokens: cumulativeCacheRead,
         durationMs: Date.now() - started,
       };
     }
@@ -863,6 +906,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
+        cacheCreateTokens: cumulativeCacheCreate,
+        cacheReadTokens: cumulativeCacheRead,
         durationMs: Date.now() - started,
       };
     }
@@ -986,6 +1031,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
+      cacheCreateTokens: cumulativeCacheCreate,
+      cacheReadTokens: cumulativeCacheRead,
       durationMs: Date.now() - started,
     };
   }
@@ -998,7 +1045,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   private async produceQuiz(
     pieceContext: PieceContextForQuiz,
     recent: RecentInteractive[],
-  ): Promise<{ quiz: ValidatedQuiz | null; tokensIn: number; tokensOut: number }> {
+  ): Promise<{
+    quiz: ValidatedQuiz | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
@@ -1010,13 +1063,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     });
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     return {
       quiz: parseAndValidate(rawText),
-      tokensIn,
-      tokensOut,
+      ...usage,
     };
   }
 
@@ -1032,7 +1083,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     pieceContext: PieceContextForQuiz,
     recent: RecentInteractive[],
     round: number,
-  ): Promise<{ quiz: ValidatedQuiz | null; tokensIn: number; tokensOut: number }> {
+  ): Promise<{
+    quiz: ValidatedQuiz | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
     const feedback = buildAuditFeedback(audit);
     const response = await client.messages.create({
@@ -1048,13 +1105,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     });
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     return {
       quiz: parseAndValidate(rawText),
-      tokensIn,
-      tokensOut,
+      ...usage,
     };
   }
 
@@ -1073,7 +1128,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   private async produceHtml(
     pieceContext: PieceContextForInteractive,
     recent: RecentInteractive[],
-  ): Promise<{ html: ValidatedHtml | null; tokensIn: number; tokensOut: number }> {
+  ): Promise<{
+    html: ValidatedHtml | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
@@ -1094,13 +1155,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     });
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     return {
       html: parseAndValidateHtml(rawText),
-      tokensIn,
-      tokensOut,
+      ...usage,
     };
   }
 
@@ -1125,7 +1184,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     pieceContext: PieceContextForInteractive,
     recent: RecentInteractive[],
     round: number,
-  ): Promise<{ html: ValidatedHtml | null; tokensIn: number; tokensOut: number }> {
+  ): Promise<{
+    html: ValidatedHtml | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
     const previousShape: RevisionPreviousHtml = {
       slug: previous.slug,
@@ -1159,13 +1224,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     });
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     return {
       html: parseAndValidateHtml(rawText),
-      tokensIn,
-      tokensOut,
+      ...usage,
     };
   }
 

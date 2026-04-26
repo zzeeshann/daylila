@@ -2,6 +2,7 @@ import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
+import { extractUsage } from './shared/usage';
 import {
   INTERACTIVE_AUDITOR_PROMPT,
   INTERACTIVE_HTML_AUDITOR_PROMPT,
@@ -30,8 +31,18 @@ export interface InteractiveAuditResult {
   structure: InteractiveAuditDimension & { issues: string[] };
   essence: InteractiveAuditDimension & { violations: string[] };
   factual: InteractiveAuditDimension & { issues: string[] };
+  /** Uncached input tokens — what response.usage.input_tokens reports.
+   *  When prompt caching is in use, this is the new-input portion only;
+   *  the system prompt's contribution shows up under cacheCreateTokens
+   *  on the cold call and cacheReadTokens on warm calls. */
   tokensIn: number;
   tokensOut: number;
+  /** Cache-write tokens — system-prompt block on the COLD call. Billed
+   *  at 1.25× input rate. 0 when the cache hit. */
+  cacheCreateTokens: number;
+  /** Cache-read tokens — system-prompt block on every WARM call. Billed
+   *  at 0.1× input rate. 0 when the cache missed. */
+  cacheReadTokens: number;
   durationMs: number;
 }
 
@@ -147,8 +158,7 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     let parsed: Record<string, unknown>;
     try {
@@ -213,8 +223,10 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
         issues: factualIssues,
         suggestions: factualSuggestions,
       },
-      tokensIn,
-      tokensOut,
+      tokensIn: usage.tokensIn,
+      tokensOut: usage.tokensOut,
+      cacheCreateTokens: usage.cacheCreateTokens,
+      cacheReadTokens: usage.cacheReadTokens,
       durationMs: Date.now() - started,
     };
   }
@@ -247,8 +259,7 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
+    const usage = extractUsage(response.usage);
 
     let parsed: Record<string, unknown>;
     try {
@@ -319,8 +330,10 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
         issues: factualIssues,
         suggestions: factualSuggestions,
       },
-      tokensIn,
-      tokensOut,
+      tokensIn: usage.tokensIn,
+      tokensOut: usage.tokensOut,
+      cacheCreateTokens: usage.cacheCreateTokens,
+      cacheReadTokens: usage.cacheReadTokens,
       durationMs: Date.now() - started,
     };
   }

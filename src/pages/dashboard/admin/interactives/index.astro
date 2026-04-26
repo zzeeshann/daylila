@@ -154,6 +154,112 @@ try {
   pieceWithoutHtmlCount = piecesMissingHtml?.n ?? 0;
 } catch { /* fall through with empty rows */ }
 
+// ─── Cost telemetry (MTD) ─────────────────────────────────────────
+//
+// Aggregates token totals from `observer_events` rows whose context
+// JSON carries the InteractiveGenerator metering shape. `quiz` and
+// `html` keys both have tokensIn/tokensOut/cacheCreateTokens/cacheReadTokens
+// since Phase 3.4 (commit ref ddb5cdd's successor). Older events
+// have only tokensIn/tokensOut — cache fields are coalesced to 0.
+//
+// Pricing is Sonnet 4.5 published rates as of 2026-04. Cache write =
+// 1.25× input, cache read = 0.1× input. If Anthropic changes rates,
+// update SONNET_RATES here.
+const SONNET_RATES = {
+  input_per_million_usd: 3,
+  output_per_million_usd: 15,
+  cache_write_multiplier: 1.25, // applied to input_per_million
+  cache_read_multiplier: 0.1,   // applied to input_per_million
+} as const;
+
+interface ArtefactMetric {
+  tokensIn?: number;
+  tokensOut?: number;
+  cacheCreateTokens?: number;
+  cacheReadTokens?: number;
+}
+
+interface MeteredContext {
+  quiz?: ArtefactMetric;
+  html?: ArtefactMetric | null;
+}
+
+let mtdTokensIn = 0;
+let mtdTokensOut = 0;
+let mtdCacheCreate = 0;
+let mtdCacheRead = 0;
+let mtdRunCount = 0;
+let mtdCacheBreakdownAvailable = true; // becomes false if any row lacks cache fields
+
+try {
+  // Start of current calendar month (UTC). The site cron + agents
+  // worker run UTC, so MTD is also UTC.
+  const now = new Date();
+  const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0);
+
+  const meteredRows = await db
+    .prepare(`
+      SELECT context FROM observer_events
+      WHERE title LIKE 'Interactive(s)%'
+        AND created_at >= ?
+        AND context IS NOT NULL
+    `)
+    .bind(monthStartMs)
+    .all<{ context: string }>();
+
+  for (const r of meteredRows.results ?? []) {
+    let ctx: MeteredContext;
+    try {
+      ctx = JSON.parse(r.context) as MeteredContext;
+    } catch { continue; }
+
+    // Only count events that actually metered a Generator run.
+    // The interactive_regenerated event uses a different shape and
+    // shouldn't double-count (its corresponding metered event from
+    // the fresh-generation alarm is what we want here).
+    if (!ctx.quiz && !ctx.html) continue;
+
+    mtdRunCount += 1;
+    const quizMetric = ctx.quiz ?? {};
+    const htmlMetric = ctx.html ?? {};
+
+    mtdTokensIn += (quizMetric.tokensIn ?? 0) + (htmlMetric.tokensIn ?? 0);
+    mtdTokensOut += (quizMetric.tokensOut ?? 0) + (htmlMetric.tokensOut ?? 0);
+    mtdCacheCreate += (quizMetric.cacheCreateTokens ?? 0) + (htmlMetric.cacheCreateTokens ?? 0);
+    mtdCacheRead += (quizMetric.cacheReadTokens ?? 0) + (htmlMetric.cacheReadTokens ?? 0);
+
+    // If both cache fields are missing on either artefact, the event
+    // pre-dates the cache-capture work — flag the breakdown as
+    // partial so the surface can footnote it.
+    const quizMissing =
+      ('quiz' in ctx) &&
+      quizMetric.cacheCreateTokens === undefined &&
+      quizMetric.cacheReadTokens === undefined;
+    const htmlMissing =
+      ('html' in ctx) && ctx.html != null &&
+      htmlMetric.cacheCreateTokens === undefined &&
+      htmlMetric.cacheReadTokens === undefined;
+    if (quizMissing || htmlMissing) mtdCacheBreakdownAvailable = false;
+  }
+} catch { /* fall through with zero totals */ }
+
+const inputCost = (mtdTokensIn / 1_000_000) * SONNET_RATES.input_per_million_usd;
+const outputCost = (mtdTokensOut / 1_000_000) * SONNET_RATES.output_per_million_usd;
+const cacheWriteCost = (mtdCacheCreate / 1_000_000) * SONNET_RATES.input_per_million_usd * SONNET_RATES.cache_write_multiplier;
+const cacheReadCost = (mtdCacheRead / 1_000_000) * SONNET_RATES.input_per_million_usd * SONNET_RATES.cache_read_multiplier;
+const mtdCostUsd = inputCost + outputCost + cacheWriteCost + cacheReadCost;
+
+function fmtUsd(n: number): string {
+  if (n < 0.01 && n > 0) return '<$0.01';
+  return `$${n.toFixed(2)}`;
+}
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
+const mtdMonthLabel = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+
 // ─── Stats ────────────────────────────────────────────────────────
 const totalCount = rows.length;
 const cleanCount = rows.filter((r) => r.quality_flag === null).length;
@@ -240,6 +346,45 @@ function typeLabel(type: RowData['type']): { text: string; cls: string } {
       Generate via the per-piece admin page when needed; the toggle on
       <a href="/dashboard/admin/settings/" class="text-zee-primary hover:underline">settings</a>
       gates the HTML path.
+    </p>
+  </section>
+
+  <section class="rounded-xl border border-zee-border p-6 mb-8">
+    <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
+      Cost (month-to-date · {mtdMonthLabel})
+    </h2>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+      <div>
+        <p class="text-xs text-zee-muted mb-1">MTD spend</p>
+        <p class="text-2xl font-bold">{fmtUsd(mtdCostUsd)}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Generator runs</p>
+        <p class="text-2xl font-bold">{mtdRunCount}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Uncached input</p>
+        <p class="text-base font-semibold">{fmtTokens(mtdTokensIn)}</p>
+        <p class="text-xs text-zee-muted">{fmtUsd(inputCost)}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Cache write · read</p>
+        <p class="text-base font-semibold">{fmtTokens(mtdCacheCreate)} · {fmtTokens(mtdCacheRead)}</p>
+        <p class="text-xs text-zee-muted">{fmtUsd(cacheWriteCost + cacheReadCost)}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Output</p>
+        <p class="text-base font-semibold">{fmtTokens(mtdTokensOut)}</p>
+        <p class="text-xs text-zee-muted">{fmtUsd(outputCost)}</p>
+      </div>
+    </div>
+    <p class="text-xs text-zee-muted leading-relaxed">
+      Sonnet 4.5 rates: ${SONNET_RATES.input_per_million_usd}/M input, ${SONNET_RATES.output_per_million_usd}/M output, cache write at {SONNET_RATES.cache_write_multiplier}× input, cache read at {SONNET_RATES.cache_read_multiplier}× input. Covers InteractiveGenerator + InteractiveAuditor only — Drafter, Voice/Structure/Fact, Curator, Categoriser, Learner, Reflector aren't surfaced yet.
+      {!mtdCacheBreakdownAvailable && (
+        <span class="block mt-1 italic">
+          Some events this month pre-date cache capture (Phase 3.4); their cache breakdown shows as 0 and the input/output totals undercount the system-prompt portion. Events written after the 3.4 deploy carry full cache numbers.
+        </span>
+      )}
     </p>
   </section>
 

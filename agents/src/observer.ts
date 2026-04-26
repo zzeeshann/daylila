@@ -410,6 +410,8 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         } | null;
         tokensIn: number;
         tokensOut: number;
+        cacheCreateTokens: number;
+        cacheReadTokens: number;
         durationMs: number;
       };
       html: {
@@ -438,6 +440,8 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         } | null;
         tokensIn: number;
         tokensOut: number;
+        cacheCreateTokens: number;
+        cacheReadTokens: number;
         durationMs: number;
       } | null;
       totalDurationMs: number;
@@ -535,11 +539,18 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
 
     const totalTokensIn = quiz.tokensIn + (html?.tokensIn ?? 0);
     const totalTokensOut = quiz.tokensOut + (html?.tokensOut ?? 0);
+    const totalCacheCreate = quiz.cacheCreateTokens + (html?.cacheCreateTokens ?? 0);
+    const totalCacheRead = quiz.cacheReadTokens + (html?.cacheReadTokens ?? 0);
 
+    // Token breakdown shown 4-up so the Phase 3.4 cost surface and
+    // the operator skim share the same shape. cacheCreate=0 +
+    // cacheRead=0 means caching wasn't in use for this run; cacheRead>0
+    // and cacheCreate=0 means warm-cache hit; both>0 is rare (only
+    // on the cold call inside a multi-call run).
     const body = [
       summariseQuiz(),
       summariseHtml(),
-      `Tokens: in=${totalTokensIn} out=${totalTokensOut}. Latency: ${metrics.totalDurationMs}ms (quiz ${quiz.durationMs}ms${html ? `, html ${html.durationMs}ms` : ''}).`,
+      `Tokens: in=${totalTokensIn} out=${totalTokensOut} cacheCreate=${totalCacheCreate} cacheRead=${totalCacheRead}. Latency: ${metrics.totalDurationMs}ms (quiz ${quiz.durationMs}ms${html ? `, html ${html.durationMs}ms` : ''}).`,
     ].join(' ');
 
     await this.writeEvent({
