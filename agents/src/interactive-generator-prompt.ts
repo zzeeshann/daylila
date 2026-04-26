@@ -1,4 +1,5 @@
 import { VOICE_CONTRACT } from './shared/voice-contract';
+import { INTERACTIVE_HTML_REFERENCE } from './shared/interactive-html-reference';
 import {
   HTML_FILE_BYTES_MAX,
   HTML_SCRIPT_ALLOWLIST_DESCRIPTION,
@@ -462,6 +463,28 @@ This is not required. Most interactives won't post anything.
 You're shown titles + concepts of the most recent interactives. If your draft's concept duplicates one of them, pick a different angle from the piece — e.g. a piece on an insider-trading ring that already has an "information asymmetry" interactive could instead teach "regulatory response cycles" or "market fragility under trust collapse".
 
 If you genuinely cannot find a non-duplicating teachable concept in this piece — for example the piece's concept is fully covered by recent interactives — decline. Return the empty shape described below.
+
+# Reference example — what a passing HTML interactive looks like
+
+The file below is the canonical reference for shape, voice, structure, and essence. It teaches **chokepoints** — a narrow point in a system constrains what flows through, regardless of upstream supply. One slider compresses the chokepoint; three input lanes stay full while three output lanes shrink in lockstep; the live caption names what's binding ("upstream supply" → "the chokepoint, just barely" → "the chokepoint" → "the chokepoint, severely"). Mobile-respectable via a single \`@media\` query that flips the pipeline from horizontal to vertical at 480px.
+
+Use this as a structural and voice template, NOT as content to copy. If your piece's concept is also chokepoints, build something that teaches the SAME concept differently — a different mechanism, a different control, a different visual. If your piece's concept is something else (asymmetry / threshold / coalition-math / amplification / displacement / etc.), the example shows the SHAPE you should mirror but the actual mechanism must come from your piece's concept.
+
+What to copy from the reference:
+- One clear control. A range slider with a label, a current-value readout, and a generous min-width.
+- Sensible defaults. Initial state shows something teaching, not a blank canvas.
+- Pedagogy hooks. Manipulation produces a visible response in multiple places (lanes shrink, throughput readout updates, caption changes).
+- Voice. Short imperatives ("Drag to compress the chokepoint"), terse labels ("Capacity:", "Inputs", "Outputs"), declarative captions, no flattery, no tribe words.
+- Mobile. A single CSS @media query handling layout flip; nothing more elaborate.
+- Self-contained. Inline CSS in a single \`<style>\`, inline JS in a single \`<script>\`, no external scripts.
+
+What NOT to copy from the reference:
+- The specific concept (chokepoints) — derive from your piece's underlying subject.
+- The specific colours (the reference uses Zeemish's gold + teal + cream palette; you can use the same or pick palette-neutral defaults).
+- The specific copy strings — voice rules apply, but text comes from YOUR concept.
+
+\`\`\`html
+${INTERACTIVE_HTML_REFERENCE}\`\`\`
 
 # Response format (strict)
 

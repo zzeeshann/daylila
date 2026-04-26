@@ -16,27 +16,20 @@ Phase 0 + Phase 1 complete and tagged.
 
 ## Last completed sub-task
 
-**Phase 2, sub-task 2.6 — Reader surface: `<interactive-frame>` Web Component + dual-artefact route + drawer.**
+**Phase 2, sub-task 2.7 (in progress) — Reference HTML hand-written + few-shot wired + content fixture deployed.**
 
-- New [`src/interactive/interactive-frame.ts`](../src/interactive/interactive-frame.ts) — lightweight Web Component for HTML interactives. Server-rendered iframe is a child element (set via `srcdoc=`); the component only fires engagement events (`interactive_started` on connect; Phase 4's `postMessage` listener stubbed in a comment). SSR-of-iframe avoids JSON-payload escaping problems with `</script>` sequences inside the html string and gives progressive-enhancement (the rendered interactive shows even if JS fails to upgrade).
-- New [`src/styles/interactive-frame.css`](../src/styles/interactive-frame.css) — standalone CSS (not Tailwind-processed, same convention as `quiz.css`). 600px default iframe height, 480px on mobile.
-- [`src/pages/interactives/[slug].astro`](../src/pages/interactives/[slug].astro) rewired:
-  - `getStaticPaths` groups entries by `data.slug` so each slug renders ONE page that can include both artefact types.
-  - Page header uses the quiz's title/concept when present (canonical pre-Phase-2; falls back to html when quiz declined).
-  - Renders HTML interactive FIRST (manipulation), then quiz SECOND (recall) — pedagogical layering. Section headers "Try the model" / "Then check the pattern" appear only when both exist.
-  - Iframe attributes match the spec exactly: `sandbox="allow-scripts"`, `loading="lazy"`, `referrerpolicy="no-referrer"`, `title={concept}`, `srcdoc={html}`.
-  - Decision: `srcdoc=` for v1. `src=` route deferred (see DECISIONS).
-- **Astro 5 content-collection bug surfaced + fixed.** Astro 5's `glob` loader auto-uses a top-level `slug` field as the entry id when present in data. Quiz + html files for the same piece share the slug (one URL per piece — Phase 2.5), so the second-loaded entry was silently overwriting the first. Fix in [`src/content.config.ts`](../src/content.config.ts): explicit `generateId` on the loader uses the FILENAME (`<slug>.json` → `<slug>`; `<slug>-html.json` → `<slug>-html`), so each file's entry id is unique regardless of the `slug` field. Diagnosed via temp fixture + dev-server logs (`getCollection` returned 8 not 9).
-- Drawer extension:
-  - [`src/lib/made-by.ts`](../src/lib/made-by.ts) `MadeEnvelope` gains `htmlInteractive: MadeInteractive | null` field. `interactive` field stays as the quiz pointer for back-compat with shipped reader bundles.
-  - [`src/pages/api/daily/[date]/made.ts`](../src/pages/api/daily/[date]/made.ts) endpoint runs two queries (`type='quiz'` and `type='html'`); each populates a separate envelope field with independent failure handling.
-  - [`src/interactive/made-drawer.ts`](../src/interactive/made-drawer.ts) `renderInteractiveSection` now takes a `kind: 'quiz' | 'html'` parameter; per-type section header ("The quiz built…" vs "The interactive model built…") and CTA verb ("Try the quiz →" vs "Try the model →"). Drawer renders both sections when both artefacts exist for a piece.
-- Verified end-to-end via temp fixture in dev preview: page rendered HTML interactive (sandboxed iframe with the slider) + quiz card stacked correctly; quiz-only pages still render unchanged. Fixture removed before commit.
-- Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit. `pnpm build` clean across all 8 existing quiz pages.
-- Flag still `'false'` on prod; HTML path bypassed; no live behaviour change.
+Awaiting Zishan's review on prod + flag flip + tag.
+
+- **`docs/examples/interactive-reference.html`** — hand-written canonical reference. 6.6 KB; passes the validator on all 8 rules. Teaches **chokepoints**: one slider compresses a chokepoint between three input lanes (always full) and three output lanes (track the chokepoint). Live caption changes with capacity range — "upstream supply" → "the chokepoint, just barely" → "the chokepoint" → "the chokepoint, severely". Mobile-respectable via single `@media` query that flips horizontal pipeline → vertical at 480px. Self-contained: inline CSS, inline JS, no external scripts. Picked chokepoints for the universally-teachable mechanism + clean tactile control + concrete pedagogy hook.
+- **`agents/src/shared/interactive-html-reference.ts`** — Worker-readable mirror of the .html file. Cloudflare Workers can't readFileSync at runtime; the .ts string is what the prompt embeds. Sync rule: edit both files together.
+- **`agents/src/interactive-generator-prompt.ts`** — added a **# Reference example** section to `INTERACTIVE_HTML_GENERATOR_PROMPT` between the Diversity-with-past-interactives section and the Response-format section. Embeds the reference inside a fenced code block, with explicit guidance on what to copy (shape, voice, pedagogy hooks, mobile, self-contained) vs. what NOT to copy (specific concept, specific colours, specific copy strings). Reference is part of the cached system prompt block.
+- **System prompt size**: 12.4 KB → 20.4 KB (~5,100 tokens cached). One-time invalidation when Anthropic's prompt cache notices the prefix change; subsequent calls hit the new cache entry.
+- **`content/interactives/chokepoints-and-cascades-html.json`** — committed fixture for prod review. Slug = `chokepoints-and-cascades` (shares with the existing Hormuz piece's quiz). `sourcePieceId` = the Hormuz piece's actual id (`9ded9bec-…`). After deploy, `/interactives/chokepoints-and-cascades/` on prod renders both quiz (existing) + html (new) — Zishan reviews the rendered pair. No D1 row written; the made.ts drawer endpoint queries D1 directly so the Hormuz piece's drawer still shows quiz-only (honest reflection of what's in D1; the route page rendering both is content-collection-driven).
+- **What's still pending in 2.7**: (1) Zishan reviews on prod after CI deploys; (2) if accepted, flip `interactives_html_enabled = 'true'` via `wrangler d1 execute`; (3) tag `interactives-v3.2-complete` after the next published piece's Generator output validates the wiring end-to-end.
 
 **Earlier completed sub-tasks (Phase 2):**
 
+- `[phase-2.6]` Reader surface — `<interactive-frame>` Web Component + dual-artefact route + drawer.
 - `[phase-2.5]` File commit path + interactives row schema (migration 0026; one URL per piece via shared slug; `<slug>-html.json` JSON envelope).
 - `[phase-2.4]` InteractiveAuditor extended with HTML rubric + wired to Generator (4-dim rubric, all scored; ship-as-low on round-3 audit-max-fail).
 - `[phase-2.3]` InteractiveGenerator extended with parallel HTML loop (validator-gated; per-type idempotence; observer logging extended).
@@ -56,15 +49,22 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Phase 2 sub-task 2.7 — Hand-written reference HTML + manual proof on prod + flag flip + tag.** The full produce → validate → audit → revise → commit → render path is now end-to-end functional behind the flag. 2.7 is the human-in-the-loop step:
+**Pending in 2.7 — Zishan's review + flag flip + tag.** Three remaining steps after the `[phase-2.7]` commit lands:
 
-1. **Hand-write a reference HTML interactive** at `docs/examples/interactive-reference.html` for one of the recently-published daily pieces. The file is the **canonical "good looks like this"** per Phase 0 decision (b) — permanent, never deleted, updated in place if voice evolves. Pick a piece whose concept has a clean tactile mechanism (chokepoints / coalition-math / asymmetry — concept-rich, slider-friendly).
-2. **Add the reference as a few-shot example** in `INTERACTIVE_HTML_GENERATOR_PROMPT` at the slot left for it in 2.1 (`interactive-generator-prompt.ts`). The example sits inside the cached system prompt block, so the prefix invalidation is a one-time cost.
-3. **Commit the reference file as a temporary content-collection fixture** (`content/interactives/<that-slug>-html.json`) so it surfaces on the existing route page for review. Zishan reviews it visually on prod.
-4. **If accepted:** flip `interactives_html_enabled = 'true'` via `wrangler d1 execute zeemish --remote --command "UPDATE admin_settings SET value = 'true' WHERE key = 'interactives_html_enabled'"`. The next post-publish alarm produces both quiz + html for that piece. Tag `interactives-v3.2-complete`.
-5. **If rejected:** iterate the reference until accepted; flag stays `'false'`.
+1. **CI deploys.** `[phase-2.7]` push triggers GitHub Actions; both workers redeploy. The fixture at `/interactives/chokepoints-and-cascades/` will render on prod with quiz (existing) + html (new fixture) stacked.
+2. **Zishan reviews on prod.** Open `https://zeemish.io/interactives/chokepoints-and-cascades/`. Verify: the slider works, the lanes/chokepoint shrink in lockstep, the caption changes across capacity ranges, mobile layout flips at 480px. If the reference teaches well and respects voice → continue. If it falls short → iterate the reference (edit `docs/examples/interactive-reference.html` + the `agents/src/shared/interactive-html-reference.ts` mirror in lockstep), commit, re-deploy, re-review.
+3. **Flag flip + tag.** When the reference is approved:
+   ```sh
+   wrangler d1 execute zeemish --remote --command \
+     "UPDATE admin_settings SET value = 'true' WHERE key = 'interactives_html_enabled'"
+   ```
+   The next post-publish alarm (next 12h cron firing at the configured cadence) produces both quiz + html for the new piece. After verifying that Generator output renders correctly on prod, tag `interactives-v3.2-complete`:
+   ```sh
+   git tag interactives-v3.2-complete <SHA-of-the-flag-flip-DECISIONS-commit>
+   git push origin interactives-v3.2-complete
+   ```
 
-Definition of done for Phase 2: flag = true, the next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed. Then Phase 3 (admin surface) starts.
+After 2.7 is fully done, Phase 3 (admin surface) starts.
 
 Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -103,6 +103,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 2 | 2.4 — InteractiveAuditor extended with HTML rubric + wired into runHtmlLoop | New `INTERACTIVE_HTML_AUDITOR_PROMPT` (4 dims all scored, voice ≥85, others ≥75); `audit()` now dispatches by `{type:'quiz'|'html'}`; HTML system prompt prompt-cached. Generator's `runHtmlLoop` runs full produce→validate→audit→revise; ship-as-low on audit max-fail (`quality_flag='low'`); validator-max-fail still no-commit. Per-round audit rows persist for HTML across all 4 dims. Zero new typecheck errors. Flag still `'false'`. |
 | 2026-04-26 | 2 | 2.5 — File commit path + interactives row schema | Migration 0026 relaxed `UNIQUE(slug)` → `UNIQUE(slug, type)` (table rebuild, snapshot held). Generator `runHtmlLoop` writes `<slug>-html.json` (JSON envelope, html-string inlined) — slug pulled from existing quiz row when present (one URL per piece). Content collection schema widens `type` enum + adds `html` branch. PLAN_NOTES + FOLLOWUPS + SCHEMA.md synced. Plan-vs-repo divergence: `<slug>-html.json` not `<slug>.html` (loader simplicity). Zero new typecheck errors. `pnpm build` clean. |
 | 2026-04-26 | 2 | 2.6 — Reader surface: `<interactive-frame>` Web Component + dual-artefact route + drawer | New `<interactive-frame>` component (lightweight; iframe is server-rendered child via `srcdoc=`). Route page groups entries by slug → renders HTML interactive + quiz stacked when both exist. Astro 5 `glob` loader bug surfaced (slug-as-id collision); fixed with explicit `generateId` from filename. Drawer extended: `MadeEnvelope.htmlInteractive` field; per-type section header + CTA wording. Verified end-to-end via temp fixture in dev preview (HTML iframe slider rendered + quiz card stacked). Zero new typecheck errors. Flag still `'false'`. |
+| 2026-04-26 | 2 | 2.7 — Reference HTML hand-written + few-shot wired + content fixture deployed | `docs/examples/interactive-reference.html` (6.6 KB, validates clean on all 8 rules). `agents/src/shared/interactive-html-reference.ts` (Worker-readable mirror). Reference embedded as few-shot in cached HTML system prompt (12.4KB → 20.4KB ~ 5,100 tokens). Fixture `content/interactives/chokepoints-and-cascades-html.json` committed pointing at the Hormuz piece — `/interactives/chokepoints-and-cascades/` on prod will render both quiz + html stacked. **Awaiting Zishan's review on prod + flag flip + tag.** Flag still `'false'` until then. |
 
 ## Tags
 
