@@ -1,0 +1,71 @@
+{
+  "slug": "resource-reallocation-under-damage",
+  "type": "quiz",
+  "title": "Resource Reallocation Under Damage",
+  "concept": "When harm cannot be prevented, biological and engineered systems may sustain aggregate output by shifting resource allocation away from damage mitigation toward higher throughput, accepting that individual units degrade faster.",
+  "interactiveId": "25943d3f-740b-4ec4-b25a-d81e9cd1c6b9",
+  "sourcePieceId": "cee5e838-4718-4847-a229-b9271b6cb7ea",
+  "publishedAt": 1777212268534,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "An organism faces a toxin that continuously damages cellular structures faster than normal repair mechanisms can fix them. Which resource allocation shift most directly enables the organism to reproduce before critical failure?",
+        "options": [
+          "Invest more heavily in repair enzymes to reduce the rate of damage accumulation",
+          "Reduce energy expenditure on repair systems and redirect those resources to accelerated maturation and reproduction",
+          "Develop resistance mechanisms that neutralize the toxin at the cellular level",
+          "Enter a dormant state until environmental conditions improve"
+        ],
+        "correctIndex": 1,
+        "explanation": "When damage is unavoidable and repair cannot keep pace, reallocating energy from futile repair efforts to faster reproduction allows the organism to complete its life cycle before accumulated damage becomes fatal. Option A assumes repair can outpace damage, violating the premise; C assumes resistance is achievable; D assumes the stressor is temporary."
+      },
+      {
+        "question": "A production system experiences continuous degradation of its processing units due to an unremovable environmental factor. Output volume remains constant over three years. What operational change most likely explains this stability?",
+        "options": [
+          "Units are being manufactured with more durable materials that resist the degradation mechanism",
+          "The rate of installing new units has increased to match the elevated rate at which units become non-functional",
+          "The environmental factor weakened over time, reducing the degradation rate",
+          "Output per unit increased to compensate for fewer functional units at any given time"
+        ],
+        "correctIndex": 1,
+        "explanation": "Constant output despite continuous unavoidable degradation requires that the supply of fresh units keeps pace with the loss of degraded ones — not by making units last longer (option A) or by the stressor diminishing (option C), but by cycling through units faster. Option D would mean working remaining units harder, which typically accelerates their failure under stress."
+      },
+      {
+        "question": "Two bacterial colonies face identical antibiotic exposure that neither can neutralize. Colony X invests heavily in DNA repair mechanisms; Colony Y reduces repair investment and doubles reproduction rate. After 20 generations, which outcome is most consistent with resource allocation trade-offs?",
+        "options": [
+          "Colony X grows faster because healthier individuals compound over generations",
+          "Colony Y maintains larger population size despite higher per-individual mutation loads",
+          "Both colonies reach the same size because total resource budgets are equal",
+          "Colony X eventually develops antibiotic resistance through superior repair fidelity"
+        ],
+        "correctIndex": 1,
+        "explanation": "When damage cannot be prevented, prioritizing rapid reproduction over repair allows more total offspring before individual failure, even though each individual carries more damage. Colony Y accepts that its members are less healthy but compensates through volume. Option A assumes repair eliminates enough damage to outweigh reproductive disadvantage; C ignores that different allocations produce different outcomes under constraint; D assumes resistance emerges from repair rather than being separately evolved."
+      },
+      {
+        "question": "Why might a system operating under continuous unmitigatable stress show increasing variance in component quality while maintaining stable aggregate performance?",
+        "options": [
+          "Quality control processes have weakened, introducing defects",
+          "Faster replacement cycles mean components spend less time in service, so condition at removal varies more widely",
+          "The stress affects different components unequally based on manufacturing batch",
+          "Aggregate metrics smooth out underlying deterioration until catastrophic failure occurs"
+        ],
+        "correctIndex": 1,
+        "explanation": "When you accelerate replacement to compensate for faster degradation, you pull components out of service at more varied points in their damage progression — some still relatively intact, others near failure. The wide condition range reflects deliberate rapid cycling, not quality problems. Option A misattributes variance to defects rather than strategy; C invokes batch variation not present in the premise; D describes masking, not actual stability."
+      },
+      {
+        "question": "A maintenance strategy that worked reliably for decades begins failing when an environmental stressor appears that accelerates equipment degradation. The organization cannot eliminate the stressor. Which strategy shift represents genuine adaptation rather than denial?",
+        "options": [
+          "Increase inspection frequency to catch damage earlier and extend equipment life through more aggressive intervention",
+          "Accept that equipment will fail sooner and redesign procurement and installation processes to handle higher turnover rates",
+          "Invest in research to develop stressor-resistant materials for future equipment generations",
+          "Reduce operational intensity to slow the rate at which the stressor causes damage"
+        ],
+        "correctIndex": 1,
+        "explanation": "Adaptation to unremovable stressors means redesigning around the new failure reality, not trying harder to prevent failures that have become inevitable. Option B accepts the constraint and builds systems to handle it; A and D attempt to restore the old regime through mitigation intensity; C is useful long-term but doesn't address current operations needing different processes now."
+      }
+    ]
+  }
+}
