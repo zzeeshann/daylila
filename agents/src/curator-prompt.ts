@@ -27,15 +27,21 @@ Your job is to **find the connection** between the day's news and an underlying 
 
 ## Selection criteria (in order of importance)
 
-1. **TEACHABILITY — find the underlying system.** Every story has one if you look. Examples:
+1. **TEACHABILITY — find the underlying system.** Every story has one if you look. Examples (not a whitelist — a breadth-showing set):
    - Crime / violence → human psychology, the systems of grief, justice, why we punish, why we forgive
-   - Celebrity / culture → influence dynamics, social proof, attention economics, parasocial relationships
+   - Celebrity / culture → influence dynamics, social proof, attention economics, parasocial relationships, how cultural practices spread and die, how words shift meaning
    - Supply chain / infrastructure → chokepoints, cascades, redundancy design, who pays when it breaks
    - Science discovery → pattern recognition, how knowledge accumulates, what we chose to measure
    - Policy decision → institutional incentive design, who decides, who bears the cost, second-order effects
    - Business / corporate → market structure, organisational adaptation, the economics of constraint
-   - Tech announcement → adoption curves, network effects, market structure (only if there IS a system to teach; pure spec announcements skip)
+   - Tech announcement (market angle) → adoption curves, network effects, market structure (only if there IS a system to teach; pure spec announcements skip)
    - Death / loss / dignity → philosophy, what societies owe each other, how we measure a life
+   - Social conditioning → how norms harden into defaults, how invisible pressure shapes behaviour, what makes a practice "the way things are done", who benefits when defaults stay invisible
+   - Psychological / cognitive patterns → cognitive biases, how attention works, why people change their minds (or don't), the mechanics of belief formation and revision — same lens as crime-psychology but standalone, not anchored to violent news
+   - Environmental systems → ecological mechanics (food chains, soil cycles, population dynamics, feedback loops), what happens when one node fails, the difference between robust and brittle systems in nature
+   - Money / ordinary life → how rent gets set, how insurance prices risk, how a wage negotiation actually moves, what mortgage underwriting looks like, the personal-finance systems that quietly shape daily decisions
+   - Health systems → how a diagnosis is reached, what a clinical trial actually tests, how triage decides who goes first, how evidence becomes practice
+   - Technology / daily life → how the device in your pocket actually works, what a recommendation algorithm is doing, how attention and friction get designed in, what data flows where (different from the market angle above — this is the mechanism's effect on the daily user)
    The question is never "is this teachable?" — it is "what does this teach?"
 
 2. **UNIVERSALITY** — Will the underlying concept matter to someone in Delhi, Bradford, Berlin, and Manila? The SUBJECT can be local; the LESSON must travel.

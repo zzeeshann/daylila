@@ -23,6 +23,25 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-26: Curator taxonomy expansion to 14 examples — track novel category framings over next 5–7 cron runs
+
+**Surfaced:** Refinement Action 3 (commit landing this entry). TEACHABILITY criterion in `agents/src/curator-prompt.ts` grew from 8 to 14 worked examples (6 new categories + 1 sharpened) covering social conditioning, psychology/cognition standalone, environmental systems, money / ordinary life, health systems, and technology / daily life. The pre-expansion 8 categories biased Curator toward what news RSS feeds surface cleanly (policy / market structure / supply chain). The expansion's hypothesis: a rent-setting story will land under BUSINESS but Curator should now frame it as personal-financial mechanics, not market structure; a diagnostic-reasoning story under HEALTH should frame as evidence-becomes-practice, not science-discovery.
+
+**What to verify:** Read the `underlying_subject` field of every `daily_pieces` row from 2026-04-27 onward through ≈2026-05-03 (5–7 cron runs at `interval_hours=12` = 10–14 pieces). Look for novel framings that wouldn't have shown up under the original 8 examples. Specifically watch for phrases like *"diagnostic reasoning"* / *"how rent-setting works"* / *"ecological mechanics"* / *"how attention gets designed in"* / *"how words shift meaning"* / *"how norms harden into defaults"*.
+
+**Unblock criteria** (≈2026-05-03):
+- ≥2 of 10–14 pieces frame their underlying system through one of the 6 new category lenses → expansion worked.
+- Voice score average stays ≥85 across the same window → no regression in writing quality from the broader interpretive aperture.
+- No same-day concept clashes (the 2026-04-24 twin-pieces failure pattern) → broader visibility didn't break the dedup signal.
+
+If novel framings don't appear: bias is deeper than the example set. Tighten with a directive ("when a candidate's underlying system fits one of the bottom 6 examples, prefer that framing over the top 6 if it teaches something the library hasn't covered"). If voice scores drop: trim the new examples that pulled toward over-explanation (likely health systems — the diagnostic-reasoning category attracts didactic openings).
+
+**Investigation hints:** Production query — `SELECT date, headline, underlying_subject, voice_score FROM daily_pieces WHERE date >= '2026-04-27' ORDER BY date, published_at;`. Cross-reference against the 2026-04-26 14-example list in [`agents/src/curator-prompt.ts`](../agents/src/curator-prompt.ts).
+
+**Priority:** low — observation only, not blocking. The pre-expansion 8 examples still apply alongside the new 6, so Curator can't get worse from this change; it can only stay the same or open up.
+
+---
+
 ## [observing] 2026-04-26: `interactive_started` event now fires on every daily-piece page load
 
 **Surfaced:** Area 5 close-out (Phase D verification). Pre-Area-5, the `<quiz-card>` and `<interactive-frame>` Web Components only mounted when a reader visited `/interactives/<slug>/` directly — `interactive_started` was a meaningful "reader loaded the interactive" signal. Post-Area-5, both components are embedded inline at the bottom of every daily piece page, so they mount + fire `interactive_started` on every daily-page load — even for readers who never scroll to the section. The standalone `/interactives/` route's semantics are unchanged.

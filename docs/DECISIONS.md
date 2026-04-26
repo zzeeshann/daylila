@@ -2,6 +2,36 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-26: Curator TEACHABILITY expanded from 8 to 14 worked examples (refinement Action 3)
+
+**Context / trigger:** Refinement brief Section 1.3 named eight categories of story Zeemish should treat as visibly teachable: social conditioning, human rights & welfare, psychological/cognitive patterns, environmental systems, technology & daily life, money & ordinary life, health systems, culture & language. The 2026-04-25 reframe of the Curator prompt added eight worked examples to TEACHABILITY (crime, celebrity/culture, supply chain, science, policy, business, tech announcement, death/loss/dignity) — a strong baseline, but biased toward the categories news RSS feeds surface cleanly. Stories that *land* under BUSINESS but *teach* personal-finance mechanics (rent-setting, insurance pricing) had no example pattern to match against; same for HEALTH (diagnostic reasoning), TECHNOLOGY (the device-in-your-pocket angle), and so on. The risk wasn't Curator skipping these — it was Curator framing them through the wrong system (e.g., rent stories framed as market-structure when the teachable system is personal financial mechanics).
+
+**Decision:** Expand TEACHABILITY from 8 to 14 worked examples. Don't replace the existing eight — add six more alongside, sharpen one (culture/celebrity to name the propagation mechanism), and clarify the existing tech-announcement example as "market angle" so the new mechanism-focused tech example reads as distinct.
+
+**The six new categories and their underlying-system framings:**
+- **Social conditioning** → how norms harden into defaults, how invisible pressure shapes behaviour, what makes a practice "the way things are done", who benefits when defaults stay invisible
+- **Psychological / cognitive patterns** → cognitive biases, how attention works, why people change their minds (or don't), the mechanics of belief formation and revision — same lens as crime-psychology but standalone, not anchored to violent news
+- **Environmental systems** → ecological mechanics (food chains, soil cycles, population dynamics, feedback loops), what happens when one node fails, the difference between robust and brittle systems in nature
+- **Money / ordinary life** → how rent gets set, how insurance prices risk, how a wage negotiation actually moves, what mortgage underwriting looks like, the personal-finance systems that quietly shape daily decisions
+- **Health systems** → how a diagnosis is reached, what a clinical trial actually tests, how triage decides who goes first, how evidence becomes practice
+- **Technology / daily life** → how the device in your pocket actually works, what a recommendation algorithm is doing, how attention and friction get designed in, what data flows where (different from the existing market-angle example — this is the mechanism's effect on the daily user)
+
+**One sharpened example:** celebrity/culture extended to name "how cultural practices spread and die, how words shift meaning" — the mechanism the brief specifically called out as missing. Parasocial relationships were already there; propagation wasn't.
+
+**One reframe (no content change):** the original "Tech announcement" example renamed "Tech announcement (market angle)" so it reads as distinct from the new daily-life mechanism example. Both are valid; they teach different systems.
+
+**One header-line tweak:** "Examples:" → "Examples (not a whitelist — a breadth-showing set)". Curator was already running through the existing 8 as visibility, not a gate, but the new list is long enough that being explicit is worth it.
+
+**Trade-offs considered:**
+- **6 new vs. all 8 from the brief.** Brief proposed 8; research found 2 of those (policy/institutional incentive design and another partial overlap) already covered well by existing examples. Adding 6 + sharpening 1 covers the brief's intent without doubling-up. Result is 14 total, not 16.
+- **Add to existing list vs. restructure into named buckets.** Add to existing list. The flat list reads as "look at the spread of what teaches"; named buckets would invite Curator to treat them as classification tags ("which bucket does this candidate fit?"), exactly the gate-keeping posture the 2026-04-25 reframe killed.
+- **Add to TEACHABILITY criterion vs. create a new category-awareness criterion.** Add to TEACHABILITY. The brief's 8 categories are *kinds of system*, not a separate selection axis. Creating a new criterion would risk Claude treating them as a checklist; embedding them as TEACHABILITY examples keeps them as visibility for the existing criterion.
+- **Update Scanner feed sources too.** Not now. Research surfaced that Google News RSS's 6 categories (TOP/TECH/SCIENCE/BUSINESS/HEALTH/WORLD) don't map cleanly to teachability categories — a rent-setting story lands under BUSINESS, a diagnostic-reasoning story lands under HEALTH, but Curator has no awareness that BUSINESS often teaches personal finance OR market structure. The fix is at the Curator-prompt layer (this commit), not the Scanner feed-source layer. Source widening can come later if we observe genuine sourcing gaps; today's pipeline pulls 50 candidates from existing feeds and Curator's blindness was at interpretation, not supply.
+
+**Files changed:** [`agents/src/curator-prompt.ts`](../agents/src/curator-prompt.ts) (TEACHABILITY block), [`docs/AGENTS.md`](AGENTS.md) (Curator section gains a 2026-04-26 expansion bullet), [`book/09-the-sixteen-roles.md`](../book/09-the-sixteen-roles.md) (Curator chapter extends "What 'teachable' means" with the 14-example reality), [`CLAUDE.md`](../CLAUDE.md) (Currently working on covers Action 3). No code change beyond the prompt constant; no schema change; no agent refactor.
+
+**Verification:** Curator pick reasoning over the next 5–7 cron runs (≈2026-04-28 → 2026-05-03 at `interval_hours=12`). Look for novel category framings in `daily_pieces.underlying_subject` — *"diagnostic reasoning"*, *"how rent-setting works"*, *"ecological mechanics"*, *"the device-in-your-pocket angle"*. If pieces continue to cluster around the existing 8 categories with no new framings appearing, the prompt change didn't take and the bias is deeper than the example set (revisit with a stronger directive). If novel framings appear AND voice-tier average stays ≥85, the expansion worked. FOLLOWUPS observation entry queued for 2026-05-03 unblock.
+
 ## 2026-04-26: Area 5 post-tag polish pass (4 commits)
 
 **Context / trigger:** First reader walkthrough of the area-5-done build surfaced four small misfires that Phase D's structural verification didn't catch — visible only when sitting with the surface as a reader rather than poking it as an engineer. Each is small enough to ship as its own commit on top of the `area-5-done` tag rather than retroactively edit the closed area.
