@@ -104,14 +104,6 @@
   scroll-margin-top: 1.5rem;
 }
 
-.lesson-finish-tagline {
-  font-size: 1.0625rem;
-  color: #1A1A1A;
-  font-style: italic;
-  margin: 0 0 1.75rem 0;
-  letter-spacing: -0.005em;
-}
-
 .lesson-finish-actions {
   display: flex;
   flex-wrap: wrap;
