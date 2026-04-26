@@ -10,7 +10,9 @@
  * Pre-Area-5, beat-switching was driven by `lesson-beat:change` events
  * from <lesson-shell>'s pagination state machine. Now <lesson-shell>
  * is a passive engagement reporter and does not dispatch beat changes,
- * so the player owns the next-clip + scroll responsibility.
+ * so the player owns the next-clip + scroll responsibility. Prev /
+ * next clip buttons + a current-beat caption let the reader navigate
+ * audio independently of scroll position (Area 5.7).
  *
  * Progressive enhancement: if JS fails or the data is missing, the
  * server-rendered "Audio unavailable" state stays visible — readers
@@ -27,10 +29,17 @@ class AudioPlayer extends HTMLElement {
    *  iteration order is unreliable across content-collection writes;
    *  the DOM is the source of truth for "what comes next". */
   private beatOrder: string[] = [];
+  /** Human-readable beat titles, parsed from each <lesson-beat>'s
+   *  first <h2>. Falls back to the kebab name if the heading isn't
+   *  reachable (e.g. legacy intro-only piece). */
+  private beatTitles: Map<string, string> = new Map();
   private currentBeat: string | null = null;
   private hasReportedFirstPlay = false;
 
   private playBtn: HTMLButtonElement | null = null;
+  private prevBtn: HTMLButtonElement | null = null;
+  private nextBtn: HTMLButtonElement | null = null;
+  private captionEl: HTMLElement | null = null;
   private progressEl: HTMLElement | null = null;
   private progressFill: HTMLElement | null = null;
   private timeEl: HTMLElement | null = null;
@@ -59,7 +68,22 @@ class AudioPlayer extends HTMLElement {
       this.beatOrder = Object.keys(this.audioBeats);
     }
 
+    // Capture human-readable titles for the caption row. Reads each
+    // beat's first <h2> text — the same heading the reader sees above
+    // the beat. rehype-beats applies `beatTitles` overrides at build
+    // time, so this naturally inherits any acronym / punctuation
+    // restoration the operator added.
+    for (const el of beatEls) {
+      const name = el.getAttribute('name') ?? '';
+      if (!name) continue;
+      const heading = el.querySelector('h2')?.textContent?.trim();
+      if (heading) this.beatTitles.set(name, heading);
+    }
+
     this.playBtn = this.querySelector('[data-play-btn]');
+    this.prevBtn = this.querySelector('[data-prev-btn]');
+    this.nextBtn = this.querySelector('[data-next-btn]');
+    this.captionEl = this.querySelector('[data-beat-caption]');
     this.progressEl = this.querySelector('[data-progress]');
     this.progressFill = this.querySelector('[data-progress-fill]');
     this.timeEl = this.querySelector('[data-time]');
@@ -78,6 +102,8 @@ class AudioPlayer extends HTMLElement {
     this.audio.addEventListener('error', () => this.onLoadError());
 
     this.playBtn?.addEventListener('click', () => this.toggle());
+    this.prevBtn?.addEventListener('click', () => this.stepBeat(-1));
+    this.nextBtn?.addEventListener('click', () => this.stepBeat(1));
     this.progressEl?.addEventListener('click', (e) =>
       this.seekFromClick(e as MouseEvent),
     );
@@ -94,6 +120,29 @@ class AudioPlayer extends HTMLElement {
     this.currentBeat = beatName;
     this.audio.src = url;
     this.resetProgressUI();
+    this.refreshChrome();
+  }
+
+  /**
+   * Step forward or backward through the beat order. If audio was
+   * playing, the new clip autoplays; otherwise it stays paused. Also
+   * smooth-scrolls the target beat into view so the page follows the
+   * audio (matching the auto-advance UX). Disabled at the boundaries.
+   */
+  private stepBeat(direction: -1 | 1) {
+    if (!this.currentBeat) return;
+    const idx = this.beatOrder.indexOf(this.currentBeat);
+    if (idx === -1) return;
+    const target = this.beatOrder[idx + direction];
+    if (!target) return;
+    const wasPlaying = !!this.audio && !this.audio.paused;
+    this.loadBeat(target);
+    this.scrollBeatIntoView(target);
+    if (wasPlaying) {
+      this.audio?.play().catch(() => {
+        // Autoplay blocked — reader can press play manually
+      });
+    }
   }
 
   private toggle() {
@@ -139,6 +188,37 @@ class AudioPlayer extends HTMLElement {
     const target = document.querySelector(`lesson-beat[name="${cssEscape(beatName)}"]`);
     if (!(target instanceof HTMLElement)) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /**
+   * Refresh the prev/next disabled state + the caption line whenever
+   * the current beat changes. Caption format: `{n} of {total} · {title}`.
+   * Falls back to the kebab name when no <h2> heading was captured.
+   */
+  private refreshChrome() {
+    if (!this.currentBeat) return;
+    const idx = this.beatOrder.indexOf(this.currentBeat);
+    const total = this.beatOrder.length;
+    if (this.prevBtn) this.prevBtn.disabled = idx <= 0;
+    if (this.nextBtn) this.nextBtn.disabled = idx === -1 || idx >= total - 1;
+    if (this.captionEl) {
+      const human =
+        this.beatTitles.get(this.currentBeat) ?? this.humanise(this.currentBeat);
+      this.captionEl.textContent =
+        idx >= 0 && total > 0
+          ? `Beat ${idx + 1} of ${total} · ${human}`
+          : human;
+    }
+  }
+
+  /** Fallback humaniser when no <h2> was captured for a beat. Same
+   *  shape as rehype-beats's default — kebab → Title Case. */
+  private humanise(slug: string): string {
+    return slug
+      .split('-')
+      .filter((p) => p.length > 0)
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ');
   }
 
   private onLoadError() {

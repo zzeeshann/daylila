@@ -12,28 +12,57 @@ const hasAudio = !!audioBeats && Object.keys(audioBeats).length > 0;
     data-audio-beats={JSON.stringify(audioBeats)}
     class="block"
   >
-    <div class="flex items-center gap-3 px-4 py-3 rounded-lg border border-zee-border bg-white/50">
-      <button
-        data-play-btn
-        class="w-11 h-11 flex items-center justify-center rounded-full bg-zee-primary text-white hover:opacity-90 transition-opacity shrink-0"
-        aria-label="Play audio"
-        type="button"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M4 3L13 8L4 13V3Z" />
-        </svg>
-      </button>
-      <div class="flex-1">
-        <div
-          data-progress
-          class="h-1.5 bg-zee-border rounded-full overflow-hidden cursor-pointer"
-          role="progressbar"
-          aria-label="Audio progress"
+    <div class="rounded-lg border border-zee-border bg-white/50 px-4 py-3">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button
+          data-prev-btn
+          class="w-9 h-9 flex items-center justify-center rounded-full text-zee-text/70 hover:text-zee-primary hover:bg-zee-border/50 transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          aria-label="Previous beat"
+          type="button"
         >
-          <div data-progress-fill class="h-full w-0 bg-zee-primary rounded-full transition-[width] duration-75"></div>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M11 4L7 8L11 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 4V12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button
+          data-play-btn
+          class="w-11 h-11 flex items-center justify-center rounded-full bg-zee-primary text-white hover:opacity-90 transition-opacity shrink-0"
+          aria-label="Play audio"
+          type="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M4 3L13 8L4 13V3Z" />
+          </svg>
+        </button>
+        <button
+          data-next-btn
+          class="w-9 h-9 flex items-center justify-center rounded-full text-zee-text/70 hover:text-zee-primary hover:bg-zee-border/50 transition-colors shrink-0 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          aria-label="Next beat"
+          type="button"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M5 4L9 8L5 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M11 4V12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="flex-1">
+          <div
+            data-progress
+            class="h-1.5 bg-zee-border rounded-full overflow-hidden cursor-pointer"
+            role="progressbar"
+            aria-label="Audio progress"
+          >
+            <div data-progress-fill class="h-full w-0 bg-zee-primary rounded-full transition-[width] duration-75"></div>
+          </div>
         </div>
+        <span data-time class="text-sm text-zee-muted whitespace-nowrap tabular-nums">0:00</span>
       </div>
-      <span data-time class="text-sm text-zee-muted whitespace-nowrap tabular-nums">0:00</span>
+      <p
+        data-beat-caption
+        class="mt-2 text-xs text-zee-muted leading-snug"
+        aria-live="polite"
+      ></p>
     </div>
   </audio-player>
 ) : (
