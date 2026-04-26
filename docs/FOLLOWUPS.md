@@ -19,7 +19,7 @@ Format per entry:
 
 **Scope:** convert `/daily/<date>/<slug>/` from paginated stepper (Previous / Next / Finish, one beat visible at a time) to a single scrolling page (title → audio → every beat → embedded interactive → embedded quiz → finish state). Agents, pipeline, MDX output, D1 schema, audio agent pipeline, and `/interactives/<slug>/` standalone route all stay untouched.
 
-**Resolved:** Area 5 shipped 2026-04-26 across three commits ([area-5.1] lesson-shell collapse, [area-5.2] audio auto-advance, [area-5.3] inline interactive + finish state). Doc-sync commit + `area-5-done` tag close the work. See DECISIONS 2026-04-26 "Area 5 — Single scroll layout" for the per-trade-off log.
+**Resolved:** Area 5 shipped 2026-04-26 across three core commits ([area-5.1] lesson-shell collapse, [area-5.2] audio auto-advance, [area-5.3] inline interactive + finish state). Doc-sync commit + `area-5-done` tag close the contract. A four-commit post-tag polish pass landed on top the same evening ([area-5.4] info-button MadeBy + iframe auto-resize, [area-5.5] Zita-toggle circle, [area-5.6] finish-state tagline drop, [area-5.7] audio prev/next + current-beat caption — through `b480080`). See DECISIONS 2026-04-26 "Area 5 — Single scroll layout" + "Area 5 post-tag polish pass" for per-trade-off logs.
 
 ---
 
@@ -44,10 +44,11 @@ Format per entry:
 **Surfaced:** Area 5 close-out (commit `area-5-done`). Local-preview verification covered structural, engagement, audio auto-advance + smooth-scroll (manually dispatched `ended`), share button (clipboard fallback path), and mobile resize. Real audio in dev returns 404 because R2 isn't bound to the dev server — production audio is the only place to confirm the auto-advance + smooth-scroll loop completes naturally over real clip durations.
 
 **What to verify on prod after deploy:**
-- Visit a recent daily piece on `zeemish.io`, click play, let the first beat's audio finish naturally. Confirm: clip 2 loads + autoplays, page smooth-scrolls so beat 2's heading is at the top of the viewport, no jank.
-- Let it run through every beat. Confirm: each transition smooth-scrolls, no transition silently fails (especially across the longest beats — typically `the-pattern` or `why-hard`).
-- Scroll to the embedded interactive section. Confirm: `interactive_offered` event in admin observer feed; the HTML interactive iframe renders + the quiz below it.
-- Scroll to the finish footer. Confirm: `complete` engagement event in admin observer feed; the three actions render, share button works (mobile native sheet on iOS Safari, clipboard fallback on desktop).
+- Visit a recent daily piece on `zeemish.io`, click play, let the first beat's audio finish naturally. Confirm: clip 2 loads + autoplays, page smooth-scrolls so beat 2's heading is at the top of the viewport, audio caption advances to "Beat 2 of N · {Title}", no jank.
+- Let it run through every beat. Confirm: each transition smooth-scrolls + caption updates, no transition silently fails (especially across the longest beats — typically `the-pattern` or `why-hard`).
+- Try the prev/next clip buttons mid-listen. Confirm: clicking prev returns to the previous beat with the new clip autoplaying + page scrolling back; prev disables at beat 1, next disables at the last beat.
+- Scroll to the embedded interactive section. Confirm: HTML interactive iframe renders at its natural content height (no inner scrollbar) + `interactive_offered` event in admin observer feed.
+- Scroll to the finish footer. Confirm: `complete` engagement event in admin observer feed; the three actions render, share button works (mobile native sheet on iOS Safari, clipboard fallback on desktop), small `ⓘ How this was made` info button below opens the drawer cleanly.
 - Reload the page. Confirm engagement events DO NOT re-fire (sessionStorage dedup).
 
 **Unblock condition:** Operator runs the test once on prod and confirms or names what regressed.
