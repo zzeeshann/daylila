@@ -15,27 +15,32 @@ zita-chat {
 .zita-toggle-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   background: #1A6B62;
   color: white;
   border-radius: 9999px;
   box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
-  font-size: 0.875rem;
-  font-weight: 500;
   border: none;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .zita-toggle-btn:hover {
-  opacity: 0.9;
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.zita-toggle-btn:focus-visible {
+  outline: 2px solid #1A6B62;
+  outline-offset: 3px;
 }
 
 .zita-icon-svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  opacity: 0.9;
+  width: 20px;
+  height: 20px;
 }
 
 .zita-panel {
