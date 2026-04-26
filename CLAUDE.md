@@ -2,7 +2,7 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
-**Currently working on:** Interactives v3 — Phase 2 next (Generator + Auditor extension + reader surface). Phase 1 complete (`interactives_html_enabled` flag in `admin_settings`, default `'false'`; `interactives.quality_tier` column added with 3 historical low rows backfilled to `'rough'`; migrations 0024 + 0025; tag `interactives-v3.1-complete`). See `docs/INTERACTIVES_STATUS.md` and `docs/SESSION_PROTOCOL.md`.
+**Currently working on:** Interactives v3 — Phase 2 machine-side complete (2026-04-26). 7 commits `[phase-2.1]` through `[phase-2.7]` on origin/main. Generator HTML loop + Validator (8 rules) + Auditor HTML rubric + `<interactive-frame>` reader surface + reference HTML + cached few-shot prompt + dual-artefact route page + drawer extension all shipped. Migration 0026 relaxed `interactives.slug UNIQUE` → `UNIQUE(slug, type)` so quiz + html share the slug (one URL per piece). Flag `interactives_html_enabled` still `'false'`; awaiting Zishan's prod review of the reference HTML at `https://zeemish.io/interactives/chokepoints-and-cascades/` (will render Hormuz quiz + chokepoints HTML stacked once CI deploys). After review: flip flag via `wrangler d1 execute zeemish --remote --command "UPDATE admin_settings SET value = 'true' WHERE key = 'interactives_html_enabled'"`; verify next cron's Generator output renders correctly; tag `interactives-v3.2-complete`. See `docs/INTERACTIVES_STATUS.md` and `docs/SESSION_PROTOCOL.md`. Prior tags: `interactives-v3.0-complete` (Phase 0 spec/rubric/decisions/book), `interactives-v3.1-complete` (Phase 1 flag + quality_tier).
 
 ## The Zeemish Protocol
 
