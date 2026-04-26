@@ -2,6 +2,33 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-26: Agent characters land in-place in docs/AGENTS.md, not a separate file (refinement Action 4)
+
+**Context / trigger:** Refinement brief Section 1.2 named a real gap — every agent's documented behaviour was function description ("Curator picks the most teachable story", "Drafter writes the MDX") with no character description (what does this agent care about, what would it be ashamed of, how does it approach its work). Research found 1 of 16 agents (Curator) had implicit character today through the 2026-04-25 reframe; 4 had partial character (Drafter, Learner, Categoriser, InteractiveGenerator); the other 11 were function-only descriptions. The brief proposed a new `docs/AGENT_CHARACTERS.md` file referenced from system-prompt headers. Research recommended in-place expansion of each agent's section in `docs/AGENTS.md`.
+
+**Decision:** In-place expansion in `docs/AGENTS.md`. Each agent's section now opens with **Role** (what it does) followed by **Character** (who it is). The brief's proposal of a separate file is overridden in favour of single source of truth per agent.
+
+**Why in-place over separate file:**
+- **Maintenance burden.** Two files describing the same 16 agents drift apart over time. The character of an agent shifts when its prompt is revised (e.g., the 2026-04-25 Curator reframe), and updating one file but not the other is a real risk. Co-location forces one update site.
+- **Reading flow.** A reader landing on AGENTS.md to understand Curator naturally wants to know what Curator does AND who Curator is. Splitting them across files signals "character is supplementary documentation" — exactly the framing the brief wanted to avoid.
+- **System-prompt injection question.** The brief proposed referencing AGENT_CHARACTERS.md from system-prompt headers, which would make character a runtime-injected context. That's a separate decision worth its own consideration (does Drafter actually need its character text in its prompt, or is the character expressed sufficiently through the rules and the voice contract?). In-place documentation now keeps the runtime-injection question open without forcing it.
+
+**Why this overrides the brief:** The brief is explicit about the file location ("What to write: A `docs/AGENT_CHARACTERS.md` file"). Overriding the brief's letter while honouring its spirit is justified here — the brief's spirit is "character should be load-bearing, not optional metadata", and that's better served by in-place expansion than a separate file. Surfaced via AskUserQuestion at plan time; Zishan picked in-place.
+
+**The 16 paragraphs.** Each is 3–5 sentences and covers (1) what the agent fundamentally cares about (orientation), (2) what character failure looks like (distinct from technical failure), (3) how it should approach its work. Examples of the orientation-not-function framing:
+- Scanner cares about not missing things (orientation), failure = deciding what's "interesting" (character failure, not a code bug), approach = pull wide and let downstream decide.
+- Drafter writes for the reader who gives it ten minutes (orientation), failure = hedging language that asks the reader to do less work than they're capable of (character failure, distinct from missing the voice score floor), approach = trust the reader.
+- Publisher treats a published piece as a fact in the world (orientation), failure = a soft overwrite "to fix a typo" (character failure, distinct from `publishToPath` throwing on overwrite — that's the mechanism, character is the *why*), approach = write once, verify, never edit.
+
+**Trade-offs considered:**
+- **Hybrid: characters in AGENTS.md + a short standalone manifesto file.** Considered as the AskUserQuestion's third option. Zishan picked pure in-place. The shared cross-cutting principles are now captured in design principle #8 instead of needing a manifesto file.
+- **System-prompt injection now vs. later.** Deferred. The 2026-04-25 Curator reframe and Action 1's voice rewrite both showed that character can be injected through tightening the rules in the prompt itself (the voice contract is character for VoiceAuditor; the TEACHABILITY examples are character for Curator). A separate "character text" injection might or might not add value — observe over the next few cron runs whether the documented characters help operators reason about the agents, then decide whether to inject.
+- **Update each agent's prompt file with a character header.** Not now. Prompt files are runtime artefacts; AGENTS.md is documentation. Mixing them couples documentation to deployment. If runtime injection becomes the answer in a future session, that's the time to touch the prompt files.
+
+**Files changed:** [`docs/AGENTS.md`](AGENTS.md) — 16 Character paragraphs inserted (one per agent, immediately after the Role line) + design principle #8 added at the top of the file. [`CLAUDE.md`](../CLAUDE.md) — Currently working on covers Action 4. No code change, no schema change, no agent refactor.
+
+**Verification:** No runtime check — character work is documentation. Verify by reading docs/AGENTS.md cover-to-cover after the commit. Test: pick any agent at random, read its section, ask "could I tell what kind of bad output would embarrass this agent?" If yes, the Character paragraph is doing its job. If not (still reads as function description), the paragraph needs sharpening.
+
 ## 2026-04-26: Curator TEACHABILITY expanded from 8 to 14 worked examples (refinement Action 3)
 
 **Context / trigger:** Refinement brief Section 1.3 named eight categories of story Zeemish should treat as visibly teachable: social conditioning, human rights & welfare, psychological/cognitive patterns, environmental systems, technology & daily life, money & ordinary life, health systems, culture & language. The 2026-04-25 reframe of the Curator prompt added eight worked examples to TEACHABILITY (crime, celebrity/culture, supply chain, science, policy, business, tech announcement, death/loss/dignity) — a strong baseline, but biased toward the categories news RSS feeds surface cleanly. Stories that *land* under BUSINESS but *teach* personal-finance mechanics (rent-setting, insurance pricing) had no example pattern to match against; same for HEALTH (diagnostic reasoning), TECHNOLOGY (the device-in-your-pocket angle), and so on. The risk wasn't Curator skipping these — it was Curator framing them through the wrong system (e.g., rent stories framed as market-structure when the teachable system is personal financial mechanics).
