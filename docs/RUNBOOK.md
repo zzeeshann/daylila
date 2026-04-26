@@ -213,6 +213,42 @@ mapped existing `quality_flag='low'` rows to `quality_tier='rough'`
 on apply. The column sits inert if v3 is reversed (no code reads it
 until Phase 2 ships), so no schema-side rollback needed.
 
+## Interactives v3 — regenerate one artefact for a piece
+
+Phase 3 sub-task 3.3 ships a destructive regeneration path for a single
+artefact (quiz OR html) attached to a published piece. Distinct from
+the existing `/interactive-generate-trigger` (which is idempotent and
+only acts when no interactive exists yet).
+
+**Primary path: admin UI.** Open `/dashboard/admin/interactives/`,
+find the row, click `Regenerate`. Confirm dialog spells out exactly
+what will be wiped (file + D1 row + audit rows + interactive_id
+clear when applicable + scheduled fresh-generation alarm). Background
+alarm runs the produce → audit → revise loop; reload the page in a
+minute or two to see the result row. The fresh result fires its own
+`logInteractiveGeneratorMetered` event, so the admin observer feed
+shows two events: this regenerate (info severity, operator email
+attributed) and the metered result.
+
+**Fallback path: curl.** Use only if the admin UI is unavailable.
+
+```bash
+# Quiz regen:
+curl -X POST -H "Authorization: Bearer $ADMIN_SECRET" \
+  "https://zeemish-agents.zzeeshann.workers.dev/interactive-regenerate-trigger?piece_id=<UUID>&type=quiz&changed_by=ops"
+
+# HTML regen (requires interactives_html_enabled = true; 400 otherwise):
+curl -X POST -H "Authorization: Bearer $ADMIN_SECRET" \
+  "https://zeemish-agents.zzeeshann.workers.dev/interactive-regenerate-trigger?piece_id=<UUID>&type=html&changed_by=ops"
+```
+
+**Slug drift caveat.** Quiz-only regen MAY produce a different slug if
+Claude returns a different proposal from the same source piece — this
+breaks the quiz/html shared-slug invariant from Phase 2.5. HTML-only
+regen never drifts because the html path's `existingQuiz` lookup pins
+the slug to the still-present quiz row. If quiz regen does drift in
+practice, the v2 fix is a `slugLock` parameter on `Generator.generate`.
+
 ## Reset today (clean slate for a dev-mode re-test)
 
 Daily pieces are the product. Cadence is configurable via

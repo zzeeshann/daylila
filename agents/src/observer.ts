@@ -570,6 +570,41 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /** Operator-triggered regeneration of an interactive. Info severity
+   *  — routine ops, not a failure. The fresh `generateInteractiveScheduled`
+   *  alarm fires its own `logInteractiveGeneratorMetered` event when
+   *  the regenerate completes, so the admin feed shows two events:
+   *  this one (the wipe) and the metered one (the fresh result). */
+  async logInteractiveRegenerated(
+    date: string,
+    title: string,
+    type: 'quiz' | 'html',
+    deletedSlug: string,
+    deletedInteractiveId: string,
+    deletedFilePath: string,
+    changedBy: string,
+    pieceId: string | null = null,
+  ): Promise<void> {
+    await this.writeEvent({
+      severity: 'info',
+      title: `Interactive regenerated: ${title} (${type})`,
+      body:
+        `Operator ${changedBy} regenerated the ${type} interactive for "${title}" (${date}). ` +
+        `Wiped slug "${deletedSlug}" (interactive_id: ${deletedInteractiveId}, file: ${deletedFilePath}); ` +
+        `audit rows for that id deleted; fresh generate scheduled. ` +
+        `The metered result fires as a separate event when generation completes.`,
+      context: {
+        type: 'interactive_regenerated',
+        artefactType: type,
+        deletedSlug,
+        deletedInteractiveId,
+        deletedFilePath,
+        changedBy,
+      },
+      piece_id: pieceId,
+    });
+  }
+
   /** Audio pipeline failed somewhere — text is already live, admin
    *  needs to know so they can retry. Escalation severity so it
    *  surfaces in the admin feed next to low-quality publishes. */

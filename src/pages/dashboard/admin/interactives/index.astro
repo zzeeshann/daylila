@@ -373,8 +373,19 @@ function typeLabel(type: RowData['type']): { text: string; cls: string } {
               <span class="text-zee-muted">
                 {r.voice_score != null ? <>voice score <span class="font-mono">{r.voice_score}/100</span></> : 'no voice score'}
               </span>
-              <span class="text-zee-muted italic">Regenerate: shipping in 3.3</span>
+              <button
+                type="button"
+                data-regen-btn
+                data-piece-id={r.source_piece_id ?? ''}
+                data-type={r.type}
+                data-slug={r.slug}
+                disabled={!r.source_piece_id}
+                class="px-3 py-1.5 rounded-lg border border-zee-border text-zee-text bg-zee-bg hover:border-zee-primary/50 hover:text-zee-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Regenerate
+              </button>
             </div>
+            <p data-regen-status class="mt-2 text-xs hidden" aria-live="polite"></p>
           </article>
         );
       })}
@@ -409,6 +420,69 @@ function typeLabel(type: RowData['type']): { text: string; cls: string } {
     }
     for (const chip of typeChips) {
       chip.addEventListener('click', () => applyTypeFilter(chip.dataset.typeChip ?? 'all'));
+    }
+
+    // Per-row destructive regenerate button. Confirm dialog spells out
+    // exactly what gets wiped (file + D1 row + audit rows). On success,
+    // disable the button + show a "regenerating…" hint until the user
+    // refreshes — the fresh-generation alarm runs in the background and
+    // the next page reload will show its result row.
+    const regenButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-regen-btn]'));
+    for (const btn of regenButtons) {
+      btn.addEventListener('click', async () => {
+        const pieceId = btn.dataset.pieceId ?? '';
+        const type = btn.dataset.type ?? '';
+        const slug = btn.dataset.slug ?? '';
+        if (!pieceId) return;
+
+        const confirmMsg =
+          `Regenerate the ${type} for "${slug}"?\n\n` +
+          `This will:\n` +
+          `  • delete content/interactives/${slug}${type === 'html' ? '-html' : ''}.json from git (one commit)\n` +
+          `  • delete the interactives row + every audit_results row\n` +
+          (type === 'quiz' ? `  • clear daily_pieces.interactive_id\n` : '') +
+          `  • schedule a fresh produce → audit → revise loop\n\n` +
+          `The generation runs in the background — refresh in a minute or two to see the result.`;
+        if (!window.confirm(confirmMsg)) return;
+
+        const status = btn.parentElement?.parentElement?.querySelector<HTMLElement>('[data-regen-status]');
+        const setStatus = (text: string, cls: string) => {
+          if (!status) return;
+          status.textContent = text;
+          status.className = `mt-2 text-xs ${cls}`;
+        };
+
+        btn.disabled = true;
+        const originalLabel = btn.textContent;
+        btn.textContent = 'Regenerating…';
+        setStatus('Wiping old artefact + scheduling fresh generation…', 'text-zee-muted');
+
+        try {
+          const qs = new URLSearchParams({ piece_id: pieceId, type });
+          const res = await fetch(`/api/agents/interactive-regenerate?${qs.toString()}`, {
+            method: 'POST',
+          });
+          const body = await res.json() as { ok?: boolean; error?: string; deletedSlug?: string };
+          if (!res.ok || !body.ok) {
+            setStatus(body.error ?? `Regenerate failed (${res.status})`, 'text-red-600');
+            btn.disabled = false;
+            btn.textContent = originalLabel ?? 'Regenerate';
+            return;
+          }
+          setStatus(
+            `Wiped slug "${body.deletedSlug ?? slug}". Fresh generation running in the background — reload this page in a minute or two.`,
+            'text-emerald-700',
+          );
+          // Leave button disabled until reload to discourage accidental
+          // re-clicks. The alarm is async; clicking again would race a
+          // fresh row that doesn't yet exist.
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Network error';
+          setStatus(msg, 'text-red-600');
+          btn.disabled = false;
+          btn.textContent = originalLabel ?? 'Regenerate';
+        }
+      });
     }
   })();
 </script>

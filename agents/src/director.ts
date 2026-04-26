@@ -783,6 +783,169 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   }
 
   /**
+   * Operator-triggered destructive regeneration of one interactive
+   * artefact for a piece. Used by `/interactive-regenerate-trigger`
+   * (Phase 3 sub-task 3.3 of Interactives v3).
+   *
+   * Flow:
+   *   1. Resolve piece (date + title from `daily_pieces`).
+   *   2. Resolve target interactive row (by source_piece_id + type).
+   *   3. (HTML only) Refuse if `interactives_html_enabled = false` —
+   *      avoids the silent no-op where Generator skips the html path.
+   *   4. Delete the file from GitHub (Publisher.deleteInteractiveFile,
+   *      scoped to `content/interactives/`).
+   *   5. Delete D1 rows: `interactive_audit_results` for the id, then
+   *      the `interactives` row.
+   *   6. (Quiz only) Clear `daily_pieces.interactive_id` so the
+   *      Generator's quiz-path idempotence guard treats this as fresh.
+   *   7. Log the regeneration as an info-severity observer event.
+   *   8. Schedule `generateInteractiveScheduled` on a 1s alarm — fresh
+   *      DO invocation runs the produce → audit → revise loop end-to-
+   *      end. The metered result fires as a separate observer event
+   *      when generation completes.
+   *
+   * Slug behaviour: a quiz-only regen MAY produce a different slug
+   * if Claude returns a different proposal from the same source piece,
+   * which would break the quiz/html shared-slug invariant. v1 accepts
+   * this edge case; a `slugLock` parameter is the v2 enhancement if
+   * drift becomes an operational concern. HTML-only regen never
+   * drifts because the html path's `existingQuiz` lookup pins the
+   * slug to the still-present quiz row.
+   *
+   * Failure posture: any step that throws bubbles up — caller is the
+   * operator, who needs to see the failure and retry. NOT silent.
+   * The fresh-generation alarm follows its own non-retriable posture
+   * (the 4.5 ship-as-low + abandon-on-validator-fail behaviour).
+   */
+  async regenerateInteractive(payload: {
+    pieceId: string;
+    type: 'quiz' | 'html';
+    changedBy: string;
+  }): Promise<{
+    ok: true;
+    pieceId: string;
+    type: 'quiz' | 'html';
+    deletedSlug: string;
+    deletedInteractiveId: string;
+    deletedFilePath: string;
+  }> {
+    const { pieceId, type, changedBy } = payload;
+    const observer = await this.subAgent(ObserverAgent, 'observer');
+
+    // Resolve piece.
+    const piece = await this.env.DB
+      .prepare('SELECT id, date, headline FROM daily_pieces WHERE id = ?')
+      .bind(pieceId)
+      .first<{ id: string; date: string; headline: string }>();
+    if (!piece) {
+      throw new Error(`regenerateInteractive: piece ${pieceId} not found`);
+    }
+    // Derive the piece's MDX path the same way Director does at publish
+    // time (no `daily_pieces.file_path` column; algorithm is stable
+    // under the permanence rule that prevents headline edits).
+    const pieceSlug = piece.headline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    const pieceFilePath = `content/daily-pieces/${piece.date}-${pieceSlug}.mdx`;
+
+    // Resolve target interactive.
+    const target = await this.env.DB
+      .prepare(
+        `SELECT id, slug, title FROM interactives
+         WHERE source_piece_id = ? AND type = ? LIMIT 1`,
+      )
+      .bind(pieceId, type)
+      .first<{ id: string; slug: string; title: string }>();
+    if (!target) {
+      throw new Error(
+        `regenerateInteractive: no ${type} interactive found for piece ${pieceId}`,
+      );
+    }
+
+    // HTML guard: refuse if flag is off (would silently no-op otherwise).
+    if (type === 'html') {
+      const htmlEnabled = await getAdminSetting<boolean>(
+        this.env.DB,
+        'interactives_html_enabled',
+        (raw) => raw === 'true',
+        false,
+      );
+      if (!htmlEnabled) {
+        throw new Error(
+          `regenerateInteractive: interactives_html_enabled is false. Flip it on /dashboard/admin/settings/ before regenerating an HTML interactive.`,
+        );
+      }
+    }
+
+    // Compute file path. quiz → <slug>.json; html → <slug>-html.json.
+    const fileName = type === 'html' ? `${target.slug}-html.json` : `${target.slug}.json`;
+    const filePath = `content/interactives/${fileName}`;
+
+    // Delete file FIRST. If this fails (rate limit, auth), bail before
+    // the D1 wipe so D1 + repo stay consistent. The 404 case is a
+    // no-op inside deleteInteractiveFile.
+    const publisher = await this.subAgent(
+      PublisherAgent,
+      `interactive-regen-${target.slug}-${type}`,
+    );
+    await publisher.deleteInteractiveFile(
+      filePath,
+      `chore(interactives): regenerate ${target.title} (${target.slug}) [${type}]`,
+    );
+
+    // Delete D1 rows.
+    await this.env.DB
+      .prepare('DELETE FROM interactive_audit_results WHERE interactive_id = ?')
+      .bind(target.id)
+      .run();
+    await this.env.DB
+      .prepare('DELETE FROM interactives WHERE id = ?')
+      .bind(target.id)
+      .run();
+
+    // Clear daily_pieces.interactive_id only on quiz regen (the column
+    // is the quiz pointer per pre-Phase-2 semantics; HTML regen leaves
+    // it alone so the quiz row's invariant doesn't break).
+    if (type === 'quiz') {
+      await this.env.DB
+        .prepare('UPDATE daily_pieces SET interactive_id = NULL WHERE id = ?')
+        .bind(pieceId)
+        .run();
+    }
+
+    // Audit-trail event.
+    await observer
+      .logInteractiveRegenerated(
+        piece.date,
+        piece.headline,
+        type,
+        target.slug,
+        target.id,
+        filePath,
+        changedBy,
+        pieceId,
+      )
+      .catch(() => { /* observer write failure never blocks */ });
+
+    // Schedule fresh generation. Same payload shape as the
+    // post-publish auto-trigger so generateInteractiveScheduled
+    // doesn't need to know it's a regen.
+    await this.schedule(1, 'generateInteractiveScheduled', {
+      pieceId,
+      date: piece.date,
+      title: piece.headline,
+      filePath: pieceFilePath,
+    });
+
+    return {
+      ok: true,
+      pieceId,
+      type,
+      deletedSlug: target.slug,
+      deletedInteractiveId: target.id,
+      deletedFilePath: filePath,
+    };
+  }
+
+  /**
    * Alarm callback — runs the audio pipeline in a fresh DO invocation.
    *
    * Invoked by the Agents SDK scheduler after `triggerDailyPiece` (or

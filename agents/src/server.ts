@@ -75,7 +75,7 @@ export default {
     }
 
     // Admin endpoints require auth
-    const adminPaths = ['/daily-trigger', '/audio-retry', '/zita-synthesis-trigger', '/categorise-trigger', '/interactive-generate-trigger', '/status', '/digest', '/events', '/engagement'];
+    const adminPaths = ['/daily-trigger', '/audio-retry', '/zita-synthesis-trigger', '/categorise-trigger', '/interactive-generate-trigger', '/interactive-regenerate-trigger', '/status', '/digest', '/events', '/engagement'];
     if (adminPaths.some((p) => url.pathname === p) && !checkAuth(request, env)) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -445,6 +445,51 @@ export default {
         const message = err instanceof Error ? err.message : 'Unknown error';
         return new Response(JSON.stringify({ error: message }), {
           status: 500, headers: corsHeaders(request),
+        });
+      }
+    }
+
+    // InteractiveGenerator destructive regeneration:
+    //   POST /interactive-regenerate-trigger?piece_id=<uuid>&type=<quiz|html>&changed_by=<email>
+    //
+    // Wipes the existing `interactives` row + audit rows + git file
+    // for the (piece, type) pair, then fires a fresh
+    // `generateInteractiveScheduled` alarm. Synchronous in the sense
+    // that the wipe + observer event happen before the response;
+    // the fresh-generation alarm runs in a separate DO invocation
+    // 1s later. The endpoint blocks on the destructive steps so the
+    // operator sees a real error if the wipe fails (auth, rate limit,
+    // missing target row), instead of a 202 "started" with a silent
+    // server-side throw. Phase 3 sub-task 3.3 of Interactives v3.
+    if (url.pathname === '/interactive-regenerate-trigger' && request.method === 'POST') {
+      try {
+        const pieceId = url.searchParams.get('piece_id') ?? '';
+        const type = url.searchParams.get('type') ?? '';
+        const changedBy = url.searchParams.get('changed_by') ?? 'unknown';
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(pieceId)) {
+          return new Response(JSON.stringify({ error: 'Missing or invalid piece_id (UUID)' }), {
+            status: 400, headers: corsHeaders(request),
+          });
+        }
+        if (type !== 'quiz' && type !== 'html') {
+          return new Response(JSON.stringify({ error: "type must be 'quiz' or 'html'" }), {
+            status: 400, headers: corsHeaders(request),
+          });
+        }
+        const director = await getAgentByName<DirectorAgent>(env.DIRECTOR, 'default');
+        const result = await director.regenerateInteractive({
+          pieceId,
+          type,
+          changedBy,
+        });
+        return new Response(JSON.stringify(result), {
+          status: 202, headers: corsHeaders(request),
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        const status = /not found|interactives_html_enabled is false/.test(message) ? 400 : 500;
+        return new Response(JSON.stringify({ error: message }), {
+          status, headers: corsHeaders(request),
         });
       }
     }

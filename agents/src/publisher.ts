@@ -79,6 +79,57 @@ export class PublisherAgent extends Agent<Env, PublisherState> {
   }
 
   /**
+   * Delete an interactive file from the repo. Used by Director's
+   * `regenerateInteractive` flow — operator wants to wipe a Rough or
+   * stale interactive's file so a fresh generation can commit to the
+   * same slug.
+   *
+   * SAFETY: scoped to `content/interactives/` only. Daily pieces are
+   * permanent; this method refuses to touch anything outside the
+   * interactives directory at the API surface, not via prompt
+   * convention. Returning success on a 404 lets regen flows be
+   * idempotent against partial-state cleanups (D1 row deleted but
+   * file already gone, or vice versa).
+   */
+  async deleteInteractiveFile(filePath: string, commitMessage: string): Promise<void> {
+    if (!filePath.startsWith('content/interactives/')) {
+      throw new Error(
+        `deleteInteractiveFile refused: ${filePath} is not under content/interactives/. ` +
+        `Daily-piece files are permanent.`,
+      );
+    }
+
+    const sha = await this.getFileSha(filePath);
+    if (!sha) {
+      // File already gone — no-op for idempotent regen.
+      return;
+    }
+
+    const response = await fetch(
+      `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filePath}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.env.GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          'User-Agent': 'zeemish-agents',
+        },
+        body: JSON.stringify({
+          message: commitMessage,
+          sha,
+          branch: BRANCH,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`GitHub DELETE failed for ${filePath} (${response.status}): ${error}`);
+    }
+  }
+
+  /**
    * Second commit: splice an `audioBeats` YAML block into a published
    * piece's frontmatter. Expects the file to already exist (the
    * opposite of publishToPath). Idempotent — re-running with the same
