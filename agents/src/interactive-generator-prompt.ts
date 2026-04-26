@@ -1,4 +1,13 @@
 import { VOICE_CONTRACT } from './shared/voice-contract';
+import {
+  HTML_FILE_BYTES_MAX,
+  HTML_SCRIPT_ALLOWLIST_DESCRIPTION,
+} from './interactive-validator';
+
+// Re-export the constants the prompt references so existing/future
+// callers of the prompt module see them at the same import path. The
+// validator owns the values; this module owns the prose around them.
+export { HTML_FILE_BYTES_MAX, HTML_SCRIPT_ALLOWLIST_DESCRIPTION };
 
 /**
  * InteractiveGenerator prompts — produce interactives that teach the
@@ -52,18 +61,10 @@ export const QUIZ_OPTIONS_PER_QUESTION = 4;
  *  that the generator pattern-matches on surface details. */
 export const GENERATOR_BODY_EXCERPT_MAX_CHARS = 2500;
 
-/** Hard cap on HTML interactive file size, in bytes (UTF-8). Mirrors
- *  the validator rule at agents/src/interactive-validator.ts (Phase 2
- *  sub-task 2.2). 50 KB is generous for a single-file artefact with
- *  one external D3 v7 import; bloated files signal Generator drift. */
-export const HTML_FILE_BYTES_MAX = 50 * 1024;
-
-/** External-script allowlist — the ONLY URLs the validator accepts in
- *  a `<script src=...>` tag. Source pattern lives here so the prompt
- *  and validator stay in sync. cdnjs is the chosen CDN per
- *  docs/INTERACTIVES.md "Validator rules — Rule 4". */
-export const HTML_SCRIPT_ALLOWLIST_DESCRIPTION =
-  'https://cdnjs.cloudflare.com/ajax/libs/d3/7.<minor>.<patch>/d3.min.js (D3 v7 only, cdnjs only)';
+// HTML interactive constants are imported from interactive-validator.ts
+// and re-exported at the top of this file. The validator is the source
+// of truth for the size cap and the allowlist surface; this module
+// references the imports below in the prompt body.
 
 export const INTERACTIVE_GENERATOR_PROMPT = `You produce a short multiple-choice quiz that teaches the UNDERLYING CONCEPT of a just-published Zeemish daily piece.
 
