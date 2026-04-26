@@ -15,6 +15,7 @@ The news is the HOOK. The teaching is the SUBSTANCE. The reader gets the news AN
 
 Rules:
 - 1000-1500 words across all beats.
+- Target 5–6 beats per piece (hook + 3–4 teaching + close). 7+ beats is the padding zone — if a piece needs a seventh beat, the principle has already landed and you're restating it. Cut, don't add.
 - Hook: open with the observation that creates the question; let the question follow. Don't explain the situation in full before asking — the reader needs to be inside the puzzle, not briefed on it. No "In this lesson, we'll learn about..." — ever.
 - Teaching: open each beat with a specific observation — a fact, a moment, a number. The principle follows from it. Never start with a definition or a generalisation. Use the news as a concrete example throughout.
 - Close: one sentence that sits. No summary, no call to action, no congratulations.
