@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**19 tables across 23 migrations.**
+**19 tables across 24 migrations.**
 
 ## Reader-side tables
 
@@ -334,7 +334,7 @@ Per-round per-dimension audit output for interactives. Closes the deferred FOLLO
 
 Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — composite, leftmost-prefix friendly so a single `interactive_id` lookup also benefits. Migration: `0023_interactive_audit_results.sql`.
 
-## Migrations summary (23 migrations, 19 tables)
+## Migrations summary (24 migrations, 19 tables)
 - `0001_init.sql` — users, progress, submissions, zita_messages
 - `0002_observer_events.sql` — agent_tasks (later dropped), observer_events
 - `0003_engagement_learnings.sql` — engagement, learnings
@@ -358,3 +358,4 @@ Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — comp
 - `0021_categories.sql` — Area 2 sub-task 2.1. Created `categories(id, slug UNIQUE, name, description, locked, piece_count, created_at, updated_at)` + `piece_categories(piece_id, category_id, confidence, created_at)` with composite PK. Data surface for the 14th agent (Categoriser, sub-task 2.2) plus the library category filter (sub-task 2.4) and admin management page (sub-task 2.5). Both tables empty at migration time — populated organically by Categoriser on new pieces and by a one-time seed script (sub-task 2.3) over pre-Categoriser pieces. Additive, rollback = DROP both tables.
 - `0022_interactives.sql` — Area 4 sub-task 4.1. Created `interactives(id, slug UNIQUE, type, title, concept, source_piece_id, content_json, voice_score, quality_flag, revision_count, published_at, created_at)` + `interactive_engagement(id, user_id, interactive_id, event_type, score, per_question_correctness, created_at)` append-only event log. Added `daily_pieces.interactive_id TEXT` as the single source of truth for "piece has an interactive" — deprecated the unused `has_interactive` INTEGER column scaffolded in 0006 (left physical since SQLite DROP COLUMN would require a `daily_pieces` rebuild with too-wide blast radius). Data surface for the 15th + 16th agents (InteractiveGenerator + InteractiveAuditor, sub-tasks 4.4 + 4.5). All new tables empty at migration time. Additive, rollback = DROP both new tables (the `daily_pieces.interactive_id` column stays inert when null if code is rolled back).
 - `0023_interactive_audit_results.sql` — Closes the deferred FOLLOWUPS 2026-04-24 sub-task 4.1 entry. Created `interactive_audit_results(id, interactive_id, round, dimension, passed, score, notes, created_at)` + composite index on `(interactive_id, round)`. Per-round per-dimension audit output, mirroring `audit_results` shape. Writer site is InteractiveGeneratorAgent's produce→audit→revise loop (writes 4 rows per round after each `auditor.audit()` call); reader site is the made.ts API for the drawer's `failedDimensions` field. Pre-allocates `interactive_id` before the loop so audit rows have a stable FK regardless of the eventual commit/decline outcome. Triggered by the 2026-04-25 Maine drawer's voice-vs-Rough contradiction — once we name the dimension that flagged, "Shipped as Rough" stops conflating tier vocabularies. Empty at migration time (the 2 existing `quality_flag='low'` rows can't be reconstructed). Additive, rollback = DROP TABLE.
+- `0024_interactives_html_flag.sql` — Interactives v3 Phase 1 sub-task 1.1. Seeded `admin_settings('interactives_html_enabled', 'false', …)` via `INSERT OR IGNORE`. Gates the HTML-interactive generation path that lands in Phase 2 (Generator + Auditor extension). Quizzes are NOT gated by this flag — the longer name vs. `interactives_enabled` was deliberate to avoid implying quizzes were also gated. Default `'false'` so the migration is behaviourally a no-op on prod. Phase 3 ships the admin UI write site; until then `wrangler d1 execute` is the only way to flip. Rollback = DELETE FROM admin_settings WHERE key = 'interactives_html_enabled'; the Phase 2 read site falls back to `false` when the row is missing.

@@ -163,6 +163,41 @@ curl "https://zeemish-agents.zzeeshann.workers.dev/status" \
 - Archive: https://zeemish.io/daily/
 - Single piece: https://zeemish.io/daily/YYYY-MM-DD/
 
+## Interactives v3 — HTML interactive flag
+
+The `admin_settings.interactives_html_enabled` flag (migration 0024,
+default `'false'`) gates the HTML-interactive generation path that
+lands in Phase 2 of the Interactives v3 work. Quizzes are NOT gated
+— InteractiveGenerator's existing quiz path runs unchanged regardless
+of the flag.
+
+Phase 3 of v3 ships an admin-UI toggle alongside the cadence dropdown.
+Until then, the only way to flip is `wrangler d1 execute`:
+
+```bash
+# Read current value
+wrangler d1 execute zeemish --remote --command \
+  "SELECT * FROM admin_settings WHERE key = 'interactives_html_enabled';"
+
+# Flip on (Phase 2 read site must already be deployed):
+wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='true', updated_at=strftime('%s','now')*1000
+     WHERE key='interactives_html_enabled';"
+
+# Flip off (rollback):
+wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='false', updated_at=strftime('%s','now')*1000
+     WHERE key='interactives_html_enabled';"
+```
+
+Read by Director on the next pipeline run (no DO restart). Generator
+falls back to `false` if the row is missing (Phase 2 reader uses the
+same `getAdminSetting<T>` helper as `interval_hours`).
+
+The full migration rollback (drop the row entirely) is a one-line
+DELETE; see `migrations/0024_interactives_html_flag.sql` header for
+the exact statement and rationale.
+
 ## Reset today (clean slate for a dev-mode re-test)
 
 Daily pieces are the product. Cadence is configurable via
