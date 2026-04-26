@@ -16,60 +16,52 @@
  *   </made-drawer>
  */
 
-/* --- Open affordance (button at bottom of the piece) ---------------- */
+/* --- Open affordance — small info button at the bottom of the page  ---- */
+/* Single-scroll layout (Area 5): the affordance is intentionally subtle.
+   A reader's primary path is title → audio → beats → interactive →
+   finish state. The "How this was made" drawer is a curiosity exit, not
+   a forced step, so the trigger reads as an info icon, not a CTA. */
 
 .made-open {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin: 3rem 0 0;
-  padding: 1.25rem 0;
+  gap: 0.45rem;
+  margin: 2rem auto 0;
+  padding: 0.5rem 0.75rem;
   border: 0;
-  border-top: 1px solid #E8E4DE;
-  border-bottom: 1px solid #E8E4DE;
   background: transparent;
-  text-align: left;
   font-family: inherit;
-  color: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #6B6B6B;
   cursor: pointer;
-  transition: background 0.15s ease;
+  border-radius: 9999px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+made-drawer {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
 }
 
 .made-open:hover {
-  background: rgba(232, 228, 222, 0.25);
+  color: #1A6B62;
+  background: rgba(232, 228, 222, 0.4);
+}
+
+.made-open-icon {
+  flex-shrink: 0;
+  color: #1A6B62;
 }
 
 .made-open-label {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #1A1A1A;
-  letter-spacing: -0.01em;
-}
-
-.made-open-meta {
-  display: block;
-  font-size: 0.8125rem;
-  font-weight: 400;
-  color: #6B6B6B;
-  margin-top: 0.25rem;
-  letter-spacing: 0;
-}
-
-.made-open-arrow {
-  flex-shrink: 0;
-  color: #1A6B62;
-  transition: transform 0.2s ease;
-}
-
-.made-open:hover .made-open-arrow {
-  transform: translateX(2px);
+  letter-spacing: -0.005em;
 }
 
 .made-open:focus-visible {
   outline: 2px solid #1A6B62;
   outline-offset: 2px;
-  border-radius: 0.25rem;
 }
 
 /* --- Backdrop + panel ----------------------------------------------- */

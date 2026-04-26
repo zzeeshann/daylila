@@ -42,6 +42,7 @@ class InteractiveFrame extends HTMLElement {
   private interactiveId = '';
   private startedFired = false;
   private viewObserver: IntersectionObserver | null = null;
+  private resizeMessageHandler: ((e: MessageEvent) => void) | null = null;
 
   connectedCallback() {
     this.interactiveId = this.getAttribute('data-interactive-id') ?? '';
@@ -52,6 +53,7 @@ class InteractiveFrame extends HTMLElement {
     }
 
     this.observeViewport();
+    this.listenForResize();
   }
 
   disconnectedCallback() {
@@ -59,6 +61,57 @@ class InteractiveFrame extends HTMLElement {
       this.viewObserver.disconnect();
       this.viewObserver = null;
     }
+    if (this.resizeMessageHandler) {
+      window.removeEventListener('message', this.resizeMessageHandler);
+      this.resizeMessageHandler = null;
+    }
+  }
+
+  /**
+   * Listen for resize messages from inside the sandboxed iframe.
+   * The probe injected at render time (src/lib/interactive-html.ts)
+   * posts `{ zeemishFrame: 'resize', height: <px> }` whenever the
+   * inner document body height changes. Setting the iframe's
+   * inline `height` lets the page eliminate the nested scrollbar
+   * that the fixed CSS height (`600px`) would otherwise force on
+   * tall interactives.
+   *
+   * Magic-token filter (no origin check) — srcdoc-iframe origin
+   * varies by browser; `zeemishFrame === 'resize'` is the contract.
+   * Sandbox is `allow-scripts` only, so a stray sender can't reach
+   * our APIs; worst case is a wrong height.
+   */
+  private listenForResize(): void {
+    const iframe = this.querySelector('iframe');
+    if (!(iframe instanceof HTMLIFrameElement)) return;
+
+    this.resizeMessageHandler = (e: MessageEvent) => {
+      // Only honour messages from THIS element's iframe, not other
+      // frames on the page (a piece could in theory carry multiple
+      // iframes, today only one).
+      if (e.source !== iframe.contentWindow) return;
+      const data = e.data as { zeemishFrame?: string; height?: number } | null;
+      if (!data || data.zeemishFrame !== 'resize') return;
+      const h = typeof data.height === 'number' ? data.height : 0;
+      if (h <= 0 || h > 10000) return; // sanity clamp
+      iframe.style.height = `${Math.ceil(h)}px`;
+    };
+    window.addEventListener('message', this.resizeMessageHandler);
+
+    // Ask the iframe for a fresh height now in case it loaded BEFORE
+    // this listener attached (custom-element upgrade can lag the
+    // iframe's first paint on cold loads). The probe inside the
+    // sandbox echoes height on `{zeemishFrame:'ping'}`. Retry a
+    // couple of times in case the iframe itself is still loading.
+    const ping = () => {
+      const w = iframe.contentWindow;
+      if (!w) return;
+      try { w.postMessage({ zeemishFrame: 'ping' }, '*'); } catch { /* ignore */ }
+    };
+    if (iframe.contentWindow) ping();
+    iframe.addEventListener('load', ping, { once: true });
+    setTimeout(ping, 250);
+    setTimeout(ping, 1000);
   }
 
   private observeViewport(): void {

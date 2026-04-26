@@ -1,8 +1,10 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import AudioPlayer from '../components/AudioPlayer.astro';
+import MadeBy from '../components/MadeBy.astro';
 import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { isLowQuality, LOW_QUALITY_NOTE, type InteractiveBundle } from '../lib/interactives';
+import { wrapWithResizeProbe } from '../lib/interactive-html';
 import '../styles/beats.css';
 import '../styles/zita.css';
 
@@ -155,8 +157,9 @@ const interactiveSlug = primary?.data.slug ?? null;
               sandbox="allow-scripts"
               loading="lazy"
               referrerpolicy="no-referrer"
+              scrolling="no"
               title={htmlEntry.data.concept}
-              srcdoc={htmlEntry.data.content.html}
+              srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
             ></iframe>
           </interactive-frame>
         </div>
@@ -210,6 +213,8 @@ const interactiveSlug = primary?.data.slug ?? null;
       <span class="lesson-finish-toast" data-share-toast aria-live="polite" hidden>Link copied</span>
     </div>
   </footer>
+
+  {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
 
   <zita-chat
     course="daily"

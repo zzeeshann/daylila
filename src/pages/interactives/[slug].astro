@@ -8,6 +8,7 @@ import {
   LOW_QUALITY_NOTE,
   type InteractiveEntry,
 } from '../../lib/interactives';
+import { wrapWithResizeProbe } from '../../lib/interactive-html';
 import '../../styles/quiz.css';
 import '../../styles/interactive-frame.css';
 
@@ -69,8 +70,9 @@ const { primary, quizEntry, htmlEntry, quizContentJson } = bundle;
             sandbox="allow-scripts"
             loading="lazy"
             referrerpolicy="no-referrer"
+            scrolling="no"
             title={htmlEntry.data.concept}
-            srcdoc={htmlEntry.data.content.html}
+            srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
           ></iframe>
         </interactive-frame>
       </section>

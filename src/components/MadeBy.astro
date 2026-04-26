@@ -1,18 +1,22 @@
 ---
 /**
- * "How this was made" — open affordance + drawer shell.
+ * "How this was made" — small open affordance + drawer shell.
+ *
+ * Renders a single-line, icon-led button at the bottom of the page
+ * (single-scroll layout, Area 5). Click opens the slide-in drawer;
+ * the panel is the same drawer-dialog shape as before. Only the open
+ * affordance shrunk — drawer body, fetch, and rendering are all
+ * unchanged.
  *
  * Server-renders only the static scaffold:
- *   - the open affordance button (static, no dynamic counts)
+ *   - the open affordance (small info-icon button)
  *   - the empty drawer with a skeleton
  *
  * Daily piece pages are statically prerendered (no D1 at build time).
  * The full drawer content is fetched client-side from
- * /api/daily/{date}/made by src/interactive/made-drawer.ts — but only
- * on first open, not on mount. Saves one D1 query per page view for
- * readers who never open the drawer.
+ * /api/daily/{date}/made by src/interactive/made-drawer.ts on first
+ * open — saves one D1 query per page view for readers who never open.
  */
-import { AGENT_COUNT } from '../lib/constants';
 
 interface Props {
   date: string;
@@ -29,16 +33,14 @@ const { date, pieceId } = Astro.props;
     data-made-open
     aria-haspopup="dialog"
     aria-controls={`made-panel-${date}`}
+    aria-label="How this was made"
   >
-    <span>
-      <span class="made-open-label">How this was made</span>
-      <span class="made-open-meta">
-        The pipeline of {AGENT_COUNT} agents behind this piece
-      </span>
-    </span>
-    <svg class="made-open-arrow" width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg class="made-open-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.25"/>
+      <path d="M8 7v4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+      <circle cx="8" cy="5" r="0.75" fill="currentColor"/>
     </svg>
+    <span class="made-open-label">How this was made</span>
   </button>
 
   <div class="made-backdrop" data-made-backdrop aria-hidden="true"></div>

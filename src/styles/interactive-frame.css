@@ -10,6 +10,15 @@
  * up to 50 KB to the parent page; lazy-loading + the small per-piece
  * count keep that tolerable. The future hardening path is documented
  * in docs/INTERACTIVES.md "Loading strategy: srcdoc vs src".
+ *
+ * Auto-resize (Area 5, single-scroll layout): the iframe used to ship
+ * with a fixed `height: 600px` which forced an inner scrollbar inside
+ * the already-scrolling daily piece page. Now `min-height` only —
+ * src/lib/interactive-html.ts injects a tiny `postMessage` probe into
+ * the srcdoc HTML at render time, and src/interactive/interactive-frame.ts
+ * listens for it and sets the iframe's inline `height` to match the
+ * inner content. With `scrolling="no"` on the iframe element, no nested
+ * scrollbar ever appears even before the first probe message arrives.
  */
 
 interactive-frame {
@@ -20,11 +29,11 @@ interactive-frame {
 .interactive-frame-iframe {
   display: block;
   width: 100%;
-  /* Initial height is generous; the iframe content sets its own
-     min-height via CSS inside the sandbox. Fixed default so first
-     paint doesn't reflow. Generators that want more space should
-     style the iframe document's body. */
-  height: 600px;
+  /* Reserve a sensible block before the resize probe lands so the
+     page doesn't reflow violently on first paint. The actual height
+     is set by the parent listener in interactive-frame.ts as soon as
+     the inner document body reports its scrollHeight. */
+  min-height: 320px;
   border: 1px solid var(--zee-border, #e5e0d6);
   border-radius: 8px;
   background: #fff;
@@ -32,13 +41,16 @@ interactive-frame {
      blocks any same-origin manipulation, so a poorly-sized inner
      document can't bleed out. */
   max-width: 100%;
+  /* Belt + braces: the parent script sets height to inner content, and
+     the iframe carries `scrolling="no"`. Hiding overflow here is the
+     final guard against a stray internal scrollbar before the probe
+     fires. */
+  overflow: hidden;
 }
 
-/* Mobile: trim the height a touch so the frame fits in a phone
-   viewport with room for the surrounding chrome (heading + concept
-   line + back link). */
+/* Mobile: trim the reserved first-paint height a touch. */
 @media (max-width: 640px) {
   .interactive-frame-iframe {
-    height: 480px;
+    min-height: 240px;
   }
 }

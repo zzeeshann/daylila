@@ -1,7 +1,6 @@
 ---
 import { getCollection, render } from 'astro:content';
 import LessonLayout from '../../../layouts/LessonLayout.astro';
-import MadeBy from '../../../components/MadeBy.astro';
 import { deriveSlug } from '../../../lib/slug';
 import { bundleByPieceId, type InteractiveBundle } from '../../../lib/interactives';
 import '../../../styles/made.css';
@@ -49,7 +48,6 @@ const { Content } = await render(piece);
   interactiveBundle={bundle}
 >
   <Content />
-  <MadeBy date={piece.data.date} pieceId={piece.data.pieceId} />
 </LessonLayout>
 
 <script>

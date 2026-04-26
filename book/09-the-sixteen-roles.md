@@ -146,7 +146,7 @@ The effect compounds. Early pieces create the taxonomy because the list is short
 
 **Job:** Produce a standalone quiz that teaches the same underlying concept as the piece — without ever naming the piece.
 
-**What it does:** After Publisher ships, re-reads the published MDX and writes a 3–5 question multiple-choice quiz about the *concept* the piece taught. Commits the quiz as its own JSON file in `content/interactives/`. The quiz gets its own URL at `/interactives/<slug>/` and the daily piece's last beat carries a small "See if it landed →" link pointing at it.
+**What it does:** After Publisher ships, re-reads the published MDX and writes a 3–5 question multiple-choice quiz about the *concept* the piece taught. Commits the quiz as its own JSON file in `content/interactives/`. The quiz gets its own URL at `/interactives/<slug>/` for direct linking, and (since Area 5's single-scroll layout) embeds inline at the bottom of the daily piece page so a reader who scrolls through the beats walks straight into it without clicking out.
 
 **Claude call?** Yes. Up to three — each attempt is handed to the Interactive Auditor (the next agent). If the audit fails, Generator revises with the auditor's feedback and tries again. Three rounds maximum.
 
