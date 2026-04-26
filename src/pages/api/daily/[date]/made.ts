@@ -69,6 +69,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     },
     categories: [],
     interactive: null,
+    htmlInteractive: null,
     learnings: [],
   };
 
@@ -320,77 +321,97 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     } catch { /* leave categories empty */ }
   }
 
-  // --- Interactive (quiz today, future-compat for breathing/chart/game) ---
-  // Single row by source_piece_id — uses idx_interactives_source_piece.
-  // null when Generator declined as redundant, hasn't run yet, or the
-  // piece pre-dates the agent (pre-2026-04-24). qualityFlag === 'low'
-  // indicates a max-failed-but-shipped artefact (sub-task 4.5 reversal).
+  // --- Interactives (quiz + html, both per piece since Phase 2) -------
+  // Two queries — one per artefact type. Each populates a separate
+  // envelope field (`interactive` for quiz, `htmlInteractive` for html)
+  // so a stale cached drawer bundle that only knows about `interactive`
+  // doesn't break. Independent failure: a transient D1 error on one
+  // query leaves the other intact.
+  //
+  // The latest-round failed-dimensions sub-query is shared logic;
+  // factored into a helper to avoid duplicating the dimension-order
+  // CASE WHEN block.
   if (pieceIdFilter) {
+    type InteractiveRow = {
+      id: string;
+      slug: string;
+      type: string;
+      title: string;
+      voice_score: number | null;
+      quality_flag: string | null;
+      revision_count: number | null;
+      published_at: number | null;
+    };
+    const fetchFailedDimensions = async (interactiveId: string): Promise<string[]> => {
+      try {
+        const auditRes = await db
+          .prepare(
+            `SELECT dimension
+               FROM interactive_audit_results
+              WHERE interactive_id = ?
+                AND round = (
+                  SELECT MAX(round)
+                    FROM interactive_audit_results
+                   WHERE interactive_id = ?
+                )
+                AND passed = 0
+              ORDER BY CASE dimension
+                WHEN 'voice'     THEN 1
+                WHEN 'structure' THEN 2
+                WHEN 'essence'   THEN 3
+                WHEN 'factual'   THEN 4
+                ELSE 5
+              END`,
+          )
+          .bind(interactiveId, interactiveId)
+          .all<{ dimension: string }>();
+        return auditRes.results.map((r) => r.dimension);
+      } catch {
+        return [];
+      }
+    };
+    const rowToShape = async (row: InteractiveRow): Promise<MadeInteractive> => ({
+      slug: row.slug,
+      type: row.type,
+      title: row.title,
+      voiceScore: row.voice_score ?? null,
+      qualityFlag: row.quality_flag === 'low' ? 'low' : null,
+      revisionCount: row.revision_count ?? 0,
+      publishedAt: row.published_at ?? null,
+      failedDimensions: await fetchFailedDimensions(row.id),
+    });
+
+    // Quiz path — same query as before, narrowed by type.
     try {
       const row = await db
         .prepare(
           `SELECT id, slug, type, title, voice_score, quality_flag, revision_count, published_at
              FROM interactives
-            WHERE source_piece_id = ?
+            WHERE source_piece_id = ? AND type = 'quiz'
             LIMIT 1`,
         )
         .bind(pieceIdFilter)
-        .first<{
-          id: string;
-          slug: string;
-          type: string;
-          title: string;
-          voice_score: number | null;
-          quality_flag: string | null;
-          revision_count: number | null;
-          published_at: number | null;
-        }>();
+        .first<InteractiveRow>();
       if (row) {
-        // Latest-round failed dimensions (post-2026-04-25 migration
-        // 0023). Single query: `(interactive_id, round)` index covers
-        // both the WHERE and the GROUP BY. Returns empty array for
-        // legacy interactives (no rows) or clean passes (all passed=1
-        // — filtered out). Fixed-order sort matches the Auditor's
-        // dimension order so drawer copy reads naturally.
-        let failedDimensions: string[] = [];
-        try {
-          const auditRes = await db
-            .prepare(
-              `SELECT dimension
-                 FROM interactive_audit_results
-                WHERE interactive_id = ?
-                  AND round = (
-                    SELECT MAX(round)
-                      FROM interactive_audit_results
-                     WHERE interactive_id = ?
-                  )
-                  AND passed = 0
-                ORDER BY CASE dimension
-                  WHEN 'voice'     THEN 1
-                  WHEN 'structure' THEN 2
-                  WHEN 'essence'   THEN 3
-                  WHEN 'factual'   THEN 4
-                  ELSE 5
-                END`,
-            )
-            .bind(row.id, row.id)
-            .all<{ dimension: string }>();
-          failedDimensions = auditRes.results.map((r) => r.dimension);
-        } catch { /* legacy or transient — leave empty */ }
-
-        const interactive: MadeInteractive = {
-          slug: row.slug,
-          type: row.type,
-          title: row.title,
-          voiceScore: row.voice_score ?? null,
-          qualityFlag: row.quality_flag === 'low' ? 'low' : null,
-          revisionCount: row.revision_count ?? 0,
-          publishedAt: row.published_at ?? null,
-          failedDimensions,
-        };
-        envelope.interactive = interactive;
+        envelope.interactive = await rowToShape(row);
       }
     } catch { /* leave interactive null */ }
+
+    // HTML interactive path — new in Phase 2 sub-task 2.6.
+    try {
+      const row = await db
+        .prepare(
+          `SELECT id, slug, type, title, voice_score, quality_flag, revision_count, published_at
+             FROM interactives
+            WHERE source_piece_id = ? AND type = 'html'
+            LIMIT 1`,
+        )
+        .bind(pieceIdFilter)
+        .first<InteractiveRow>();
+      if (row) {
+        envelope.htmlInteractive = await rowToShape(row);
+      }
+    } catch { /* leave htmlInteractive null */ }
   }
 
   // --- Learnings pinned to this piece ---------------------------------

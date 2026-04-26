@@ -80,7 +80,18 @@ const dailyPieces = defineCollection({
  * (file is authoritative).
  */
 const interactives = defineCollection({
-  loader: glob({ pattern: '**/*.json', base: './content/interactives' }),
+  loader: glob({
+    pattern: '**/*.json',
+    base: './content/interactives',
+    // Astro 5's glob loader auto-uses a top-level `slug` field as the
+    // entry id when present. Quiz + html files for the same piece share
+    // the slug field on purpose (one URL per piece — see Phase 2 sub-
+    // task 2.5), so we override generateId to use the filename instead.
+    // Without this override, two entries with the same slug field would
+    // collide on id and the second-loaded would silently overwrite the
+    // first.
+    generateId: ({ entry }) => entry.replace(/\.json$/, ''),
+  }),
   schema: z.object({
     slug: z.string(),
     // 'quiz' | 'html'. Quiz path live since Area 4; HTML path added

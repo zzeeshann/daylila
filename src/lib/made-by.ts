@@ -121,12 +121,23 @@ export interface MadeCategory {
 }
 
 /**
- * The standalone interactive (Area 4 — currently quizzes) generated from
- * this piece by InteractiveGenerator + InteractiveAuditor. `null` means
- * Generator hasn't run, declined as redundant, or pre-dates the agent.
+ * The standalone interactive generated from this piece by
+ * InteractiveGenerator + InteractiveAuditor. `null` on the field means
+ * that artefact type's path hasn't run, declined as redundant, or
+ * pre-dates the agent.
+ *
+ * Two artefact types ship per piece since Phase 2:
+ *   - `envelope.interactive` — the QUIZ (live since Area 4).
+ *   - `envelope.htmlInteractive` — the HTML interactive (Phase 2,
+ *     gated by `interactives_html_enabled`).
+ *
  * `qualityFlag === 'low'` indicates a max-failed-but-shipped artefact
- * (per the 2026-04-24 reversal); the drawer renders normally and notes
- * the Rough tier so readers can still try it.
+ * (per the 2026-04-24 reversal for quiz, mirrored on HTML in Phase
+ * 2.4); the drawer renders normally and surfaces a dimension-named
+ * note so readers can still try it.
+ *
+ * Both fields independent — quiz can ship while HTML declines, or
+ * vice versa.
  */
 export interface MadeInteractive {
   slug: string;
@@ -153,7 +164,15 @@ export interface MadeEnvelope {
   candidates: MadeCandidates;
   audio: MadeAudio;
   categories: MadeCategory[];
+  /** The QUIZ artefact for this piece — `null` if the quiz path
+   *  declined / hasn't run / pre-dates the agent. Field name kept
+   *  for back-compat with the shipped reader bundle. */
   interactive: MadeInteractive | null;
+  /** The HTML INTERACTIVE artefact for this piece — `null` if the
+   *  HTML path declined / hasn't run / `interactives_html_enabled`
+   *  is false / pre-dates Phase 2. Independent from `interactive`
+   *  above; both can be set, one set, or neither. */
+  htmlInteractive: MadeInteractive | null;
   learnings: MadeLearning[];
 }
 

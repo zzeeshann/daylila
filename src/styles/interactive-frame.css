@@ -1,0 +1,44 @@
+/*
+ * <interactive-frame> — sandboxed iframe styling.
+ *
+ * Standalone CSS file (NOT Tailwind-processed) so the selectors stay
+ * stable when consumed from the Web Component. Same convention as
+ * src/styles/quiz.css.
+ *
+ * The iframe uses `srcdoc` to inline the full HTML interactive (Phase
+ * 2 sub-task 2.6's call vs. a separate `/embed` route). srcdoc adds
+ * up to 50 KB to the parent page; lazy-loading + the small per-piece
+ * count keep that tolerable. The future hardening path is documented
+ * in docs/INTERACTIVES.md "Loading strategy: srcdoc vs src".
+ */
+
+interactive-frame {
+  display: block;
+  width: 100%;
+}
+
+.interactive-frame-iframe {
+  display: block;
+  width: 100%;
+  /* Initial height is generous; the iframe content sets its own
+     min-height via CSS inside the sandbox. Fixed default so first
+     paint doesn't reflow. Generators that want more space should
+     style the iframe document's body. */
+  height: 600px;
+  border: 1px solid var(--zee-border, #e5e0d6);
+  border-radius: 8px;
+  background: #fff;
+  /* Keep the iframe contained on tablet and below — the sandbox
+     blocks any same-origin manipulation, so a poorly-sized inner
+     document can't bleed out. */
+  max-width: 100%;
+}
+
+/* Mobile: trim the height a touch so the frame fits in a phone
+   viewport with room for the surrounding chrome (heading + concept
+   line + back link). */
+@media (max-width: 640px) {
+  .interactive-frame-iframe {
+    height: 480px;
+  }
+}

@@ -1,65 +1,130 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/quiz.css';
+import '../../styles/interactive-frame.css';
 
+type InteractiveEntry = CollectionEntry<'interactives'>;
+
+/**
+ * One static path per slug, regardless of how many artefact types
+ * (quiz / html) ship for that slug. A piece's quiz + html SHARE the
+ * slug as of Phase 2 sub-task 2.5 (migration 0026 relaxed slug
+ * uniqueness to per-(slug, type)). Group entries by slug so each
+ * URL renders both artefacts when both exist, OR just whichever
+ * one shipped if only one did.
+ */
 export async function getStaticPaths() {
   const all = await getCollection('interactives');
-  return all.map((entry) => ({
-    params: { slug: entry.data.slug },
-    props: { entry },
+  const bySlug = new Map<string, InteractiveEntry[]>();
+  for (const entry of all) {
+    const slug = entry.data.slug;
+    const arr = bySlug.get(slug) ?? [];
+    arr.push(entry);
+    bySlug.set(slug, arr);
+  }
+  return Array.from(bySlug.entries()).map(([slug, entries]) => ({
+    params: { slug },
+    props: { entries },
   }));
 }
 
-const { entry } = Astro.props;
-const { data } = entry;
-const isLowQuality = data.qualityFlag === 'low';
+const { entries } = Astro.props as { entries: InteractiveEntry[] };
 
-// The JSON script tag carries the full structured content to the
-// <quiz-card> custom element (defined in sub-task 4.3). Without JS,
-// the element doesn't upgrade and the server-rendered Q&A list inside
-// remains the progressive-enhancement fallback.
-const contentJson = JSON.stringify(data.content);
+// Pick out each artefact type (zero or one of each per slug, post-2.5).
+const quizEntry = entries.find((e) => e.data.type === 'quiz');
+const htmlEntry = entries.find((e) => e.data.type === 'html');
+
+// Page header uses the quiz's metadata when present (the dominant case
+// pre-Phase-2; quiz commits first when both run in the same generation
+// pass and sets the canonical title for the URL). HTML's metadata as
+// fallback when quiz declined or hasn't run yet.
+const primary = quizEntry ?? htmlEntry;
+if (!primary) {
+  // Empty group — shouldn't happen given the static-paths grouping,
+  // but Astro's type narrowing wants this guard.
+  throw new Error(`No interactive entries for slug ${Astro.params.slug}`);
+}
+
+const isLowQuality = (e: InteractiveEntry) => e.data.qualityFlag === 'low';
+const lowNote = "This interactive didn't pass all auditor gates. Kept live so nothing goes dark, but it may have rough edges.";
+
+// JSON payload for the quiz's content — mirrors the existing pattern.
+const quizContentJson = quizEntry && quizEntry.data.content.type === 'quiz'
+  ? JSON.stringify(quizEntry.data.content)
+  : null;
 ---
 
-<BaseLayout title={data.title} description={data.concept} ogType="article">
+<BaseLayout title={primary.data.title} description={primary.data.concept} ogType="article">
   <article class="mx-auto">
     <p class="text-xs uppercase tracking-wider text-zee-muted mb-2">
-      Interactive · {data.type}
+      Interactive
     </p>
-    <h1 class="text-3xl font-bold text-zee-primary mb-3">{data.title}</h1>
-    {data.concept && (
-      <p class="text-lg text-zee-text/80 mb-6 leading-relaxed">{data.concept}</p>
+    <h1 class="text-3xl font-bold text-zee-primary mb-3">{primary.data.title}</h1>
+    {primary.data.concept && (
+      <p class="text-lg text-zee-text/80 mb-6 leading-relaxed">{primary.data.concept}</p>
     )}
 
-    {isLowQuality && (
-      <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-6">
-        This interactive didn't pass all auditor gates. Kept live so nothing
-        goes dark, but it may have rough edges.
-      </div>
+    {/* HTML interactive renders FIRST when present — manipulation before recall.
+        The reader feels the mechanism via the slider/scrubber/etc., then the
+        quiz checks pattern recognition. Order chosen for pedagogical layering;
+        spec leaves it open. */}
+    {htmlEntry && htmlEntry.data.content.type === 'html' && (
+      <section class="mb-12">
+        <h2 class="text-sm uppercase tracking-wider text-zee-muted mb-3">Try the model</h2>
+        {isLowQuality(htmlEntry) && (
+          <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-3">
+            {lowNote}
+          </div>
+        )}
+        <interactive-frame
+          data-interactive-id={htmlEntry.data.interactiveId}
+          data-concept={htmlEntry.data.concept}
+        >
+          <iframe
+            class="interactive-frame-iframe"
+            sandbox="allow-scripts"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            title={htmlEntry.data.concept}
+            srcdoc={htmlEntry.data.content.html}
+          ></iframe>
+        </interactive-frame>
+      </section>
     )}
 
-    {data.type === 'quiz' && data.content.type === 'quiz' && (
-      <quiz-card data-interactive-id={data.interactiveId}>
-        <script type="application/json" data-quiz-content set:html={contentJson} />
-        <noscript>
-          <ol class="space-y-6 list-decimal list-inside">
-            {data.content.questions.map((q) => (
-              <li class="leading-relaxed">
-                <p class="font-medium mb-2">{q.question}</p>
-                <ul class="list-disc list-inside pl-4 text-zee-text/80 space-y-1">
-                  {q.options.map((opt) => (
-                    <li>{opt}</li>
-                  ))}
-                </ul>
-                <p class="text-xs text-zee-muted mt-2">
-                  Answer: {q.options[q.correctIndex]}. {q.explanation}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </noscript>
-      </quiz-card>
+    {/* Quiz renders second — pattern recognition after manipulation. */}
+    {quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
+      <section>
+        {htmlEntry && (
+          <h2 class="text-sm uppercase tracking-wider text-zee-muted mb-3">Then check the pattern</h2>
+        )}
+        {isLowQuality(quizEntry) && (
+          <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-3">
+            {lowNote}
+          </div>
+        )}
+        <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
+          <script type="application/json" data-quiz-content set:html={quizContentJson} />
+          <noscript>
+            <ol class="space-y-6 list-decimal list-inside">
+              {quizEntry.data.content.questions.map((q) => (
+                <li class="leading-relaxed">
+                  <p class="font-medium mb-2">{q.question}</p>
+                  <ul class="list-disc list-inside pl-4 text-zee-text/80 space-y-1">
+                    {q.options.map((opt) => (
+                      <li>{opt}</li>
+                    ))}
+                  </ul>
+                  <p class="text-xs text-zee-muted mt-2">
+                    Answer: {q.options[q.correctIndex]}. {q.explanation}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </noscript>
+        </quiz-card>
+      </section>
     )}
 
     <p class="text-xs text-zee-muted mt-10">
@@ -69,5 +134,6 @@ const contentJson = JSON.stringify(data.content);
 
   <script>
     import '../../interactive/quiz-card';
+    import '../../interactive/interactive-frame';
   </script>
 </BaseLayout>

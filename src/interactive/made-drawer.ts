@@ -331,9 +331,17 @@ class MadeDrawer extends HTMLElement {
       `);
     }
 
-    // --- Interactive (quiz/breathing/chart/game built from this piece) ---
+    // --- Interactives (quiz + html, both per piece since Phase 2) ---
+    // Two independent sections — quiz from `env.interactive`, html
+    // from `env.htmlInteractive`. Either can be null if that path
+    // hasn't run / declined / pre-dates the agent. Both sections share
+    // the same renderer with a per-type kind argument that controls
+    // the section header and CTA wording.
     if (env.interactive) {
-      html.push(renderInteractiveSection(env.interactive));
+      html.push(renderInteractiveSection(env.interactive, 'quiz'));
+    }
+    if (env.htmlInteractive) {
+      html.push(renderInteractiveSection(env.htmlInteractive, 'html'));
     }
 
     // --- Commit link ---------------------------------------------------
@@ -612,7 +620,10 @@ function buildLowNote(failedDimensions: string[]): string {
   return `The auditor flagged the ${joined} ${rubricWord} across all 3 rounds. The quiz still shipped — readers can try it and judge for themselves.`;
 }
 
-function renderInteractiveSection(i: NonNullable<MadeEnvelope['interactive']>): string {
+function renderInteractiveSection(
+  i: NonNullable<MadeEnvelope['interactive']>,
+  kind: 'quiz' | 'html',
+): string {
   const slug = encodeURIComponent(i.slug);
   const typeLabel = i.type || 'interactive';
   const revisionsLabel = i.revisionCount === 1 ? '1 revision' : `${i.revisionCount} revisions`;
@@ -622,15 +633,23 @@ function renderInteractiveSection(i: NonNullable<MadeEnvelope['interactive']>): 
   const lowNote = i.qualityFlag === 'low'
     ? `<p class="made-interactive-low">${escapeHtml(buildLowNote(i.failedDimensions))}</p>`
     : '';
+  // Quiz vs HTML wording differs at the surfaces a reader actually sees:
+  // section header (what got built) and CTA verb (what to do with it).
+  // Both ship per piece since Phase 2; the drawer differentiates so a
+  // reader scanning the section list knows there are two artefacts.
+  const header = kind === 'html'
+    ? 'The interactive model built from this piece'
+    : 'The quiz built from this piece';
+  const cta = kind === 'html' ? 'Try the model →' : 'Try the quiz →';
   return `
     <section class="made-section">
-      <h3 class="made-section-header">The interactive built from this piece</h3>
+      <h3 class="made-section-header">${header}</h3>
       <p class="made-section-note">
         A ${escapeHtml(typeLabel)} titled "${escapeHtml(i.title)}" · ${meta.join(' · ')}
       </p>
       ${lowNote}
       <a class="made-interactive-cta" href="/interactives/${slug}/">
-        Try the interactive →
+        ${cta}
       </a>
     </section>
   `;

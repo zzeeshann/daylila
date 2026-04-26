@@ -16,23 +16,28 @@ Phase 0 + Phase 1 complete and tagged.
 
 ## Last completed sub-task
 
-**Phase 2, sub-task 2.5 — File commit path + interactives row schema for two artefacts per piece.**
+**Phase 2, sub-task 2.6 — Reader surface: `<interactive-frame>` Web Component + dual-artefact route + drawer.**
 
-- **Migration 0026** — relaxed `interactives.slug UNIQUE` → composite `UNIQUE(slug, type)`. Same table-rebuild pattern as 0015 (snapshot at `interactives_backup_20260426`, queued for drop 2026-05-04). Applied cleanly to remote D1 — all 8 existing rows preserved, composite UNIQUE verified to (a) accept quiz+html with same slug, (b) reject duplicate (slug, type).
-- **Three architectural decisions resolved in-commit:**
-  1. **Slug:** quiz + html for the same piece SHARE the slug (one URL per piece — `/interactives/<slug>/` renders both teaching modalities). Migration 0026 relaxes the UNIQUE constraint; Generator `resolveFreeSlug` becomes type-aware; HTML loop pre-looks-up the existing quiz row's slug and uses it verbatim when present.
-  2. **`daily_pieces.interactive_id`:** stays quiz-only for back-compat with the 4.6 last-beat prompt surface. HTML rows are findable via `interactives WHERE source_piece_id = ?`. No second pointer column added.
-  3. **File location:** diverged from plan's `<slug>.html` raw HTML to `<slug>-html.json` JSON envelope. Astro content collections need a single-loader/single-extension contract; mixing `.json` and `.html` would either collide on entry IDs or require a custom loader. The JSON-envelope mirror of the existing quiz pattern is simpler and works with the same `discriminatedUnion` schema. Recorded as PLAN_NOTES entry.
-- **Generator commit path** — `runHtmlLoop` now writes `content/interactives/<slug>-html.json` with the same JSON shape as quiz files but with `type='html'` and `content: { type: 'html', html: '<!DOCTYPE...' }`. Looks up existing quiz row's slug at commit time; uses its slug or falls back to `resolveFreeSlug(claudesSlug, 'html')`.
-- **Content collection schema** — [`src/content.config.ts`](../src/content.config.ts) widens `type: z.enum(['quiz'])` → `z.enum(['quiz', 'html'])`; adds an `html` branch to the `content` discriminatedUnion carrying `html: z.string().min(1)`. Existing 8 quiz files validate unchanged. `pnpm build` runs clean.
-- **SCHEMA.md** updated to count `19 tables × 26 migrations`; `interactives.slug` row notes the composite UNIQUE; new migration 0026 entry in the migrations log.
-- **PLAN_NOTES** documents the file-location divergence with the rationale path.
-- **FOLLOWUPS** carries the snapshot-drop entry for 2026-05-04.
-- Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit.
+- New [`src/interactive/interactive-frame.ts`](../src/interactive/interactive-frame.ts) — lightweight Web Component for HTML interactives. Server-rendered iframe is a child element (set via `srcdoc=`); the component only fires engagement events (`interactive_started` on connect; Phase 4's `postMessage` listener stubbed in a comment). SSR-of-iframe avoids JSON-payload escaping problems with `</script>` sequences inside the html string and gives progressive-enhancement (the rendered interactive shows even if JS fails to upgrade).
+- New [`src/styles/interactive-frame.css`](../src/styles/interactive-frame.css) — standalone CSS (not Tailwind-processed, same convention as `quiz.css`). 600px default iframe height, 480px on mobile.
+- [`src/pages/interactives/[slug].astro`](../src/pages/interactives/[slug].astro) rewired:
+  - `getStaticPaths` groups entries by `data.slug` so each slug renders ONE page that can include both artefact types.
+  - Page header uses the quiz's title/concept when present (canonical pre-Phase-2; falls back to html when quiz declined).
+  - Renders HTML interactive FIRST (manipulation), then quiz SECOND (recall) — pedagogical layering. Section headers "Try the model" / "Then check the pattern" appear only when both exist.
+  - Iframe attributes match the spec exactly: `sandbox="allow-scripts"`, `loading="lazy"`, `referrerpolicy="no-referrer"`, `title={concept}`, `srcdoc={html}`.
+  - Decision: `srcdoc=` for v1. `src=` route deferred (see DECISIONS).
+- **Astro 5 content-collection bug surfaced + fixed.** Astro 5's `glob` loader auto-uses a top-level `slug` field as the entry id when present in data. Quiz + html files for the same piece share the slug (one URL per piece — Phase 2.5), so the second-loaded entry was silently overwriting the first. Fix in [`src/content.config.ts`](../src/content.config.ts): explicit `generateId` on the loader uses the FILENAME (`<slug>.json` → `<slug>`; `<slug>-html.json` → `<slug>-html`), so each file's entry id is unique regardless of the `slug` field. Diagnosed via temp fixture + dev-server logs (`getCollection` returned 8 not 9).
+- Drawer extension:
+  - [`src/lib/made-by.ts`](../src/lib/made-by.ts) `MadeEnvelope` gains `htmlInteractive: MadeInteractive | null` field. `interactive` field stays as the quiz pointer for back-compat with shipped reader bundles.
+  - [`src/pages/api/daily/[date]/made.ts`](../src/pages/api/daily/[date]/made.ts) endpoint runs two queries (`type='quiz'` and `type='html'`); each populates a separate envelope field with independent failure handling.
+  - [`src/interactive/made-drawer.ts`](../src/interactive/made-drawer.ts) `renderInteractiveSection` now takes a `kind: 'quiz' | 'html'` parameter; per-type section header ("The quiz built…" vs "The interactive model built…") and CTA verb ("Try the quiz →" vs "Try the model →"). Drawer renders both sections when both artefacts exist for a piece.
+- Verified end-to-end via temp fixture in dev preview: page rendered HTML interactive (sandboxed iframe with the slider) + quiz card stacked correctly; quiz-only pages still render unchanged. Fixture removed before commit.
+- Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit. `pnpm build` clean across all 8 existing quiz pages.
 - Flag still `'false'` on prod; HTML path bypassed; no live behaviour change.
 
 **Earlier completed sub-tasks (Phase 2):**
 
+- `[phase-2.5]` File commit path + interactives row schema (migration 0026; one URL per piece via shared slug; `<slug>-html.json` JSON envelope).
 - `[phase-2.4]` InteractiveAuditor extended with HTML rubric + wired to Generator (4-dim rubric, all scored; ship-as-low on round-3 audit-max-fail).
 - `[phase-2.3]` InteractiveGenerator extended with parallel HTML loop (validator-gated; per-type idempotence; observer logging extended).
 - `[phase-2.2]` HTML interactive validator + `pnpm verify-validator` 28-case harness.
@@ -51,13 +56,15 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Phase 2 sub-task 2.6 — Reader surface: `<interactive-frame>` Web Component.** Build the sandboxed-iframe renderer that the existing `/interactives/[slug]/` route page dispatches to when an entry has `data.type === 'html'`. New file `src/interactive/interactive-frame.ts` mirroring the `<quiz-card>` pattern (custom element, parses a JSON payload from a child `<script type="application/json">`, renders into a constrained shadow DOM or scoped CSS). Renders a single `<iframe>` with the exact attribute set from the spec: `sandbox="allow-scripts"` (no other token), `loading="lazy"`, `referrerpolicy="no-referrer"`, `title={concept}`. Loads HTML via `srcdoc` (manual-proof acceptable per spec; production CDN lookups deferred). Wires the existing `[slug].astro` route page to dispatch on `type` — when both quiz + html entries exist for a slug, render BOTH stacked (quiz card first, then interactive frame; both above the "Back to library" link).
+**Phase 2 sub-task 2.7 — Hand-written reference HTML + manual proof on prod + flag flip + tag.** The full produce → validate → audit → revise → commit → render path is now end-to-end functional behind the flag. 2.7 is the human-in-the-loop step:
 
-Decisions to resolve in 2.6:
-- **`srcdoc` vs `src`:** spec leans `src=` for prod (CDN-cacheable, smaller parent page) but `srcdoc=` is acceptable for the manual proof. Going with `srcdoc=` for v1 — keeps the route logic simple, no `/embed` route to maintain. Mark in DECISIONS as a future-tunable.
-- **Drawer surfacing:** the existing "How this was made" drawer's MadeInteractive section currently surfaces just the quiz. Extend to list both artefact types when both exist per piece.
+1. **Hand-write a reference HTML interactive** at `docs/examples/interactive-reference.html` for one of the recently-published daily pieces. The file is the **canonical "good looks like this"** per Phase 0 decision (b) — permanent, never deleted, updated in place if voice evolves. Pick a piece whose concept has a clean tactile mechanism (chokepoints / coalition-math / asymmetry — concept-rich, slider-friendly).
+2. **Add the reference as a few-shot example** in `INTERACTIVE_HTML_GENERATOR_PROMPT` at the slot left for it in 2.1 (`interactive-generator-prompt.ts`). The example sits inside the cached system prompt block, so the prefix invalidation is a one-time cost.
+3. **Commit the reference file as a temporary content-collection fixture** (`content/interactives/<that-slug>-html.json`) so it surfaces on the existing route page for review. Zishan reviews it visually on prod.
+4. **If accepted:** flip `interactives_html_enabled = 'true'` via `wrangler d1 execute zeemish --remote --command "UPDATE admin_settings SET value = 'true' WHERE key = 'interactives_html_enabled'"`. The next post-publish alarm produces both quiz + html for that piece. Tag `interactives-v3.2-complete`.
+5. **If rejected:** iterate the reference until accepted; flag stays `'false'`.
 
-After 2.6: → 2.7 manual-proof reference HTML + flag flip + tag `interactives-v3.2-complete`. Each is one commit. Per the plan, 2.7 is where Zishan reviews the hand-written reference on prod before flipping `interactives_html_enabled = true`.
+Definition of done for Phase 2: flag = true, the next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed. Then Phase 3 (admin surface) starts.
 
 Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -95,6 +102,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 2 | 2.3 — InteractiveGenerator extended with parallel HTML loop | `generate()` refactored as a quiz+html dispatcher; per-type idempotence; HTML loop validator-gated only (auditor wires in 2.4); Anthropic prompt caching active on HTML system prompt; result shape changed; observer logging extended to dual-artefact summary. Flag stays `'false'` so prod behaviour unchanged. Zero new typecheck errors. |
 | 2026-04-26 | 2 | 2.4 — InteractiveAuditor extended with HTML rubric + wired into runHtmlLoop | New `INTERACTIVE_HTML_AUDITOR_PROMPT` (4 dims all scored, voice ≥85, others ≥75); `audit()` now dispatches by `{type:'quiz'|'html'}`; HTML system prompt prompt-cached. Generator's `runHtmlLoop` runs full produce→validate→audit→revise; ship-as-low on audit max-fail (`quality_flag='low'`); validator-max-fail still no-commit. Per-round audit rows persist for HTML across all 4 dims. Zero new typecheck errors. Flag still `'false'`. |
 | 2026-04-26 | 2 | 2.5 — File commit path + interactives row schema | Migration 0026 relaxed `UNIQUE(slug)` → `UNIQUE(slug, type)` (table rebuild, snapshot held). Generator `runHtmlLoop` writes `<slug>-html.json` (JSON envelope, html-string inlined) — slug pulled from existing quiz row when present (one URL per piece). Content collection schema widens `type` enum + adds `html` branch. PLAN_NOTES + FOLLOWUPS + SCHEMA.md synced. Plan-vs-repo divergence: `<slug>-html.json` not `<slug>.html` (loader simplicity). Zero new typecheck errors. `pnpm build` clean. |
+| 2026-04-26 | 2 | 2.6 — Reader surface: `<interactive-frame>` Web Component + dual-artefact route + drawer | New `<interactive-frame>` component (lightweight; iframe is server-rendered child via `srcdoc=`). Route page groups entries by slug → renders HTML interactive + quiz stacked when both exist. Astro 5 `glob` loader bug surfaced (slug-as-id collision); fixed with explicit `generateId` from filename. Drawer extended: `MadeEnvelope.htmlInteractive` field; per-type section header + CTA wording. Verified end-to-end via temp fixture in dev preview (HTML iframe slider rendered + quiz card stacked). Zero new typecheck errors. Flag still `'false'`. |
 
 ## Tags
 
