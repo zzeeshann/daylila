@@ -16,6 +16,9 @@ export const prerender = false;
  *   - `<quiz-card>` (src/interactive/quiz-card.ts) — fires
  *     `interactive_started` on mount, `interactive_completed` with
  *     score + per_question_correctness on results.
+ *   - `<interactive-frame>` (src/interactive/interactive-frame.ts) —
+ *     fires `interactive_started` on mount + `interactive_viewed` once
+ *     per session when the iframe scrolls ≥50% into view (Phase 4.1).
  *   - `<lesson-shell>` (src/interactive/lesson-shell.ts) — fires
  *     `interactive_offered` once per session when the last beat of
  *     a piece with a passing interactive becomes active.
@@ -25,12 +28,13 @@ export const prerender = false;
  *     endpoint accept it lets a future explicit-dismiss UI ship
  *     without an endpoint change.
  *
- * Request body shape (matches both quiz-card and last-beat prompt):
+ * Request body shape (matches all three callers):
  *   {
  *     "interactive_id": "<uuid>" | null,
  *     "interactive_slug": "<kebab-slug>" | undefined,
  *     "event_type": "interactive_offered" | "interactive_started"
- *                 | "interactive_completed" | "interactive_skipped",
+ *                 | "interactive_viewed"  | "interactive_completed"
+ *                 | "interactive_skipped",
  *     "score": number | undefined,                 // completed only
  *     "per_question_correctness": number[] | undefined  // completed only
  *   }
@@ -38,7 +42,7 @@ export const prerender = false;
  * Either `interactive_id` (UUID) or `interactive_slug` must be
  * provided. The prefix `interactive_` on event_type is stripped
  * before write — stored values are the short forms 'offered' |
- * 'started' | 'completed' | 'skipped' (matches SCHEMA.md 4.1 doc).
+ * 'started' | 'viewed' | 'completed' | 'skipped'.
  *
  * user_id comes from middleware (locals.userId), which is always
  * populated — anonymous readers get a generated UUID and a session
@@ -48,7 +52,7 @@ export const prerender = false;
  * silently swallowed and the endpoint returns 200 regardless.
  */
 
-const VALID_EVENT_TYPES = new Set(['offered', 'started', 'completed', 'skipped']);
+const VALID_EVENT_TYPES = new Set(['offered', 'started', 'viewed', 'completed', 'skipped']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,58}[a-z0-9]$/;
 
@@ -102,7 +106,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const eventType = normaliseEventType(rawEventType);
   if (!eventType) {
     return new Response(
-      JSON.stringify({ error: 'event_type must be one of offered, started, completed, skipped' }),
+      JSON.stringify({ error: 'event_type must be one of offered, started, viewed, completed, skipped' }),
       { status: 400 },
     );
   }

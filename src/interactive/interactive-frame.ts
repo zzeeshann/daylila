@@ -26,20 +26,22 @@
  *
  * Events fired (matching the quiz path's fire-and-forget shape):
  *   - on connect: POST `interactive_started` to /api/interactive/track.
+ *   - on first ≥50% intersection with viewport: POST `interactive_viewed`,
+ *     once per session per interactive (sessionStorage de-dup matches the
+ *     `<lesson-shell>` `interactive_offered` pattern). The ratio
+ *     started/viewed measures "did the reader scroll deep enough into the
+ *     piece to actually see the HTML interactive?" — only available
+ *     because mount and view are distinct events.
  *
- * Phase 4 hook (deferred): listen for `message` events from the
- * iframe's contentWindow and forward to /api/interactive/track as
- * `interactive_engaged` events. The sandbox without `allow-same-origin`
- * still allows postMessage in both directions, so an interactive that
- * wants to report engagement (e.g. "manipulated > N times") posts a
- * `{type: 'interactive_engagement', event: '...'}` message to the
- * parent. We add the listener in Phase 4 when the engagement aggregator
- * lands.
+ * Iframe-content postMessage protocol (manipulation/dwell signals from
+ * inside the sandbox) is deferred to v2 — sandbox semantics + content
+ * stability won out over per-interactive reporting for the v3 loop.
  */
 
 class InteractiveFrame extends HTMLElement {
   private interactiveId = '';
   private startedFired = false;
+  private viewObserver: IntersectionObserver | null = null;
 
   connectedCallback() {
     this.interactiveId = this.getAttribute('data-interactive-id') ?? '';
@@ -49,19 +51,46 @@ class InteractiveFrame extends HTMLElement {
       this.postEvent('interactive_started', {});
     }
 
-    // Phase 4 hook — listener for postMessage events from the iframe's
-    // contentWindow. Currently inert; lands when engagement aggregation
-    // is wired in.
-    //
-    // const iframe = this.querySelector('iframe');
-    // window.addEventListener('message', (e) => {
-    //   if (iframe && e.source === iframe.contentWindow) {
-    //     const data = e.data as { type?: string; event?: string };
-    //     if (data?.type === 'interactive_engagement' && typeof data.event === 'string') {
-    //       this.postEvent('interactive_engaged', { engagement_event: data.event });
-    //     }
-    //   }
-    // });
+    this.observeViewport();
+  }
+
+  disconnectedCallback() {
+    if (this.viewObserver) {
+      this.viewObserver.disconnect();
+      this.viewObserver = null;
+    }
+  }
+
+  private observeViewport(): void {
+    if (!this.interactiveId) return;
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const sessionKey = `zeemish-interactive-viewed:${this.interactiveId}`;
+    try {
+      if (sessionStorage.getItem(sessionKey) === '1') return;
+    } catch {
+      // sessionStorage can throw in privacy modes — fall through and
+      // accept that the event may fire more than once per session.
+    }
+
+    this.viewObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
+          try {
+            sessionStorage.setItem(sessionKey, '1');
+          } catch {
+            /* ignore — see above */
+          }
+          this.postEvent('interactive_viewed', {});
+          this.viewObserver?.disconnect();
+          this.viewObserver = null;
+          break;
+        }
+      },
+      { threshold: 0.5, rootMargin: '0px' },
+    );
+    this.viewObserver.observe(this);
   }
 
   private postEvent(eventType: string, extra: Record<string, unknown>): void {
