@@ -1,0 +1,416 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { getUser } from '../../../../lib/db';
+
+const db = Astro.locals.runtime.env.DB;
+const userId = Astro.locals.userId;
+const user = userId ? await getUser(db, userId) : null;
+const ADMIN_EMAIL = (Astro.locals.runtime.env as Record<string, string>).ADMIN_EMAIL;
+
+if (!user?.email || user.email !== ADMIN_EMAIL) {
+  return Astro.redirect('/login/?redirect=/dashboard/admin/interactives/');
+}
+
+type InteractiveRow = {
+  id: string;
+  slug: string;
+  type: 'quiz' | 'html';
+  title: string;
+  voice_score: number | null;
+  quality_flag: 'low' | null;
+  quality_tier: 'polished' | 'solid' | 'rough' | null;
+  revision_count: number;
+  published_at: number | null;
+  created_at: number;
+  source_piece_id: string | null;
+  source_piece_date: string | null;
+  source_piece_headline: string | null;
+};
+
+type AuditRow = {
+  interactive_id: string;
+  round: number;
+  dimension: 'voice' | 'structure' | 'essence' | 'factual';
+  passed: number;
+  score: number | null;
+};
+
+type Dimension = AuditRow['dimension'];
+const DIMENSION_ORDER: Dimension[] = ['voice', 'structure', 'essence', 'factual'];
+
+interface RowData extends InteractiveRow {
+  /** Latest round's pass/fail per dimension. Empty when no audit rows
+   *  exist (legacy interactives pre-migration 0023). */
+  latestAudit: Record<Dimension, { passed: boolean; score: number | null }> | null;
+  /** Number of the latest audit round, or null when no audit rows. */
+  latestRound: number | null;
+}
+
+let rows: RowData[] = [];
+let pieceWithoutQuizCount = 0;
+let pieceWithoutHtmlCount = 0;
+
+try {
+  // Pull every interactive with its source piece headline.
+  const interactiveRows = await db
+    .prepare(`
+      SELECT
+        i.id, i.slug, i.type, i.title, i.voice_score, i.quality_flag,
+        i.quality_tier, i.revision_count, i.published_at, i.created_at,
+        i.source_piece_id,
+        p.date AS source_piece_date,
+        p.headline AS source_piece_headline
+      FROM interactives i
+      LEFT JOIN daily_pieces p ON p.id = i.source_piece_id
+      ORDER BY
+        CASE WHEN i.quality_flag = 'low' THEN 0 ELSE 1 END,
+        CASE WHEN i.published_at IS NULL THEN 1 ELSE 0 END,
+        i.published_at DESC,
+        i.created_at DESC
+    `)
+    .all<InteractiveRow>();
+
+  const interactives = interactiveRows.results ?? [];
+
+  // Per-row latest-round audit fetch. One query covering every
+  // interactive's max round, then join to dimension rows. Two queries
+  // total — clean and avoids a correlated subquery per row.
+  let auditByInteractive = new Map<string, { round: number; dims: Map<Dimension, { passed: boolean; score: number | null }> }>();
+  if (interactives.length > 0) {
+    const placeholders = interactives.map(() => '?').join(',');
+    const ids = interactives.map((i) => i.id);
+    const auditRows = await db
+      .prepare(`
+        SELECT interactive_id, round, dimension, passed, score
+        FROM interactive_audit_results
+        WHERE interactive_id IN (${placeholders})
+      `)
+      .bind(...ids)
+      .all<AuditRow>();
+
+    // Group by interactive_id, then keep only the highest round.
+    const byInt = new Map<string, AuditRow[]>();
+    for (const r of auditRows.results ?? []) {
+      if (!byInt.has(r.interactive_id)) byInt.set(r.interactive_id, []);
+      byInt.get(r.interactive_id)!.push(r);
+    }
+    for (const [intId, rs] of byInt.entries()) {
+      let maxRound = -1;
+      for (const r of rs) if (r.round > maxRound) maxRound = r.round;
+      const dims = new Map<Dimension, { passed: boolean; score: number | null }>();
+      for (const r of rs) {
+        if (r.round === maxRound) {
+          dims.set(r.dimension as Dimension, { passed: r.passed === 1, score: r.score });
+        }
+      }
+      auditByInteractive.set(intId, { round: maxRound, dims });
+    }
+  }
+
+  rows = interactives.map((i) => {
+    const audit = auditByInteractive.get(i.id);
+    let latestAudit: RowData['latestAudit'] = null;
+    if (audit) {
+      latestAudit = {
+        voice: audit.dims.get('voice') ?? { passed: true, score: null },
+        structure: audit.dims.get('structure') ?? { passed: true, score: null },
+        essence: audit.dims.get('essence') ?? { passed: true, score: null },
+        factual: audit.dims.get('factual') ?? { passed: true, score: null },
+      };
+    }
+    return {
+      ...i,
+      latestAudit,
+      latestRound: audit?.round ?? null,
+    };
+  });
+
+  // Count published pieces missing each interactive type. Soft signal
+  // — surfaced as a "pieces without X" line above the table; not
+  // mixed into the table itself (avoids 12 placeholder rows when
+  // interactives_html_enabled is false).
+  const piecesMissingQuiz = await db
+    .prepare(`
+      SELECT COUNT(*) AS n FROM daily_pieces p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM interactives i
+        WHERE i.source_piece_id = p.id AND i.type = 'quiz'
+      )
+    `)
+    .first<{ n: number }>();
+  pieceWithoutQuizCount = piecesMissingQuiz?.n ?? 0;
+
+  const piecesMissingHtml = await db
+    .prepare(`
+      SELECT COUNT(*) AS n FROM daily_pieces p
+      WHERE NOT EXISTS (
+        SELECT 1 FROM interactives i
+        WHERE i.source_piece_id = p.id AND i.type = 'html'
+      )
+    `)
+    .first<{ n: number }>();
+  pieceWithoutHtmlCount = piecesMissingHtml?.n ?? 0;
+} catch { /* fall through with empty rows */ }
+
+// ─── Stats ────────────────────────────────────────────────────────
+const totalCount = rows.length;
+const cleanCount = rows.filter((r) => r.quality_flag === null).length;
+const roughCount = rows.filter((r) => r.quality_flag === 'low').length;
+const quizCount = rows.filter((r) => r.type === 'quiz').length;
+const htmlCount = rows.filter((r) => r.type === 'html').length;
+
+// ─── Helpers ──────────────────────────────────────────────────────
+function fmtTs(ms: number | null): string {
+  if (!ms) return '—';
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function adminPieceHref(date: string | null, pieceId: string | null): string | null {
+  if (!date || !pieceId) return null;
+  return `/dashboard/admin/piece/${date}/`;
+}
+
+function statusLabel(r: RowData): { text: string; cls: string } {
+  if (r.quality_flag === 'low') return { text: 'Rough', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
+  if (r.published_at === null) return { text: 'Pending', cls: 'bg-zee-bg text-zee-muted border-zee-border' };
+  return { text: 'Clean', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+}
+
+function tierLabel(tier: RowData['quality_tier']): string {
+  if (tier === 'polished') return 'Polished';
+  if (tier === 'solid') return 'Solid';
+  if (tier === 'rough') return 'Rough';
+  return '—';
+}
+
+function typeLabel(type: RowData['type']): { text: string; cls: string } {
+  if (type === 'quiz') return { text: 'quiz', cls: 'bg-violet-50 text-violet-800 border-violet-200' };
+  return { text: 'html', cls: 'bg-sky-50 text-sky-800 border-sky-200' };
+}
+---
+
+<BaseLayout title="Interactives — Zeemish admin" description="Quizzes and HTML interactives, sortable by quality.">
+  <div class="pt-6 pb-10 flex items-start justify-between gap-6 flex-wrap">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-widest text-zee-gold mb-2">
+        The control room
+      </p>
+      <h1 class="text-3xl md:text-4xl font-bold mb-3 leading-tight tracking-tight">
+        Interactives
+      </h1>
+      <p class="text-lg text-zee-muted">
+        Every quiz and HTML interactive shipped from a daily piece. Rough ones bubble to the top.
+      </p>
+    </div>
+    <div class="flex flex-col items-end gap-1 mt-2 text-sm whitespace-nowrap">
+      <a href="/dashboard/admin/" class="text-zee-muted hover:text-zee-primary">← Admin</a>
+    </div>
+  </div>
+
+  <section class="rounded-xl border border-zee-border p-6 mb-8">
+    <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
+      Catalogue
+    </h2>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-5">
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Total</p>
+        <p class="text-2xl font-bold">{totalCount}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Clean</p>
+        <p class="text-2xl font-bold text-emerald-700">{cleanCount}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Rough</p>
+        <p class="text-2xl font-bold text-amber-700">{roughCount}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Quiz</p>
+        <p class="text-2xl font-bold">{quizCount}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">HTML</p>
+        <p class="text-2xl font-bold">{htmlCount}</p>
+      </div>
+    </div>
+    <p class="text-xs text-zee-muted leading-relaxed">
+      {pieceWithoutQuizCount} {pieceWithoutQuizCount === 1 ? 'piece has' : 'pieces have'} no quiz · {pieceWithoutHtmlCount} {pieceWithoutHtmlCount === 1 ? 'piece has' : 'pieces have'} no HTML interactive.
+      Generate via the per-piece admin page when needed; the toggle on
+      <a href="/dashboard/admin/settings/" class="text-zee-primary hover:underline">settings</a>
+      gates the HTML path.
+    </p>
+  </section>
+
+  <nav class="mb-4" aria-label="Filter interactives by type">
+    <ul class="flex flex-wrap gap-2">
+      <li>
+        <button
+          type="button"
+          data-type-chip="all"
+          class="type-chip inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-full text-sm font-medium border transition-colors bg-zee-primary text-white border-zee-primary"
+          aria-pressed="true"
+        >
+          All<span class="opacity-80">{totalCount}</span>
+        </button>
+      </li>
+      <li>
+        <button
+          type="button"
+          data-type-chip="quiz"
+          class="type-chip inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-full text-sm font-medium border transition-colors bg-transparent text-zee-text border-zee-border/80 hover:border-zee-primary/50 hover:text-zee-primary"
+          aria-pressed="false"
+        >
+          Quiz<span class="text-zee-muted">{quizCount}</span>
+        </button>
+      </li>
+      <li>
+        <button
+          type="button"
+          data-type-chip="html"
+          class="type-chip inline-flex items-center gap-1.5 min-h-[44px] px-4 py-2 rounded-full text-sm font-medium border transition-colors bg-transparent text-zee-text border-zee-border/80 hover:border-zee-primary/50 hover:text-zee-primary"
+          aria-pressed="false"
+        >
+          HTML<span class="text-zee-muted">{htmlCount}</span>
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <p
+    id="type-empty-state"
+    class="text-zee-muted italic text-sm py-6 hidden"
+  >
+    No interactives match this filter.
+  </p>
+
+  {totalCount === 0 && (
+    <p class="text-zee-muted italic text-sm py-6">
+      No interactives shipped yet. The <a href="/dashboard/admin/" class="text-zee-primary hover:underline">admin home</a>'s All Pieces list is the place to trigger generation per piece.
+    </p>
+  )}
+
+  {totalCount > 0 && (
+    <div id="interactives-list" class="space-y-3">
+      {rows.map((r) => {
+        const typ = typeLabel(r.type);
+        const status = statusLabel(r);
+        const pieceHref = adminPieceHref(r.source_piece_date, r.source_piece_id);
+        return (
+          <article
+            data-int-row
+            data-type={r.type}
+            class="p-4 rounded-xl border border-zee-border hover:border-zee-primary/40 transition-colors"
+          >
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-xs font-mono border ${typ.cls}`}>
+                    {typ.text}
+                  </span>
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${status.cls}`}>
+                    {status.text}
+                  </span>
+                  {r.quality_tier && r.quality_tier !== 'rough' && (
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border bg-zee-bg text-zee-muted border-zee-border">
+                      {tierLabel(r.quality_tier)}
+                    </span>
+                  )}
+                </div>
+                <h3 class="text-base font-semibold leading-snug mb-1">
+                  <a href={`/interactives/${r.slug}/`} class="hover:text-zee-primary">
+                    {r.title}
+                  </a>
+                </h3>
+                <p class="text-xs text-zee-muted truncate">
+                  <code class="font-mono">{r.slug}</code>
+                  {r.source_piece_headline && (
+                    <span> · from
+                      {pieceHref ? (
+                        <a href={pieceHref} class="text-zee-primary hover:underline ml-1">
+                          {r.source_piece_headline}
+                        </a>
+                      ) : (
+                        <span class="ml-1">{r.source_piece_headline}</span>
+                      )}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <div class="text-right text-xs text-zee-muted whitespace-nowrap">
+                <p>{fmtTs(r.published_at)}</p>
+                <p class="mt-1">
+                  {r.revision_count} {r.revision_count === 1 ? 'revision' : 'revisions'}
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-3 flex items-center gap-3 flex-wrap text-xs">
+              <span class="text-zee-muted">Audit (latest round):</span>
+              {r.latestAudit ? (
+                DIMENSION_ORDER.map((dim) => {
+                  const d = r.latestAudit![dim];
+                  const isVoice = dim === 'voice';
+                  const passCls = d.passed ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-amber-800 border-amber-300 bg-amber-50';
+                  return (
+                    <span class={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${passCls}`}>
+                      <span class="font-medium">{dim}</span>
+                      {isVoice && d.score != null && <span class="font-mono">{d.score}</span>}
+                      <span aria-hidden="true">{d.passed ? '✓' : '✗'}</span>
+                    </span>
+                  );
+                })
+              ) : (
+                <span class="italic text-zee-muted">no audit rows (pre-migration 0023)</span>
+              )}
+              {r.latestAudit && r.latestRound !== null && (
+                <span class="text-zee-muted ml-auto">round {r.latestRound + 1}</span>
+              )}
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-zee-border/50 flex items-center justify-between gap-3 flex-wrap text-xs">
+              <span class="text-zee-muted">
+                {r.voice_score != null ? <>voice score <span class="font-mono">{r.voice_score}/100</span></> : 'no voice score'}
+              </span>
+              <span class="text-zee-muted italic">Regenerate: shipping in 3.3</span>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  )}
+</BaseLayout>
+
+<script>
+  (() => {
+    const chipActiveClass = ['bg-zee-primary', 'text-white', 'border-zee-primary'];
+    const chipIdleClass = ['bg-transparent', 'text-zee-text', 'border-zee-border/80', 'hover:border-zee-primary/50', 'hover:text-zee-primary'];
+    const typeChips = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-type-chip]'));
+    const intRows = Array.from(document.querySelectorAll<HTMLElement>('[data-int-row]'));
+    const emptyState = document.getElementById('type-empty-state');
+
+    function applyTypeFilter(active: string) {
+      let anyVisible = false;
+      for (const row of intRows) {
+        const show = active === 'all' || row.dataset.type === active;
+        row.style.display = show ? '' : 'none';
+        if (show) anyVisible = true;
+      }
+      if (emptyState) {
+        emptyState.classList.toggle('hidden', anyVisible || intRows.length === 0);
+      }
+      for (const chip of typeChips) {
+        const isActive = chip.dataset.typeChip === active;
+        chip.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        chip.classList.remove(...chipActiveClass, ...chipIdleClass);
+        chip.classList.add(...(isActive ? chipActiveClass : chipIdleClass));
+      }
+    }
+    for (const chip of typeChips) {
+      chip.addEventListener('click', () => applyTypeFilter(chip.dataset.typeChip ?? 'all'));
+    }
+  })();
+</script>
+</content>
+</invoke>
