@@ -13,6 +13,18 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-26: Area 5 single-scroll layout in progress
+
+**Snapshot tag:** `area-5-snapshot` (commit `148f7f4`) — rollback point. Pushed to origin at the start of Area 5 work; the tag pins the daily-piece reader surface in its paginated-stepper shape so a `git reset --hard area-5-snapshot` recovers the pre-Area-5 state without ambiguity.
+
+**Scope:** convert `/daily/<date>/<slug>/` from paginated stepper (Previous / Next / Finish, one beat visible at a time) to a single scrolling page (title → audio → every beat → embedded interactive → embedded quiz → finish state). Agents, pipeline, MDX output, D1 schema, audio agent pipeline, and `/interactives/<slug>/` standalone route all stay untouched.
+
+**Unblock condition:** Area 5 ships, tag `area-5-done` lands on the doc-sync commit. Flip this entry to `[resolved]` with the doc-sync commit SHA at that point.
+
+**Priority:** medium
+
+---
+
 ## [observing] 2026-04-26: Verify Phase 3.3 destructive regenerate end-to-end on prod
 
 **Surfaced:** Phase 3.3 close-out (commit `ddb5cdd`). Local-preview verification only confirmed the auth-gate (401 on all four input shapes); the actual wipe → fresh-generation flow needs a real run against a Rough row on prod.
