@@ -18,14 +18,15 @@ This applies to every agent. No exceptions. The past stays. The future gets bett
 
 ### Stage 2 — Reader Surface (complete)
 - [x] Content collections (dailyPieces) with Zod schemas
-- [x] `<lesson-shell>` + `<lesson-beat>` Web Components for beat navigation (one beat at a time)
+- [x] `<lesson-shell>` + `<lesson-beat>` Web Components — single-scroll layout (Area 5, 2026-04-26). Beats render as continuous prose; `<lesson-shell>` is a passive engagement reporter (mounts → fires `view`; observes finish-state sentinel for `complete`; observes inline interactive section for `interactive_offered`).
 - [x] Beat CSS in standalone `src/styles/beats.css` (not Tailwind-processed, survives purging)
-- [x] AudioPlayer web component — beat-aware `<audio-player>` that reads `audioBeats: { beatName → publicUrl }` from frontmatter, listens for `lesson-beat:change` (emitted by `<lesson-shell>`) to swap clips, auto-advances to the next beat when a clip ends. Graceful degrade: missing audio shows "coming soon"; 404 shows "unavailable".
-- [x] BaseLayout + LessonLayout with breadcrumbs, date eyebrow, beat/subject meta line
-- [x] Progressive enhancement (without JS, beats show as long scroll)
+- [x] AudioPlayer web component — beat-aware `<audio-player>` that reads `audioBeats: { beatName → publicUrl }` from frontmatter and plays per-beat clips. On clip end (single-scroll layout from Area 5): loads the next beat's clip in DOM order, smooth-scrolls the matching `<lesson-beat>` into view, autoplays. Pre-Area-5 it consumed `lesson-beat:change` from `<lesson-shell>`'s pagination state machine; that listener is gone. Graceful degrade: missing audio shows "coming soon"; 404 shows "unavailable".
+- [x] BaseLayout + LessonLayout with breadcrumbs, date eyebrow, beat/subject meta line. LessonLayout (Area 5) also renders the inline companion interactive section + finish-state footer below `<slot/>`.
+- [x] Progressive enhancement (without JS, beats show as long scroll). The single-scroll layout's JS shape now matches the no-JS shape — no pagination state machine to fail back from.
 - [x] `formatDate()` and `formatTime()` helpers in `src/lib/format.ts`
 - [x] `src/lib/rehype-beats.ts` — render-time MDX transform that wraps `##`-demarcated sections in `<lesson-shell>`/`<lesson-beat>`. Drafter keeps emitting plain markdown; the plugin connects the pipes so the dormant Web Component activates. Humanises kebab-case headings (`## what-is-hormuz` → "What Is Hormuz"). No-op when MDX has no h2s.
-- [x] Keyboard navigation (← / →) for beats, ignoring inputs/textareas and the Zita chat
+- [x] Inline embedded companion interactive — Area 4's quiz + Phase 2's HTML interactive both render at the bottom of the daily piece page (Area 5, 2026-04-26). The standalone `/interactives/<slug>/` URL still works ("essence not reference" — Area 4's design property is preserved). Shared helper `src/lib/interactives.ts` keeps the standalone route + the daily route on one bundle shape.
+- [x] Finish-state footer with tagline, `Read another →`, `Browse library →`, and a Web Share API + clipboard-fallback share button. Mobile-first; tap targets ≥44px.
 - [x] "How this was made" transparency drawer (`src/components/MadeBy.astro` + `src/interactive/made-drawer.ts` + `src/styles/made.css` + `/api/daily/[date]/made`). Per-piece timeline, audit rounds, rules applied, rejected candidates. Aggregates `pipeline_log` + `audit_results` + `daily_candidates` + `daily_pieces`. No new schema, no agent changes. Deep-linkable via `#made`.
 
 ### Stage 3 — Reader Accounts & Progress (complete)

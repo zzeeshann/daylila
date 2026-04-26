@@ -13,15 +13,46 @@ Format per entry:
 
 ---
 
-## [observing] 2026-04-26: Area 5 single-scroll layout in progress
+## [resolved] 2026-04-26: Area 5 single-scroll layout in progress
 
 **Snapshot tag:** `area-5-snapshot` (commit `148f7f4`) — rollback point. Pushed to origin at the start of Area 5 work; the tag pins the daily-piece reader surface in its paginated-stepper shape so a `git reset --hard area-5-snapshot` recovers the pre-Area-5 state without ambiguity.
 
 **Scope:** convert `/daily/<date>/<slug>/` from paginated stepper (Previous / Next / Finish, one beat visible at a time) to a single scrolling page (title → audio → every beat → embedded interactive → embedded quiz → finish state). Agents, pipeline, MDX output, D1 schema, audio agent pipeline, and `/interactives/<slug>/` standalone route all stay untouched.
 
-**Unblock condition:** Area 5 ships, tag `area-5-done` lands on the doc-sync commit. Flip this entry to `[resolved]` with the doc-sync commit SHA at that point.
+**Resolved:** Area 5 shipped 2026-04-26 across three commits ([area-5.1] lesson-shell collapse, [area-5.2] audio auto-advance, [area-5.3] inline interactive + finish state). Doc-sync commit + `area-5-done` tag close the work. See DECISIONS 2026-04-26 "Area 5 — Single scroll layout" for the per-trade-off log.
 
-**Priority:** medium
+---
+
+## [observing] 2026-04-26: `interactive_started` event now fires on every daily-piece page load
+
+**Surfaced:** Area 5 close-out (Phase D verification). Pre-Area-5, the `<quiz-card>` and `<interactive-frame>` Web Components only mounted when a reader visited `/interactives/<slug>/` directly — `interactive_started` was a meaningful "reader loaded the interactive" signal. Post-Area-5, both components are embedded inline at the bottom of every daily piece page, so they mount + fire `interactive_started` on every daily-page load — even for readers who never scroll to the section. The standalone `/interactives/` route's semantics are unchanged.
+
+**Hypothesis:** the right fix is to defer `interactive_started` firing in both components until first viewport intersection (≥0.5 threshold, mirroring `interactive_offered`'s threshold from `<lesson-shell>`). On the standalone route the component is above the fold, intersection happens nearly immediately on first paint — behaviour unchanged. On the daily route, only readers who actually scroll to the section fire `started`. Both surfaces benefit.
+
+**What to verify before fixing:**
+- Look at admin `/dashboard/admin/interactives/` engagement counts after Area 5 ships. If `interactive_started` count tracks daily-page views rather than interactive engagements (i.e. ~doubles or ~triples), that's the signal to fix.
+- Watch for any analytics consumer (operator dashboard, Learner aggregation, future cost-per-engagement math) that would be misled by inflated `started` counts. None today, but if a Phase 4 cohort study leans on `started`, that's the trigger.
+
+**Investigation hints:** `src/interactive/quiz-card.ts:59` (`interactive_started` POST on `connectedCallback`) and `src/interactive/interactive-frame.ts:51` (same pattern). Replace both `connectedCallback` POSTs with a one-shot IntersectionObserver mirroring lesson-shell.ts:120-149's `observeInteractive` shape, deduped by sessionStorage key `zeemish-interactive-started:{interactiveId}`.
+
+**Priority:** low — engagement-data noise, not a correctness or reader-facing issue. Fix when an analytics consumer surfaces or as part of a future engagement-data hygiene pass.
+
+---
+
+## [observing] 2026-04-26: Verify Area 5 single-scroll layout in production
+
+**Surfaced:** Area 5 close-out (commit `area-5-done`). Local-preview verification covered structural, engagement, audio auto-advance + smooth-scroll (manually dispatched `ended`), share button (clipboard fallback path), and mobile resize. Real audio in dev returns 404 because R2 isn't bound to the dev server — production audio is the only place to confirm the auto-advance + smooth-scroll loop completes naturally over real clip durations.
+
+**What to verify on prod after deploy:**
+- Visit a recent daily piece on `zeemish.io`, click play, let the first beat's audio finish naturally. Confirm: clip 2 loads + autoplays, page smooth-scrolls so beat 2's heading is at the top of the viewport, no jank.
+- Let it run through every beat. Confirm: each transition smooth-scrolls, no transition silently fails (especially across the longest beats — typically `the-pattern` or `why-hard`).
+- Scroll to the embedded interactive section. Confirm: `interactive_offered` event in admin observer feed; the HTML interactive iframe renders + the quiz below it.
+- Scroll to the finish footer. Confirm: `complete` engagement event in admin observer feed; the three actions render, share button works (mobile native sheet on iOS Safari, clipboard fallback on desktop).
+- Reload the page. Confirm engagement events DO NOT re-fire (sessionStorage dedup).
+
+**Unblock condition:** Operator runs the test once on prod and confirms or names what regressed.
+
+**Priority:** medium — first single-scroll prod verification window.
 
 ---
 
