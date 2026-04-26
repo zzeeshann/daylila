@@ -2,20 +2,28 @@ import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
+import { getAdminSetting } from './shared/admin-settings';
 import { PublisherAgent } from './publisher';
 import { InteractiveAuditorAgent, type InteractiveAuditResult } from './interactive-auditor';
 import {
   INTERACTIVE_GENERATOR_PROMPT,
+  INTERACTIVE_HTML_GENERATOR_PROMPT,
   GENERATOR_BODY_EXCERPT_MAX_CHARS,
   QUIZ_MIN_QUESTIONS,
   QUIZ_MAX_QUESTIONS,
   buildInteractivePrompt,
   buildRevisionPrompt,
+  buildHtmlInteractivePrompt,
+  buildHtmlRevisionPrompt,
   type PieceContextForQuiz,
+  type PieceContextForInteractive,
   type RecentInteractive,
   type CategoryRow,
   type RevisionFeedback,
+  type RevisionPreviousHtml,
+  type RevisionValidatorViolation,
 } from './interactive-generator-prompt';
+import { validate as validateHtml } from './interactive-validator';
 
 /** Number of recently-published interactives to show Claude for the
  *  diversity nudge. */
@@ -70,6 +78,13 @@ interface ValidatedQuiz {
   }>;
 }
 
+interface ValidatedHtml {
+  slug: string;
+  title: string;
+  concept: string;
+  html: string;
+}
+
 /** Brief audit summary suitable for observer logging (plain Claude-free
  *  strings). */
 export interface FinalAuditSummary {
@@ -81,18 +96,15 @@ export interface FinalAuditSummary {
   topIssues: string[]; // first ~5 issues across dimensions for the feed
 }
 
-/** Result surfaced back to Director. */
-export interface InteractiveGeneratorResult {
-  pieceId: string;
-  date: string;
-  skipped: boolean;            // true when piece already has interactive_id
+/** Quiz artefact terminal-state shape returned by `runQuizLoop`. */
+export interface QuizArtefactResult {
+  ran: boolean;                // false when caller short-circuited (existing row)
+  skipped: boolean;            // true when caller short-circuited (existing row)
   declined: boolean;           // true when Claude returned the empty shape
   committed: boolean;          // true when file + D1 writes landed
   auditorMaxFailed: boolean;   // true when ALL rounds failed audit — shipped
                                // as quality_flag='low' alongside committed=true
-                               // (2026-04-24 reversal of abandon-on-max-fail).
-  qualityFlag: 'low' | null;   // 'low' when auditorMaxFailed on a shipped
-                               // round; null when clean pass.
+  qualityFlag: 'low' | null;
   interactiveId: string | null;
   slug: string | null;
   title: string | null;
@@ -100,10 +112,53 @@ export interface InteractiveGeneratorResult {
   questionCount: number;
   revisionCount: number;       // 0 = passed first round, 1 = passed round 2, …
   roundsUsed: number;          // total rounds executed (1, 2, or 3)
-  voiceScore: number | null;   // final round's voice score when audit ran
-  finalAudit: FinalAuditSummary | null; // only set when audit ran
+  voiceScore: number | null;
+  finalAudit: FinalAuditSummary | null;
   tokensIn: number;
   tokensOut: number;
+  durationMs: number;
+}
+
+/** HTML interactive terminal-state shape returned by `runHtmlLoop`.
+ *  Two failure modes that don't apply to quiz:
+ *    - validatorMaxFailed: 3 rounds of validator failures, no commit.
+ *      Validator catches structural problems (sandbox-violators, size,
+ *      dynamic-code, etc.) — shipping a validator-failed file means
+ *      the iframe SecurityErrors at runtime, so we treat it as a hard
+ *      decline rather than ship-as-low.
+ *    - auditorMaxFailed: 2.4 wires real audit; in 2.3 always false.
+ *      When live, mirrors quiz path's ship-as-low (quality_flag='low'). */
+export interface HtmlArtefactResult {
+  ran: boolean;
+  skipped: boolean;
+  declined: boolean;
+  committed: boolean;
+  validatorMaxFailed: boolean; // 3 rounds of validator fails → no commit
+  auditorMaxFailed: boolean;   // 3 rounds of audit fails → ship-as-low (Phase 2.4)
+  qualityFlag: 'low' | null;
+  interactiveId: string | null;
+  slug: string | null;
+  title: string | null;
+  concept: string | null;
+  htmlByteLength: number;
+  revisionCount: number;
+  roundsUsed: number;
+  voiceScore: number | null;        // null in 2.3 (auditor not yet wired)
+  finalAudit: FinalAuditSummary | null; // null in 2.3
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
+}
+
+/** Result surfaced back to Director. The two artefact results are
+ *  independent — quiz can succeed while HTML declines, or vice versa.
+ *  `html` is null when the `interactives_html_enabled` flag is false. */
+export interface InteractiveGeneratorResult {
+  pieceId: string;
+  date: string;
+  htmlEnabled: boolean;
+  quiz: QuizArtefactResult;
+  html: HtmlArtefactResult | null;
   durationMs: number;
 }
 
@@ -111,6 +166,9 @@ interface InteractiveGeneratorState {
   interactivesGenerated: number;
   interactivesDeclined: number;
   interactivesAuditorMaxFailed: number;
+  htmlInteractivesGenerated: number;
+  htmlInteractivesDeclined: number;
+  htmlInteractivesValidatorMaxFailed: number;
 }
 
 /**
@@ -175,6 +233,9 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     interactivesGenerated: 0,
     interactivesDeclined: 0,
     interactivesAuditorMaxFailed: 0,
+    htmlInteractivesGenerated: 0,
+    htmlInteractivesDeclined: 0,
+    htmlInteractivesValidatorMaxFailed: 0,
   };
 
   async generate(
@@ -184,33 +245,123 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   ): Promise<InteractiveGeneratorResult> {
     const started = Date.now();
 
-    // ── 1. Idempotence guard ─────────────────────────────────────
-    const piece = await this.env.DB
-      .prepare(
-        `SELECT headline, underlying_subject, interactive_id
-         FROM daily_pieces WHERE id = ? LIMIT 1`,
-      )
-      .bind(pieceId)
-      .first<{
-        headline: string;
-        underlying_subject: string | null;
-        interactive_id: string | null;
-      }>();
+    // ── 1. Read piece + per-type idempotence + flag ──────────────
+    //
+    // Per-type idempotence (Phase 2): a piece can have a quiz row
+    // AND/OR an html row. We check each independently so a retry
+    // can fill in just the missing artefact. The legacy
+    // `daily_pieces.interactive_id` pointer is still maintained by
+    // the quiz commit path for back-compat with the shipped reader
+    // surface (sub-task 4.6 last-beat prompt) but is no longer the
+    // gate.
+    const [piece, existingQuiz, existingHtml, htmlEnabled] = await Promise.all([
+      this.env.DB
+        .prepare(
+          `SELECT headline, underlying_subject, interactive_id
+           FROM daily_pieces WHERE id = ? LIMIT 1`,
+        )
+        .bind(pieceId)
+        .first<{
+          headline: string;
+          underlying_subject: string | null;
+          interactive_id: string | null;
+        }>(),
+      this.env.DB
+        .prepare(
+          `SELECT id FROM interactives
+           WHERE source_piece_id = ? AND type = 'quiz' LIMIT 1`,
+        )
+        .bind(pieceId)
+        .first<{ id: string }>(),
+      this.env.DB
+        .prepare(
+          `SELECT id FROM interactives
+           WHERE source_piece_id = ? AND type = 'html' LIMIT 1`,
+        )
+        .bind(pieceId)
+        .first<{ id: string }>(),
+      getAdminSetting(
+        this.env.DB,
+        'interactives_html_enabled',
+        (raw) => raw === 'true',
+        false,
+      ),
+    ]);
 
     if (!piece) {
       throw new Error(`generate: no daily_pieces row for id ${pieceId}`);
     }
 
-    if (piece.interactive_id) {
-      return {
+    const willRunQuiz = !existingQuiz;
+    const willRunHtml = htmlEnabled && !existingHtml;
+
+    // ── 2. Build shared context (only when at least one path runs) ─
+    let pieceContext: PieceContextForInteractive | null = null;
+    let recent: RecentInteractive[] = [];
+
+    if (willRunQuiz || willRunHtml) {
+      const catsRes = await this.env.DB
+        .prepare(
+          `SELECT c.name, c.slug
+           FROM piece_categories pc
+           JOIN categories c ON c.id = pc.category_id
+           WHERE pc.piece_id = ?`,
+        )
+        .bind(pieceId)
+        .all<{ name: string; slug: string }>();
+      const categories: CategoryRow[] = catsRes.results.map((r) => ({
+        name: r.name,
+        slug: r.slug,
+      }));
+
+      // Recent excludes THIS piece's own siblings — when retrying for
+      // HTML on a piece that already has a quiz, the quiz shouldn't
+      // appear on the diversity list (the sibling SHOULD teach the
+      // same concept, since both teach the piece's underlying concept).
+      const recentRes = await this.env.DB
+        .prepare(
+          `SELECT slug, title, concept
+           FROM interactives
+           WHERE published_at IS NOT NULL AND source_piece_id != ?
+           ORDER BY published_at DESC
+           LIMIT ?`,
+        )
+        .bind(pieceId, RECENT_INTERACTIVES_FOR_DIVERSITY)
+        .all<{ slug: string; title: string; concept: string | null }>();
+      recent = recentRes.results.map((r) => ({
+        slug: r.slug,
+        title: r.title,
+        concept: r.concept,
+      }));
+
+      pieceContext = {
+        headline: piece.headline,
+        underlyingSubject: piece.underlying_subject,
+        bodyExcerpt: stripForExcerpt(mdx),
+        categories,
+      };
+    }
+
+    // ── 3. Quiz path ─────────────────────────────────────────────
+    let quizResult: QuizArtefactResult;
+    if (willRunQuiz && pieceContext) {
+      quizResult = await this.runQuizLoop(
         pieceId,
-        date,
+        pieceContext,
+        recent,
+        piece.headline,
+        piece.underlying_subject,
+      );
+    } else {
+      // Skipped: piece already has a quiz row (or no context built).
+      quizResult = {
+        ran: false,
         skipped: true,
         declined: false,
         committed: false,
         auditorMaxFailed: false,
         qualityFlag: null,
-        interactiveId: piece.interactive_id,
+        interactiveId: existingQuiz?.id ?? piece.interactive_id ?? null,
         slug: null,
         title: null,
         concept: null,
@@ -221,57 +372,65 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         finalAudit: null,
         tokensIn: 0,
         tokensOut: 0,
-        durationMs: Date.now() - started,
+        durationMs: 0,
       };
     }
 
-    // ── 2. Gather context ────────────────────────────────────────
-    const catsRes = await this.env.DB
-      .prepare(
-        `SELECT c.name, c.slug
-         FROM piece_categories pc
-         JOIN categories c ON c.id = pc.category_id
-         WHERE pc.piece_id = ?`,
-      )
-      .bind(pieceId)
-      .all<{ name: string; slug: string }>();
-    const categories: CategoryRow[] = catsRes.results.map((r) => ({
-      name: r.name,
-      slug: r.slug,
-    }));
+    // ── 4. HTML path (gated by flag) ─────────────────────────────
+    let htmlResult: HtmlArtefactResult | null = null;
+    if (willRunHtml && pieceContext) {
+      htmlResult = await this.runHtmlLoop(pieceId, pieceContext, recent);
+    } else if (existingHtml) {
+      // Skipped: piece already has an html row.
+      htmlResult = {
+        ran: false,
+        skipped: true,
+        declined: false,
+        committed: false,
+        validatorMaxFailed: false,
+        auditorMaxFailed: false,
+        qualityFlag: null,
+        interactiveId: existingHtml.id,
+        slug: null,
+        title: null,
+        concept: null,
+        htmlByteLength: 0,
+        revisionCount: 0,
+        roundsUsed: 0,
+        voiceScore: null,
+        finalAudit: null,
+        tokensIn: 0,
+        tokensOut: 0,
+        durationMs: 0,
+      };
+    }
+    // else: htmlResult stays null (flag off)
 
-    const recentRes = await this.env.DB
-      .prepare(
-        `SELECT slug, title, concept
-         FROM interactives
-         WHERE published_at IS NOT NULL
-         ORDER BY published_at DESC
-         LIMIT ?`,
-      )
-      .bind(RECENT_INTERACTIVES_FOR_DIVERSITY)
-      .all<{ slug: string; title: string; concept: string | null }>();
-    const recent: RecentInteractive[] = recentRes.results.map((r) => ({
-      slug: r.slug,
-      title: r.title,
-      concept: r.concept,
-    }));
-
-    const pieceContext: PieceContextForQuiz = {
-      headline: piece.headline,
-      underlyingSubject: piece.underlying_subject,
-      bodyExcerpt: stripForExcerpt(mdx),
-      categories,
+    return {
+      pieceId,
+      date,
+      htmlEnabled,
+      quiz: quizResult,
+      html: htmlResult,
+      durationMs: Date.now() - started,
     };
+  }
 
-    // ── 3. Produce → audit → revise loop ─────────────────────────
-    //
-    // `interactiveId` is pre-allocated here so we can persist
-    // per-round audit rows during the loop using a stable foreign
-    // key. On the declined path the id is never INSERTed into
-    // `interactives` and any audit rows already written become
-    // orphans — same pattern `audit_results` has tolerated since
-    // the day-keyed era. On the commit path (clean OR shipped-low)
-    // the same id lands in the `interactives` row at step 5.
+  /**
+   * Quiz produce → audit → revise loop. Pre-allocates an
+   * `interactiveId`, runs up to 3 rounds, commits the file + D1 row
+   * on the passing round (or ships-as-low on auditor max-fail).
+   * Updates `daily_pieces.interactive_id` for back-compat with the
+   * 4.6 last-beat prompt surface.
+   */
+  private async runQuizLoop(
+    pieceId: string,
+    pieceContext: PieceContextForInteractive,
+    recent: RecentInteractive[],
+    pieceHeadline: string,
+    pieceUnderlyingSubject: string | null,
+  ): Promise<QuizArtefactResult> {
+    const started = Date.now();
     const interactiveId = crypto.randomUUID();
 
     const auditor = await this.subAgent(
@@ -290,7 +449,6 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     for (let round = 1; round <= INTERACTIVE_MAX_ROUNDS; round += 1) {
       roundsUsed = round;
 
-      // Produce (round 1) or revise (round 2+).
       let produced: ValidatedQuiz | null;
       let tokensIn = 0;
       let tokensOut = 0;
@@ -302,9 +460,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         tokensOut = res.tokensOut;
       } else {
         if (!lastQuiz || !lastAudit) {
-          // Invariant — rounds 2+ require both. Bail loudly.
           throw new Error(
-            `generate: round ${round} has no previous quiz or audit to revise from`,
+            `runQuizLoop: round ${round} has no previous quiz or audit to revise from`,
           );
         }
         const res = await this.reviseQuiz(
@@ -323,14 +480,12 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       cumulativeTokensOut += tokensOut;
 
       if (!produced) {
-        // Decline — Claude returned the empty shape. Treat as terminal.
         declinedInLoop = true;
         break;
       }
 
       lastQuiz = produced;
 
-      // Audit what was produced.
       const audit = await auditor.audit(
         {
           slug: produced.slug,
@@ -339,8 +494,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           questions: produced.questions,
         },
         {
-          headline: piece.headline,
-          underlyingSubject: piece.underlying_subject,
+          headline: pieceHeadline,
+          underlyingSubject: pieceUnderlyingSubject,
           bodyExcerpt: pieceContext.bodyExcerpt,
         },
       );
@@ -348,12 +503,6 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       cumulativeTokensIn += audit.tokensIn;
       cumulativeTokensOut += audit.tokensOut;
 
-      // Persist 4 rows (one per dimension) keyed to the pre-allocated
-      // `interactiveId` + this `round`. Best-effort: a write failure
-      // here must NOT abort the loop — the auditor's verdict drives
-      // the produce/revise/commit decision regardless of forensic
-      // persistence. Wrap in its own try so a transient D1 error
-      // can't sink an otherwise-passing generation.
       try {
         await this.persistAuditRows(interactiveId, round, audit);
       } catch (e) {
@@ -367,19 +516,15 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         passed = true;
         break;
       }
-      // Failed — if more rounds remain, loop back; otherwise fall
-      // through to the max-fail terminal.
     }
 
-    // ── 4. Terminal state handling ───────────────────────────────
     if (declinedInLoop) {
       this.setState({
         ...this.state,
         interactivesDeclined: this.state.interactivesDeclined + 1,
       });
       return {
-        pieceId,
-        date,
+        ran: true,
         skipped: false,
         declined: true,
         committed: false,
@@ -400,15 +545,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       };
     }
 
-    // ── 5. Commit path — passed cleanly OR shipped-as-low ────────
-    //
-    // Both paths fall through to the same commit logic. The only
-    // difference is `qualityFlag`: null for clean passes, 'low' when
-    // all rounds failed audit (2026-04-24 reversal of 4.5's abandon).
-    // `auditorMaxFailed` stays as a terminal-semantics flag so observers
-    // + admin surfaces can distinguish shipped-clean vs shipped-low.
     if (!lastQuiz) {
-      throw new Error('generate: commit path reached without a lastQuiz');
+      throw new Error('runQuizLoop: commit path reached without a lastQuiz');
     }
     const qualityFlag: 'low' | null = passed ? null : 'low';
     const auditorMaxFailed = !passed;
@@ -427,8 +565,6 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         sourcePieceId: pieceId,
         publishedAt,
         voiceScore: lastAudit?.voice.score ?? undefined,
-        // Only write qualityFlag when 'low'; omit when clean so the
-        // content-collection schema's `.optional()` stays the default.
         ...(qualityFlag === 'low' ? { qualityFlag: 'low' } : {}),
         content: {
           type: 'quiz',
@@ -480,10 +616,6 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       .bind(interactiveId, pieceId)
       .run();
 
-    // Counter bookkeeping: bump `interactivesGenerated` either way (a
-    // shipped-low interactive is still generated content on the site).
-    // Bump `interactivesAuditorMaxFailed` only on the low path so the
-    // ratio clean-vs-low stays legible in the DO state.
     this.setState({
       ...this.state,
       interactivesGenerated: this.state.interactivesGenerated + 1,
@@ -492,8 +624,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     });
 
     return {
-      pieceId,
-      date,
+      ran: true,
       skipped: false,
       declined: false,
       committed: true,
@@ -508,6 +639,233 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       roundsUsed,
       voiceScore,
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
+      tokensIn: cumulativeTokensIn,
+      tokensOut: cumulativeTokensOut,
+      durationMs: Date.now() - started,
+    };
+  }
+
+  /**
+   * HTML interactive produce → validate → (TODO 2.4: audit) → revise
+   * loop. Mirrors the quiz loop's three-round structure but with two
+   * differences:
+   *   - Validator runs as a HARD gate before any audit. Failure on
+   *     all 3 rounds → no commit (validatorMaxFailed). Validator
+   *     catches sandbox-violators (eval, fetch, localStorage etc.)
+   *     that would SecurityError at runtime; shipping such a file
+   *     would mean a broken interactive on the page.
+   *   - Auditor call is NOT yet wired (sub-task 2.4 lands it).
+   *     Currently any validator-pass → commit. 2.4 will add an
+   *     audit call after validate, with ship-as-low on auditor
+   *     max-fail mirroring the quiz path.
+   *
+   * Commits the HTML file at content/interactives/<slug>.html.
+   * Writes an `interactives` row with type='html'. Does NOT update
+   * `daily_pieces.interactive_id` — that pointer stays on the quiz
+   * row for back-compat with the 4.6 last-beat prompt; readers find
+   * the HTML via `interactives WHERE source_piece_id = ?`.
+   */
+  private async runHtmlLoop(
+    pieceId: string,
+    pieceContext: PieceContextForInteractive,
+    recent: RecentInteractive[],
+  ): Promise<HtmlArtefactResult> {
+    const started = Date.now();
+    const interactiveId = crypto.randomUUID();
+
+    let cumulativeTokensIn = 0;
+    let cumulativeTokensOut = 0;
+    let lastHtml: ValidatedHtml | null = null;
+    let lastValidatorViolations: RevisionValidatorViolation[] = [];
+    let validatorPassed = false;
+    let declinedInLoop = false;
+    let roundsUsed = 0;
+
+    for (let round = 1; round <= INTERACTIVE_MAX_ROUNDS; round += 1) {
+      roundsUsed = round;
+
+      let produced: ValidatedHtml | null;
+      let tokensIn = 0;
+      let tokensOut = 0;
+
+      if (round === 1) {
+        const res = await this.produceHtml(pieceContext, recent);
+        produced = res.html;
+        tokensIn = res.tokensIn;
+        tokensOut = res.tokensOut;
+      } else {
+        if (!lastHtml) {
+          throw new Error(
+            `runHtmlLoop: round ${round} has no previous html to revise from`,
+          );
+        }
+        const res = await this.reviseHtml(
+          lastHtml,
+          lastValidatorViolations,
+          pieceContext,
+          recent,
+          round,
+        );
+        produced = res.html;
+        tokensIn = res.tokensIn;
+        tokensOut = res.tokensOut;
+      }
+
+      cumulativeTokensIn += tokensIn;
+      cumulativeTokensOut += tokensOut;
+
+      if (!produced) {
+        declinedInLoop = true;
+        break;
+      }
+
+      lastHtml = produced;
+
+      const validation = validateHtml(produced.html);
+      if (validation.passed) {
+        validatorPassed = true;
+        // TODO sub-task 2.4 — call auditor.audit() for voice / structure /
+        // essence / factual on the validator-passed HTML. On audit fail,
+        // continue the revise loop with auditor feedback. On audit pass,
+        // break to commit. On audit max-fail (round 3), ship as
+        // quality_flag='low' (mirrors quiz path).
+        break;
+      }
+
+      // Validator failed — collect violations for the revision prompt.
+      lastValidatorViolations = validation.violations.map((v) => ({
+        rule: v.rule,
+        message: v.message,
+        snippet: v.snippet,
+      }));
+      // Loop continues if rounds remain; otherwise validatorMaxFailed terminal.
+    }
+
+    // ── Terminal handling ────────────────────────────────────────
+    if (declinedInLoop) {
+      this.setState({
+        ...this.state,
+        htmlInteractivesDeclined: this.state.htmlInteractivesDeclined + 1,
+      });
+      return {
+        ran: true,
+        skipped: false,
+        declined: true,
+        committed: false,
+        validatorMaxFailed: false,
+        auditorMaxFailed: false,
+        qualityFlag: null,
+        interactiveId: null,
+        slug: null,
+        title: null,
+        concept: null,
+        htmlByteLength: 0,
+        revisionCount: Math.max(0, roundsUsed - 1),
+        roundsUsed,
+        voiceScore: null,
+        finalAudit: null,
+        tokensIn: cumulativeTokensIn,
+        tokensOut: cumulativeTokensOut,
+        durationMs: Date.now() - started,
+      };
+    }
+
+    if (!validatorPassed || !lastHtml) {
+      // 3 rounds of validator failures, no commit. Distinct from
+      // declined — Claude tried but kept producing structurally
+      // unsound files. Operator inspects `lastValidatorViolations`
+      // (logged by Director's observer) to diagnose.
+      this.setState({
+        ...this.state,
+        htmlInteractivesValidatorMaxFailed:
+          this.state.htmlInteractivesValidatorMaxFailed + 1,
+      });
+      return {
+        ran: true,
+        skipped: false,
+        declined: false,
+        committed: false,
+        validatorMaxFailed: true,
+        auditorMaxFailed: false,
+        qualityFlag: null,
+        interactiveId: null,
+        slug: null,
+        title: null,
+        concept: null,
+        htmlByteLength: lastHtml ? new TextEncoder().encode(lastHtml.html).length : 0,
+        revisionCount: Math.max(0, roundsUsed - 1),
+        roundsUsed,
+        voiceScore: null,
+        finalAudit: null,
+        tokensIn: cumulativeTokensIn,
+        tokensOut: cumulativeTokensOut,
+        durationMs: Date.now() - started,
+      };
+    }
+
+    // ── Commit path (validator passed; 2.4 will gate on audit too) ──
+    const qualityFlag: 'low' | null = null; // 2.4 sets 'low' on auditor max-fail
+
+    const finalSlug = await this.resolveFreeSlug(lastHtml.slug);
+    lastHtml.slug = finalSlug;
+
+    const publishedAt = Date.now();
+    const filePath = `content/interactives/${lastHtml.slug}.html`;
+
+    const publisher = await this.subAgent(
+      PublisherAgent,
+      `interactive-publisher-html-${lastHtml.slug}`,
+    );
+    const commitMsg = `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html]`;
+    await publisher.publishToPath(filePath, lastHtml.html, commitMsg);
+
+    const htmlByteLength = new TextEncoder().encode(lastHtml.html).length;
+    const revisionCount = roundsUsed - 1;
+
+    await this.env.DB
+      .prepare(
+        `INSERT INTO interactives
+         (id, slug, type, title, concept, source_piece_id, content_json,
+          voice_score, quality_flag, revision_count, published_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        interactiveId,
+        lastHtml.slug,
+        'html',
+        lastHtml.title,
+        lastHtml.concept,
+        pieceId,
+        null,        // voice_score — 2.4 wires
+        qualityFlag, // 2.4 sets 'low' on auditor max-fail
+        revisionCount,
+        publishedAt,
+        publishedAt,
+      )
+      .run();
+
+    this.setState({
+      ...this.state,
+      htmlInteractivesGenerated: this.state.htmlInteractivesGenerated + 1,
+    });
+
+    return {
+      ran: true,
+      skipped: false,
+      declined: false,
+      committed: true,
+      validatorMaxFailed: false,
+      auditorMaxFailed: false,
+      qualityFlag,
+      interactiveId,
+      slug: lastHtml.slug,
+      title: lastHtml.title,
+      concept: lastHtml.concept,
+      htmlByteLength,
+      revisionCount,
+      roundsUsed,
+      voiceScore: null,
+      finalAudit: null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       durationMs: Date.now() - started,
@@ -599,6 +957,107 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
     return {
       quiz: parseAndValidate(rawText),
+      tokensIn,
+      tokensOut,
+    };
+  }
+
+  /**
+   * Round 1 — initial HTML interactive produce. Returns null html if
+   * Claude declined (empty shape). Throws on infrastructure failure
+   * or structural-shape validation failure.
+   *
+   * The HTML system prompt is sent as a single Anthropic prompt-cache
+   * block (cache_control: ephemeral). It's ~12 KB stable; the
+   * per-piece brief in `messages` is small and uncached. Cache reads
+   * cost 0.1× the standard rate per Anthropic; at the cadence the
+   * Generator runs (1–2 pieces/day), the second invocation within
+   * ~5min hits the cache for ~90% of the input.
+   */
+  private async produceHtml(
+    pieceContext: PieceContextForInteractive,
+    recent: RecentInteractive[],
+  ): Promise<{ html: ValidatedHtml | null; tokensIn: number; tokensOut: number }> {
+    const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      // 16k tokens accommodates a 50 KB HTML file (≈12.5K tokens) plus
+      // the small JSON envelope overhead. The validator's size-cap rule
+      // is the actual hard limit; max_tokens sits above it as headroom.
+      max_tokens: 16000,
+      system: [
+        {
+          type: 'text',
+          text: INTERACTIVE_HTML_GENERATOR_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        { role: 'user', content: buildHtmlInteractivePrompt(pieceContext, recent) },
+      ],
+    });
+
+    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
+
+    return {
+      html: parseAndValidateHtml(rawText),
+      tokensIn,
+      tokensOut,
+    };
+  }
+
+  /**
+   * Rounds 2+ — revise the previous HTML attempt with validator
+   * (and, in 2.4, auditor) feedback. Same cached system prompt as
+   * round 1; the prefix matches so the cache hits.
+   */
+  private async reviseHtml(
+    previous: ValidatedHtml,
+    validatorViolations: RevisionValidatorViolation[],
+    pieceContext: PieceContextForInteractive,
+    recent: RecentInteractive[],
+    round: number,
+  ): Promise<{ html: ValidatedHtml | null; tokensIn: number; tokensOut: number }> {
+    const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
+    const previousShape: RevisionPreviousHtml = {
+      slug: previous.slug,
+      title: previous.title,
+      concept: previous.concept,
+      html: previous.html,
+    };
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 16000,
+      system: [
+        {
+          type: 'text',
+          text: INTERACTIVE_HTML_GENERATOR_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: buildHtmlRevisionPrompt(
+            previousShape,
+            null, // 2.4 wires audit feedback; for now validator-only
+            validatorViolations,
+            pieceContext,
+            recent,
+            round,
+          ),
+        },
+      ],
+    });
+
+    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
+
+    return {
+      html: parseAndValidateHtml(rawText),
       tokensIn,
       tokensOut,
     };
@@ -700,6 +1159,52 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       `resolveFreeSlug: "${normalised}" and ${SLUG_COLLISION_MAX_ATTEMPTS - 1} numbered variants all taken`,
     );
   }
+}
+
+/**
+ * Parse + structurally validate Claude's HTML interactive output.
+ * Returns null on the decline shape; throws with a specific error
+ * message on structural validation failure or non-JSON output.
+ *
+ * NOTE: this is the SHAPE check, not the validator. The validator
+ * (agents/src/interactive-validator.ts) runs against `html` AFTER
+ * this function returns a non-null ValidatedHtml.
+ */
+function parseAndValidateHtml(rawText: string): ValidatedHtml | null {
+  let parsed: { slug?: unknown; title?: unknown; concept?: unknown; html?: unknown };
+  try {
+    parsed = extractJson<typeof parsed>(rawText);
+  } catch {
+    throw new Error('parseAndValidateHtml: Claude returned non-JSON output');
+  }
+
+  const slug = typeof parsed.slug === 'string' ? parsed.slug.trim() : '';
+  const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+  const concept = typeof parsed.concept === 'string' ? parsed.concept.trim() : '';
+  const html = typeof parsed.html === 'string' ? parsed.html : '';
+
+  // Decline shape: all-empty.
+  if (slug === '' && title === '' && concept === '' && html === '') {
+    return null;
+  }
+
+  if (slug.length === 0) throw new Error('parseAndValidateHtml: empty slug');
+  if (title.length === 0) throw new Error('parseAndValidateHtml: empty title');
+  if (concept.length === 0) throw new Error('parseAndValidateHtml: empty concept');
+  if (html.length === 0) throw new Error('parseAndValidateHtml: empty html');
+
+  // The HTML must be a complete document. Tolerate leading whitespace
+  // (Claude sometimes adds a newline) but reject anything that doesn't
+  // start with <!DOCTYPE — partial fragments are a Claude failure mode
+  // we want surfaced, not committed.
+  const trimmedHtml = html.replace(/^\s+/, '');
+  if (!/^<!DOCTYPE/i.test(trimmedHtml)) {
+    throw new Error(
+      'parseAndValidateHtml: html does not begin with <!DOCTYPE — must be a complete HTML document',
+    );
+  }
+
+  return { slug, title, concept, html };
 }
 
 /**

@@ -359,103 +359,193 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
-  /** InteractiveGenerator ran — four terminal states:
-   *  - skipped:                    piece already has interactive_id (idempotent re-run)
-   *  - declined:                   Claude returned empty shape (concept redundant)
-   *  - committed (clean):          a round passed; quality_flag NULL; info severity
-   *  - committed (max-fail → low): 3 rounds failed; last attempt shipped with
-   *                                quality_flag='low'; warn severity (operator
-   *                                may want to retry for a cleaner quiz, but
-   *                                readers can already use what shipped).
-   *  Info severity on skipped / declined / committed-clean; warn on the
-   *  committed-low path. (2026-04-24 reversal of 4.5's abandon-on-max-fail.)
-   *  Mirrors logCategoriserMetered extended for the audit loop. */
+  /** InteractiveGenerator ran — combined quiz + html observer event.
+   *
+   * As of Phase 2 (2026-04-26), the Generator produces TWO artefacts
+   * per piece (quiz + html), gated by `interactives_html_enabled`.
+   * One observer event covers both, with per-artefact summary lines
+   * so the admin feed shows the whole story of one Generator run.
+   *
+   * Severity logic across both artefacts:
+   *   - escalation: any artefact ran but every artefact-that-ran failed
+   *     (declined / validatorMaxFailed) — Generator burned tokens with
+   *     no shippable output.
+   *   - warn: any artefact shipped flagged-low (auditor max-failed but
+   *     committed).
+   *   - info: clean pass on every artefact that ran, OR all skipped
+   *     (idempotent re-run).
+   *
+   * Quiz fields mirror the pre-Phase-2 shape; html fields are new.
+   * The observer event body composes a multi-line summary covering
+   * both artefacts; `context` carries the full structured metrics
+   * for forensic access.
+   */
   async logInteractiveGeneratorMetered(
     date: string,
     title: string,
     metrics: {
-      skipped: boolean;
-      declined: boolean;
-      committed: boolean;
-      auditorMaxFailed: boolean;
-      interactiveId: string | null;
-      slug: string | null;
-      quizTitle: string | null;
-      concept: string | null;
-      questionCount: number;
-      revisionCount: number;
-      roundsUsed: number;
-      voiceScore: number | null;
-      finalAudit: {
-        voicePassed: boolean;
-        voiceScore: number;
-        structurePassed: boolean;
-        essencePassed: boolean;
-        factualPassed: boolean;
-        topIssues: string[];
+      htmlEnabled: boolean;
+      quiz: {
+        ran: boolean;
+        skipped: boolean;
+        declined: boolean;
+        committed: boolean;
+        auditorMaxFailed: boolean;
+        qualityFlag: 'low' | null;
+        interactiveId: string | null;
+        slug: string | null;
+        title: string | null;
+        concept: string | null;
+        questionCount: number;
+        revisionCount: number;
+        roundsUsed: number;
+        voiceScore: number | null;
+        finalAudit: {
+          voicePassed: boolean;
+          voiceScore: number;
+          structurePassed: boolean;
+          essencePassed: boolean;
+          factualPassed: boolean;
+          topIssues: string[];
+        } | null;
+        tokensIn: number;
+        tokensOut: number;
+        durationMs: number;
+      };
+      html: {
+        ran: boolean;
+        skipped: boolean;
+        declined: boolean;
+        committed: boolean;
+        validatorMaxFailed: boolean;
+        auditorMaxFailed: boolean;
+        qualityFlag: 'low' | null;
+        interactiveId: string | null;
+        slug: string | null;
+        title: string | null;
+        concept: string | null;
+        htmlByteLength: number;
+        revisionCount: number;
+        roundsUsed: number;
+        voiceScore: number | null;
+        finalAudit: {
+          voicePassed: boolean;
+          voiceScore: number;
+          structurePassed: boolean;
+          essencePassed: boolean;
+          factualPassed: boolean;
+          topIssues: string[];
+        } | null;
+        tokensIn: number;
+        tokensOut: number;
+        durationMs: number;
       } | null;
-      tokensIn: number;
-      tokensOut: number;
-      durationMs: number;
+      totalDurationMs: number;
     },
     pieceId: string | null = null,
   ): Promise<void> {
-    if (metrics.skipped) {
-      await this.writeEvent({
-        severity: 'info',
-        title: `Interactive skipped: ${title}`,
-        body: `"${title}" (${date}) already has an interactive (${metrics.interactiveId}). No Claude call fired. Latency: ${metrics.durationMs}ms (DB only).`,
-        context: { date, ...metrics },
-        piece_id: pieceId,
-      });
-      return;
+    const quiz = metrics.quiz;
+    const html = metrics.html;
+
+    // Per-artefact summary line builders.
+    const summariseQuiz = (): string => {
+      if (quiz.skipped) {
+        return `Quiz: skipped (already exists as ${quiz.interactiveId}).`;
+      }
+      if (quiz.declined) {
+        return `Quiz: declined after ${quiz.roundsUsed} round${quiz.roundsUsed === 1 ? '' : 's'} — concept too redundant with recent interactives.`;
+      }
+      if (quiz.committed) {
+        const revisionNote = quiz.revisionCount > 0 ? ` (${quiz.revisionCount} revision${quiz.revisionCount === 1 ? '' : 's'})` : '';
+        const voiceNote = quiz.voiceScore !== null ? ` voice ${quiz.voiceScore}/100` : '';
+        if (quiz.auditorMaxFailed) {
+          const gates = quiz.finalAudit
+            ? [
+                quiz.finalAudit.voicePassed ? null : `voice (${quiz.finalAudit.voiceScore}/100)`,
+                quiz.finalAudit.structurePassed ? null : 'structure',
+                quiz.finalAudit.essencePassed ? null : 'essence',
+                quiz.finalAudit.factualPassed ? null : 'factual',
+              ].filter((x): x is string => x !== null).join(', ')
+            : 'unknown';
+          const issuesLine = quiz.finalAudit?.topIssues.length
+            ? ` Top issues: ${quiz.finalAudit.topIssues.map((i) => `"${i}"`).join('; ')}.`
+            : '';
+          return `Quiz: shipped flagged-low — "${quiz.title}" (${quiz.questionCount} questions, /interactives/${quiz.slug}/)${revisionNote}. Failed gates: ${gates}.${issuesLine}`;
+        }
+        return `Quiz: shipped — "${quiz.title}" (${quiz.questionCount} questions, /interactives/${quiz.slug}/)${revisionNote}.${voiceNote} Concept: ${quiz.concept}.`;
+      }
+      return `Quiz: did not run.`;
+    };
+
+    const summariseHtml = (): string => {
+      if (!html) return `HTML: disabled (interactives_html_enabled=false).`;
+      if (html.skipped) {
+        return `HTML: skipped (already exists as ${html.interactiveId}).`;
+      }
+      if (html.declined) {
+        return `HTML: declined after ${html.roundsUsed} round${html.roundsUsed === 1 ? '' : 's'} — concept could not be expressed as a manipulable interactive.`;
+      }
+      if (html.validatorMaxFailed) {
+        return `HTML: validator max-failed (${html.roundsUsed} rounds). No commit. Inspect Generator logs for the violation list.`;
+      }
+      if (html.committed) {
+        const revisionNote = html.revisionCount > 0 ? ` (${html.revisionCount} revision${html.revisionCount === 1 ? '' : 's'})` : '';
+        const sizeKB = (html.htmlByteLength / 1024).toFixed(1);
+        if (html.auditorMaxFailed) {
+          const gates = html.finalAudit
+            ? [
+                html.finalAudit.voicePassed ? null : `voice (${html.finalAudit.voiceScore}/100)`,
+                html.finalAudit.structurePassed ? null : 'structure',
+                html.finalAudit.essencePassed ? null : 'essence',
+                html.finalAudit.factualPassed ? null : 'factual',
+              ].filter((x): x is string => x !== null).join(', ')
+            : 'unknown';
+          return `HTML: shipped flagged-low — "${html.title}" (${sizeKB} KB, /interactives/${html.slug}/)${revisionNote}. Failed gates: ${gates}.`;
+        }
+        return `HTML: shipped — "${html.title}" (${sizeKB} KB, /interactives/${html.slug}/)${revisionNote}.`;
+      }
+      return `HTML: did not run.`;
+    };
+
+    // Severity rollup.
+    const quizFailed = quiz.ran && !quiz.committed; // declined or zero rounds
+    const htmlFailed = html?.ran && !html.committed && !html.skipped; // declined or validatorMaxFailed
+    const anyShipped = quiz.committed || (html?.committed ?? false);
+    const anyShippedLow =
+      (quiz.committed && quiz.auditorMaxFailed) ||
+      (html?.committed && html.auditorMaxFailed) ||
+      false;
+
+    let severity: 'info' | 'warn' | 'escalation';
+    let titlePrefix: string;
+    if (!anyShipped && (quizFailed || htmlFailed)) {
+      severity = 'escalation';
+      titlePrefix = 'Interactive(s) failed';
+    } else if (anyShippedLow) {
+      severity = 'warn';
+      titlePrefix = 'Interactive(s) shipped (flagged low)';
+    } else if (anyShipped) {
+      severity = 'info';
+      titlePrefix = 'Interactive(s) generated';
+    } else {
+      // Everything skipped — idempotent re-run, info.
+      severity = 'info';
+      titlePrefix = 'Interactive(s) skipped';
     }
-    if (metrics.declined) {
-      await this.writeEvent({
-        severity: 'info',
-        title: `Interactive declined: ${title}`,
-        body: `Generator declined to produce a quiz for "${title}" (${date}) — concept likely too redundant with recent interactives. Rounds used: ${metrics.roundsUsed}. Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
-        context: { date, ...metrics },
-        piece_id: pieceId,
-      });
-      return;
-    }
-    // Committed path — two sub-shapes:
-    //   (a) auditorMaxFailed=false: clean pass, info severity.
-    //   (b) auditorMaxFailed=true:  3 rounds failed audit; last attempt
-    //       shipped with quality_flag='low'. Warn severity — operator
-    //       may want to retry for a cleaner quiz, but readers can
-    //       already use what shipped. (2026-04-24 reversal of 4.5's
-    //       abandon-on-max-fail.)
-    const voiceNote = metrics.voiceScore !== null ? ` Voice ${metrics.voiceScore}/100.` : '';
-    const revisionNote = metrics.revisionCount > 0 ? ` (${metrics.revisionCount} revision${metrics.revisionCount === 1 ? '' : 's'})` : '';
-    if (metrics.auditorMaxFailed) {
-      const gates = metrics.finalAudit
-        ? [
-            metrics.finalAudit.voicePassed ? null : `voice (${metrics.finalAudit.voiceScore}/100)`,
-            metrics.finalAudit.structurePassed ? null : 'structure',
-            metrics.finalAudit.essencePassed ? null : 'essence',
-            metrics.finalAudit.factualPassed ? null : 'factual',
-          ]
-            .filter((x): x is string => x !== null)
-            .join(', ')
-        : 'unknown';
-      const issuesLine = metrics.finalAudit?.topIssues.length
-        ? ` Top issues: ${metrics.finalAudit.topIssues.map((i) => `"${i}"`).join('; ')}.`
-        : '';
-      await this.writeEvent({
-        severity: 'warn',
-        title: `Interactive shipped (flagged low): ${title}`,
-        body: `Generator for "${title}" (${date}) exhausted ${metrics.roundsUsed} rounds without passing audit but SHIPPED the last attempt with quality_flag='low' → "${metrics.quizTitle}" (${metrics.questionCount} questions, /interactives/${metrics.slug}/). Failed gates (final round): ${gates}.${issuesLine} Readers see it with a "Rough" tier tag; admin UI marks FLAGGED LOW. Retry via /interactive-generate-trigger or admin Retry button for a cleaner quiz. Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
-        context: { date, ...metrics },
-        piece_id: pieceId,
-      });
-      return;
-    }
+
+    const totalTokensIn = quiz.tokensIn + (html?.tokensIn ?? 0);
+    const totalTokensOut = quiz.tokensOut + (html?.tokensOut ?? 0);
+
+    const body = [
+      summariseQuiz(),
+      summariseHtml(),
+      `Tokens: in=${totalTokensIn} out=${totalTokensOut}. Latency: ${metrics.totalDurationMs}ms (quiz ${quiz.durationMs}ms${html ? `, html ${html.durationMs}ms` : ''}).`,
+    ].join(' ');
+
     await this.writeEvent({
-      severity: 'info',
-      title: `Interactive generated: ${title}`,
-      body: `"${title}" (${date}) → "${metrics.quizTitle}" (${metrics.questionCount} questions, /interactives/${metrics.slug}/).${revisionNote} Concept: ${metrics.concept}.${voiceNote} Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
+      severity,
+      title: `${titlePrefix}: ${title}`,
+      body,
       context: { date, ...metrics },
       piece_id: pieceId,
     });

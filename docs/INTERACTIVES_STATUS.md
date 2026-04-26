@@ -16,20 +16,23 @@ Phase 0 + Phase 1 complete and tagged.
 
 ## Last completed sub-task
 
-**Phase 2, sub-task 2.2 — HTML interactive validator.**
+**Phase 2, sub-task 2.3 — InteractiveGenerator extended with parallel HTML loop.**
 
-- New module [`agents/src/interactive-validator.ts`](../agents/src/interactive-validator.ts). Pure function `validate(html: string): ValidatorResult` implementing the eight rules from [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Validator rules": `size-cap`, `storage-api`, `dynamic-code`, `external-script-allowlist`, `network-call`, `nested-iframe`, `form-element`, `unsafe-url-scheme`. Output shape exported as `ValidatorResult` / `Violation` / `RuleId`.
-- No HTML parser dependency — comment-stripping pre-pass + regex scans, per spec "Pre-processing". Tag-scan view (HTML comments stripped) drives rules 4/6/7/8; script-scan view (script bodies extracted, then JS comments stripped) drives rules 2/3/5. String-literal context not analysed (false positives accepted as one extra revision round, per spec).
-- `HTML_FILE_BYTES_MAX = 50 * 1024` and `HTML_SCRIPT_ALLOWLIST_DESCRIPTION` moved from the prompt module to the validator (single source of truth). Prompt module imports + re-exports them so existing call sites continue to find them at the same import path.
-- New regression harness [`agents/scripts/verify-validator.mjs`](../agents/scripts/verify-validator.mjs) — 28 cases across all 8 rules + comment-stripping pre-pass + multi-rule failure + multiple-violation surfacing. Runs as `pnpm verify-validator`. Exit 0 on all pass; exit 1 on any failure. Inline JS mirror (same convention as `verify-splice.mjs` and `verify-normalize.mjs`) — sync if either file changes.
-- TS validator + JS mirror cross-checked against 8 probes via `npx tsx`; identical behaviour.
-- No call site changes — Generator doesn't yet call `validate()`. Wiring lands in 2.3. Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit.
+- [`agents/src/interactive-generator.ts`](../agents/src/interactive-generator.ts) refactored. Top-level `generate()` is now a dispatcher that runs both quiz AND html paths independently, gated by per-type idempotence + the `interactives_html_enabled` flag.
+- **Per-type idempotence.** Replaced the single `daily_pieces.interactive_id` gate with two queries: `interactives WHERE source_piece_id = ? AND type = 'quiz'` and `... AND type = 'html'`. Each artefact runs only if its row is absent. This unblocks "retry just-the-missing-one" semantics without touching the back-compat `daily_pieces.interactive_id` pointer (still set by quiz commits for the 4.6 last-beat surface).
+- **Recent excludes this piece's siblings.** Diversity query now `WHERE source_piece_id != ?` so retrying the HTML path on a piece that already has a quiz doesn't see its own quiz on the recent-list (which would push the HTML to decline as "redundant" — but the HTML SHOULD teach the same concept).
+- **HTML loop is validator-gated only in 2.3.** Each round: produce → `validateHtml()` → pass→commit, fail→revise with `RevisionValidatorViolation[]`. The auditor call is NOT yet wired (sub-task 2.4 lands it with a `TODO 2.4` marker in place). 3 rounds of validator failures → no commit (`validatorMaxFailed: true`); shipping a validator-failed file would SecurityError at runtime, so unlike auditor-max-fail (ship-as-low) it's a hard decline.
+- **Anthropic prompt caching wired.** HTML system prompt passed as `[{ type: 'text', text: PROMPT, cache_control: { type: 'ephemeral' } }]`. Round 1 seeds; revision rounds + the next piece's HTML run within ~5 minutes hit cache for the ~12 KB stable prefix.
+- **Result shape changed:** `InteractiveGeneratorResult` is now `{ pieceId, date, htmlEnabled, quiz: QuizArtefactResult, html: HtmlArtefactResult | null, durationMs }`. The `html` field is null when the flag is false. Both per-artefact result shapes carry their own `ran/skipped/declined/committed/auditorMaxFailed` terminal flags; HTML adds `validatorMaxFailed`.
+- **Observer logging extended.** [`logInteractiveGeneratorMetered`](../agents/src/observer.ts) now takes `{ htmlEnabled, quiz, html, totalDurationMs }`. One event per Generator run summarises both artefacts. Severity rolls up: escalation if all-that-ran failed; warn if any shipped flagged-low; info on clean pass or all-skipped.
+- **DO state counters extended.** `htmlInteractivesGenerated`, `htmlInteractivesDeclined`, `htmlInteractivesValidatorMaxFailed` track HTML path metering separately from quiz.
+- **No live behaviour change on prod.** Flag is `'false'`; HTML loop is silently bypassed; existing quiz behaviour preserved bit-for-bit. Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit.
+- Validator regression harness still 28/28 pass via `pnpm verify-validator`.
 
-**Earlier completed sub-tasks (Phase 2) — `[phase-2.1]` HTML generation prompt extension.**
+**Earlier completed sub-tasks (Phase 2):**
 
-- Added `INTERACTIVE_HTML_GENERATOR_PROMPT` system prompt (~12.4 KB, ~3K tokens) to [`agents/src/interactive-generator-prompt.ts`](../agents/src/interactive-generator-prompt.ts). Voice contract embedded inline; structural rules + sandbox compatibility + validator rules reproduced as positive instructions. Few-shot reference slot left unfilled — sub-task 2.7 plugs in `docs/examples/interactive-reference.html`.
-- Added types: `PieceContextForInteractive`, `RevisionPreviousHtml`, `RevisionValidatorViolation`.
-- Added builders: `buildHtmlInteractivePrompt(piece, recent)` for round-1; `buildHtmlRevisionPrompt(previous, audit, validatorViolations, piece, recent, round)` for rounds 2+ (validator-only / auditor-only / both feedback shapes accepted).
+- `[phase-2.2]` HTML interactive validator + `pnpm verify-validator` 28-case harness.
+- `[phase-2.1]` HTML generation prompt extension (`INTERACTIVE_HTML_GENERATOR_PROMPT`, builders, types).
 
 **Earlier completed sub-tasks (Phase 1) — `[phase-1.1]` + `[phase-1.2]` commit cluster.**
 
@@ -44,9 +47,9 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Phase 2 sub-task 2.3 — InteractiveGenerator.generate() extension.** Extend the existing produce → audit → revise loop in [`agents/src/interactive-generator.ts`](../agents/src/interactive-generator.ts) to produce TWO artefacts per piece (quiz + HTML interactive) when `admin_settings.interactives_html_enabled = 'true'`. Both artefacts share the same Director hook, both run independent up-to-3-round loops with their own audit feedback, both ship even if the other declined or max-failed. Anthropic prompt caching wired here: HTML system prompt passed as a single cache_control block; per-piece brief in `messages` is the uncached portion. Validator (2.2) called inline before audit each round; validator failure routes through the revision loop with `RevisionValidatorViolation` feedback (no Auditor call until validator passes). On commit: HTML file commit lands in 2.5, but the call site shape needs to be in place here so 2.4's Auditor extension has a real caller.
+**Phase 2 sub-task 2.4 — InteractiveAuditor extended with HTML rubric.** Extend [`agents/src/interactive-auditor.ts`](../agents/src/interactive-auditor.ts) to accept an artefact-type argument (`quiz | html`) and route to the right rubric. Quiz path stays unchanged. HTML path gets the four-dimension rubric from [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Audit rubric" — voice ≥85, structure ≥75, essence ≥75, factual ≥75, all four scored not binary. Single Claude call (same trade-off as quiz). Wire the call from `runHtmlLoop` at the `TODO 2.4` marker — after validator passes, audit; on audit fail revise with auditor feedback; on audit max-fail (round 3) ship-as-low (`quality_flag='low'`) mirroring quiz. Persist 4 rows per round to `interactive_audit_results` (same table the quiz path uses). Auditor system prompt for HTML also goes through Anthropic prompt caching — voice contract + rubric are stable.
 
-Phase 2 has 7 sub-tasks total. Remaining: 2.3 Generator extension → 2.4 Auditor extension → 2.5 file commit + row schema → 2.6 reader Web Component → 2.7 manual-proof reference HTML + flag flip + tag. Each is one commit. Per the plan, the manual-proof step (sub-task 2.7) is where Zishan reviews the hand-written reference HTML on prod before flipping `interactives_html_enabled = true`.
+Phase 2 has 7 sub-tasks total. Remaining: 2.4 Auditor extension → 2.5 file commit + row schema (resolves the still-open `daily_pieces.interactive_id` second-pointer question + the slug collision-vs-shared question) → 2.6 reader Web Component → 2.7 manual-proof reference HTML + flag flip + tag. Each is one commit. Per the plan, the manual-proof step (sub-task 2.7) is where Zishan reviews the hand-written reference HTML on prod before flipping `interactives_html_enabled = true`.
 
 Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -81,6 +84,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 1 | 1.1 — `interactives_html_enabled` flag (migration 0024); 1.2 — `interactives.quality_tier` column + backfill (migration 0025); SCHEMA + RUNBOOK synced | Two migrations applied to remote D1. Plan-vs-repo: prod had 3 `quality_flag='low'` rows not 2 (recorded in PLAN_NOTES); set-shaped backfill covered all 3. Tag `interactives-v3.1-complete`. |
 | 2026-04-26 | 2 | 2.1 — HTML generation prompt extension (system prompt + types + builders) | Prompt module additions only; no call sites yet. Voice contract embedded inline, validator rules + sandbox spec reproduced as positive instructions. Few-shot reference slot left unfilled — 2.7 will plug in `docs/examples/interactive-reference.html`. Zero new typecheck errors. |
 | 2026-04-26 | 2 | 2.2 — HTML interactive validator + verify-validator harness | New `agents/src/interactive-validator.ts` (8 rules, pure function, comment-stripping pre-pass). Constants moved from prompt module to validator (single source of truth). 28-case regression harness via `pnpm verify-validator` — 28/28 pass. TS module + JS mirror cross-checked. Zero new typecheck errors. |
+| 2026-04-26 | 2 | 2.3 — InteractiveGenerator extended with parallel HTML loop | `generate()` refactored as a quiz+html dispatcher; per-type idempotence; HTML loop validator-gated only (auditor wires in 2.4); Anthropic prompt caching active on HTML system prompt; result shape changed; observer logging extended to dual-artefact summary. Flag stays `'false'` so prod behaviour unchanged. Zero new typecheck errors. |
 
 ## Tags
 
