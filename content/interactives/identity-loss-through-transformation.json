@@ -1,0 +1,71 @@
+{
+  "slug": "identity-loss-through-transformation",
+  "type": "quiz",
+  "title": "Identity Loss Through Transformation",
+  "concept": "Physical processes that convert distinct inputs into uniform outputs destroy the markers needed for independent verification — integrity becomes a documentation claim rather than an observable property.",
+  "interactiveId": "1aa59237-3fb3-4915-aae6-b3d20cc4b807",
+  "sourcePieceId": "9280146e-16ad-4c7a-977a-1900dc9b3324",
+  "publishedAt": 1777201527466,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A facility receives shipments from forty suppliers and processes them into a chemically uniform product. What information about the original shipments survives the processing?",
+        "options": [
+          "The product itself carries markers that testing can reveal",
+          "Whatever the processor's records claim — the output contains no physical evidence of its origins",
+          "The highest-quality input determines the properties of the final product",
+          "Buyers can trace origins by analyzing molecular signatures"
+        ],
+        "correctIndex": 1,
+        "explanation": "Transformation into uniform output destroys physical differentiation. What remains is not encoded in the product — it exists only in documentation. The output looks identical whether its inputs were clean or contaminated."
+      },
+      {
+        "question": "A buyer tests a processed commodity for purity and finds it meets all specifications. What has this testing proven about the sources?",
+        "options": [
+          "Nothing — quality measures the output's properties, not the history of its inputs",
+          "The inputs were legitimate, because tainted material would fail quality standards",
+          "The processor followed proper sourcing procedures",
+          "At least half the inputs came from verified sources"
+        ],
+        "correctIndex": 0,
+        "explanation": "Purity testing answers 'what is this made of' but cannot answer 'where did the components come from.' A product can be chemically perfect while containing materials from unauthorized sources — the transformation erases origin, not contamination that affects composition."
+      },
+      {
+        "question": "Why does asking processors to verify their own inputs create a structural problem?",
+        "options": [
+          "Processors don't have the skills to check their inputs",
+          "The processor benefits from not discovering problems and cannot directly observe the original sources",
+          "Processing happens too fast for verification steps",
+          "Processors aren't allowed to audit their own suppliers"
+        ],
+        "correctIndex": 1,
+        "explanation": "The processor sits between the original source and the end buyer. They rely on supplier claims about origins they cannot witness. Finding problems stops their business. This creates a position where incentives to look hard and ability to see clearly both run weak."
+      },
+      {
+        "question": "A certification program requires processors to document the origin of every input. If those inputs were themselves blends from earlier stages, what problem persists?",
+        "options": [
+          "Paperwork slows down production",
+          "The documentation describes another unverified claim — the problem just moves one step back without reaching actual verification",
+          "Different regions use different documentation standards",
+          "Processors might not know all their suppliers"
+        ],
+        "correctIndex": 1,
+        "explanation": "Documentation of a blend is a claim about a claim. If the processor's supplier also received mixed inputs, the paperwork chains backward without ever hitting ground truth. The recursion continues until someone actually inspects at the point where inputs are still distinct."
+      },
+      {
+        "question": "An organization wants to ensure no unauthorized material enters a supply chain where inputs get blended into uniform product. Where must verification happen?",
+        "options": [
+          "At every stage, with multiple checks",
+          "At the blending facility, using advanced testing equipment",
+          "Before blending occurs, at each distinct source — transformation destroys the physical basis for attribution",
+          "At the final sale, where the buyer has the most leverage"
+        ],
+        "correctIndex": 2,
+        "explanation": "Once distinct inputs become uniform output, no technology can separate the blend back into labeled components. The only moment when origin is a testable physical property rather than a documentation claim is before transformation occurs. Leverage and resources don't matter if the information itself no longer exists."
+      }
+    ]
+  }
+}
