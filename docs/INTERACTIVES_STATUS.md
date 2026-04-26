@@ -10,11 +10,14 @@ Interactives v3 — adding HTML interactives (sliders, scrubbable timelines, wha
 
 ## Current phase
 
-**Phase 3 — Admin surface** (complete after 3.5; tag `interactives-v3.3-complete` pending push).
+**Phases 0 / 1 / 2 / 3 all complete and tagged on origin.**
 
-Phase 0 + Phase 1 complete and tagged. Phase 2 machine-side complete (2.1–2.7 commits on origin/main); flag flip + `interactives-v3.2-complete` tag still pending Zishan's prod review of the reference HTML at `https://zeemish.io/interactives/chokepoints-and-cascades/`.
+- Phase 0 — `interactives-v3.0-complete` (spec, rubric, validator rules, sandbox, decisions, book ch.9).
+- Phase 1 — `interactives-v3.1-complete` (`interactives_html_enabled` flag, `interactives.quality_tier` column).
+- Phase 2 — `interactives-v3.2-complete` on `347f10e` (machine-side 2.1–2.6 + reference HTML 2.7 + Zishan's prod review + flag flipped to `'true'`). The morning 02:00 UTC cron on 2026-04-26 produced the **first auto-generated HTML interactive ever** for the U.S. Mint piece (committed `d1e2e31` "Mixing and Traceability", clean pass; quiz `683cee9` "Identity Loss Through Transformation" shipped flagged-low). Live at `/interactives/identity-loss-through-transformation/`.
+- Phase 3 — `interactives-v3.3-complete` on `332f932` (admin toggle, list view, destructive regenerate, MTD cost telemetry with cache-token capture, doc sync).
 
-Phase 3 is parallel-safe with the pending 2.7 review — admin tooling reads/writes the data shapes Phase 2 already shipped and doesn't depend on the reference quality. The 3.1 toggle UI now ships before 2.7's flip, so when Zishan approves the reference, the flip is a one-click admin action instead of `wrangler d1 execute`.
+**Next: Phase 4** — engagement signals into Learner. Unblock condition: ≥3 HTML interactives shipped + ≥48h of reader traffic on them (~2 days from 2026-04-26 at `interval_hours=12`).
 
 ## Last completed sub-task
 
@@ -34,20 +37,15 @@ Slug-drift caveat documented: quiz-only regen MAY produce a different slug if Cl
 
 **Phase 3, sub-task 3.2 — Admin list view at `/dashboard/admin/interactives/`.** Shipped 2026-04-26 (commit `3a30ec9`). New SSR Astro page (folder route). Stats row, type filter chips, per-row card with audit pills, sort by `quality_flag='low'` first.
 
-**Phase 3, sub-task 3.1 — `interactives_html_enabled` toggle on admin settings page.** Shipped 2026-04-26 (commit `78f3431`). Toggle on `/dashboard/admin/settings/`; shared `writeSetting()` helper for any admin_settings key.
-
 **Phase 3, sub-task 3.1 — `interactives_html_enabled` toggle on admin settings page.** Shipped 2026-04-26 (commit `78f3431`). Extended `/dashboard/admin/settings/` with a second `<section>` under the cadence dropdown — checkbox bound to the flag, "current value / last updated" stat row, save button, status line. API at `/api/dashboard/admin/settings` GET extended to return the flag, POST extended to dispatch on body shape (`{interval_hours}` vs `{interactives_html_enabled}`) with a shared `writeSetting()` helper that fires the same `admin_settings_changed` observer event for both keys. Storage stays canonical `'true' | 'false'` string; wire format is `boolean`. Default-closed posture preserved across all three readers (GET endpoint, page frontmatter, agents-side reader): any non-`'true'` value means disabled. RUNBOOK now leads with the admin UI flip path; `wrangler d1 execute` recipes kept as fallback.
 
-**Phase 2, sub-task 2.7 (still pending) — Reference HTML hand-written + few-shot wired + content fixture deployed.**
+**Phase 2, sub-task 2.7 — Reference HTML hand-written + few-shot wired + content fixture deployed. SHIPPED + flag flipped + tagged.**
 
-Awaiting Zishan's review on prod + flag flip + tag.
-
-- **`docs/examples/interactive-reference.html`** — hand-written canonical reference. 6.6 KB; passes the validator on all 8 rules. Teaches **chokepoints**: one slider compresses a chokepoint between three input lanes (always full) and three output lanes (track the chokepoint). Live caption changes with capacity range — "upstream supply" → "the chokepoint, just barely" → "the chokepoint" → "the chokepoint, severely". Mobile-respectable via single `@media` query that flips horizontal pipeline → vertical at 480px. Self-contained: inline CSS, inline JS, no external scripts. Picked chokepoints for the universally-teachable mechanism + clean tactile control + concrete pedagogy hook.
-- **`agents/src/shared/interactive-html-reference.ts`** — Worker-readable mirror of the .html file. Cloudflare Workers can't readFileSync at runtime; the .ts string is what the prompt embeds. Sync rule: edit both files together.
-- **`agents/src/interactive-generator-prompt.ts`** — added a **# Reference example** section to `INTERACTIVE_HTML_GENERATOR_PROMPT` between the Diversity-with-past-interactives section and the Response-format section. Embeds the reference inside a fenced code block, with explicit guidance on what to copy (shape, voice, pedagogy hooks, mobile, self-contained) vs. what NOT to copy (specific concept, specific colours, specific copy strings). Reference is part of the cached system prompt block.
-- **System prompt size**: 12.4 KB → 20.4 KB (~5,100 tokens cached). One-time invalidation when Anthropic's prompt cache notices the prefix change; subsequent calls hit the new cache entry.
-- **`content/interactives/chokepoints-and-cascades-html.json`** — committed fixture for prod review. Slug = `chokepoints-and-cascades` (shares with the existing Hormuz piece's quiz). `sourcePieceId` = the Hormuz piece's actual id (`9ded9bec-…`). After deploy, `/interactives/chokepoints-and-cascades/` on prod renders both quiz (existing) + html (new) — Zishan reviews the rendered pair. No D1 row written; the made.ts drawer endpoint queries D1 directly so the Hormuz piece's drawer still shows quiz-only (honest reflection of what's in D1; the route page rendering both is content-collection-driven).
-- **What's still pending in 2.7**: (1) Zishan reviews on prod after CI deploys; (2) if accepted, flip `interactives_html_enabled = 'true'` via `wrangler d1 execute`; (3) tag `interactives-v3.2-complete` after the next published piece's Generator output validates the wiring end-to-end.
+- **`docs/examples/interactive-reference.html`** — hand-written canonical reference. 6.6 KB; passes the validator on all 8 rules. Teaches **chokepoints**.
+- **`agents/src/shared/interactive-html-reference.ts`** — Worker-readable mirror.
+- **`agents/src/interactive-generator-prompt.ts`** — `# Reference example` section embedded inside `INTERACTIVE_HTML_GENERATOR_PROMPT`'s cached block. System prompt size: 12.4 KB → 20.4 KB (~5,100 tokens cached).
+- **`content/interactives/chokepoints-and-cascades-html.json`** — committed fixture; rendered the Hormuz quiz + chokepoints HTML stacked on prod for Zishan's review.
+- Zishan's prod review accepted the reference. Flag flipped to `'true'` via `wrangler d1 execute`. Tag `interactives-v3.2-complete` placed on `347f10e`. The morning 02:00 UTC cron on 2026-04-26 produced the first auto-generated HTML interactive (Mint piece's "Mixing and Traceability", clean pass).
 
 **Earlier completed sub-tasks (Phase 2):**
 
@@ -73,26 +71,9 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 **Phase 4 — Engagement signals into Learner.** The `interactive_engagement` table from migration 0022 is populated for quiz events but unread by any agent. Phase 4 extends the surface area: `<interactive-frame>` fires engagement events to the existing `/api/interactive/track` endpoint via postMessage from the sandboxed iframe (the sandbox allows postMessage to parent by default); per-interactive aggregates feed Learner's input as `source='producer'` learnings about which interactive shapes get used vs. skipped. AGENTS.md Learner section + INTERACTIVES.md updated alongside.
 
-Phase 4 unblocks once today's HTML interactives have collected at least a few days of engagement data — the Learner aggregation needs real signal to write meaningful patterns. Tag at end: `interactives-v3.4-complete` + project milestone tag `interactives-v3-complete`.
+Phase 4 unblocks once today's HTML interactives have collected at least a few days of engagement data — the Learner aggregation needs real signal to write meaningful patterns. Concrete trigger: ≥3 HTML interactives shipped + ≥48h of reader traffic with engagement events landing in `interactive_engagement`. At `interval_hours=12`, that's ~2 days from 2026-04-26. Tag at end: `interactives-v3.4-complete` + project milestone tag `interactives-v3-complete`.
 
-**Pending in 2.7 — Zishan's review + flag flip + tag.** Parallel-safe with Phase 3 work. Three remaining steps after the `[phase-2.7]` commit lands:
-
-1. **CI deploys.** `[phase-2.7]` push triggers GitHub Actions; both workers redeploy. The fixture at `/interactives/chokepoints-and-cascades/` will render on prod with quiz (existing) + html (new fixture) stacked.
-2. **Zishan reviews on prod.** Open `https://zeemish.io/interactives/chokepoints-and-cascades/`. Verify: the slider works, the lanes/chokepoint shrink in lockstep, the caption changes across capacity ranges, mobile layout flips at 480px. If the reference teaches well and respects voice → continue. If it falls short → iterate the reference (edit `docs/examples/interactive-reference.html` + the `agents/src/shared/interactive-html-reference.ts` mirror in lockstep), commit, re-deploy, re-review.
-3. **Flag flip + tag.** When the reference is approved:
-   ```sh
-   wrangler d1 execute zeemish --remote --command \
-     "UPDATE admin_settings SET value = 'true' WHERE key = 'interactives_html_enabled'"
-   ```
-   The next post-publish alarm (next 12h cron firing at the configured cadence) produces both quiz + html for the new piece. After verifying that Generator output renders correctly on prod, tag `interactives-v3.2-complete`:
-   ```sh
-   git tag interactives-v3.2-complete <SHA-of-the-flag-flip-DECISIONS-commit>
-   git push origin interactives-v3.2-complete
-   ```
-
-Phase 3 started 2026-04-26 in parallel with 2.7's review wait — sub-task 3.1 (admin toggle UI) is in. The eventual 2.7 flag flip is now a one-click action via the toggle instead of `wrangler d1 execute`.
-
-Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
+**Definition of done for Phase 2** (✅ all met as of 2026-04-26): flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
 ## Blockers
 
