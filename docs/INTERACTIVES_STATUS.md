@@ -10,13 +10,19 @@ Interactives v3 — adding HTML interactives (sliders, scrubbable timelines, wha
 
 ## Current phase
 
-**Phase 2 — Generator + Auditor extension + reader surface** (in progress).
+**Phase 3 — Admin surface** (in progress, sub-task 3.1 shipped).
 
-Phase 0 + Phase 1 complete and tagged.
+Phase 0 + Phase 1 complete and tagged. Phase 2 machine-side complete (2.1–2.7 commits on origin/main); flag flip + `interactives-v3.2-complete` tag still pending Zishan's prod review of the reference HTML at `https://zeemish.io/interactives/chokepoints-and-cascades/`.
+
+Phase 3 is parallel-safe with the pending 2.7 review — admin tooling reads/writes the data shapes Phase 2 already shipped and doesn't depend on the reference quality. The 3.1 toggle UI now ships before 2.7's flip, so when Zishan approves the reference, the flip is a one-click admin action instead of `wrangler d1 execute`.
 
 ## Last completed sub-task
 
-**Phase 2, sub-task 2.7 (in progress) — Reference HTML hand-written + few-shot wired + content fixture deployed.**
+**Phase 3, sub-task 3.1 — `interactives_html_enabled` toggle on admin settings page.** Shipped 2026-04-26. Extended `/dashboard/admin/settings/` with a second `<section>` under the cadence dropdown — checkbox bound to the flag, "current value / last updated" stat row, save button, status line. API at `/api/dashboard/admin/settings` GET extended to return the flag, POST extended to dispatch on body shape (`{interval_hours}` vs `{interactives_html_enabled}`) with a shared `writeSetting()` helper that fires the same `admin_settings_changed` observer event for both keys. Storage stays canonical `'true' | 'false'` string; wire format is `boolean`. Default-closed posture preserved across all three readers (GET endpoint, page frontmatter, agents-side reader): any non-`'true'` value means disabled. RUNBOOK now leads with the admin UI flip path; `wrangler d1 execute` recipes kept as fallback.
+
+`pnpm build` clean. Auth gating verified (page redirects to `/login/`, API returns 401). Authenticated UI flow verifies post-deploy. See DECISIONS 2026-04-26 "Interactives v3 Phase 3.1 — `interactives_html_enabled` toggle on admin settings page".
+
+**Phase 2, sub-task 2.7 (still pending) — Reference HTML hand-written + few-shot wired + content fixture deployed.**
 
 Awaiting Zishan's review on prod + flag flip + tag.
 
@@ -49,7 +55,9 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Pending in 2.7 — Zishan's review + flag flip + tag.** Three remaining steps after the `[phase-2.7]` commit lands:
+**Phase 3, sub-task 3.2 — List view at `/dashboard/admin/interactives/`.** New SSR Astro page mirroring the admin/zita.astro pattern. ADMIN_EMAIL gated. Lists every interactive (quiz + html) with: type, status, per-dimension audit scores (latest round from `interactive_audit_results`), `quality_tier` / `quality_flag`, revision_count, slug + source piece headline, age. Sortable so rough/pending bubbles to top. Type filter chip (all / quiz / html) mirrors the observer-feed severity-chip pattern. Per-row regenerate button is wired in 3.3 — 3.2 just renders the rows. Single SQL query joining `interactives` + `interactive_audit_results` (latest round per dim).
+
+**Pending in 2.7 — Zishan's review + flag flip + tag.** Parallel-safe with Phase 3 work. Three remaining steps after the `[phase-2.7]` commit lands:
 
 1. **CI deploys.** `[phase-2.7]` push triggers GitHub Actions; both workers redeploy. The fixture at `/interactives/chokepoints-and-cascades/` will render on prod with quiz (existing) + html (new fixture) stacked.
 2. **Zishan reviews on prod.** Open `https://zeemish.io/interactives/chokepoints-and-cascades/`. Verify: the slider works, the lanes/chokepoint shrink in lockstep, the caption changes across capacity ranges, mobile layout flips at 480px. If the reference teaches well and respects voice → continue. If it falls short → iterate the reference (edit `docs/examples/interactive-reference.html` + the `agents/src/shared/interactive-html-reference.ts` mirror in lockstep), commit, re-deploy, re-review.
@@ -64,7 +72,7 @@ Tag `interactives-v3.1-complete` (set at commit time).
    git push origin interactives-v3.2-complete
    ```
 
-After 2.7 is fully done, Phase 3 (admin surface) starts.
+Phase 3 started 2026-04-26 in parallel with 2.7's review wait — sub-task 3.1 (admin toggle UI) is in. The eventual 2.7 flag flip is now a one-click action via the toggle instead of `wrangler d1 execute`.
 
 Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -104,6 +112,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 2 | 2.5 — File commit path + interactives row schema | Migration 0026 relaxed `UNIQUE(slug)` → `UNIQUE(slug, type)` (table rebuild, snapshot held). Generator `runHtmlLoop` writes `<slug>-html.json` (JSON envelope, html-string inlined) — slug pulled from existing quiz row when present (one URL per piece). Content collection schema widens `type` enum + adds `html` branch. PLAN_NOTES + FOLLOWUPS + SCHEMA.md synced. Plan-vs-repo divergence: `<slug>-html.json` not `<slug>.html` (loader simplicity). Zero new typecheck errors. `pnpm build` clean. |
 | 2026-04-26 | 2 | 2.6 — Reader surface: `<interactive-frame>` Web Component + dual-artefact route + drawer | New `<interactive-frame>` component (lightweight; iframe is server-rendered child via `srcdoc=`). Route page groups entries by slug → renders HTML interactive + quiz stacked when both exist. Astro 5 `glob` loader bug surfaced (slug-as-id collision); fixed with explicit `generateId` from filename. Drawer extended: `MadeEnvelope.htmlInteractive` field; per-type section header + CTA wording. Verified end-to-end via temp fixture in dev preview (HTML iframe slider rendered + quiz card stacked). Zero new typecheck errors. Flag still `'false'`. |
 | 2026-04-26 | 2 | 2.7 — Reference HTML hand-written + few-shot wired + content fixture deployed | `docs/examples/interactive-reference.html` (6.6 KB, validates clean on all 8 rules). `agents/src/shared/interactive-html-reference.ts` (Worker-readable mirror). Reference embedded as few-shot in cached HTML system prompt (12.4KB → 20.4KB ~ 5,100 tokens). Fixture `content/interactives/chokepoints-and-cascades-html.json` committed pointing at the Hormuz piece — `/interactives/chokepoints-and-cascades/` on prod will render both quiz + html stacked. **Awaiting Zishan's review on prod + flag flip + tag.** Flag still `'false'` until then. |
+| 2026-04-26 | 3 | 3.1 — `interactives_html_enabled` toggle on admin settings page | New section under cadence dropdown at `/dashboard/admin/settings/`. API GET extended to return flag; POST extended to dispatch on body shape (`{interval_hours}` vs `{interactives_html_enabled}`) via shared `writeSetting()` helper. `admin_settings_changed` audit-trail event fires for both keys. Storage stays canonical `'true' \| 'false'` string; wire format is boolean. RUNBOOK leads with admin UI; wrangler recipes kept as fallback. Auth gating verified locally (page redirect + API 401); authenticated UI verifies post-deploy. Phase 2.7 flip is now a one-click admin action instead of `wrangler d1 execute`. |
 
 ## Tags
 

@@ -21,18 +21,25 @@ const ALLOWED_INTERVAL_HOURS = [1, 2, 3, 4, 6, 8, 12, 24];
 type Row = { key: string; value: string; updated_at: number };
 let intervalHours = 24;
 let updatedAt: number | null = null;
+let htmlEnabled = false;
+let htmlEnabledUpdatedAt: number | null = null;
 
 try {
-  const row = await db
-    .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key = ?')
-    .bind('interval_hours')
-    .first<Row>();
-  if (row) {
-    const n = parseInt(row.value, 10);
-    if (Number.isFinite(n)) intervalHours = n;
-    updatedAt = row.updated_at;
+  const rows = await db
+    .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key IN (?, ?)')
+    .bind('interval_hours', 'interactives_html_enabled')
+    .all<Row>();
+  for (const r of rows.results ?? []) {
+    if (r.key === 'interval_hours') {
+      const n = parseInt(r.value, 10);
+      if (Number.isFinite(n)) intervalHours = n;
+      updatedAt = r.updated_at;
+    } else if (r.key === 'interactives_html_enabled') {
+      htmlEnabled = r.value === 'true';
+      htmlEnabledUpdatedAt = r.updated_at;
+    }
   }
-} catch { /* fall through with default 24 */ }
+} catch { /* fall through with defaults (24 / false) */ }
 
 function formatTs(ts: number | null): string {
   if (!ts) return '—';
@@ -116,6 +123,56 @@ function describeInterval(h: number): string {
     <p id="interval-status" class="mt-4 text-sm" aria-live="polite"></p>
   </section>
 
+  <section class="rounded-xl border border-zee-border p-6 mb-8">
+    <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
+      HTML interactives (v3)
+    </h2>
+    <p class="text-sm text-zee-muted mb-5 leading-relaxed">
+      When ON, InteractiveGenerator produces an HTML interactive
+      alongside the quiz on every published piece. When OFF, only the
+      quiz path runs. Effective on the next post-publish alarm —
+      already-published pieces are unaffected.
+    </p>
+
+    <form id="html-form" class="flex flex-col sm:flex-row gap-3 sm:items-end" novalidate>
+      <label class="flex-1 min-w-0 flex items-center gap-3 cursor-pointer select-none">
+        <input
+          id="html-toggle"
+          name="interactives_html_enabled"
+          type="checkbox"
+          checked={htmlEnabled}
+          class="h-5 w-5 rounded border-zee-border text-zee-primary focus:ring-zee-primary/30"
+        />
+        <span class="text-sm">
+          <span class="block font-medium">Generate HTML interactives on publish</span>
+          <span class="block text-xs text-zee-muted">
+            Quiz generation is unaffected by this toggle.
+          </span>
+        </span>
+      </label>
+      <button
+        id="html-save"
+        type="submit"
+        class="px-5 py-2 rounded-lg bg-zee-primary text-white font-medium text-sm whitespace-nowrap hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
+        Save
+      </button>
+    </form>
+
+    <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Current value</p>
+        <p class="font-medium" id="html-current">{htmlEnabled ? 'enabled' : 'disabled'}</p>
+      </div>
+      <div>
+        <p class="text-xs text-zee-muted mb-1">Last updated</p>
+        <p class="font-medium" id="html-updated">{formatTs(htmlEnabledUpdatedAt)}</p>
+      </div>
+    </div>
+
+    <p id="html-status" class="mt-4 text-sm" aria-live="polite"></p>
+  </section>
+
   <p class="text-xs text-zee-muted leading-relaxed">
     Every change writes an <code>admin_settings_changed</code> observer
     event. See the <a href="/dashboard/admin/" class="text-zee-primary hover:underline">admin dashboard</a> Observer feed for the audit trail.
@@ -124,54 +181,96 @@ function describeInterval(h: number): string {
 
 <script>
   (() => {
+    function fmtTs(ms: number): string {
+      return new Date(ms).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    }
+
+    // Cadence interval form.
     const form = document.getElementById('interval-form') as HTMLFormElement | null;
     const select = document.getElementById('interval-select') as HTMLSelectElement | null;
     const btn = document.getElementById('interval-save') as HTMLButtonElement | null;
     const status = document.getElementById('interval-status');
     const current = document.getElementById('interval-current');
     const updated = document.getElementById('interval-updated');
-    if (!form || !select || !btn || !status || !current || !updated) return;
-
-    function describe(h: number): string {
-      if (h === 24) return '1 piece per day · 02:00 UTC';
-      if (h === 1) return '24 pieces per day · every hour';
-      return `${24 / h} pieces per day · every ${h} hours`;
-    }
-
-    function fmtTs(ms: number): string {
-      return new Date(ms).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
-    }
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const value = parseInt(select.value, 10);
-      btn.disabled = true;
-      status.textContent = 'Saving…';
-      status.className = 'mt-4 text-sm text-zee-muted';
-      try {
-        const res = await fetch('/api/dashboard/admin/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ interval_hours: value }),
-        });
-        const data = await res.json() as { ok?: boolean; interval_hours?: number; updated_at?: number; error?: string };
-        if (!res.ok || !data.ok) {
-          status.textContent = data.error ?? `Save failed (${res.status})`;
-          status.className = 'mt-4 text-sm text-red-600';
-          return;
-        }
-        const h = data.interval_hours ?? value;
-        current.textContent = `${h}h — ${describe(h)}`;
-        if (data.updated_at) updated.textContent = fmtTs(data.updated_at);
-        status.textContent = `Saved. Effective next hourly cron alarm (up to 1h).`;
-        status.className = 'mt-4 text-sm text-green-700';
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Network error';
-        status.textContent = msg;
-        status.className = 'mt-4 text-sm text-red-600';
-      } finally {
-        btn.disabled = false;
+    if (form && select && btn && status && current && updated) {
+      function describe(h: number): string {
+        if (h === 24) return '1 piece per day · 02:00 UTC';
+        if (h === 1) return '24 pieces per day · every hour';
+        return `${24 / h} pieces per day · every ${h} hours`;
       }
-    });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = parseInt(select.value, 10);
+        btn.disabled = true;
+        status.textContent = 'Saving…';
+        status.className = 'mt-4 text-sm text-zee-muted';
+        try {
+          const res = await fetch('/api/dashboard/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interval_hours: value }),
+          });
+          const data = await res.json() as { ok?: boolean; interval_hours?: number; updated_at?: number; error?: string };
+          if (!res.ok || !data.ok) {
+            status.textContent = data.error ?? `Save failed (${res.status})`;
+            status.className = 'mt-4 text-sm text-red-600';
+            return;
+          }
+          const h = data.interval_hours ?? value;
+          current.textContent = `${h}h — ${describe(h)}`;
+          if (data.updated_at) updated.textContent = fmtTs(data.updated_at);
+          status.textContent = `Saved. Effective next hourly cron alarm (up to 1h).`;
+          status.className = 'mt-4 text-sm text-green-700';
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Network error';
+          status.textContent = msg;
+          status.className = 'mt-4 text-sm text-red-600';
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    // HTML interactives flag form.
+    const htmlForm = document.getElementById('html-form') as HTMLFormElement | null;
+    const htmlToggle = document.getElementById('html-toggle') as HTMLInputElement | null;
+    const htmlBtn = document.getElementById('html-save') as HTMLButtonElement | null;
+    const htmlStatus = document.getElementById('html-status');
+    const htmlCurrent = document.getElementById('html-current');
+    const htmlUpdated = document.getElementById('html-updated');
+    if (htmlForm && htmlToggle && htmlBtn && htmlStatus && htmlCurrent && htmlUpdated) {
+      htmlForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = htmlToggle.checked;
+        htmlBtn.disabled = true;
+        htmlStatus.textContent = 'Saving…';
+        htmlStatus.className = 'mt-4 text-sm text-zee-muted';
+        try {
+          const res = await fetch('/api/dashboard/admin/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interactives_html_enabled: value }),
+          });
+          const data = await res.json() as { ok?: boolean; interactives_html_enabled?: boolean; updated_at?: number; error?: string };
+          if (!res.ok || !data.ok) {
+            htmlStatus.textContent = data.error ?? `Save failed (${res.status})`;
+            htmlStatus.className = 'mt-4 text-sm text-red-600';
+            return;
+          }
+          const enabled = data.interactives_html_enabled ?? value;
+          htmlCurrent.textContent = enabled ? 'enabled' : 'disabled';
+          if (data.updated_at) htmlUpdated.textContent = fmtTs(data.updated_at);
+          htmlStatus.textContent = `Saved. Effective next post-publish InteractiveGenerator alarm.`;
+          htmlStatus.className = 'mt-4 text-sm text-green-700';
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : 'Network error';
+          htmlStatus.textContent = msg;
+          htmlStatus.className = 'mt-4 text-sm text-red-600';
+        } finally {
+          htmlBtn.disabled = false;
+        }
+      });
+    }
   })();
 </script>

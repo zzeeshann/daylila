@@ -171,8 +171,17 @@ lands in Phase 2 of the Interactives v3 work. Quizzes are NOT gated
 — InteractiveGenerator's existing quiz path runs unchanged regardless
 of the flag.
 
-Phase 3 of v3 ships an admin-UI toggle alongside the cadence dropdown.
-Until then, the only way to flip is `wrangler d1 execute`:
+**Primary flip path: admin UI.** Phase 3 sub-task 3.1 adds a toggle on
+the existing admin settings page at `/dashboard/admin/settings/`. Flip
+it under the "HTML interactives (v3)" section; the page writes the
+canonical `'true'` / `'false'` string to `admin_settings`, fires an
+`admin_settings_changed` observer event with before/after values, and
+reflects the new value back in the form. Effective on the next
+post-publish alarm — already-published pieces are unaffected.
+
+**Fallback path: `wrangler d1 execute`.** Use only if the admin UI is
+unavailable (e.g. site worker down, session lockout). No observer
+audit trail is written when bypassing the UI.
 
 ```bash
 # Read current value
@@ -190,9 +199,9 @@ wrangler d1 execute zeemish --remote --command \
      WHERE key='interactives_html_enabled';"
 ```
 
-Read by Director on the next pipeline run (no DO restart). Generator
-falls back to `false` if the row is missing (Phase 2 reader uses the
-same `getAdminSetting<T>` helper as `interval_hours`).
+Read by InteractiveGenerator on each post-publish alarm via
+`getAdminSetting<T>`. Falls back to `false` if the row is missing,
+malformed, or any value other than `'true'` (fail-closed posture).
 
 The full migration rollback (drop the row entirely) is a one-line
 DELETE; see `migrations/0024_interactives_html_flag.sql` header for
