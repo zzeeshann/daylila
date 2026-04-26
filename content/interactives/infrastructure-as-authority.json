@@ -1,0 +1,71 @@
+{
+  "slug": "infrastructure-as-authority",
+  "type": "quiz",
+  "title": "Infrastructure as Authority",
+  "concept": "Running the systems people use daily proves governing capacity more than formal titles or territorial claims.",
+  "interactiveId": "1f223824-bcbb-4f42-81b1-d02ddf3f453d",
+  "sourcePieceId": "264ea451-d3f2-42b2-893f-037af8555ea1",
+  "publishedAt": 1777169047790,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does maintaining operational infrastructure signal to a population, regardless of who holds formal power?",
+        "options": [
+          "That the operator has secured legal recognition from neighboring states",
+          "That the operator can make daily systems function when people need them",
+          "That the operator commands popular support measured by surveys or votes",
+          "That competing power centers have agreed to defer to the operator's decisions"
+        ],
+        "correctIndex": 1,
+        "explanation": "Staffing offices, processing permits, maintaining records, running services — these demonstrate capability to govern. Legal recognition follows demonstrated capacity rather than creating it, and competitors rarely concede just because someone else can operate systems."
+      },
+      {
+        "question": "When one actor controls physical territory while another controls administrative systems within that territory, who do residents engage with for permits, registrations, or dispute resolution?",
+        "options": [
+          "Residents split engagement based on their ideological preferences between the actors",
+          "Residents engage whoever can actually process their request and produce a usable document",
+          "Residents wait for the territorial controller and system operator to negotiate unified processes",
+          "Residents bypass both actors and create informal substitutes through community networks"
+        ],
+        "correctIndex": 1,
+        "explanation": "People need functioning documents — marriage certificates, business licenses, property records. They engage whoever can deliver those, regardless of formal authority disputes. Waiting for negotiated unity or building parallel systems takes longer than using whichever operational infrastructure exists."
+      },
+      {
+        "question": "Why do external funders assess whether a recipient can execute procedural operations before committing multi-year program funding?",
+        "options": [
+          "Because international law requires funders to verify procedural capacity before disbursing public funds",
+          "Because running one type of system reliably predicts ability to implement other complex programs",
+          "Because procedural operations generate baseline data that funders need for impact measurement",
+          "Because funders can legally bypass competing authorities once procedural capacity is documented"
+        ],
+        "correctIndex": 1,
+        "explanation": "If you can coordinate staff across geography, manage logistics under constraint, and maintain records through disruption, you can likely implement health programs or infrastructure projects. This is a capacity inference, not a legal requirement or a data-collection tactic."
+      },
+      {
+        "question": "What limits the authority signal when an operator runs administrative systems but cannot enforce rules or control movement between areas?",
+        "options": [
+          "The signal disappears entirely because enforcement and administration must be unified for legitimacy",
+          "The signal becomes fraudulent since it misrepresents the operator's actual power",
+          "The signal functions only within zones where the systems actually operate and produce outcomes",
+          "The signal strengthens because demonstrating capacity under constraint is more impressive to observers"
+        ],
+        "correctIndex": 2,
+        "explanation": "Operating systems in some areas still separates actors who can govern from those who cannot. The signal does not require full territorial control — it shows operational capacity within its actual scope, which matters to people in those zones and funders evaluating implementation potential there."
+      },
+      {
+        "question": "When does running administrative infrastructure stop signaling governing capacity?",
+        "options": [
+          "When fewer than half of eligible users choose to engage with the systems",
+          "When a rival operator builds parallel infrastructure serving different geography",
+          "When external auditors refuse to certify the systems meet fairness standards",
+          "When the operator cannot complete the core functions — processing requests, maintaining records, certifying outputs"
+        ],
+        "correctIndex": 3,
+        "explanation": "If you cannot staff offices, process applications, or issue valid documents, there is no demonstration of capacity. Low engagement or parallel systems elsewhere do not erase the signal from zones where operations succeed — they just define its geographic limits."
+      }
+    ]
+  }
+}
