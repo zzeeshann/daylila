@@ -56,7 +56,7 @@ When in doubt, find the connection. A no-piece day is a worse outcome than a pie
 
 Return JSON:
 {
-  "selectedCandidateId": "the id of the chosen story",
+  "selectedCandidateId": "<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-2d1e-4f9a-b7c8-1e2d3f4a5b6c>",
   "date": "YYYY-MM-DD",
   "headline": "the news headline",
   "newsSource": "source name",
@@ -89,12 +89,12 @@ export function buildCuratorPrompt(
         .join('\n\n')
     : 'None yet.';
   return `## Today's news candidates:
-${candidates.map((c, i) => `${i + 1}. id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
+${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
 ## Already published recently — avoid repetition of UNDERLYING SUBJECT, not just headline wording. Includes today's earlier picks if any:
 ${recentBlock}
 
 Pick the most teachable story and create a brief. If a candidate's underlying concept is the same as one already published (even if the headline is worded differently, even from a different news source, even about a different country or company), PREFER a different candidate — unless the news is genuinely developing in a way that warrants follow-up teaching. Two pieces teaching the same concept on the same day is a failure state.
 
-Return JSON only. The "selectedCandidateId" field MUST be the exact id string shown next to the chosen candidate above — do not invent, truncate, or guess.`;
+Return JSON only. The "selectedCandidateId" field MUST be the exact UUID copied verbatim from the chosen candidate's "id:" field above — do not invent, truncate, guess, or substitute a list position number.`;
 }

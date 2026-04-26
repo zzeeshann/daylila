@@ -13,7 +13,7 @@ Format per entry:
 
 ---
 
-## [open] 2026-04-26: Curator regression — list-number prefix being returned as `selectedCandidateId`
+## [resolved] 2026-04-26: Curator regression — list-number prefix being returned as `selectedCandidateId`
 
 **Surfaced:** 2026-04-26 11:01 UTC observer feed during Interactives v3 Phase 2 closeout. Auto-cron at the U.S. Mint slot fired warn event:
 
@@ -34,6 +34,8 @@ User's manual retrigger from admin worked — the pipeline can recover via `/dai
 - Verification: re-run `/daily-trigger` against today's slot post-fix; confirm `selectedCandidateId` is a UUID matching a `daily_candidates.id`.
 
 **Priority:** medium — auto-cron robustness regression. Each cron firing has some probability of hitting this when candidate count crosses 10 (which it always does at Scanner's default 50/feed). Manual retrigger is the workaround until fixed. Doesn't block Phase 3 work.
+
+**Resolved:** 2026-04-26. Took fix #1 (drop the `${i + 1}.` numbered prefix) — Claude doesn't need the index for selection, and `id: <uuid>` is now the first visible token on each candidate's first line. Also tightened the response-format example at line 59 to use a UUID-shaped placeholder ("<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-...>") so Claude pattern-matches on shape rather than copying the literal hint string. Final instruction at line 99 explicitly forbids substituting "a list position number". The 2026-04-22 exception path at [`director.ts:243`](../agents/src/director.ts) stays in place as defence-in-depth — any future shape drift surfaces the same warn event for forensic context. See DECISIONS 2026-04-26 "Curator candidate rendering: drop list-number prefix to stop Claude returning the index as selectedCandidateId". Verification trigger: next auto-cron at 2026-04-26 14:00 UTC; expected `selectedCandidateId` shape is a UUID matching a `daily_candidates.id` row.
 
 ---
 
