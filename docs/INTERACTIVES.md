@@ -542,6 +542,51 @@ Every Auditor call writes one row per dimension to `interactive_audit_results` (
 - It does not rewrite. It marks. The Generator owns rewrites.
 - It does not check for cross-browser compatibility, accessibility, or performance. Those are validator concerns (size cap, sandbox compliance) or future work.
 
+## Admin surfaces
+
+Phase 3 (`v3.3`) shipped four operator-facing surfaces. All ADMIN_EMAIL-gated; observer events follow the pattern `admin_settings_changed` (toggle) / `interactive_regenerated` (regen) / inherited `Interactive(s) generated|skipped|shipped (flagged low)|failed` (cost telemetry source).
+
+### Settings toggle
+
+`/dashboard/admin/settings/` carries an "HTML interactives (v3)" section under the cadence dropdown. Checkbox bound to `admin_settings.interactives_html_enabled` (string `'true' | 'false'` in storage; boolean on the wire). Save fires an `admin_settings_changed` observer event with operator email + before/after values for the audit trail. Effective on the next post-publish alarm — already-published pieces are unaffected by a flip in either direction.
+
+The wrangler `d1 execute` recipes in [`RUNBOOK.md`](RUNBOOK.md) "Interactives v3 — HTML interactive flag" stay as a fallback for when the admin UI is unavailable, with the explicit note that bypassing the UI skips the observer audit trail.
+
+### List view
+
+`/dashboard/admin/interactives/` is the catalogue. Lists every shipped interactive (quiz + html) with a per-row card: type pill, status badge (Clean / Rough / Pending), tier label when set, title link to the public page, source-piece headline link to the per-piece admin deep-dive, voice score, four audit pills for the latest round (voice / structure / essence / factual with pass/fail + voice score), revision count, published date.
+
+Sort order is locked: `quality_flag='low'` first (rough surfaces to the top), then by `published_at DESC`. Type filter chip bar (All / Quiz / HTML) mirrors the admin observer-feed severity-chip pattern verbatim.
+
+A soft "N pieces have no quiz · M pieces have no HTML interactive" line above the catalogue points the operator at the per-piece admin page when first-time generation is needed; the gating toggle is linked inline.
+
+### Per-piece destructive regenerate
+
+Each row carries a `Regenerate` button. Clicking it walks a confirm dialog enumerating exactly what gets wiped (file at `content/interactives/<slug>[-html].json` + interactives row + every interactive_audit_results row + interactive_id clear on quiz path) before POSTing to `/api/agents/interactive-regenerate?piece_id=…&type=quiz|html`.
+
+The site-side proxy ADMIN_EMAIL-gates the call and forwards `changed_by=user.email` so the resulting observer event attributes the operator. The agents-worker endpoint (`/interactive-regenerate-trigger`) runs the wipe synchronously — operator sees the real failure on auth / rate limit / missing target — then schedules a fresh `generateInteractiveScheduled` alarm. The fresh produce → audit → revise loop runs in the alarm's own DO invocation 1s later; the operator reloads the page in a minute or two to see the new row.
+
+HTML regen is refused (400) when `interactives_html_enabled = false` to avoid a silent no-op where the Generator's html path skips. The error message points at the settings flip.
+
+Slug-drift caveat: a quiz-only regen MAY produce a different slug if Claude returns a different proposal from the same source piece, breaking the quiz/html shared-slug invariant from Phase 2.5. HTML-only regen never drifts because the html path's `existingQuiz` lookup pins the slug to the still-present quiz row. The v2 fix is a `slugLock` parameter on `Generator.generate`.
+
+### Cost telemetry
+
+The list view's header carries a "Cost (month-to-date · MMM YYYY)" stats row: MTD spend / Generator runs / uncached input + cost / cache write · cache read + cost / output + cost.
+
+Numbers come from observer_events context JSON. Phase 3.4 extended both Generator and Auditor to capture all four Anthropic billing counters at every Claude call site via [`agents/src/shared/usage.ts`](../agents/src/shared/usage.ts) `extractUsage()`:
+
+- `tokensIn` — uncached input portion (the new-prompt content not in the cache).
+- `tokensOut` — total output, never cached.
+- `cacheCreateTokens` — system-prompt block on the COLD call. Billed at 1.25× input rate.
+- `cacheReadTokens` — system-prompt block on every WARM call. Billed at 0.1× input rate.
+
+Without the two cache fields, any cost estimate undercounts the real bill by exactly the cached-system-prompt portion. With them, the cost surface is honest from the moment Phase 3.4 ships. Pricing math (Sonnet 4.5: $3/M input, $15/M output, cache write at 1.25× input, cache read at 0.1× input) is one constant in the page; rate changes are a one-line edit.
+
+Pre-3.4 events have no cache fields. The page auto-detects the gap and footnotes "Some events this month pre-date cache capture; their cache breakdown shows as 0 and the input/output totals undercount the system-prompt portion." The flag self-clears as old events age out of the window.
+
+Scope: covers InteractiveGenerator + InteractiveAuditor only. Drafter / Curator / Categoriser / Learner / Reflector / Voice/Structure/Fact auditors aren't in the surface yet — each needs its own `extractUsage` call at the call site; the helper is shared and ready.
+
 ## Reference: hand-built example
 
 The canonical "good looks like this" file lives at [`docs/examples/interactive-reference.html`](examples/interactive-reference.html). It is created in Phase 2 (sub-task 2.7), is **permanent** (never deleted), and is updated in place if voice or style evolves.

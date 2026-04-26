@@ -249,6 +249,30 @@ regen never drifts because the html path's `existingQuiz` lookup pins
 the slug to the still-present quiz row. If quiz regen does drift in
 practice, the v2 fix is a `slugLock` parameter on `Generator.generate`.
 
+## Interactives v3 — month-to-date cost
+
+`/dashboard/admin/interactives/` carries a "Cost (month-to-date · MMM
+YYYY)" stats row above the catalogue. Numbers come from
+`observer_events` rows the `logInteractiveGeneratorMetered` writer
+emits — Phase 3.4 extended both Generator and Auditor to read all
+four Anthropic billing counters (`input_tokens`, `output_tokens`,
+`cache_creation_input_tokens`, `cache_read_input_tokens`) at every
+Claude call site via `agents/src/shared/usage.ts` `extractUsage()`.
+
+Pricing is hard-coded to Sonnet 4.5 published rates ($3/M input,
+$15/M output, cache write at 1.25× input, cache read at 0.1× input).
+If Anthropic changes rates, edit `SONNET_RATES` in
+`src/pages/dashboard/admin/interactives/index.astro`.
+
+Pre-3.4 events have no cache fields. The page auto-detects and
+footnotes when any event in the window pre-dates capture; the flag
+self-clears as old events age out of the calendar-month window.
+
+Scope: InteractiveGenerator + InteractiveAuditor only. Other agents
+(Drafter, Curator, Categoriser, Learner, Reflector, Voice/Structure/
+Fact auditors) need their own `extractUsage` call before they show
+up in cost telemetry. The helper is shared and ready.
+
 ## Reset today (clean slate for a dev-mode re-test)
 
 Daily pieces are the product. Cadence is configurable via

@@ -2,6 +2,24 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-26: Interactives v3 Phase 3.5 — doc sync closes Phase 3
+
+**Context / trigger:** Phase 3 sub-task 3.5 closes the four-shipping-sub-task arc (3.1 toggle / 3.2 list view / 3.3 regenerate / 3.4 cost telemetry) by syncing the three living docs that name the admin surface contract.
+
+**Decision:** Three focused doc edits, no code change. `docs/INTERACTIVES.md` gains a new "Admin surfaces" section before "Reference: hand-built example" that documents the four Phase 3 surfaces and cross-refs the RUNBOOK fallback recipes. `docs/AGENTS.md` extends the InteractiveGenerator + InteractiveAuditor entries with HTML-path support (Phase 2), cache-token capture via the shared `extractUsage` helper (Phase 3.4), and the destructive regenerate endpoint (Phase 3.3) — all bullet-level additions to the existing entries, no rewrites. `docs/RUNBOOK.md` gains an "Interactives v3 — month-to-date cost" section that points operators at `/dashboard/admin/interactives/` and names where the Sonnet pricing constant lives (`SONNET_RATES` in the page) for future Anthropic rate changes.
+
+**Trade-offs considered:**
+- **One-section vs. four-section structure in INTERACTIVES.md.** Considered breaking the admin section into one heading per sub-task (3.1 / 3.2 / 3.3 / 3.4). Rejected — the spec doc reads forward as a contract, not as a phase log; future readers don't care which sub-task shipped which surface, they care about the contract. Single "Admin surfaces" parent with four `###` children matches the spec's existing tone.
+- **Rewrite vs. extend the AGENTS.md Generator/Auditor entries.** The existing entries are 5-bullet recipes from Area 4 (April 24); they pre-date the v3 HTML extension and the Phase 3 admin tooling. Considered a full rewrite. Rejected — appending bullets keeps the doc-history readable (an Area 4 reader can still find the original quiz behaviour); a rewrite would erase the layered history of how the agent grew. Same posture the existing CategoriserAgent entry takes (Area 2 sub-tasks layered as bullets).
+- **Where the cost-telemetry pointer lives in RUNBOOK.** Considered putting it inside the existing "Interactives v3 — HTML interactive flag" section. Rejected — the flag section is operational (flip / read / rollback), the cost section is observational (where to look). Different operator intents, different searches; separate sections so each is findable on its own.
+- **Phase 4 in STATUS.** Named explicitly as the next sub-task with the unblock condition ("once today's HTML interactives have collected a few days of engagement data") instead of a hard date. Phase 4 is observability-driven; a calendar trigger would invent urgency.
+
+**Files changed:** [`docs/INTERACTIVES.md`](INTERACTIVES.md) (new section), [`docs/AGENTS.md`](AGENTS.md) (3 bullet-level extensions), [`docs/RUNBOOK.md`](RUNBOOK.md) (new section), [`docs/INTERACTIVES_STATUS.md`](INTERACTIVES_STATUS.md) (3.5 marked complete; Phase 3 closed; Phase 4 named as next; sessions log row + tag pending line).
+
+**Verification:** Doc-only commit — no code, no build, no preview to verify. The next CI deploy (after the commit pushes) updates the docs surface on the repo browse view; nothing reader-facing changes.
+
+**Tag:** `interactives-v3.3-complete` lands on the 3.5 commit's SHA after push, completing Phase 3.
+
 ## 2026-04-26: Interactives v3 Phase 3.4 — cost telemetry on the admin interactives page
 
 **Context / trigger:** Phase 3 sub-task 3.4 of the Interactives v3 plan calls for "Month-to-date token count for interactive generation, broken out by cached vs uncached. Sourced from a new `agent_cost_telemetry` table OR by extending `observer_events` with token counts (decide during Phase 3 based on what's already there)."
