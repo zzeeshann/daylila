@@ -1,12 +1,16 @@
 /**
- * <audio-player> — beat-aware MP3 player that syncs with <lesson-shell>.
+ * <audio-player> — beat-aware MP3 player for the single-scroll
+ * daily-piece layout (Area 5).
  *
  * Reads a JSON-encoded map of { beatName → publicUrl } from the
- * `data-audio-beats` attribute. Plays the clip for the currently-
- * visible beat. Listens for `lesson-beat:change` (fired by
- * <lesson-shell> on navigation) to swap clips. Emits
- * `audio-player:ended` when a clip finishes so <lesson-shell> can
- * auto-advance to the next beat.
+ * `data-audio-beats` attribute. Plays one beat's clip at a time. On
+ * clip end, advances to the next beat in DOM order: loads its clip,
+ * smooth-scrolls the corresponding <lesson-beat> into view, autoplays.
+ *
+ * Pre-Area-5, beat-switching was driven by `lesson-beat:change` events
+ * from <lesson-shell>'s pagination state machine. Now <lesson-shell>
+ * is a passive engagement reporter and does not dispatch beat changes,
+ * so the player owns the next-clip + scroll responsibility.
  *
  * Progressive enhancement: if JS fails or the data is missing, the
  * server-rendered "Audio unavailable" state stays visible — readers
@@ -19,6 +23,10 @@ interface AudioBeatsMap {
 class AudioPlayer extends HTMLElement {
   private audio: HTMLAudioElement | null = null;
   private audioBeats: AudioBeatsMap = {};
+  /** Beat names in the order they appear in the DOM. The map's
+   *  iteration order is unreliable across content-collection writes;
+   *  the DOM is the source of truth for "what comes next". */
+  private beatOrder: string[] = [];
   private currentBeat: string | null = null;
   private hasReportedFirstPlay = false;
 
@@ -26,8 +34,6 @@ class AudioPlayer extends HTMLElement {
   private progressEl: HTMLElement | null = null;
   private progressFill: HTMLElement | null = null;
   private timeEl: HTMLElement | null = null;
-
-  private beatChangeHandler: EventListener | null = null;
 
   connectedCallback() {
     try {
@@ -37,8 +43,21 @@ class AudioPlayer extends HTMLElement {
       this.audioBeats = {};
     }
 
-    const beatNames = Object.keys(this.audioBeats);
-    if (beatNames.length === 0) return;
+    if (Object.keys(this.audioBeats).length === 0) return;
+
+    // Build playback order from DOM. Beats present in <lesson-beat>
+    // elements but missing from the audio map are skipped silently
+    // (e.g. a beat that failed audio gen during ship-and-retry).
+    const beatEls = Array.from(document.querySelectorAll('lesson-beat')) as HTMLElement[];
+    this.beatOrder = beatEls
+      .map((el) => el.getAttribute('name') ?? '')
+      .filter((name) => name.length > 0 && this.audioBeats[name]);
+    if (this.beatOrder.length === 0) {
+      // Fall back to map iteration order if the DOM has no usable beats
+      // (legacy/intro-only pieces). The player still works; just no
+      // auto-advance scroll target.
+      this.beatOrder = Object.keys(this.audioBeats);
+    }
 
     this.playBtn = this.querySelector('[data-play-btn]');
     this.progressEl = this.querySelector('[data-progress]');
@@ -48,15 +67,8 @@ class AudioPlayer extends HTMLElement {
     this.audio = new Audio();
     this.audio.preload = 'metadata';
 
-    // Initial beat: prefer the one <lesson-shell> has marked visible,
-    // fall back to first in the map.
-    const visibleBeat = document.querySelector(
-      'lesson-beat[data-visible]',
-    ) as HTMLElement | null;
-    const initialName = visibleBeat?.getAttribute('name') ?? null;
-    const startBeat =
-      initialName && this.audioBeats[initialName] ? initialName : beatNames[0];
-    this.loadBeat(startBeat);
+    // Start on the first beat in DOM order.
+    this.loadBeat(this.beatOrder[0]);
 
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('loadedmetadata', () => this.updateProgress());
@@ -69,21 +81,10 @@ class AudioPlayer extends HTMLElement {
     this.progressEl?.addEventListener('click', (e) =>
       this.seekFromClick(e as MouseEvent),
     );
-
-    this.beatChangeHandler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { beatName?: string } | undefined;
-      const name = detail?.beatName;
-      if (name && this.audioBeats[name]) this.switchToBeat(name);
-    };
-    window.addEventListener('lesson-beat:change', this.beatChangeHandler);
   }
 
   disconnectedCallback() {
     this.audio?.pause();
-    if (this.beatChangeHandler) {
-      window.removeEventListener('lesson-beat:change', this.beatChangeHandler);
-      this.beatChangeHandler = null;
-    }
   }
 
   private loadBeat(beatName: string) {
@@ -93,17 +94,6 @@ class AudioPlayer extends HTMLElement {
     this.currentBeat = beatName;
     this.audio.src = url;
     this.resetProgressUI();
-  }
-
-  private switchToBeat(beatName: string) {
-    if (beatName === this.currentBeat) return;
-    const wasPlaying = !!this.audio && !this.audio.paused;
-    this.loadBeat(beatName);
-    if (wasPlaying) {
-      this.audio?.play().catch(() => {
-        // autoplay blocked — user can press play manually
-      });
-    }
   }
 
   private toggle() {
@@ -120,11 +110,35 @@ class AudioPlayer extends HTMLElement {
   }
 
   private onEnded() {
+    const nextBeat = this.nextBeatName();
+    if (nextBeat) {
+      this.loadBeat(nextBeat);
+      this.scrollBeatIntoView(nextBeat);
+      this.audio?.play().catch(() => {
+        // Autoplay blocked — reader can press play manually
+      });
+    }
+    // Always dispatch — kept for any future listener (no-op today;
+    // <lesson-shell> stopped consuming this in Area 5).
     window.dispatchEvent(
       new CustomEvent('audio-player:ended', {
         detail: { beatName: this.currentBeat },
       }),
     );
+  }
+
+  private nextBeatName(): string | null {
+    if (!this.currentBeat) return null;
+    const idx = this.beatOrder.indexOf(this.currentBeat);
+    if (idx === -1) return null;
+    const next = this.beatOrder[idx + 1];
+    return next ?? null;
+  }
+
+  private scrollBeatIntoView(beatName: string) {
+    const target = document.querySelector(`lesson-beat[name="${cssEscape(beatName)}"]`);
+    if (!(target instanceof HTMLElement)) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   private onLoadError() {
@@ -170,6 +184,17 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/** CSS.escape polyfill — beat names are kebab-case slugs from MDX
+ *  but the attribute selector still wants escaping for safety
+ *  (an exotic future slug with a colon or quote would break the
+ *  query string otherwise). */
+function cssEscape(s: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(s);
+  }
+  return s.replace(/([^\w-])/g, '\\$1');
 }
 
 const PLAY_SVG =
