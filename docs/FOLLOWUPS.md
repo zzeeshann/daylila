@@ -13,6 +13,72 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-26: Verify Phase 3.3 destructive regenerate end-to-end on prod
+
+**Surfaced:** Phase 3.3 close-out (commit `ddb5cdd`). Local-preview verification only confirmed the auth-gate (401 on all four input shapes); the actual wipe → fresh-generation flow needs a real run against a Rough row on prod.
+
+**What to verify:**
+- Pick a Rough row from `/dashboard/admin/interactives/` (the Mint piece's quiz "Identity Loss Through Transformation" `[flagged low]` is a fresh candidate).
+- Click `Regenerate`. Confirm dialog should enumerate the wipe (file + interactives row + audit rows + `daily_pieces.interactive_id` clear + scheduled alarm).
+- After confirm: success status appears, button stays disabled.
+- Wait ~30s, reload the page. Row should reappear with a fresh slug + fresh audit pills (or stay rough if the auditor maxes out again — that's also fine; just shouldn't 500).
+- Check observer feed on `/dashboard/admin/`: should show one `interactive_regenerated` info event (operator email + deleted slug) followed by one `Interactive(s) generated|shipped (flagged low)` metered event.
+
+**Unblock condition:** the user runs the test once on prod. Pass = mark resolved with the SHA.
+
+**Priority:** medium — destructive endpoint, untested on a real piece. Ship-as-low fallback means a bad regen doesn't 404 the URL, but a wipe-without-fresh-generation is worth catching before it bites silently.
+
+---
+
+## [observing] 2026-04-26: Verify Phase 3.4 cost telemetry populates with cache numbers post-deploy
+
+**Surfaced:** Phase 3.4 close-out (commit `03c3d88`). All InteractiveGenerator events written today (Mint piece + earlier today's runs) pre-date the cache-capture deploy, so they appear with `cacheCreate=0` / `cacheRead=0` and trigger the page's "events pre-date cache capture" footnote. The first cron firing AFTER the 3.4 push will be the first event with full cache numbers.
+
+**What to verify:**
+- Visit `/dashboard/admin/interactives/` and find the "Cost (month-to-date · Apr 2026)" section.
+- Today: expect cache fields = 0 + the italic footnote about partial breakdown.
+- After tomorrow's 02:00 UTC cron (or the next manual `/daily-trigger` run): the new event should carry real `cache_creation_input_tokens` + `cache_read_input_tokens` values. The 5-stat row should show non-zero "Cache write · read" tokens with a non-zero cost component.
+- Check observer feed for the new metered event's body — should read like `Tokens: in=N out=M cacheCreate=K cacheRead=L. Latency: …` (4-up shape, not the old 2-up).
+
+**Unblock condition:** at least one new metered event lands post-deploy with non-zero cache numbers visible in the surface.
+
+**Priority:** low — observability only. The capture path is unit-tested via typecheck; runtime values just need to flow through.
+
+---
+
+## [observing] 2026-04-26: Verify Mint piece "How this was made" drawer renders both quiz + html sections
+
+**Surfaced:** Phase 2.7's first auto-run produced both a quiz (`683cee9` flagged-low) AND an HTML interactive (`d1e2e31` clean pass) for the U.S. Mint piece. The drawer should now show two distinct interactive sections per the Phase 2.6 dual-artefact extension.
+
+**What to verify:**
+- Visit `https://zeemish.io/daily/2026-04-26/u-s-mint-buys-drug-cartel-gold-and-sells-it-as-american/`.
+- Open the "How this was made" drawer at the bottom.
+- Should show two interactive sections (separate from each other):
+  - **Quiz**: title "Identity Loss Through Transformation", with the dimension-named Rough note (essence-not-reference, structure, factual, or whatever maxed). Voice score + revision count visible.
+  - **HTML interactive**: title "Mixing and Traceability", clean pass (no Rough note), with iframe size + revision count.
+- The standalone interactive page at `/interactives/identity-loss-through-transformation/` should render both stacked when visited directly.
+
+**Unblock condition:** drawer rendering on prod matches description.
+
+**Priority:** low — Phase 2.6 reader surface was unit-verified via stubbed fixtures; this is the first non-fixture confirmation.
+
+---
+
+## [observing] 2026-04-26: Phase 4 Learner output mentions interactive engagement
+
+**Surfaced:** Phase 4 ships the engagement → Learner loop. Per Phase 4 Definition of Done in `INTERACTIVES_PLAN.md:186-190`: "Next Learner run mentions interactive engagement in its written reflection."
+
+**What to verify (after Phase 4 ships):**
+- The next Learner pass (post-publish alarm on the next daily piece) should produce at least one `learnings` row with `source='producer'` whose body mentions interactive engagement (views, manipulations, dwell, or similar).
+- Visible on `/dashboard/` (the public learnings panel) and on the per-piece "How this was made" drawer's learnings section.
+- Initial output will be thin (sample size = 1 piece's worth of HTML interactive engagement); thin is fine — what matters is the loop being closed.
+
+**Unblock condition:** Phase 4 has shipped + at least one daily piece has been published with a Learner run after the Phase 4 deploy.
+
+**Priority:** medium — closes the v3 self-improvement loop. Without it, Phase 4 is "shipped but unverified."
+
+---
+
 ## [resolved] 2026-04-26: Curator regression — list-number prefix being returned as `selectedCandidateId`
 
 **Surfaced:** 2026-04-26 11:01 UTC observer feed during Interactives v3 Phase 2 closeout. Auto-cron at the U.S. Mint slot fired warn event:
