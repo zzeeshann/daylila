@@ -198,6 +198,12 @@ The full migration rollback (drop the row entirely) is a one-line
 DELETE; see `migrations/0024_interactives_html_flag.sql` header for
 the exact statement and rationale.
 
+The companion migration 0025 added `interactives.quality_tier` —
+v3 reader-vocabulary tier (`'polished' | 'solid' | 'rough'`). Backfill
+mapped existing `quality_flag='low'` rows to `quality_tier='rough'`
+on apply. The column sits inert if v3 is reversed (no code reads it
+until Phase 2 ships), so no schema-side rollback needed.
+
 ## Reset today (clean slate for a dev-mode re-test)
 
 Daily pieces are the product. Cadence is configurable via

@@ -2,7 +2,7 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
-**Currently working on:** Interactives v3 — Phase 1 next (feature flag + schema). Phase 0 (spec, rubric, validator rules, sandbox rules) complete. See `docs/INTERACTIVES_STATUS.md` and `docs/SESSION_PROTOCOL.md`.
+**Currently working on:** Interactives v3 — Phase 2 next (Generator + Auditor extension + reader surface). Phase 1 complete (`interactives_html_enabled` flag in `admin_settings`, default `'false'`; `interactives.quality_tier` column added with 3 historical low rows backfilled to `'rough'`; migrations 0024 + 0025; tag `interactives-v3.1-complete`). See `docs/INTERACTIVES_STATUS.md` and `docs/SESSION_PROTOCOL.md`.
 
 ## The Zeemish Protocol
 

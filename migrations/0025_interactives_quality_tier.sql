@@ -1,0 +1,109 @@
+-- 0025_interactives_quality_tier.sql
+--
+-- Interactives v3 — Phase 1, sub-task 1.2.
+--
+-- Adds `interactives.quality_tier TEXT` and backfills existing
+-- `quality_flag='low'` rows to `quality_tier='rough'`. From this
+-- point forward, the v3 audit rubric (voice ≥85, structure / essence
+-- / factual ≥75 each, per docs/INTERACTIVES.md) maps to a tier word
+-- per generation; `quality_flag` is preserved verbatim alongside
+-- (additive only — no rewrite of the existing column).
+--
+-- WHY A NEW COLUMN, NOT REUSING `quality_flag`:
+--
+-- The v3 audit rubric has four dimensions that can max-fail
+-- independently. `quality_flag='low'` collapses all four into one
+-- bit. The 2026-04-25-pm "How this was made" drawer commit
+-- (`4a2f3c2`) deliberately *dropped* the word "Rough" from the
+-- shipped-low interactive surface because reusing the daily-piece
+-- tier vocabulary collided with itself when voice was high but
+-- another dimension max-failed (the Maine drawer rendered "Voice
+-- 88/100 · Shipped as Rough" in the same line). The follow-up
+-- 2026-04-25 `010128d` commit added per-dimension naming via
+-- `interactive_audit_results.failedDimensions` to fix that.
+--
+-- Reusing `quality_flag='low'` AND rendering it as "Rough" at read
+-- time would re-create exactly that collision. Owning a separate
+-- tier column at the schema level keeps the interactive vocabulary
+-- distinct from the daily-piece vocabulary while letting the
+-- rendering layer pick its own word per surface (drawer's
+-- dimension-named copy stays; new admin list view in Phase 3 can
+-- show the tier directly).
+--
+-- The column mirrors `src/lib/audit-tier.ts`'s `AuditTier` type —
+-- `'polished' | 'solid' | 'rough'` — so site-side helpers can be
+-- shared between daily-piece and interactive surfaces in Phase 2 if
+-- a unified renderer makes sense at that point.
+--
+-- Backfill maps every existing `quality_flag='low'` row to
+-- `quality_tier='rough'`. Rows without a flag stay NULL — Phase 2's
+-- Generator extension will populate the tier on every new
+-- interactive based on the auditor's per-dimension scores.
+--
+-- SHAPE DECISIONS:
+--
+-- 1. Loose TEXT, no CHECK constraint. Consistent with every other
+--    tier-shape column in this codebase (`learnings.source`,
+--    `observer_events.severity`, `interactives.type`,
+--    `categories` slugs). Adding a `'mixed'` or `'pending'` value
+--    later is a zero-migration change.
+--
+-- 2. Nullable. NULL means "tier not yet assigned" (Phase 2 hasn't
+--    backfilled this row yet, OR it predates v3 and was never
+--    flagged). The application layer derives tier at write time;
+--    readers must handle NULL gracefully (treat as "polished" or
+--    fall back to existing `voice_score` derivation, decision
+--    deferred to Phase 2 reader site).
+--
+-- 3. Backfill is auto-applied. The UPDATE is idempotent
+--    (`WHERE quality_flag='low'`), the row count is small (3 known
+--    on prod 2026-04-26), and the mapping is deterministic — no
+--    timestamp-midpoint logic that needed manual review like 0019.
+--    Re-applying the migration on a database that's already been
+--    backfilled is a safe no-op.
+--
+-- 4. `quality_flag` is preserved. Two columns now overlap (low ↔ rough)
+--    but they encode different things going forward: `quality_flag`
+--    is the historical "did the auditor max-fail" bit (kept for
+--    backwards-compat with surfaces that already read it); `quality_tier`
+--    is the v3 reader vocabulary that maps to a word the user sees.
+--    Phase 2's Generator extension may write both; Phase 3's admin
+--    surface decides which to display.
+--
+-- Rollback: SQLite has no DROP COLUMN, so a true rollback would
+-- require a table rebuild (snapshot → CREATE → COPY → DROP → RENAME),
+-- with all 3 indexes recreated and all 7 reader sites re-pointed.
+-- Blast radius is too big for a column we may never touch again. If
+-- v3 is reversed, the column sits inert (NULL on new rows, 'rough'
+-- on the 3 backfilled historical rows) — no code reads it until
+-- Phase 2 ships.
+
+-- ══════════════════════════════════════════════════════════════════
+-- AUTO-APPLIED (runs on `wrangler d1 migrations apply`)
+-- ══════════════════════════════════════════════════════════════════
+
+ALTER TABLE interactives ADD COLUMN quality_tier TEXT;
+
+UPDATE interactives
+   SET quality_tier = 'rough'
+ WHERE quality_flag = 'low'
+   AND quality_tier IS NULL;
+
+-- ══════════════════════════════════════════════════════════════════
+-- POST-APPLY VERIFY (run via `wrangler d1 execute --remote`)
+-- ══════════════════════════════════════════════════════════════════
+--
+-- PRAGMA table_info(interactives);
+-- -- expect 13 columns now: the original 12 from 0022 plus
+-- --   quality_tier (TEXT) at the end.
+--
+-- SELECT id, slug, quality_flag, quality_tier
+--   FROM interactives
+--  WHERE quality_flag IS NOT NULL OR quality_tier IS NOT NULL
+--  ORDER BY created_at;
+-- -- expect every quality_flag='low' row to have quality_tier='rough';
+-- -- as of 2026-04-26 prod that's 3 rows (iterative-consensus-building,
+-- -- proportional-displacement-visibility, procedural-legitimacy-under-constraint).
+--
+-- SELECT COUNT(*) FROM interactives WHERE quality_flag = 'low' AND quality_tier IS NULL;
+-- -- expect 0.
