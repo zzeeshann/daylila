@@ -97,10 +97,9 @@ if (article) {
   <head>
     <meta charset="utf-8" />
     <style is:inline>
-      /* Beat CSS — inlined to prevent Tailwind purging */
+      /* Beat CSS — inlined to prevent Tailwind purging. Single-scroll
+         layout (Area 5) — beats stack as continuous prose. */
       lesson-beat{display:block;padding:1rem 0}
-      lesson-shell[data-active] lesson-beat{display:none!important;opacity:0;transition:opacity .3s ease}
-      lesson-shell[data-active] lesson-beat[data-visible]{display:block!important;opacity:1}
     </style>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>

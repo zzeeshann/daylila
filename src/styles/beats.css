@@ -1,19 +1,23 @@
 /*
- * Beat navigation CSS — standalone, not processed by Tailwind.
- * This ensures custom element selectors are never purged.
+ * Beat typography — standalone, not processed by Tailwind so the
+ * custom-element selectors are never purged.
+ *
+ * Pre-Area-5, this file also held the pagination state machine
+ * (lesson-shell[data-active] hide-all-but-current rules) and the
+ * .beat-nav* navigation styles. Both removed when the daily page
+ * flipped to single-scroll — beats now stack as continuous prose
+ * always, no JS-driven visibility, no nav bar.
  *
  * Shape:
- *   <lesson-shell>
- *     <lesson-beat name="...">
- *       <h2>...</h2>
- *       <p>...</p>
+ *   <lesson-shell data-piece-id="…">
+ *     <lesson-beat name="hook">
+ *       <h2>Hook</h2>
+ *       <p>…</p>
  *     </lesson-beat>
- *     ...
- *     <nav class="beat-nav"> (injected by lesson-shell.ts)
+ *     <lesson-beat name="…">…</lesson-beat>
  *   </lesson-shell>
  */
 
-/* Default (no-JS fallback): all beats render as continuous prose */
 lesson-shell {
   display: block;
 }
@@ -21,24 +25,12 @@ lesson-shell {
 lesson-beat {
   display: block;
   padding: 0.5rem 0;
-}
-
-/* When JS activates: hide every beat except the current one */
-lesson-shell[data-active] lesson-beat {
-  display: none !important;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  min-height: 50vh;
-}
-
-lesson-shell[data-active] lesson-beat[data-visible] {
-  display: block !important;
-  opacity: 1;
+  scroll-margin-top: 1.5rem;
 }
 
 /* First h2 inside a beat is the beat title — pull it tighter so it
    doesn't inherit the mid-article top margin from prose h2 rules. */
-lesson-shell[data-active] lesson-beat > h2:first-child {
+lesson-beat > h2:first-child {
   margin-top: 0.25rem;
   margin-bottom: 1.5rem;
   font-size: 1.5rem;
@@ -47,170 +39,14 @@ lesson-shell[data-active] lesson-beat > h2:first-child {
 }
 
 @media (min-width: 768px) {
-  lesson-shell[data-active] lesson-beat > h2:first-child {
+  lesson-beat > h2:first-child {
     font-size: 1.875rem;
   }
 }
 
-/* First paragraph of a beat: a touch heavier to anchor the eye */
-lesson-shell[data-active] lesson-beat > p:first-of-type,
-lesson-shell[data-active] lesson-beat > h2:first-child + p {
+/* First paragraph of a beat: a touch heavier to anchor the eye. */
+lesson-beat > p:first-of-type,
+lesson-beat > h2:first-child + p {
   font-size: 1.0625rem;
   line-height: 1.7;
-}
-
-/* --- Navigation bar (prev / progress / next) ---------------------- */
-
-.beat-nav {
-  margin-top: 3rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #E8E4DE;
-}
-
-.beat-nav-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.beat-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  font-family: inherit;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  border-radius: 0.5rem;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #1A1A1A;
-  min-height: 44px;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-}
-
-.beat-nav-prev {
-  color: #6B6B6B;
-  border-color: #E8E4DE;
-}
-
-.beat-nav-prev:hover:not(:disabled) {
-  color: #1A1A1A;
-  background: rgba(232, 228, 222, 0.5);
-}
-
-.beat-nav-next {
-  background: #1A6B62;
-  color: #FFFFFF;
-  border-color: #1A6B62;
-}
-
-.beat-nav-next:hover:not(:disabled) {
-  background: #155951;
-  border-color: #155951;
-}
-
-.beat-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.beat-nav-progress {
-  font-size: 0.8125rem;
-  color: #6B6B6B;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-}
-
-/* --- Progress bar ------------------------------------------------- */
-
-.beat-nav-bar {
-  margin-top: 1.25rem;
-  height: 0.1875rem;
-  background: #E8E4DE;
-  border-radius: 9999px;
-  overflow: hidden;
-}
-
-.beat-nav-fill {
-  height: 100%;
-  background: #1A6B62;
-  border-radius: 9999px;
-  transition: width 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-/* --- Mobile tuning ------------------------------------------------ */
-
-@media (max-width: 480px) {
-  .beat-nav-btn {
-    padding: 0.625rem 0.875rem;
-    font-size: 0.875rem;
-  }
-
-  .beat-nav-prev svg,
-  .beat-nav-next svg {
-    display: none;
-  }
-
-  .beat-nav-progress {
-    font-size: 0.75rem;
-  }
-}
-
-/* --- Keyboard focus ---------------------------------------------- */
-
-.beat-nav-btn:focus-visible {
-  outline: 2px solid #1A6B62;
-  outline-offset: 2px;
-}
-
-/* --- Interactive prompt (sub-task 4.6) --------------------------- */
-/* Small, subtle link rendered above the Prev/Finish row on the last
-   beat when the piece has a passing interactive. Deliberately
-   understated — it's an exit option, not a forced step. */
-
-.beat-nav-interactive {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px dashed rgba(232, 228, 222, 0.8);
-  text-align: right;
-}
-
-.beat-nav-interactive-link {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  color: #1A6B62;
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-decoration: none;
-  padding: 0.25rem 0;
-  transition: color 0.15s ease, gap 0.2s ease;
-}
-
-.beat-nav-interactive-link:hover {
-  color: #155951;
-  gap: 0.6rem;
-}
-
-.beat-nav-interactive-link:focus-visible {
-  outline: 2px solid #1A6B62;
-  outline-offset: 3px;
-  border-radius: 0.25rem;
-}
-
-.beat-nav-interactive-label {
-  letter-spacing: -0.005em;
-}
-
-.beat-nav-interactive-arrow {
-  font-size: 1rem;
-  line-height: 1;
-  transition: transform 0.2s ease;
-}
-
-.beat-nav-interactive-link:hover .beat-nav-interactive-arrow {
-  transform: translateX(2px);
 }
