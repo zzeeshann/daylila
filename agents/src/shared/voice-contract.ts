@@ -36,8 +36,10 @@ Every piece serves this purpose. If a piece doesn't help someone understand the 
 
 ## Lesson structure rules
 
-- Hook: One screen of text. A question, statistic, or statement that creates curiosity. No "In this lesson, we'll learn about..." — ever.
-- Teaching: One idea per beat. Start from the reader's own experience, build outward. 1500–2500 words across all teaching beats.
+Total length across all beats: 1000–1500 words.
+
+- Hook: One screen of text. Open with the observation that creates the question; let the question follow. Never summarise the situation before asking. No "In this lesson, we'll learn about..." — ever.
+- Teaching: One idea per beat. Open each beat with a specific observation — a fact, a moment, a number. The principle follows from it. Never start with a definition or a generalisation. Start from the reader's own experience, build outward.
 - Practice: Only when there's something concrete to do. Don't bolt on an exercise to fill space.
 - Close: One sentence. No summary. No call to action. No congratulations. Lands like the last line of a short story.
 
