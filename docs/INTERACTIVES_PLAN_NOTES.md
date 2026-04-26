@@ -20,6 +20,22 @@ The v3 plan was written with full repo knowledge as of 2026-04-26, so this file 
 
 ---
 
+## 2026-04-26 — Phase 2 sub-task 2.5 — HTML interactive file location: JSON envelope, not raw `.html`
+
+**Plan said** (sub-task 2.5, line 140 of `INTERACTIVES_PLAN.md`): "HTML lives at `content/interactives/<slug>.html` (parallel to `<slug>.json` for the quiz)."
+
+**Repo says:** Astro 5 content collections need a single-loader/single-extension contract per collection, OR a custom loader. The default `glob` loader handles `.json` (parsed) and `.mdx` (parsed) but not `.html` (raw text — would need a custom loader to extract metadata). Mixing `.json` and `.html` files in the same directory under the same `glob` pattern would also collide on Astro entry IDs (filename-without-extension), since `chokepoints-and-cascades.json` and `chokepoints-and-cascades.html` would both produce id `chokepoints-and-cascades`.
+
+**What I did:** chose JSON-envelope-with-inlined-html. File path is `content/interactives/<slug>-html.json`. Top-level shape mirrors the existing quiz JSON exactly (`slug`, `type`, `title`, `concept`, `interactiveId`, `sourcePieceId`, `publishedAt`, `voiceScore?`, `qualityFlag?`, `content`); the `content` field's discriminated union has a new `html` branch carrying the full single-file HTML as a string.
+
+The slug INSIDE both files is the bare `<slug>` (e.g. `chokepoints-and-cascades`); the FILENAMES differ via the `-html` suffix to deconflict Astro entry IDs. Reader at `/interactives/<slug>/` queries `getCollection('interactives')` and filters by `data.slug === <slug>`, returning up to 2 entries (quiz + html) which it renders together.
+
+**Why repo, not plan:** A custom Astro loader that handles `.html` files would need to extract metadata from somewhere — either a sibling `<slug>.html.meta.json` (two files per HTML artefact, awkward), inline metadata in a `<script type="application/json">` block inside the HTML (Generator prompt + validator complications), or a D1 lookup at build time (build-time D1 access has its own complications). All three options add incidental complexity for marginal benefit (browse-ability of raw HTML in GitHub web UI). The JSON-envelope approach matches the quiz path's existing pattern bit-for-bit and lets the schema evolve via `discriminatedUnion` without touching the loader.
+
+If a future iteration wants raw `.html` files for inspection, the conversion is a one-time migration: walk every `<slug>-html.json`, extract the `content.html` field, write to `<slug>.html`, drop the `-html.json` file, update the loader. No agent code change needed. Recorded here so future sessions can find the rationale rather than re-litigate.
+
+---
+
 ## 2026-04-26 — Phase 1 — `quality_flag='low'` row count was 3, not 2
 
 **Plan said** (and `docs/INTERACTIVES_STATUS.md` repeated): "Backfill the 2 existing `quality_flag='low'` rows to `quality_tier='rough'`."

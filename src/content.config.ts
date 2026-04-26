@@ -59,33 +59,41 @@ const dailyPieces = defineCollection({
 /**
  * Interactives collection — standalone teaching artefacts.
  * Lives in content/interactives/
- * Filename format: {slug}.json
+ * Filename format:
+ *   - quiz: `{slug}.json` (since Area 4)
+ *   - html: `{slug}-html.json` (since Phase 2 sub-task 2.5)
  *
  * Interactives are first-class (not a sub-feature of pieces). 1:1 with
  * source pieces but useful without reading the piece ("essence not
- * reference"). First type is `quiz`; extensible to `breathing`, `game`,
- * `chart`, etc. — widen the `type` enum + add a branch to the
- * discriminated union to add a new type.
+ * reference"). Two artefact types ship per piece (quiz + html) since
+ * Phase 2; both share the `slug` field so they render on the same
+ * /interactives/<slug>/ URL. Filenames differ to avoid Astro entry-id
+ * collision (entry id is filename-without-extension; same-base-name
+ * `.json` files in one dir would collide).
+ *
+ * Adding a future shape (breathing / game / chart) is a 2-step change:
+ * widen the top-level `type` enum + add a branch to the
+ * `content` discriminatedUnion.
  *
  * Source of truth: the JSON file. D1 row (`interactives` table) holds
  * metadata for admin queries; `interactives.content_json` is nullable
- * in v1 (file is authoritative).
+ * (file is authoritative).
  */
 const interactives = defineCollection({
   loader: glob({ pattern: '**/*.json', base: './content/interactives' }),
   schema: z.object({
     slug: z.string(),
-    type: z.enum(['quiz']),
+    // 'quiz' | 'html'. Quiz path live since Area 4; HTML path added
+    // Phase 2 sub-task 2.5. Two rows per piece SHARE the slug (one
+    // URL per piece) — composite UNIQUE(slug, type) in D1 (migration
+    // 0026) lets that work.
+    type: z.enum(['quiz', 'html']),
     title: z.string(),
     // Required, non-empty. One sentence naming the underlying principle
-    // the quiz teaches — feeds the page subtitle AND the per-page meta
-    // description (src/pages/interactives/[slug].astro passes it to
-    // BaseLayout). Generator emits it on every successful round; the
-    // structural validator already throws on empty before the file write
-    // (interactive-generator.ts validateQuiz), so a declined output never
-    // reaches Zod with concept=''. Schema-level requirement is defense
-    // in depth + an SEO contract: every interactive page has a
-    // meaningful description.
+    // the artefact teaches — feeds the page subtitle AND the per-page
+    // meta description. Generator emits it on every successful round.
+    // Schema-level requirement is defense in depth + an SEO contract:
+    // every interactive page has a meaningful description.
     concept: z.string().min(1),
     sourcePieceId: z.string().uuid().optional(),
     interactiveId: z.string().uuid(),
@@ -106,6 +114,16 @@ const interactives = defineCollection({
           )
           .min(3)
           .max(5),
+      }),
+      z.object({
+        type: z.literal('html'),
+        // The full single-file HTML artefact as a string. Renders inside
+        // an <iframe sandbox="allow-scripts"> — see <interactive-frame>
+        // (sub-task 2.6) and docs/INTERACTIVES.md "The iframe sandbox
+        // shape". Validator (agents/src/interactive-validator.ts) gates
+        // this string at generation time; schema check below is just
+        // a sanity floor.
+        html: z.string().min(1),
       }),
     ]),
   }),

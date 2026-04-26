@@ -556,7 +556,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     const qualityFlag: 'low' | null = passed ? null : 'low';
     const auditorMaxFailed = !passed;
 
-    const finalSlug = await this.resolveFreeSlug(lastQuiz.slug);
+    const finalSlug = await this.resolveFreeSlug(lastQuiz.slug, 'quiz');
     lastQuiz.slug = finalSlug;
 
     const publishedAt = Date.now();
@@ -879,11 +879,51 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     const qualityFlag: 'low' | null = auditPassed ? null : 'low';
     const auditorMaxFailed = !auditPassed;
 
-    const finalSlug = await this.resolveFreeSlug(lastHtml.slug);
+    // ── Slug coordination (Phase 2 sub-task 2.5) ────────────────
+    //
+    // A piece's quiz + html share the slug — one URL per piece. Look
+    // up the existing quiz row for this piece (committed earlier in
+    // this same generate() call OR in a prior run). If found, use
+    // ITS slug verbatim. Otherwise resolve Claude's proposed slug
+    // through the type-scoped collision check.
+    const existingQuiz = await this.env.DB
+      .prepare(
+        `SELECT slug FROM interactives
+         WHERE source_piece_id = ? AND type = 'quiz' LIMIT 1`,
+      )
+      .bind(pieceId)
+      .first<{ slug: string }>();
+    const finalSlug = existingQuiz
+      ? existingQuiz.slug
+      : await this.resolveFreeSlug(lastHtml.slug, 'html');
     lastHtml.slug = finalSlug;
 
     const publishedAt = Date.now();
-    const filePath = `content/interactives/${lastHtml.slug}.html`;
+
+    // File path uses `-html.json` suffix to avoid Astro entry-id
+    // collision with the sibling quiz file at `<slug>.json`. The slug
+    // FIELD inside both files is the bare `<slug>`; the reader page
+    // queries by `data.slug` and renders both entries that match.
+    const filePath = `content/interactives/${lastHtml.slug}-html.json`;
+    const fileContent = JSON.stringify(
+      {
+        slug: lastHtml.slug,
+        type: 'html',
+        title: lastHtml.title,
+        concept: lastHtml.concept,
+        interactiveId,
+        sourcePieceId: pieceId,
+        publishedAt,
+        voiceScore: lastAudit?.voice.score ?? undefined,
+        ...(qualityFlag === 'low' ? { qualityFlag: 'low' } : {}),
+        content: {
+          type: 'html',
+          html: lastHtml.html,
+        },
+      },
+      null,
+      2,
+    ) + '\n';
 
     const publisher = await this.subAgent(
       PublisherAgent,
@@ -892,7 +932,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     const commitMsg = qualityFlag === 'low'
       ? `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html, flagged low]`
       : `feat(interactives): ${lastHtml.title} (${lastHtml.slug}) [html]`;
-    await publisher.publishToPath(filePath, lastHtml.html, commitMsg);
+    await publisher.publishToPath(filePath, fileContent, commitMsg);
 
     const htmlByteLength = new TextEncoder().encode(lastHtml.html).length;
     const revisionCount = roundsUsed - 1;
@@ -1202,10 +1242,20 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   }
 
   /**
-   * Find a non-colliding slug. Only called on the passed path; a
-   * max-failed or declined attempt never reserves a slug.
+   * Find a non-colliding slug WITHIN AN ARTEFACT TYPE. Only called on
+   * the passed path; a max-failed or declined attempt never reserves
+   * a slug.
+   *
+   * Migration 0026 (Phase 2 sub-task 2.5) relaxed `interactives.slug
+   * UNIQUE` to `UNIQUE(slug, type)` so a piece's quiz + html can share
+   * the slug. The collision check is therefore type-scoped — a quiz
+   * named 'chokepoints-and-cascades' doesn't block an html with the
+   * same slug, but it does block another quiz.
    */
-  private async resolveFreeSlug(base: string): Promise<string> {
+  private async resolveFreeSlug(
+    base: string,
+    type: 'quiz' | 'html',
+  ): Promise<string> {
     const normalised = normaliseSlug(base);
     if (normalised.length === 0) {
       throw new Error('resolveFreeSlug: empty slug after normalisation');
@@ -1213,8 +1263,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
     const isFree = async (candidate: string): Promise<boolean> => {
       const hit = await this.env.DB
-        .prepare('SELECT 1 FROM interactives WHERE slug = ? LIMIT 1')
-        .bind(candidate)
+        .prepare('SELECT 1 FROM interactives WHERE slug = ? AND type = ? LIMIT 1')
+        .bind(candidate, type)
         .first<{ 1: number }>();
       return !hit;
     };
@@ -1225,7 +1275,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       if (await isFree(candidate)) return candidate;
     }
     throw new Error(
-      `resolveFreeSlug: "${normalised}" and ${SLUG_COLLISION_MAX_ATTEMPTS - 1} numbered variants all taken`,
+      `resolveFreeSlug: "${normalised}" (type=${type}) and ${SLUG_COLLISION_MAX_ATTEMPTS - 1} numbered variants all taken`,
     );
   }
 }

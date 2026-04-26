@@ -517,6 +517,21 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 ---
 
+## [open] 2026-04-26: Drop `interactives_backup_20260426` snapshot
+
+**Surfaced:** 2026-04-26 alongside migration 0026 (Interactives v3 Phase 2 sub-task 2.5). The 8-row snapshot was created as a free-rollback safety net for the `interactives` table rebuild that relaxed `UNIQUE(slug)` → `UNIQUE(slug, type)`. Should be dropped on or after **2026-05-04** once Phase 2.6+ has been live for a week and the new composite UNIQUE has been exercised by at least one Generator run that committed both quiz + html on the same slug.
+
+**Hypothesis:** None — housekeeping, not a bug. Tiny (8 rows) so cost of keeping a few extra days is nothing. The retention window gives time to spot any column-shape regression that the post-apply verification might have missed (the migration carried 13 columns through an explicit INSERT...SELECT, so a column-rename or NOT-NULL drift is theoretically detectable here).
+
+**Investigation hints:**
+- Before dropping: re-run the post-apply verifier (`SELECT COUNT(*) FROM interactives` should equal 8 + however many new rows have committed since 2026-04-26; `PRAGMA index_list(interactives)` should show 3 named indexes + `sqlite_autoindex_interactives_1` from `UNIQUE(slug, type)`).
+- Drop command: `DROP TABLE interactives_backup_20260426;` via `wrangler d1 execute zeemish --remote --command`.
+- Close with a DECISIONS entry on the drop date naming the SHA that dropped it.
+
+**Priority:** low — housekeeping.
+
+---
+
 ## [open] 2026-04-22: Drop `engagement_backup_20260422` snapshot
 
 **Surfaced:** 2026-04-22 alongside migration 0017 (Phase 7 engagement piece_id). The 13-row snapshot was created as a free-rollback safety net for the engagement table rebuild. Should be dropped on or after **2026-04-29** once the new `(piece_id, course_id, date)` PK has absorbed at least a week of reader-path writes without shape regressions.

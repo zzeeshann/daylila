@@ -16,21 +16,24 @@ Phase 0 + Phase 1 complete and tagged.
 
 ## Last completed sub-task
 
-**Phase 2, sub-task 2.4 — InteractiveAuditor extended with HTML rubric, wired into the Generator's HTML loop.**
+**Phase 2, sub-task 2.5 — File commit path + interactives row schema for two artefacts per piece.**
 
-- [`agents/src/interactive-auditor-prompt.ts`](../agents/src/interactive-auditor-prompt.ts): added `INTERACTIVE_HTML_AUDITOR_PROMPT` system prompt covering the four-dimension HTML rubric from [`docs/INTERACTIVES.md`](INTERACTIVES.md) "Audit rubric". ALL FOUR dimensions are scored 0–100 (not binary like the quiz path) — voice ≥85, structure ≥75, essence ≥75, factual ≥75. Voice contract embedded inline; per-dimension thresholds exported as constants (`INTERACTIVE_HTML_STRUCTURE_MIN_SCORE`, `INTERACTIVE_HTML_ESSENCE_MIN_SCORE`, `INTERACTIVE_HTML_FACTUAL_MIN_SCORE`). New `AuditableHtml` type + `buildHtmlAuditorPrompt(html, piece)` builder.
-- [`agents/src/interactive-auditor.ts`](../agents/src/interactive-auditor.ts): `audit()` now dispatches by discriminated input — `{ type: 'quiz', quiz }` or `{ type: 'html', html }`. Two private methods `auditQuiz` / `auditHtml` carry the per-type logic. Quiz path unchanged (binary structure/essence/factual + voice scored). HTML path scores all four; defensive pass-gates clamp Claude's `passed` against per-dimension thresholds. HTML system prompt sent as a single Anthropic prompt-cache block (`cache_control: ephemeral`).
-- [`agents/src/interactive-generator.ts`](../agents/src/interactive-generator.ts) `runHtmlLoop` rewired: removed the `TODO 2.4` marker; each round now runs produce → validate → audit → revise. Validator failure routes through validator-feedback revision; audit failure routes through audit-feedback revision (mutually exclusive — audit only runs when validator passes that round). Audit rows persist to `interactive_audit_results` (4 rows per round, all 4 dimensions carry scores for HTML — `persistAuditRows` reads `score ?? null` so the same function serves both quiz-NULL and HTML-populated paths). On round-3 audit-max-fail: ship-as-low (`quality_flag='low'`, `auditorMaxFailed=true`, file commits with `[html, flagged low]` commit message). Validator-max-fail still terminates without commit (runtime-broken file would SecurityError in the sandbox).
-- `runQuizLoop` audit call site updated to use the new discriminated input shape (`{ type: 'quiz', quiz: { ... } }`).
-- `reviseHtml` signature gains an `auditFeedback: RevisionFeedback | null` parameter. Revision prompt builder (already from 2.1) now sees both the validator violations AND the audit feedback when relevant.
-- New helper `buildAuditFeedback(audit)` converts an `InteractiveAuditResult` into the `RevisionFeedback` shape; quiz `reviseQuiz` also refactored to use it (was inlined). Single source of truth for the conversion.
-- New state counter `htmlInteractivesAuditorMaxFailed` tracks ship-as-low ratio for HTML separately from validator-max-failed.
-- HTML commit-path return now carries `voiceScore` + `finalAudit` (no longer null). Observer's HTML summary line reflects audit state correctly.
-- Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit. Validator harness still 28/28 pass.
+- **Migration 0026** — relaxed `interactives.slug UNIQUE` → composite `UNIQUE(slug, type)`. Same table-rebuild pattern as 0015 (snapshot at `interactives_backup_20260426`, queued for drop 2026-05-04). Applied cleanly to remote D1 — all 8 existing rows preserved, composite UNIQUE verified to (a) accept quiz+html with same slug, (b) reject duplicate (slug, type).
+- **Three architectural decisions resolved in-commit:**
+  1. **Slug:** quiz + html for the same piece SHARE the slug (one URL per piece — `/interactives/<slug>/` renders both teaching modalities). Migration 0026 relaxes the UNIQUE constraint; Generator `resolveFreeSlug` becomes type-aware; HTML loop pre-looks-up the existing quiz row's slug and uses it verbatim when present.
+  2. **`daily_pieces.interactive_id`:** stays quiz-only for back-compat with the 4.6 last-beat prompt surface. HTML rows are findable via `interactives WHERE source_piece_id = ?`. No second pointer column added.
+  3. **File location:** diverged from plan's `<slug>.html` raw HTML to `<slug>-html.json` JSON envelope. Astro content collections need a single-loader/single-extension contract; mixing `.json` and `.html` would either collide on entry IDs or require a custom loader. The JSON-envelope mirror of the existing quiz pattern is simpler and works with the same `discriminatedUnion` schema. Recorded as PLAN_NOTES entry.
+- **Generator commit path** — `runHtmlLoop` now writes `content/interactives/<slug>-html.json` with the same JSON shape as quiz files but with `type='html'` and `content: { type: 'html', html: '<!DOCTYPE...' }`. Looks up existing quiz row's slug at commit time; uses its slug or falls back to `resolveFreeSlug(claudesSlug, 'html')`.
+- **Content collection schema** — [`src/content.config.ts`](../src/content.config.ts) widens `type: z.enum(['quiz'])` → `z.enum(['quiz', 'html'])`; adds an `html` branch to the `content` discriminatedUnion carrying `html: z.string().min(1)`. Existing 8 quiz files validate unchanged. `pnpm build` runs clean.
+- **SCHEMA.md** updated to count `19 tables × 26 migrations`; `interactives.slug` row notes the composite UNIQUE; new migration 0026 entry in the migrations log.
+- **PLAN_NOTES** documents the file-location divergence with the rationale path.
+- **FOLLOWUPS** carries the snapshot-drop entry for 2026-05-04.
+- Typecheck: 25 pre-existing `server.ts` SDK-typing errors, zero new from this commit.
 - Flag still `'false'` on prod; HTML path bypassed; no live behaviour change.
 
 **Earlier completed sub-tasks (Phase 2):**
 
+- `[phase-2.4]` InteractiveAuditor extended with HTML rubric + wired to Generator (4-dim rubric, all scored; ship-as-low on round-3 audit-max-fail).
 - `[phase-2.3]` InteractiveGenerator extended with parallel HTML loop (validator-gated; per-type idempotence; observer logging extended).
 - `[phase-2.2]` HTML interactive validator + `pnpm verify-validator` 28-case harness.
 - `[phase-2.1]` HTML generation prompt extension (`INTERACTIVE_HTML_GENERATOR_PROMPT`, builders, types).
@@ -48,13 +51,13 @@ Tag `interactives-v3.1-complete` (set at commit time).
 
 ## Next sub-task
 
-**Phase 2 sub-task 2.5 — File commit path + interactives row schema.** With the Generator + Auditor + Validator stack now end-to-end functional, sub-task 2.5 closes the reader-side data shape. Resolve the deferred decisions:
+**Phase 2 sub-task 2.6 — Reader surface: `<interactive-frame>` Web Component.** Build the sandboxed-iframe renderer that the existing `/interactives/[slug]/` route page dispatches to when an entry has `data.type === 'html'`. New file `src/interactive/interactive-frame.ts` mirroring the `<quiz-card>` pattern (custom element, parses a JSON payload from a child `<script type="application/json">`, renders into a constrained shadow DOM or scoped CSS). Renders a single `<iframe>` with the exact attribute set from the spec: `sandbox="allow-scripts"` (no other token), `loading="lazy"`, `referrerpolicy="no-referrer"`, `title={concept}`. Loads HTML via `srcdoc` (manual-proof acceptable per spec; production CDN lookups deferred). Wires the existing `[slug].astro` route page to dispatch on `type` — when both quiz + html entries exist for a slug, render BOTH stacked (quiz card first, then interactive frame; both above the "Back to library" link).
 
-1. **Slug collisions across artefact types** — current code uses `resolveFreeSlug()` which appends `-2` if the slug exists. If quiz and HTML for the same piece both produce slug `chokepoints-and-cascades`, HTML lands at `chokepoints-and-cascades-2`, splitting them across URLs. Spec implies one URL per piece (both at `/interactives/<slug>/`). Decision: relax the UNIQUE constraint to `(slug, type)` — same migration adds index — OR allow shared slug with content-type-aware URL routing. Likely the schema change (clean separation, simpler reader logic).
-2. **`daily_pieces.interactive_id` second-pointer** — currently quiz-only. HTML rows are findable via `interactives WHERE source_piece_id = ?` but the legacy column doesn't carry HTML. Decision: leave the column quiz-only (back-compat with the 4.6 last-beat prompt surface); reader code that wants both queries by `source_piece_id`. No schema change needed.
-3. **Content collection schema for HTML** — current `src/content.config.ts` has `interactives` discriminatedUnion with a `quiz` branch only. Add an `html` branch carrying `{ slug, type: 'html', title, concept, sourcePieceId, voiceScore?, qualityFlag?, content: { type: 'html', html: string } }` — but Astro content collections don't natively load `.html` files alongside `.json` files. Either: (a) make the `.html` file the actual artefact + a sibling `.json` index file referencing it, or (b) inline the html string into the JSON envelope, OR (c) custom loader. Decision needed during 2.5.
+Decisions to resolve in 2.6:
+- **`srcdoc` vs `src`:** spec leans `src=` for prod (CDN-cacheable, smaller parent page) but `srcdoc=` is acceptable for the manual proof. Going with `srcdoc=` for v1 — keeps the route logic simple, no `/embed` route to maintain. Mark in DECISIONS as a future-tunable.
+- **Drawer surfacing:** the existing "How this was made" drawer's MadeInteractive section currently surfaces just the quiz. Extend to list both artefact types when both exist per piece.
 
-After 2.5: → 2.6 reader Web Component → 2.7 manual-proof reference HTML + flag flip + tag. Each is one commit. Per the plan, the manual-proof step (sub-task 2.7) is where Zishan reviews the hand-written reference HTML on prod before flipping `interactives_html_enabled = true`.
+After 2.6: → 2.7 manual-proof reference HTML + flag flip + tag `interactives-v3.2-complete`. Each is one commit. Per the plan, 2.7 is where Zishan reviews the hand-written reference on prod before flipping `interactives_html_enabled = true`.
 
 Definition of done for Phase 2: flag = true, next published piece produces both quiz and HTML interactive, drawer shows both, tag `interactives-v3.2-complete` pushed.
 
@@ -91,6 +94,7 @@ Two entries in `docs/INTERACTIVES_PLAN_NOTES.md`:
 | 2026-04-26 | 2 | 2.2 — HTML interactive validator + verify-validator harness | New `agents/src/interactive-validator.ts` (8 rules, pure function, comment-stripping pre-pass). Constants moved from prompt module to validator (single source of truth). 28-case regression harness via `pnpm verify-validator` — 28/28 pass. TS module + JS mirror cross-checked. Zero new typecheck errors. |
 | 2026-04-26 | 2 | 2.3 — InteractiveGenerator extended with parallel HTML loop | `generate()` refactored as a quiz+html dispatcher; per-type idempotence; HTML loop validator-gated only (auditor wires in 2.4); Anthropic prompt caching active on HTML system prompt; result shape changed; observer logging extended to dual-artefact summary. Flag stays `'false'` so prod behaviour unchanged. Zero new typecheck errors. |
 | 2026-04-26 | 2 | 2.4 — InteractiveAuditor extended with HTML rubric + wired into runHtmlLoop | New `INTERACTIVE_HTML_AUDITOR_PROMPT` (4 dims all scored, voice ≥85, others ≥75); `audit()` now dispatches by `{type:'quiz'|'html'}`; HTML system prompt prompt-cached. Generator's `runHtmlLoop` runs full produce→validate→audit→revise; ship-as-low on audit max-fail (`quality_flag='low'`); validator-max-fail still no-commit. Per-round audit rows persist for HTML across all 4 dims. Zero new typecheck errors. Flag still `'false'`. |
+| 2026-04-26 | 2 | 2.5 — File commit path + interactives row schema | Migration 0026 relaxed `UNIQUE(slug)` → `UNIQUE(slug, type)` (table rebuild, snapshot held). Generator `runHtmlLoop` writes `<slug>-html.json` (JSON envelope, html-string inlined) — slug pulled from existing quiz row when present (one URL per piece). Content collection schema widens `type` enum + adds `html` branch. PLAN_NOTES + FOLLOWUPS + SCHEMA.md synced. Plan-vs-repo divergence: `<slug>-html.json` not `<slug>.html` (loader simplicity). Zero new typecheck errors. `pnpm build` clean. |
 
 ## Tags
 
