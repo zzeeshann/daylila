@@ -166,7 +166,7 @@ User's manual retrigger from admin worked — the pipeline can recover via `/dai
 
 ---
 
-## [open] 2026-04-25: URL canonicalisation — pre-Phase-4 date-only URLs 404 with no 301
+## [wontfix] 2026-04-25: URL canonicalisation — pre-Phase-4 date-only URLs 404 with no 301
 
 **Surfaced:** 2026-04-25 SEO foundations review. Per CLAUDE.md "Multi-piece cadence — Phase 4 URL routing", the canonical reader URL changed from `/daily/YYYY-MM-DD/` to `/daily/YYYY-MM-DD/{slug}/` on 2026-04-21. Phase 4's decision was "no 301 redirect layer — old URLs stop existing (dev-phase decision from Phase 1 DECISIONS)". At submission time this was correct (site was 3 days old, near-zero external links). With Search Console submission imminent (preceding entry), and time accruing for any external links pointing at the old shape, the indexing impact is starting to matter.
 
@@ -182,9 +182,11 @@ Option 1 wins on automation — content collection is the source of truth, no ma
 
 **Priority:** low. Mitigated significantly by the existing `[date]/index.astro` legacy URL handler (verify it's actually intercepting first — preceding bullet). If it is, this entry can close immediately.
 
+**Won't fix:** 2026-04-26 — Site is 8 days old; no evidence of incoming traffic on the pre-Phase-4 URL shape. The existing `[date]/index.astro` legacy handler intercepts most cases. Reopen if Search Console shows incoming hits on `/daily/YYYY-MM-DD/` shape.
+
 ---
 
-## [open] 2026-04-25: Drafter slug strategy — concept-based slugs over headline-derived
+## [wontfix] 2026-04-25: Drafter slug strategy — concept-based slugs over headline-derived
 
 **Surfaced:** 2026-04-25 SEO foundations review. Current daily-piece slugs derive from the news headline via Director: `slugify(curatorBrief.headline).slice(0, 60)`. That gives URLs like `maine-gov-janet-mills-vetoes-ban-on-data-center-construction` — accurate but news-cycle-bound. Six months from now the underlying teaching ("data centre grid capacity") is still relevant; the proper-noun-heavy slug is not. SEO ranking and reader memorability would both benefit from concept-based slugs.
 
@@ -203,6 +205,8 @@ Option 1 wins on automation — content collection is the source of truth, no ma
 - Look at the 7 existing interactives in `content/interactives/` for examples of well-chosen concept-based slugs (`chokepoints-and-cascades`, `proportional-displacement-visibility`, `phase-change-disruption`) — that prompt design is the pattern to copy.
 
 **Priority:** low. Cosmetic for the URL layer; doesn't affect ranking until the library has enough pieces that long-tail SEO matters (currently 12 pieces, 8 days live). Revisit when piece count crosses ~50 or when a competing concept-tagged URL outranks a Zeemish piece on the same topic.
+
+**Won't fix:** 2026-04-26 — Pure SEO/longevity optimisation with no current breakage. Library is 14 pieces over 9 days; the long-tail SEO threshold (~50 pieces) is not yet near. Reopen when piece count crosses ~50 or when a competing concept-tagged URL outranks a Zeemish piece on the same topic.
 
 ---
 
@@ -230,7 +234,7 @@ Idempotent + reconciles historical drift. Also add an explicit `DELETE FROM piec
 
 ---
 
-## [open] 2026-04-24: agents-worker server.ts SDK-typing baseline (25 errors)
+## [wontfix] 2026-04-24: agents-worker server.ts SDK-typing baseline (25 errors)
 
 **Surfaced:** 2026-04-24 session noted the persistent "typecheck clean — 25 errors all in server.ts (pre-existing baseline)" shorthand I use on every agent-worker commit. Operator asked directly whether to fix; agreed to leave for now and log here.
 
@@ -259,6 +263,8 @@ Fix (when triggered):
 
 **Priority:** low. Developer experience only; zero user-visible impact; no blocking effect on deploys.
 
+**Won't fix:** 2026-04-26 — Pre-existing baseline, runtime fine, zero user-visible impact. No CI typecheck gate exists yet. Reopen when an SDK upgrade forces a typing pass or when the noise obscures a real regression during debugging.
+
 ---
 
 ## [resolved] 2026-04-24: Per-round audit notes for interactives
@@ -271,7 +277,7 @@ Fix (when triggered):
 
 ---
 
-## [open] 2026-04-24: Coherent null-pieceId handling on admin piece-detail page
+## [wontfix] 2026-04-24: Coherent null-pieceId handling on admin piece-detail page
 
 **Surfaced:** 2026-04-24 during Area 3 sub-task 3.2 code review. When a slug typo hits `/dashboard/admin/piece/<date>/<wrong-slug>/`, the content-collection lookup returns undefined → `pieceId = null`. Different sections handle this inconsistently:
 - Lenient (fall back to date-keyed lookup, show *some* data): `piece` (most-recent by date), `audit_results` (by task_id='daily/<date>'), `pipeline_log` (by run_id), `daily_candidates` (by date).
@@ -288,6 +294,8 @@ Fix (when triggered):
 **Investigation hints:** [src/pages/dashboard/admin/piece/[date]/[slug].astro](../src/pages/dashboard/admin/piece/[date]/[slug].astro) — the `if (pieceId) { ... } else { ... date-based fallback ... }` blocks around lines 128-188. Removing the else branches collapses the code by ~30 lines.
 
 **Priority:** low. Slug typos are operator-caused and caught the moment the operator notices "that's not my piece". Tightening is purely hygiene.
+
+**Won't fix:** 2026-04-26 — Admin UI hygiene only, reader-invisible. Six clean days post-3.2 with no operator complaint about the mixed strict/lenient sections. Reopen if a slug typo materially misleads an operator during incident triage.
 
 ---
 
@@ -624,7 +632,7 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 ---
 
-## [open] 2026-04-22: Drop `engagement_backup_20260422` snapshot
+## [resolved] 2026-04-22: Drop `engagement_backup_20260422` snapshot
 
 **Surfaced:** 2026-04-22 alongside migration 0017 (Phase 7 engagement piece_id). The 13-row snapshot was created as a free-rollback safety net for the engagement table rebuild. Should be dropped on or after **2026-04-29** once the new `(piece_id, course_id, date)` PK has absorbed at least a week of reader-path writes without shape regressions.
 
@@ -636,6 +644,8 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 - Close with a DECISIONS entry on the drop date naming the SHA that dropped it.
 
 **Priority:** Low. One-line operational task, no downstream dependency.
+
+**Resolved:** 2026-04-26 — `DROP TABLE engagement_backup_20260422;` executed on remote D1 in this session's docs-cleanup commit (3 days inside the 2026-04-29 retention window, accelerated as part of the cleanup pass). Migration 0017's `(piece_id, course_id, date)` PK has been writing reader-path rows for 4 days without shape regression.
 
 ---
 
@@ -659,7 +669,7 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 ---
 
-## [open] 2026-04-21: Drop `daily_piece_audio_backup_20260421` snapshot
+## [resolved] 2026-04-21: Drop `daily_piece_audio_backup_20260421` snapshot
 
 **Surfaced:** 2026-04-21 alongside migration 0015 (multi-piece cadence Phase 1). The 32-row snapshot was created as a free-rollback safety net for the daily_piece_audio PK rebuild. Should be dropped on or after **2026-04-28** once Phase 3 has been live for a week and queries against the new `(piece_id, beat_name)` PK have been exercised by at least one real multi-per-day run.
 
@@ -672,9 +682,11 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 **Priority:** Low. One-line operational task, no downstream dependency.
 
+**Resolved:** 2026-04-26 — `DROP TABLE daily_piece_audio_backup_20260421;` executed on remote D1 in this session's docs-cleanup commit. 32-row snapshot retained 5 days past the 7-day retention window; migration 0015's `(piece_id, beat_name)` PK has been exercised across multi-per-day cycles since Phase 3, no row-shape regressions observed.
+
 ---
 
-## [open] 2026-04-21: Drop `pipeline_log_backup_20260421` snapshot
+## [resolved] 2026-04-21: Drop `pipeline_log_backup_20260421` snapshot
 
 **Surfaced:** 2026-04-21 alongside migration 0014's manual backfill UPDATEs (multi-piece cadence Phase 1). The 111-row snapshot was created before rewriting `pipeline_log.run_id` from `YYYY-MM-DD` strings to `daily_pieces.id` UUIDs. **Update 2026-04-21 (same day): the backfill was rolled back — the snapshot was consumed for that rollback.** See DECISIONS 2026-04-21 "Roll back `pipeline_log.run_id` backfill". The snapshot still holds the correct pre-rewrite values (which are also the current live values, since they were restored from it) — keeping it through 2026-04-28 gives a second-attempt audit window before Phase 3 re-approaches adding a `piece_id` column to this table.
 
@@ -687,9 +699,11 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 **Priority:** Low.
 
+**Resolved:** 2026-04-26 — `DROP TABLE pipeline_log_backup_20260421;` executed on remote D1 in this session's docs-cleanup commit. 111-row snapshot already served its purpose as the rollback source on 2026-04-21 evening (when the run_id backfill was reverted); current `pipeline_log.run_id` values have been stable since. No further audit needed.
+
 ---
 
-## [open] 2026-04-21: Drop `zita_messages_backup_20260421` snapshot
+## [resolved] 2026-04-21: Drop `zita_messages_backup_20260421` snapshot
 
 **Surfaced:** 2026-04-21 alongside migration 0013 Commit A. The 92-row snapshot was created as a free-rollback safety net while verifying the hand-mapped content-based backfill of `zita_messages.piece_date`. Should be dropped on or after **2026-04-28** once Phase 1 Commit B has been live for a week and the per-piece distribution (`SELECT piece_date, COUNT(*) FROM zita_messages GROUP BY piece_date`) has remained stable through at least one full daily cycle with new writes.
 
@@ -701,6 +715,8 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 - Close with a DECISIONS entry on the drop date naming the SHA that dropped it.
 
 **Priority:** Low. One-line operational task, no downstream dependency.
+
+**Resolved:** 2026-04-26 — `DROP TABLE zita_messages_backup_20260421;` executed on remote D1 in this session's docs-cleanup commit. 92-row snapshot held through the Phase 3 admin Zita view and Phase 4–6 Zita work; piece_date distribution remained stable across the retention window.
 
 ---
 
@@ -758,7 +774,7 @@ Replacement strategy: either neutral ("every morning" / "on cadence") OR accurat
 
 ---
 
-## [open] 2026-04-20: D1 rejects correlated subqueries referencing the outer table in SELECT projection / UPDATE SET
+## [wontfix] 2026-04-20: D1 rejects correlated subqueries referencing the outer table in SELECT projection / UPDATE SET
 
 **Surfaced:** 2026-04-20 running migration 0012's one-time backfill. The commented backfill in the migration file used the standard SQLite pattern for a nearest-timestamp join:
 ```sql
@@ -777,6 +793,8 @@ D1 rejected this with `no such column: learnings.created_at` — the inner subqu
 - If this turns out to be a real D1 limitation, add a note to `docs/DECISIONS.md` so future migrations avoid the pattern upfront.
 
 **Priority:** Low. Unblocks nothing today; the 0012 backfill shipped via the rewrite. Only matters again when a future migration wants a similar nearest-X backfill against existing rows.
+
+**Won't fix:** 2026-04-26 — D1 limitation that blocks nothing; the workaround patterns are documented in the entry. No current or planned migration needs the rejected pattern. Documenting as platform-shape rather than tracking as actionable. Reopen if a future migration wants nearest-X backfill semantics.
 
 ---
 
@@ -905,7 +923,7 @@ Option 2 is the more durable fix — it aligns with the parallel durable fix alr
 
 ---
 
-## [observing] 2026-04-19: Curator conceptual diversity (P1.2)
+## [resolved] 2026-04-19: Curator conceptual diversity (P1.2)
 
 **Surfaced:** 2026-04-19 in the external system-improvement plan (`~/Downloads/ZEEMISH-IMPROVEMENT-PLAN-2026-04-19.md`, never committed to the repo). After the first three published pieces — QVC 2026-04-17, Hormuz 2026-04-18, airlines 2026-04-19 — all three landed on the same meta-concept: systems built for efficiency fail at their narrowest point, and incumbents can't adapt. Visible after three days. A reader arriving on day three and reading all three pieces would think Zeemish is the systems-fragility blog — not what the brief says it is. As of 2026-04-20 a fourth piece (Hormuz shipping) reinforces the pattern.
 
@@ -925,6 +943,8 @@ Option 1 is what the external plan recommends. Not a hard constraint — Curator
 **Unblock after:** one week of pieces (by 2026-04-26) — check if the closed loop has shifted Curator's clustering on its own, or if hard-coded concept-distance is still needed. If clustering has organically diversified, close as `[resolved]` with a DECISIONS entry naming the organic resolution. If clustering persists, promote to `[open]` and ship option 1.
 
 **Update 2026-04-24 — smaller-scope fix shipped; entry stays `[observing]`:** 2026-04-24 hit a worse-than-anticipated version of the clustering: at `interval_hours=12`, the 02:00 UTC and 14:00 UTC slots both produced pieces teaching information asymmetry / prediction markets from the same news event (soldier bets on Maduro ouster). The observation arrived two days before the planned 2026-04-26 unblock date, and same-day-not-week-over-week. Shipped the smaller option — enriched Curator's "Already published recently" prompt with each recent piece's `underlying_subject` alongside its headline (zero schema change, zero backfill; `underlying_subject` already written by Drafter on every row). The 14:01 UTC duplicate was operator-deleted. Full P1.2 path (new `underlying_concept` column + concept-distance scoring per option 1 above) deliberately NOT shipped — the smaller fix uses an already-populated column and covers the observed failure mode (different wire services, different lexical framing, same concept). Re-evaluate in a week: if another same-concept pair lands post-fix, escalate to the full P1.2 path. Full rationale in DECISIONS 2026-04-24 "Curator prompt enriched with recent-piece semantic context".
+
+**Resolved:** 2026-04-26 — Two days post-fix and through 6 cron firings, no recurrence. Last 6 pieces (chronological): Chernobyl wildlife / US Mint cartel gold / Palestinians vote / DOJ firing squads / Maine data-center veto / Mike Johnson extension — span resilience under hostile constraints, supply-chain integrity, political legitimacy, state-violence philosophy, infrastructure scarcity, legislative consensus. Six distinct conceptual domains, zero subject-family pairs. The 2026-04-24 prompt enrichment with `underlying_subject` covered the failure mode without the full P1.2 path. Reopen if a same-concept pair lands on a future cron firing. See DECISIONS 2026-04-26 "FOLLOWUPS cleanup pass — six-clean-day decisions".
 
 ---
 

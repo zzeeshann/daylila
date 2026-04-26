@@ -2,6 +2,33 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-26: FOLLOWUPS cleanup pass — six-clean-day decisions
+
+**Context / trigger:** Six clean days since the audio retry trio root-cause fix (2026-04-22 late evening). Operator asked for a cleanup pass: P1.2 Curator conceptual diversity hit its 2026-04-26 unblock date, audio retry trio framing needed correcting (already resolved 2026-04-22, not still [open]), and any [open] entry sitting unbitten in production was a [wontfix] candidate. Plan file `~/.claude/plans/coming-back-to-wrap-cozy-music.md` produced the report; user picked dispositions; this commit ships the marker flips + four backup-table drops.
+
+**Decision:** 10 marker flips on `docs/FOLLOWUPS.md` and 4 `DROP TABLE` operations on remote D1. Three [open] entries kept open because they describe real bugs not yet exercised in production (`reset-today.sh` category piece_count drift, CDN cache invalidation on per-beat audio regen, `interactives_backup_20260426` snapshot drop scheduled for 2026-05-04).
+
+- **P1.2 Curator conceptual diversity** `[observing]` → `[resolved]`. Six days post the 2026-04-24 prompt-enrichment fix (`underlying_subject` exposed in Curator's "Already published recently" block), zero recurrence across 6 cron firings. Last 6 pieces span 6 distinct conceptual domains. The smaller-scope fix covered the failure mode without the full P1.2 path (new `underlying_concept` column + concept-distance scoring). Reopen if a same-concept pair lands on a future cron firing.
+- **Five [wontfix] flips:** URL canonicalisation (no traffic on old URL shape, legacy `[date]/index.astro` handler intercepts), Drafter slug strategy (cosmetic SEO until library crosses ~50 pieces), `agents/src/server.ts` SDK-typing baseline (DX-only, no CI gate), null-pieceId admin handling (admin UI hygiene only, no operator complaint), D1 correlated subqueries (platform limitation, workaround documented).
+- **Four [open] → [resolved] backup drops:** `engagement_backup_20260422` (13 rows, 3 days inside retention window), `daily_piece_audio_backup_20260421` (32 rows, 5 days past), `pipeline_log_backup_20260421` (111 rows, snapshot already consumed for the 2026-04-21 evening run_id rollback), `zita_messages_backup_20260421` (92 rows, distribution stable). All four drops executed via `wrangler d1 execute zeemish --remote --command "DROP TABLE …; DROP TABLE …; …"` in one batched statement.
+
+**Trade-offs considered:**
+- **`[resolved]` vs `[wontfix]` for P1.2.** Both defensible. Picked `[resolved]` because real work shipped (the 2026-04-24 prompt enrichment) — the entry was addressed, just not via the originally-scoped option 1. `[wontfix]` would imply "we decided not to fix" which is dishonest about the smaller fix that did happen. The unblock-after line in the entry pre-allocated the `[resolved]` semantics for organic resolution.
+- **Five [wontfix] flips at once vs. case-by-case.** Five entries with the shared "real bug? hasn't bitten" shape. Operator gave one disposition for all five; trusting their judgment. Each Won't fix line names a concrete reopen trigger so future-them can decide on signal.
+- **Drop the `interactives_backup_20260426` snapshot early too?** No. That one is from today (the migration 0026 rebuild, sub-task 2.5 of the Interactives v3 Phase 2 work). The 7-day retention exists specifically for column-shape regression detection; dropping it on day 0 erases the safety net that justified creating it.
+- **DROP TABLE in one batched wrangler statement vs. four separate calls.** One batched call. Each table is independent (no FK refs from live tables to backup tables), and a partial failure of one drop doesn't compromise the others. Wrangler's D1 client returned 4 success rows in 1.24ms total. Database size went 2117632 → 2048000 (~70KB freed; modest but the point is hygiene, not space).
+- **DECISIONS entry granularity.** Considered one DECISIONS entry per FOLLOWUPS flip (10 entries) vs. one consolidated. Consolidated wins — these are all part of one cleanup pass with one set of contextual reasoning (the six-clean-day window). Per-entry would inflate the log without adding signal. The FOLLOWUPS entries themselves carry the per-item Resolved/Won't fix lines.
+
+**Files changed:** [`docs/FOLLOWUPS.md`](FOLLOWUPS.md) (10 marker flips + 10 closing lines appended), [`docs/DECISIONS.md`](DECISIONS.md) (this entry). No code, no agent change, no schema change. Remote D1 lost 4 backup tables, retains the 5th (`interactives_backup_20260426`) per its 2026-05-04 retention window.
+
+**Verification:**
+- `wrangler d1 execute zeemish --remote --command "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%backup%';"` returned 1 row (`interactives_backup_20260426` only) post-drop — confirms the 4 targets removed, the 1 retained.
+- `grep -c "^## \[open\]" docs/FOLLOWUPS.md` returned 3 (down from 12).
+- `grep -c "^## \[wontfix\]" docs/FOLLOWUPS.md` returned 6 (up from 1).
+- `grep -c "^## \[resolved\]" docs/FOLLOWUPS.md` returned 31 (up from 26).
+- `grep -c "^## \[observing\]" docs/FOLLOWUPS.md` returned 7 (down from 8).
+- Math: 12 [open] − 5 [wontfix] − 4 drops = 3 [open] remaining ✓; 1 [observing] (P1.2) → [resolved] = 7 [observing] remaining ✓; 26 + 4 drops + 1 P1.2 = 31 [resolved] ✓.
+
 ## 2026-04-26: Interactives v3 Phase 3.5 — doc sync closes Phase 3
 
 **Context / trigger:** Phase 3 sub-task 3.5 closes the four-shipping-sub-task arc (3.1 toggle / 3.2 list view / 3.3 regenerate / 3.4 cost telemetry) by syncing the three living docs that name the admin surface contract.
