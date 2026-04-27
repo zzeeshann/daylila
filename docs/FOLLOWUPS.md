@@ -23,6 +23,26 @@ Format per entry:
 
 ---
 
+## [open] 2026-04-26: Book is missing three post-launch chapters — Categoriser, Interactives v3, Area 5 single-scroll
+
+**Surfaced:** Refinement Action 6 (soul chapter draft). The book's structure was substantially written in the 2-week window before Area 5 closed; it freezes at "early Area 5" and predates three significant system additions. The four-word soul chapter shipped (00.5); the three post-launch chapters are separate work. Each addition changed how Zeemish *behaves* enough that the book can't honestly describe the system without covering them.
+
+**Missing chapters:**
+- **Categoriser as the 14th agent** — Chapter 09 was renamed `09-the-sixteen-roles.md` and got a Categoriser section in Area 2 sub-task 2.6, but the chapter doesn't tell the *story* of why the agent exists (taxonomy growth pressure on the library, the 2026-04-25 reuse-floor tightening, the locked-category semantic). Drop-in section in Chapter 09 or a small standalone chapter "How the library categorises itself".
+- **Interactives v3 (HTML interactives)** — Chapter 09 was further updated for InteractiveGenerator + InteractiveAuditor (15 + 16). But Interactives v3 (Phases 0-4, 2026-04-25 → 2026-04-26) introduced HTML interactives as a parallel artefact alongside quizzes, the validator → audit → revise loop, the cache-token telemetry, the engagement → Learner closure. None of this is in the book. Likely a new standalone chapter in Part 3 ("12.5 — Interactives, the second artefact"), or a major addition to chapter 11 (quality gates) since the validator is a new gate type.
+- **Area 5 single-scroll layout** — Chapter 10 ("A day in the life of a piece") describes the OLD pagination-based `<lesson-shell>` state machine that was replaced 2026-04-26. The chapter walks a reader through Previous / Next / Finish; the actual reader experience is now title → audio → every beat → embedded interactive → embedded quiz → finish state, all on one scroll. Chapter 10 needs a substantial rewrite of its reader-experience section.
+
+**What to write each:**
+- Categoriser: ~600-800 words. Story of why a 14th agent (the library was growing without a map), the reuse bias (every new category is a permanent commitment), the 2026-04-25 cross-domain stretch + floor tightening, the locked-category semantic.
+- Interactives v3: ~800-1000 words. The two-artefact pattern (quiz + html), the validator-as-gate, the produce → validate → audit → revise loop with two concurrent paths, the engagement → Learner feedback loop closure.
+- Area 5 layout: ~400-600 words IF rewriting chapter 10 in place. If a standalone chapter, ~600-800 words covering the why-pagination-failed → single-scroll-decision → audio-auto-advance + smooth-scroll → embedded interactive + finish state.
+
+**Investigation hints:** All three are documented in CLAUDE.md (Categoriser in the Area 2 + Curator-reframe sections; Interactives v3 in the v3 Phase 0-4 section; Area 5 in the Area 5 + post-tag polish sections) and DECISIONS.md (search 2026-04-23 through 2026-04-26 entries). Voice anchor for the new chapters: existing chapter 08 (`book/08-zeemish-the-idea.md`) — first-person where Zishan speaks, third-person about the system, plain English, short sentences.
+
+**Priority:** medium. The book is read by people trying to understand Zeemish; the gap means readers may finish the book with a working knowledge of an outdated system. Not a correctness problem; a documentation freshness problem. Slot when book-writing energy is available, or when a reader specifically asks about one of the three areas and the explanation would land better as a chapter than as a one-off note.
+
+---
+
 ## [observing] 2026-04-26: Curator taxonomy expansion to 14 examples — track novel category framings over next 5–7 cron runs
 
 **Surfaced:** Refinement Action 3 (commit landing this entry). TEACHABILITY criterion in `agents/src/curator-prompt.ts` grew from 8 to 14 worked examples (6 new categories + 1 sharpened) covering social conditioning, psychology/cognition standalone, environmental systems, money / ordinary life, health systems, and technology / daily life. The pre-expansion 8 categories biased Curator toward what news RSS feeds surface cleanly (policy / market structure / supply chain). The expansion's hypothesis: a rent-setting story will land under BUSINESS but Curator should now frame it as personal-financial mechanics, not market structure; a diagnostic-reasoning story under HEALTH should frame as evidence-becomes-practice, not science-discovery.

@@ -7,6 +7,7 @@ Status legend: **✓ written** · **○ outline** · **◇ vision** (describes a
 ### Preface
 
 - ✓ [00 — Preface](./00-preface.md)
+- ✓ [00.5 — The four words underneath the work](./00.5-the-four-words.md)
 
 ### Part 1 — The world this lives in
 
@@ -51,7 +52,7 @@ Status legend: **✓ written** · **○ outline** · **◇ vision** (describes a
 
 ## If you have thirty minutes
 
-Read the preface, then chapters 8, 9, 10, 14. That's the core of what Zeemish is and how it works.
+Read the preface, chapter 00.5, then chapters 8, 9, 10, 14. Chapter 00.5 is the why; the others are the what and the how.
 
 ## If you have two hours
 
