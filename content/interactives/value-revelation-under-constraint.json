@@ -1,0 +1,71 @@
+{
+  "slug": "value-revelation-under-constraint",
+  "type": "quiz",
+  "title": "Value Revelation Under Constraint",
+  "concept": "When routine options disappear — when distance becomes impossible, when privacy cannot be maintained, when familiar procedures stop working — the choices people actually make reveal which stated values operate under pressure and which collapse.",
+  "interactiveId": "e7f7e82f-17eb-4ad0-8c1b-76f0dbaaf8c6",
+  "sourcePieceId": "2f1d9adf-66ac-42ac-80c6-230a72bb8fdc",
+  "publishedAt": 1777255459963,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A family must decide whether to keep a declining relative lucid enough to communicate or fully suppress discomfort. What makes this decision harder than choosing between two medical treatments for a curable condition?",
+        "options": [
+          "Medical uncertainty about which approach will work",
+          "The choice exposes which value the family prioritizes when both cannot be preserved",
+          "Legal liability for choosing the wrong intervention",
+          "Lack of professional guidance about best practices"
+        ],
+        "correctIndex": 1,
+        "explanation": "With curable conditions, tradeoffs are temporary — comfort now, function later. When decline is irreversible, choosing between awareness and relief means picking which principle matters more when you cannot have both. The decision reveals priority rather than managing temporary compromise."
+      },
+      {
+        "question": "Two people express identical wishes about end-of-life care in written documents. One receives the care described; the other does not. What most commonly explains the gap?",
+        "options": [
+          "Medical staff ignore documents they consider unrealistic",
+          "The delivery infrastructure needed to honor the preference exists in one setting but not the other",
+          "Family members override written wishes in one case",
+          "One document was legally binding while the other was advisory"
+        ],
+        "correctIndex": 1,
+        "explanation": "Expressing a preference does not create the capacity to deliver it. Precise symptom control requires monitoring equipment and trained staff. Home care requires available family and accessible housing. Stated wishes operate within the constraints of what the environment can actually provide."
+      },
+      {
+        "question": "A community states that personal privacy during major health crises is a core value. Then someone locally prominent faces terminal illness publicly. What does the response — how people talk about it, what they share, what they avoid — actually test?",
+        "options": [
+          "Whether the community's legal protections for health privacy are effective",
+          "How the value of privacy ranks against other priorities when someone is actually dying nearby",
+          "If the prominent person's wishes align with community norms",
+          "Whether privacy matters more for public figures than ordinary members"
+        ],
+        "correctIndex": 1,
+        "explanation": "Abstract commitment to privacy is easy. Facing an actual person's mortality creates pressure to discuss, witness, memorialize — actions that may serve connection, meaning-making, or closure but violate privacy. The response shows which value wins when they conflict in practice, not theory."
+      },
+      {
+        "question": "A system shifts from measuring 'days of life extended' to measuring 'family satisfaction with the final weeks.' What changes?",
+        "options": [
+          "Medical practice becomes more patient-centered",
+          "The system now optimizes for what survivors experience rather than what the patient lived through",
+          "Quality improvement becomes easier because satisfaction is simpler to measure than clinical outcomes",
+          "Families gain decision-making authority they previously lacked"
+        ],
+        "correctIndex": 1,
+        "explanation": "Choosing whose perspective defines success is itself a values decision. Asking survivors makes their comfort the goal. That may align with patient experience or diverge sharply — a patient's final weeks might be lucid but anguished, or sedated but peaceful for witnesses. The metric picks which matters."
+      },
+      {
+        "question": "Why does removing death from daily visibility — through institutional care, scheduled visiting hours, professional management — change what people believe about obligation?",
+        "options": [
+          "Distance reduces emotional attachment, making people care less about outcomes",
+          "When you do not witness what care requires, you can maintain beliefs about duty that direct experience would force you to revise",
+          "Professionals set norms that families internalize over time",
+          "Institutional settings make death less frightening, allowing clearer moral reasoning"
+        ],
+        "correctIndex": 1,
+        "explanation": "Direct care — managing incontinence, sleepless monitoring, watching pain that medication cannot touch — tests what you can sustain. Institutions let you believe you would do those things without ever finding out. Distance preserves ideals that proximity might collapse under the weight of what they actually demand."
+      }
+    ]
+  }
+}
