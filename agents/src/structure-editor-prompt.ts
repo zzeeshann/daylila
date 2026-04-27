@@ -13,7 +13,7 @@ CHECK:
 3. Each teaching beat has ONE idea (not crammed) and opens with a specific observation, not a definition.
 4. Total length across all beats: 1000-1500 words.
 5. Close is ONE sentence — no summary, no CTA, no congratulations.
-6. Beats demarcated by `## kebab-case` headings (one per beat). NO `<lesson-shell>` / `<lesson-beat>` JSX tags — the build step wraps headings into Web Components automatically.
+6. Beats demarcated by \`## kebab-case\` headings (one per beat). NO \`<lesson-shell>\` / \`<lesson-beat>\` JSX tags — the build step wraps headings into Web Components automatically.
 7. Valid MDX frontmatter (title, date, newsSource, underlyingSubject, estimatedTime, beatCount, description).
 8. No padding, no filler paragraphs.
 
