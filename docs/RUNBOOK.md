@@ -552,6 +552,49 @@ git revert <commit-sha>                # Creates a revert commit
 git push                               # Triggers auto-deploy
 ```
 
+## Change the voice (doctrine + contract)
+
+Zeemish's voice lives in two layers — the **doctrine** (deeper standard, posture) and the **contract** (operational polish). Full architecture, file inventory, future admin-selector design, and history at [docs/VOICE.md](./VOICE.md). Quick reference for the most common operations:
+
+### Tighten or loosen a specific rule
+
+You read a published piece and notice a recurring failure mode the auditor isn't catching, or you want to relax a rule that's hurting good writing.
+
+1. Edit [`content/ZEEMISH_MANTO_VOICE.md`](../content/ZEEMISH_MANTO_VOICE.md) — add or revise the rule. Keep the prose-explanatory style.
+2. Mirror into [`agents/src/shared/voice-doctrine.ts`](../agents/src/shared/voice-doctrine.ts) — the `VOICE_DOCTRINE` template literal must match the .md exactly.
+3. If the rule is a specific named move the auditor should catch, also extend [`agents/src/voice-auditor-prompt.ts`](../agents/src/voice-auditor-prompt.ts) with the named move under *"named moves to check"*. Without this, the auditor might pass the new rule on a literal reading of its prompt.
+4. Optionally add a *"What the doctrine doesn't say but you need to know"* paragraph to [`agents/src/drafter-prompt.ts`](../agents/src/drafter-prompt.ts) when the doctrine prose is too literary to act on directly.
+
+### Replace the doctrine wholesale
+
+You decide a different writer's discipline (or your own framing) is the standard.
+
+1. Replace the contents of `content/ZEEMISH_MANTO_VOICE.md`. Keep the file name — the import path references it.
+2. Replace the template-literal contents of `agents/src/shared/voice-doctrine.ts`.
+3. Don't rename the constant. `VOICE_DOCTRINE` is intentionally generic so the prompts that say *"the Zeemish voice doctrine"* don't need to change.
+
+### Adjust the operational contract
+
+Add a tribe word, change the length target, relax the read-aloud test.
+
+1. Edit [`content/voice-contract.md`](../content/voice-contract.md).
+2. Mirror into [`agents/src/shared/voice-contract.ts`](../agents/src/shared/voice-contract.ts).
+3. The contract auto-propagates into Drafter, Voice Auditor, Integrator, Interactive Generator, and Interactive Auditor — no other changes needed.
+
+### Verify before going live
+
+Three options:
+- **Free, ~30s — local prompt eyeball.** Read the new prompt yourself.
+- **~$0.05, ~30s — direct API call.**
+  ```bash
+  cd agents
+  ANTHROPIC_API_KEY=sk-ant-... node scripts/verify-doctrine.mjs
+  ```
+  Reads the prompts from source, runs against a stored brief (currently the 2026-04-26 cartel-gold piece), prints the MDX. Read side-by-side with what shipped.
+- **~$2 + 10 minutes — live cron or admin trigger.** Deploy and watch the next 02:00 / 14:00 UTC cron, or hit `/dashboard/admin/` "Trigger run".
+
+For minor tightenings, eyeball + cron is fine. For wholesale doctrine swaps, do all three and watch 5–7 cron firings before deciding it's stable.
+
 ## Add a daily piece manually
 Create an MDX file at `content/daily-pieces/YYYY-MM-DD-{slug}.mdx`:
 ```yaml

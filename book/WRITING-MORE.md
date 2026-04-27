@@ -8,7 +8,11 @@
 
 Read one of the written chapters first (chapter 06, 08, or 14 are good choices). Notice the voice. It is the same voice Zeemish itself uses when it publishes a daily piece. That voice is not an accident and it is not interchangeable with a generic tech-writing voice.
 
-The voice rules, in brief:
+The voice has two layers and they do different jobs. Chapter 08.5 explains why. The short version is below; for the full picture read [`book/08.5-the-voice-doctrine.md`](./08.5-the-voice-doctrine.md) or, for the operator-facing version, [`docs/VOICE.md`](../docs/VOICE.md).
+
+**The doctrine** ([`content/ZEEMISH_MANTO_VOICE.md`](../content/ZEEMISH_MANTO_VOICE.md)) — posture. Drop the reader into something already happening. Find the specific person. Let contradictions stand. End on an image, not a moral. Never write *"this matters because"*. Title literal, not performative. Close ONE sentence. Manto's rhythm is observation, not performance — short sentences that carry facts, not short sentences that crescendo.
+
+**The contract** ([`content/voice-contract.md`](../content/voice-contract.md)) — polish:
 
 - Plain English. No jargon without immediate translation in the same sentence.
 - Short sentences. Direct. Honest. No flattery.
@@ -17,7 +21,7 @@ The voice rules, in brief:
 - No tribe words: no "journey," "unlock," "dive in," "transform," "empower," "embrace," "mindfulness," "wellness."
 - The hospitality principle: a Hindu grandmother in Delhi, a Muslim teenager in Bradford, an atheist programmer in Berlin, a Catholic nurse in Manila — they should all read the same chapter and feel it was written for them.
 
-If in doubt, open `content/voice-contract.md` in the Zeemish repo. The same contract applies.
+If they conflict, the doctrine wins. The contract is polish; the doctrine is the bar.
 
 ## The shape of a chapter
 

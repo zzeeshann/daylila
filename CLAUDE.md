@@ -32,6 +32,18 @@ Operator review of recent pieces flagged the writing as robotic. The 2026-04-26 
 
 **Forward verification.** Watch the next 5–7 cron firings post-deploy. Expected signal: hooks arrive at moments rather than previewing lessons; closes drop in length; specific anchors (people, numbers, places) appear in teaching beats; voice scores stay above 85 because the auditor's posture question and the Drafter's posture line up. Failure signal: voice scores drop because the auditor catches doctrine moves the Drafter still doesn't land, or pieces ship at qualityFlag='low' because the auditor and Drafter disagree on what counts as arrival. If the second failure mode appears, the fix is a second-pass tightening of either the Drafter examples or the auditor's named-move criteria — not loosening the gate.
 
+**Iteration 1 (same evening).** First piece under the new architecture — `2026-04-27-supreme-court-reviews-police-use-of-cell-location-data-to-fi` — shipped at voice 92. Posture mostly landed. Two failures surfaced:
+- **Title was performative.** *"The Tower Pinged. You're on the List."* — thriller-headline shape, two sentences, dramatic punch. Manto's titles named things (*Toba Tek Singh*, *Cold Meat*). The Drafter prompt's frontmatter spec didn't constrain title style; the auditor's named moves didn't include it.
+- **Close was four sentences.** *"Your phone is still pinging. The towers are still logging. The database is still growing. The Court will decide whether being findable is the same as being tracked."* Three rhetorical-anaphora sentences then a pivot. The auditor's close rule was *"anything that follows it to restate it"* — these sentences accumulate, they don't restate, so the literal reading passed them.
+- **Deeper diagnosis:** the piece confused *Manto's rhythm* (short sentences carrying precise observation) with *dramatic rhythm* (short sentences carrying punch). The doctrine talks about rhythm but didn't explicitly draw that line.
+
+**Three tightenings shipped same evening:**
+1. **Drafter prompt** ([`agents/src/drafter-prompt.ts`](agents/src/drafter-prompt.ts)) — three new paragraphs in the *"What the doctrine doesn't say but you need to know"* section: title-literal-not-performative rule with worked examples, observation-vs-dramatic-rhythm distinction with the geofence-piece's anaphora as the negative example, and an explicit *"close is ONE sentence"* repetition with "if you cannot make the close one sentence, the piece has not arrived yet — go back to the last teaching beat and finish there."
+2. **Voice Auditor** ([`agents/src/voice-auditor-prompt.ts`](agents/src/voice-auditor-prompt.ts)) — new named moves: title literal vs. performative (*multi-sentence title is automatic fail*); close hard-fail at >1 sentence (*count the sentences. fail full stop*); observation rhythm vs. dramatic rhythm (anaphora, tricolons, stacked one-sentence paragraphs that crescendo, with the test *"do the second and third short sentences add new observation, or amplify the first?"*).
+3. **Documentation** — new [`docs/VOICE.md`](docs/VOICE.md) covering what the doctrine is, how the operator changes it, the verification flow, and the planned future where admin selects between voice doctrines from a dropdown. RUNBOOK gains a *"Change the voice"* section. Book gains chapter [`book/08.5-the-voice-doctrine.md`](book/08.5-the-voice-doctrine.md) for the human reader. AGENTS.md, glossary, WRITING-MORE, and the four-words chapter all updated to point at the new layer.
+
+**Future (planned, not yet built).** Admin voice selection — `admin_settings.voice_doctrine_slug` row, `content/voices/<slug>.md` registry, dropdown on `/dashboard/admin/settings/`. Architecture supports it because the constant is named `VOICE_DOCTRINE` (generic) and the prompts say *"the Zeemish voice doctrine"* (not Manto-specific). Build when there's a second doctrine to choose between; YAGNI until then. Full design at `docs/VOICE.md` *"The future: admin voice selection"*.
+
 See DECISIONS 2026-04-27 (later) "Voice doctrine layered onto the operational contract" for the full trade-off log including why concentrated over distributed, why layer over replace, and why posture-question over extended deductions.
 
 **FOLLOWUPS:** new `[observing]` entry tracking `parseAndValidateHtml` flake recurrence over the next 7 cron runs (unblock 2026-05-04 if no recurrence → mark `[wontfix]` since the manual retry path now works; if it recurs, escalate to `[open]` and harden `runHtmlLoop` to convert the throw into a counted failed-round). Three `[resolved]` entries written for this session's commits.
@@ -653,7 +665,9 @@ docs/handoff/           Original architecture + specs
 - `docs/RUNBOOK.md` — how to run, deploy, trigger, revert
 - `docs/DECISIONS.md` — technical decisions (append-only)
 - `docs/FOLLOWUPS.md` — known bugs and queued work (append-only)
+- `docs/VOICE.md` — the voice system (doctrine + contract): what it is, how to change it, future admin selector
 - `docs/handoff/` — frozen original specs from pre-launch (architecture, daily pieces, dashboard, instructions, founding doc)
+- `book/08.5-the-voice-doctrine.md` — book chapter on the doctrine for the human reader
 
 ## Remaining minor items
 - Voice contract .ts has belief line synced, but may drift — .md is canonical

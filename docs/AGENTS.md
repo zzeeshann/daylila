@@ -21,6 +21,15 @@ The agent team is a separate Cloudflare Worker (`agents/`) using the Cloudflare 
 
 **Published pieces are permanent. Any agent can READ old pieces to learn from them. No agent WRITES to, revises, regenerates, or updates any published piece. All improvements feed forward into the learnings database and improve future pieces only.**
 
+## Voice — doctrine over contract
+
+Three agents directly load Zeemish's voice rules: **Drafter** writes against them, **Voice Auditor** judges against them, **Integrator** revises against them. The voice has two layers:
+
+- **Doctrine** (`content/ZEEMISH_MANTO_VOICE.md` + `agents/src/shared/voice-doctrine.ts`, exported as `VOICE_DOCTRINE`) — the deeper standard. Posture, not rules. Read before every piece.
+- **Contract** (`content/voice-contract.md` + `agents/src/shared/voice-contract.ts`, exported as `VOICE_CONTRACT`) — the operational polish layer. Tribe words, length, plain English. Loaded into Drafter, Voice Auditor, Integrator, Interactive Generator, and Interactive Auditor.
+
+If they conflict, the doctrine wins. Full system documentation including how to change the voice and the planned future admin voice-selector at [docs/VOICE.md](VOICE.md). Background and the why at [book/08.5-the-voice-doctrine.md](../book/08.5-the-voice-doctrine.md).
+
 ## Pipeline
 
 ```

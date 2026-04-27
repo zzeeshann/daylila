@@ -42,7 +42,9 @@ The prompt's TEACHABILITY section carries fourteen worked examples — eight fro
 
 **Job:** Write the piece.
 
-**What it does:** Takes the brief from Curator. Loads the voice contract (the rules for how Zeemish writes). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, tier, etc.).
+**What it does:** Takes the brief from Curator. Loads the **voice doctrine** — the standing instruction that names how Zeemish writes — as the system prompt's first content. Loads the **operational voice contract** in the user message. Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, tier, etc.).
+
+**Two layers of voice:** chapter 08.5 explains why. The doctrine is the bar (posture — drop the reader in, find the specific person, let contradictions stand, end on an image, never write *"this matters because"*). The contract is polish (tribe words, length, plain English). If they conflict, the doctrine wins. Drafter reads the doctrine fresh on every piece — it's not a one-time onboarding, it's a standing instruction.
 
 **Claude call?** Yes. The biggest one in the pipeline — producing 1,000 to 1,500 words of polished prose takes the most model work.
 
@@ -52,7 +54,9 @@ The prompt's TEACHABILITY section carries fourteen worked examples — eight fro
 
 **Job:** Check if the piece actually sounds like Zeemish.
 
-**What it does:** Reads the draft. Checks it against the voice contract — no tribe words, plain English, short sentences, hospitality principle. Produces a score out of 100 and a list of specific violations if any. Passes if score ≥ 85.
+**What it does:** Reads the draft. Judges it against the voice doctrine first, then the operational contract on top. The single hardest question runs first: *does this read like a person who has understood something telling another person what they found, or like a report being read into a microphone?* Then the named doctrine moves: title literal vs. performative, hook arrives vs. summarises, close is ONE sentence, observation rhythm vs. dramatic rhythm, no "this matters because", active voice names the actor, no "complex" as hand-wave, contradictions held vs. resolved. Then the contract violations on top: tribe words, flattery, jargon, padding. Produces a score out of 100. Passes at ≥ 85.
+
+**Why posture before arithmetic:** the previous version of this auditor scored only mechanical deductions and passed a piece on 2026-04-26 at 95 because no tribe words triggered, even though the prose read like a report being read into a microphone. Posture failure isn't a category mechanical rules can see. The microphone test names what the rules were trying to point at.
 
 **Claude call?** Yes. A different prompt than Drafter — this one is specifically for judgment, not writing.
 
@@ -83,6 +87,8 @@ The prompt's TEACHABILITY section carries fourteen worked examples — eight fro
 **Job:** Take the auditors' feedback and fix the piece.
 
 **What it does:** If any of the three auditors failed, Integrator reads their feedback, rewrites the piece to address the issues, and sends the result back through the auditors. This can happen up to three times. If it still fails after three rounds, the piece escalates to a human (in practice, an observer event and a visible marker on the dashboard).
+
+**The trap Integrator is told to avoid:** taming Manto-style writing in the name of polish. Short sentences are correct. Unresolved contradictions are correct. A close that just sits is correct. If a fix would soften the writing toward textbook tone — explanatory framing, summary closes, *"this matters because"* connective tissue, hand-wave words like *"complex"* — Integrator finds a different fix. The doctrine wins over the auditor's suggestion if the suggestion would dilute it.
 
 **Claude call?** Yes. Depending on how bad the draft was, one to three calls.
 

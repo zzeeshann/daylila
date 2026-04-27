@@ -25,6 +25,7 @@ Status legend: **✓ written** · **○ outline** · **◇ vision** (describes a
 ### Part 3 — The Zeemish project
 
 - ✓ [08 — The idea](./08-zeemish-the-idea.md)
+- ✓ [08.5 — The voice doctrine](./08.5-the-voice-doctrine.md)
 - ✓ [09 — The sixteen roles](./09-the-sixteen-roles.md)
 - ✓ [10 — A day in the life of a piece](./10-a-day-in-the-life.md)
 - ○ [11 — The quality gates](./11-quality-gates.md)
@@ -52,7 +53,7 @@ Status legend: **✓ written** · **○ outline** · **◇ vision** (describes a
 
 ## If you have thirty minutes
 
-Read the preface, chapter 00.5, then chapters 8, 9, 10, 14. Chapter 00.5 is the why; the others are the what and the how.
+Read the preface, chapter 00.5, then chapters 8, 8.5, 9, 10, 14. Chapter 00.5 is the why, 8.5 is the how-it-sounds, and the rest are the what and the how-it-runs.
 
 ## If you have two hours
 

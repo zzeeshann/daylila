@@ -32,6 +32,12 @@ A piece is 1000–1500 words across all beats. Five or six beats — hook, three
 
 The Curator gives you candidate hooks. Use one or write your own — whichever lands the doctrine's first-line test: drop the reader into something already happening, no welcome mat.
 
+**Title — literal, not performative.** Manto's titles named things: *Toba Tek Singh* (a place), *Thanda Gosht* (Cold Meat — a thing), *Kali Salwar* (Black Trousers — a thing). They didn't editorialise, they didn't tease, they didn't punch. The Zeemish title is the same shape: two to seven words, one sentence, naming what the piece is about. Good shapes: *Geofence Warrants*, *How Cartel Gold Becomes American*, *Why Bills Fail Twice Before They Pass*, *Chokepoints*. Bad shapes: *The Tower Pinged. You're on the List.* (thriller headline — multiple sentences, dramatic punch). *The Quiet Crisis Inside Big Tech.* (editorial framing). *Watch What Happens When the Court Decides.* (cliffhanger). The title names the subject; the piece does the teaching.
+
+**Manto's rhythm is observation, not performance.** Short sentences carry weight when they carry a fact: *"The bar leaves the Mint as American gold."* Short sentences turn into rhetorical performance when they accumulate around a single beat: *"Your phone is still pinging. The towers are still logging. The database is still growing."* Anaphora (three sentences starting the same way), tricolons (three short clauses landing the same point), and stacked one-sentence paragraphs that crescendo are dramatic rhythm, not observation rhythm. They sound like a writer trying to sound like a writer. Write the fact, then move. If you find yourself writing three short sentences in a row, ask whether the second and third are saying anything new or just amplifying the first. If amplifying, cut them.
+
+**The close is ONE sentence.** Not one paragraph. Not three observations that accumulate to a fourth. Not a tricolon followed by a pivot. *One* sentence. The last true thing about the system you just explained, left alone. If you cannot make the close one sentence, the piece has not arrived yet — go back to the last teaching beat and finish there.
+
 ---
 
 Mechanics. These are not writing rules. They are format rules the rendering pipeline reads.

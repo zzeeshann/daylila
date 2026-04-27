@@ -2,6 +2,62 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27 (Iteration 1): Doctrine tightenings from the geofence piece + voice system documentation
+
+**Context.** First piece under the doctrine architecture (shipped 9afcd85, deployed via GitHub Actions, triggered from admin) — `2026-04-27-supreme-court-reviews-police-use-of-cell-location-data-to-fi`. Voice score 92. The piece passed the gate but operator review surfaced two real failures the auditor missed:
+
+1. **Performative title.** *"The Tower Pinged. You're on the List."* — thriller-headline shape, two sentences, dramatic punch. Manto's titles named things plainly: *Toba Tek Singh* (a place), *Cold Meat* (a thing), *Black Trousers* (a thing). The published title editorialised. Neither the Drafter prompt's frontmatter spec nor the auditor's named moves constrained title style — the rule existed in the doctrine's spirit (*never tell the reader what to feel*) but wasn't operationally named anywhere.
+
+2. **Multi-sentence close.** Four sentences: *"Your phone is still pinging. The towers are still logging. The database is still growing. The Court will decide whether being findable is the same as being tracked."* Three rhetorical-anaphora sentences (the "still" pattern) accumulating, then a fourth sentence pivoting to the Court. The auditor's close rule from the doctrine-architecture commit was *"anything that follows it to restate it, land a moral, or explain what it just meant is a second close"* — the four sentences accumulate, they don't restate, so the literal reading of the prompt let them through.
+
+3. **Deeper diagnosis.** The piece confused **Manto's rhythm** (short sentences carrying precise observation — *"The bar leaves the Mint as American gold."*) with **dramatic rhythm** (short sentences carrying rhetorical punch — *"The phones were there. The phones know."*). The doctrine talks about rhythm but didn't draw that line explicitly. Anaphora and tricolons are the most common form of dramatic rhythm in AI-generated prose, and the operator's read was that Zeemish was lapsing into this mode whenever the writer wanted to "land" something.
+
+**Three same-evening tightenings:**
+
+1. **Drafter prompt** ([`agents/src/drafter-prompt.ts`](../agents/src/drafter-prompt.ts)) — three new paragraphs in the *"What the doctrine doesn't say but you need to know"* section:
+   - **Title — literal, not performative.** Worked examples (good: *Geofence Warrants*, *How Cartel Gold Becomes American*, *Chokepoints*. Bad: *The Tower Pinged. You're on the List.*, *The Quiet Crisis Inside Big Tech.*, *Watch What Happens When the Court Decides.*). Constraint: 2–7 words, one sentence, names the subject not the punch.
+   - **Manto's rhythm is observation, not performance.** Names the difference and the test: *"do the second and third short sentences add new observation, or amplify the first? If amplify, performance — cut them."* Specific call-out for anaphora, tricolons, stacked one-sentence paragraphs that crescendo.
+   - **The close is ONE sentence.** Repeated explicitly, with the recovery instruction *"if you cannot make the close one sentence, the piece has not arrived yet — go back to the last teaching beat and finish there."*
+
+2. **Voice Auditor** ([`agents/src/voice-auditor-prompt.ts`](../agents/src/voice-auditor-prompt.ts)) — three new named moves in the *"named moves to check"* list:
+   - **Title literal vs. performative** — multi-sentence title is automatic fail.
+   - **Close is ONE sentence** — count the sentences. >1 = fail full stop, regardless of how the sentences relate.
+   - **Observation rhythm vs. dramatic rhythm** — the same test from the Drafter prompt, expressed as a violation criterion: *"do the second and third short sentences add new observation, or amplify the first?"*
+
+3. **Voice system documentation** — operator-facing.
+   - **NEW** [`docs/VOICE.md`](VOICE.md) — comprehensive system doc. Sections: What it is (two layers), Files and where they live, How a piece is judged, How to change the voice (three kinds of change with step-by-step procedures), How to verify a change before going live, **The future: admin voice selection** (planned schema, registry, runtime resolution, admin UI — not yet built; YAGNI until there's a second doctrine to choose between), History (one-paragraph timeline through Iteration 1).
+   - **NEW** [`book/08.5-the-voice-doctrine.md`](../book/08.5-the-voice-doctrine.md) — book chapter for the human reader. Why two layers, why the contract alone wasn't enough (the cartel-gold piece's 95-on-robotic-prose failure), why Manto, why the principle is bigger than Manto, where the doctrine lives, what it isn't (style guide, optional, finished). Slotted between *08 — The idea* and *09 — The sixteen roles* — sits between motive and mechanism.
+   - **UPDATED** [`docs/RUNBOOK.md`](RUNBOOK.md) gains a *Change the voice* section with the three procedures (tighten a rule, replace doctrine wholesale, adjust contract) and the three verification options (free eyeball, $0.05 API call, $2 cron run).
+   - **UPDATED** [`docs/AGENTS.md`](AGENTS.md) gains a *Voice — doctrine over contract* section near the top.
+   - **UPDATED** [`book/CONTENTS.md`](../book/CONTENTS.md) — chapter 08.5 added to the index. *If you have thirty minutes* now reads "preface, 00.5, 8, 8.5, 9, 10, 14".
+   - **UPDATED** [`book/00.5-the-four-words.md`](../book/00.5-the-four-words.md) — calmness section gets a single-sentence pointer to 08.5.
+   - **UPDATED** [`book/WRITING-MORE.md`](../book/WRITING-MORE.md) — *The voice* section rewritten to name both layers and pointer to 08.5 + VOICE.md.
+   - **UPDATED** [`book/11-quality-gates.md`](../book/11-quality-gates.md) — outline updated to reflect the two-layer voice and the auditor's posture-first scoring.
+   - **UPDATED** [`book/09-the-sixteen-roles.md`](../book/09-the-sixteen-roles.md) — Drafter, Voice Auditor, and Integrator paragraphs rewritten with doctrine + contract references and the Integrator's "do not tame Manto-style writing" trap.
+   - **UPDATED** [`book/99-glossary.md`](../book/99-glossary.md) — *Voice contract* entry rewritten as the operational layer; new *Voice doctrine* entry.
+   - **UPDATED** [`CLAUDE.md`](../CLAUDE.md) — Iteration 1 narrative appended to the voice-doctrine section; *Documentation index* gains VOICE.md + book/08.5 entries.
+
+**Naming convention reaffirmed.** The constant is `VOICE_DOCTRINE`. The file is `content/ZEEMISH_MANTO_VOICE.md`. The prompts say *"the Zeemish voice doctrine"* — never *"like Manto"*. This separation is what makes future doctrine swaps cheap. The book's chapter 08.5 makes the same separation explicit for the human reader: *"the principle the doctrine encodes is not 'write like Manto'. It is clear teaching, not robotic prose."*
+
+**What this does NOT do:**
+- Touch the published 2026-04-27 geofence piece (permanence rule).
+- Build the admin voice-selector. Designed at `docs/VOICE.md` for when a second doctrine arrives.
+- Add a Manto eval harness (still future).
+
+**Trade-offs.**
+- *Constraint specificity vs. doctrine prose.* The doctrine's rhythm section was written as observation about Manto's craft — *"short sentences carry weight"* — not as a constraint the model could act on. The Drafter prompt now translates that observation into an actionable test (*"do the second and third sentences add new observation, or amplify?"*). Risk: over-translating reduces the doctrine's literary register, which is part of how it instructs posture. Mitigation: the translation lives in the *"what the doctrine doesn't say"* section of the Drafter prompt, not in the doctrine itself. The doctrine stays prose; the prompt names the operationalisation.
+- *Auditor strictness vs. false-positive cost.* Hard-failing close >1 sentence will catch the geofence-piece failure mode but may also catch close shapes that work — a one-sentence-and-a-fragment close, for instance. Trade-off accepted: the doctrine is unambiguous (one sentence), and false positives feed back into Integrator round 1 anyway. If false-positive rate is high across 5 cron firings, relax to "if the close is more than 30 words, fail" instead of sentence-count.
+- *Documentation surface size.* The voice system now has VOICE.md + the book chapter + the AGENTS section + the RUNBOOK section + the glossary entries + CLAUDE.md narrative. Risk of drift if any one is updated alone. Mitigation: each pointer says *"see [other doc] for [its angle]"*, so a future operator updating one doc has a clear list of others to check. The doctrine .md ↔ .ts mirror is the same discipline; it has held since the architecture shipped.
+
+**Forward verification.** Watch the next 5–7 cron firings. Expected signal:
+- Titles single-sentence and literal (no thriller punctuation, no two-sentence titles).
+- Closes one sentence, no anaphora pyramids.
+- Voice scores stay above 85.
+
+Failure signal: voice scores drop because the auditor catches the new named moves the Drafter still doesn't land — that's a Drafter tightening (more worked examples in the prompt), not an auditor relaxation. Or scores stay high but pieces still feel performative — that's a deeper diagnosis problem; the doctrine itself needs a new rule.
+
+The 2026-04-27 piece is left in place. The fix is forward-only.
+
 ## 2026-04-27 (later): Voice doctrine layered onto the operational contract
 
 **Context.** Operator review of recent pieces flagged the writing as robotic. Voice score on the 2026-04-26 cartel-gold piece was 95 — the operational contract was technically being followed (no tribe words, plain English, short sentences, structurally clean) but the prose still sounded like a report being read into a microphone. The hook previewed the lesson before asking the question. The close summarised. Contradictions got resolved into tidy morals. *"This matters because…"* connective tissue did the reader's thinking for them.
