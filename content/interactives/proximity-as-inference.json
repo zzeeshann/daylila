@@ -1,0 +1,71 @@
+{
+  "slug": "proximity-as-inference",
+  "type": "quiz",
+  "title": "Proximity as Inference",
+  "concept": "Being near something becomes grounds for investigation when a system treats location overlap as sufficient reason to examine you — not because proximity implies guilt, but because institutions can now ask 'who was there' before asking 'who did it'.",
+  "interactiveId": "8540ba35-caef-428c-a754-c32d0c0c1ec0",
+  "sourcePieceId": "cfd3f570-cab3-4283-ae6d-9d23cbd40cee",
+  "publishedAt": 1777302257530,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does starting an investigation by asking 'who was nearby' differ from starting by asking 'who has motive'?",
+        "options": [
+          "Nearby searches cost more to execute than motive-based searches",
+          "Nearby searches produce a list of people defined by presence rather than behavior, making location the initial filter",
+          "Nearby searches require witnesses to confirm times, while motive-based searches do not",
+          "Nearby searches only work in dense urban areas where many people are present"
+        ],
+        "correctIndex": 1,
+        "explanation": "The structural difference is what generates the candidate pool. Motive-first approaches start with behavior that raised concern. Proximity-first approaches start with 'you happened to be there,' which makes physical presence the reason you appear on an investigator's list."
+      },
+      {
+        "question": "What makes location data different from other facts that might correlate with an event?",
+        "options": [
+          "Location data is more accurate than other forms of correlation",
+          "Location data is automatically collected without requiring human observation",
+          "Location data gets treated as reasonable grounds for scrutiny even when no other evidence exists",
+          "Location data can be verified against multiple independent sources"
+        ],
+        "correctIndex": 2,
+        "explanation": "Lots of facts correlate with events. Location becomes special when institutions accept 'you were near' as enough reason to investigate further. The shift isn't about accuracy or automation — it's that proximity alone becomes actionable."
+      },
+      {
+        "question": "When does a recorded fact become an investigative lead?",
+        "options": [
+          "When the fact gets stored in a searchable database",
+          "When someone decides the fact justifies asking questions about you",
+          "When the fact achieves sufficient precision to identify individuals",
+          "When the fact becomes accessible to multiple agencies"
+        ],
+        "correctIndex": 1,
+        "explanation": "Storage creates potential, precision affects reliability, access shapes who can use it — but a fact becomes a lead when an institution treats it as reason enough to look closer. The transformation is procedural: someone decides it matters."
+      },
+      {
+        "question": "How does area-based searching change who gets scrutinized?",
+        "options": [
+          "It limits scrutiny to people who live within the area, protecting visitors",
+          "It creates lists of people who become subjects of interest as a side effect of someone else being nearby",
+          "It requires physical observation, making scrutiny visible to those being watched",
+          "It prevents false positives by filtering out people who only passed through briefly"
+        ],
+        "correctIndex": 1,
+        "explanation": "Area-based methods generate visibility for everyone present, not just the target. You land on an investigator's screen because you were there when something happened to someone else. Scrutiny becomes an incidental byproduct of proximity, not a response to your behavior."
+      },
+      {
+        "question": "What determines whether anonymization protects identity?",
+        "options": [
+          "Whether the system rotates identifiers frequently enough to break tracking",
+          "Whether reversing the anonymization requires information that doesn't exist in the system or just procedural permission to access links that do",
+          "Whether the data gets encrypted during storage and transmission",
+          "Whether individuals opt in to data collection before tracking begins"
+        ],
+        "correctIndex": 1,
+        "explanation": "Anonymization protects when reversing it would require information nobody has. If the system contains the links needed to reconnect identity — even behind a procedural wall — the protection is administrative, not informational. Rotation and encryption affect how hard reversal is; the structural question is whether the connection survives."
+      }
+    ]
+  }
+}
