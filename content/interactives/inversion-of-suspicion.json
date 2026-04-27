@@ -1,0 +1,71 @@
+{
+  "slug": "inversion-of-suspicion",
+  "type": "quiz",
+  "title": "Inversion of Suspicion",
+  "concept": "When a system collects everyone first and filters for targets second, suspicion becomes the output of analysis rather than the reason for collection.",
+  "interactiveId": "6b15db27-9aba-40ca-82c5-e93ef3adc03d",
+  "sourcePieceId": "2b084d3c-7401-48a3-b6e2-0f85dc478e1c",
+  "publishedAt": 1777324246794,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "In a process that gathers records for a large population and then filters to a small subset, when does an individual become a subject of interest?",
+        "options": [
+          "Before any records are collected, when initial evidence points to them",
+          "After filtering reveals their pattern differs from others in the collected set",
+          "During collection, when their activity triggers an automated alert",
+          "When investigators manually review their file and decide it warrants attention"
+        ],
+        "correctIndex": 1,
+        "explanation": "In collect-then-filter systems, an individual becomes a subject of interest after their data is compared against others and their pattern emerges as anomalous. The filtering step produces suspicion rather than confirming it. This reverses traditional investigation, where suspicion drives which records get pulled."
+      },
+      {
+        "question": "What happens to people whose records are collected but not flagged during filtering?",
+        "options": [
+          "They are never entered into the system because filtering occurs before storage",
+          "Their records are collected, examined to determine relevance, then discarded",
+          "They receive notification that their data was reviewed and cleared",
+          "Their records remain as background data to improve future filtering accuracy"
+        ],
+        "correctIndex": 1,
+        "explanation": "These individuals had records pulled and examined during filtering even though they had no connection to the objective. The system brought them in based on meeting the initial criteria, evaluated them, then excluded them. They were touched by the process despite never becoming targets."
+      },
+      {
+        "question": "What distinguishes collecting broadly then filtering from targeting specifically then collecting?",
+        "options": [
+          "Broad collection requires written authorization while specific targeting can proceed informally",
+          "Broad collection generates records for all entities meeting initial criteria before determining which matter",
+          "Specific targeting always produces more accurate results because it avoids false positives",
+          "Specific targeting takes longer because investigators must build evidence before requesting records"
+        ],
+        "correctIndex": 1,
+        "explanation": "Collect-then-filter processes create records for everyone meeting the initial sweep criteria before determining relevance. Target-then-collect begins with a named subject, so only records tied to existing evidence are pulled. The order determines who enters the system and when."
+      },
+      {
+        "question": "Why does collecting a population before identifying targets change what counts as intrusion?",
+        "options": [
+          "Because automated filtering is less accurate than human judgment, creating more errors",
+          "Because collection happens based on meeting spatial or temporal criteria alone, not on evidence linking entities to the objective",
+          "Because reversed processes always require more records than traditional methods",
+          "Because the technology enabling the reversal is newer and less tested than traditional methods"
+        ],
+        "correctIndex": 1,
+        "explanation": "The initial sweep captures entities based solely on being in a place during a time window, not on actions or associations linking them to the objective. Collection itself, not the later filtering, is where unconnected entities enter the system. Whether that sweep constitutes intrusion becomes the question."
+      },
+      {
+        "question": "When does a collect-then-filter process shift from targeted investigation to population observation?",
+        "options": [
+          "When filtering uses statistical models instead of direct evidence review",
+          "When the initial criteria are so broad that most collected entities have no connection to the objective",
+          "When the process runs continuously without requiring fresh authorization for each execution",
+          "When the storage period for collected records exceeds the investigation timeline"
+        ],
+        "correctIndex": 1,
+        "explanation": "If the initial sweep is specific enough that most collected entities plausibly relate to the objective, it resembles targeted search with some over-collection. If the criteria are so broad that most are unrelated, the process observes a population and sifts for anomalies. The breadth of the initial sweep determines whether the structure is search or observation."
+      }
+    ]
+  }
+}
