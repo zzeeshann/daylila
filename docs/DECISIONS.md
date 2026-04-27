@@ -2,6 +2,29 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27 (followup): Gap-list redesign — single flat row per piece, slug-inclusive URLs
+
+**Context / trigger:** First iteration of the "Pieces missing interactives" subsection (commit `6b6ed8a`) shipped a two-column layout (No quiz · No HTML) with each piece appearing in BOTH columns when it lacked both interactives. Operator review caught two real flaws:
+
+1. **Same piece listed twice with two separate "Open admin →" links** — both go to the same per-piece admin page, so the duplication adds nothing and crowds the list.
+2. **Date-only URLs are ambiguous at multi-per-day** — `adminPieceHref` returned `/dashboard/admin/piece/<date>/` and the redirect handler at the legacy date-only route shows a disambiguation list when two pieces share a date (e.g. the 2026-04-22 air-traffic + tobacco pair from the `interval_hours=12` era). Operator clicking "Open admin" from the gap list on either of those landed on the disambiguation page, not the piece. Reasonable but surprising.
+
+**The fix:**
+
+- **One unified gap query** returning per-piece `(has_quiz, has_html)` flags via `EXISTS (...) AS has_quiz_int, EXISTS (...) AS has_html_int`. Filters to pieces missing at least one type. Newest-first, capped at 30 unique rows.
+- **Single flat list** — one `<li>` per piece. Status pills inline (`quiz ✓ · html ✗` etc.) using emerald for has, amber for missing. One Open link per row.
+- **Slug-inclusive URL** via new `adminPieceHrefSlug(date, pieceId, slug)` helper. Slug sourced authoritatively from the dailyPieces content collection (`deriveSlug(entry.id)` strips the date prefix from the MDX filename). Falls back to date-only URL when the content collection entry is missing (legacy pre-Phase-7 piece without `pieceId` frontmatter — should never happen on prod today, but the fallback keeps the link clickable).
+
+**Trade-offs considered:**
+- **Single list vs. two columns.** Single. The two-column layout treated "no quiz" and "no html" as separate concerns, but they're properties of the same piece. The Catalogue card's count line ("X pieces have no quiz · Y pieces have no HTML interactive") still surfaces the per-type breakdown for an at-a-glance read; the table doesn't need to repeat it.
+- **Show status pills for ALL pieces or only the missing types.** Both. `quiz ✓ · html ✗` is more honest than `missing: html` because it shows the operator the FULL state of the piece's interactives in one glance — useful when the catalog grows and "what's there" matters as much as "what's missing".
+- **Cap at 30 vs. show all gaps.** 30. Operator scrolls a list of 30 rows comfortably; 50+ would need pagination. The exact total is in the count line above; if the cap fires for a real backlog, future work adds pagination.
+- **Re-derive slug from headline vs. read content collection.** Read content collection. Director's `headline.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)` is deterministic but the 60-char truncation can be mid-word (Ben Sasse → `…reflects-on-family-fait`); the actual MDX filename is what shipped at publish time. Content collection is authoritative; the cost is one `getCollection('dailyPieces')` call which is already cached by Astro.
+
+**Files changed:** [`src/pages/dashboard/admin/interactives/index.astro`](../src/pages/dashboard/admin/interactives/index.astro) — frontmatter (content collection import + slug map + unified GapPiece type + single SQL query) + UI (single flat list replacing two columns) + new `adminPieceHrefSlug` helper. [`docs/DECISIONS.md`](DECISIONS.md) — this entry.
+
+**Verification:** `pnpm build` clean. Local D1 fixture (4 pieces — 1 with quiz only, 3 with neither): rendered as 4 unique rows in single list; Hormuz row reads "quiz ✓ · html ✗" with slug-inclusive link `/dashboard/admin/piece/2026-04-18/oil-prices-plunge-as-iran-says-strait-of-hormuz-open-during-/`; legacy fixture rows without content-collection entries fall back to date-only URLs as designed. No console errors.
+
 ## 2026-04-27: Two-row interactive admin section + honest list-page footnote
 
 **Context / trigger:** The 2026-04-27 Ben Sasse piece's HTML interactive failed to generate (`parseAndValidateHtml: Claude returned non-JSON output` — model-side flake). The system's own observer event told the operator to "retry from admin or via /interactive-generate-trigger once the cause is fixed", but the admin had no button for this state:

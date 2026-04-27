@@ -1,8 +1,10 @@
 ---
 export const prerender = false;
 
+import { getCollection } from 'astro:content';
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { getUser } from '../../../../lib/db';
+import { deriveSlug } from '../../../../lib/slug';
 
 const db = Astro.locals.runtime.env.DB;
 const userId = Astro.locals.userId;
@@ -48,18 +50,36 @@ interface RowData extends InteractiveRow {
   latestRound: number | null;
 }
 
+/** A piece that is missing at least one of (quiz, html). One row per
+ *  piece — the per-type flags tell the operator which interactives
+ *  exist. Single deep-link to the per-piece admin page where the
+ *  Generate buttons live. */
 type GapPiece = {
   id: string;
   date: string;
   headline: string;
   published_at: number | null;
+  has_quiz: boolean;
+  has_html: boolean;
+  slug: string | null;
 };
 
 let rows: RowData[] = [];
 let pieceWithoutQuizCount = 0;
 let pieceWithoutHtmlCount = 0;
-let piecesMissingQuizList: GapPiece[] = [];
-let piecesMissingHtmlList: GapPiece[] = [];
+let gapPieces: GapPiece[] = [];
+
+// Slug map from the dailyPieces content collection. Authoritative —
+// the MDX filename is what Director wrote at publish time, including
+// the 60-char truncation. Falling back to a re-derived slug from the
+// headline risks mid-word truncation mismatches.
+const dailyEntries = await getCollection('dailyPieces');
+const slugByPieceId = new Map<string, string>();
+for (const entry of dailyEntries) {
+  if (entry.data.pieceId) {
+    slugByPieceId.set(entry.data.pieceId, deriveSlug(entry.id));
+  }
+}
 
 try {
   // Pull every interactive with its source piece headline.
@@ -162,34 +182,34 @@ try {
     .first<{ n: number }>();
   pieceWithoutHtmlCount = piecesMissingHtml?.n ?? 0;
 
-  // Most-recent gap pieces (newest first), capped at 20 per type.
-  // Each row deep-links to the per-piece admin page where the
-  // Generate buttons live.
-  const missingQuizRows = await db
+  // One unified query for "pieces missing at least one interactive".
+  // Returns BOTH per-type flags so a single row can render
+  // `quiz ✓ · html ✗` (or any other combination) inline. Newest first,
+  // capped at 30 unique pieces — the cap is on rows the operator will
+  // actually scroll, not on the count line above which is exact.
+  const gapRows = await db
     .prepare(`
-      SELECT p.id, p.date, p.headline, p.published_at FROM daily_pieces p
-      WHERE NOT EXISTS (
-        SELECT 1 FROM interactives i
-        WHERE i.source_piece_id = p.id AND i.type = 'quiz'
-      )
+      SELECT
+        p.id, p.date, p.headline, p.published_at,
+        EXISTS (SELECT 1 FROM interactives i WHERE i.source_piece_id = p.id AND i.type = 'quiz') AS has_quiz_int,
+        EXISTS (SELECT 1 FROM interactives i WHERE i.source_piece_id = p.id AND i.type = 'html') AS has_html_int
+      FROM daily_pieces p
+      WHERE
+        NOT EXISTS (SELECT 1 FROM interactives i WHERE i.source_piece_id = p.id AND i.type = 'quiz')
+        OR NOT EXISTS (SELECT 1 FROM interactives i WHERE i.source_piece_id = p.id AND i.type = 'html')
       ORDER BY p.published_at DESC, p.created_at DESC
-      LIMIT 20
+      LIMIT 30
     `)
-    .all<{ id: string; date: string; headline: string; published_at: number | null }>();
-  piecesMissingQuizList = missingQuizRows.results ?? [];
-
-  const missingHtmlRows = await db
-    .prepare(`
-      SELECT p.id, p.date, p.headline, p.published_at FROM daily_pieces p
-      WHERE NOT EXISTS (
-        SELECT 1 FROM interactives i
-        WHERE i.source_piece_id = p.id AND i.type = 'html'
-      )
-      ORDER BY p.published_at DESC, p.created_at DESC
-      LIMIT 20
-    `)
-    .all<{ id: string; date: string; headline: string; published_at: number | null }>();
-  piecesMissingHtmlList = missingHtmlRows.results ?? [];
+    .all<{ id: string; date: string; headline: string; published_at: number | null; has_quiz_int: number; has_html_int: number }>();
+  gapPieces = (gapRows.results ?? []).map((r) => ({
+    id: r.id,
+    date: r.date,
+    headline: r.headline,
+    published_at: r.published_at,
+    has_quiz: r.has_quiz_int === 1,
+    has_html: r.has_html_int === 1,
+    slug: slugByPieceId.get(r.id) ?? null,
+  }));
 } catch { /* fall through with empty rows */ }
 
 // ─── Cost telemetry (MTD) ─────────────────────────────────────────
@@ -316,6 +336,16 @@ function adminPieceHref(date: string | null, pieceId: string | null): string | n
   return `/dashboard/admin/piece/${date}/`;
 }
 
+/** Slug-inclusive variant. Used by the gap-piece list where multi-per-day
+ *  ambiguity matters — date-only links land on a disambiguation page
+ *  for any 2026-04-22-era piece (interval_hours=12), which surprises the
+ *  operator. Falls back to the date-only form when slug is null. */
+function adminPieceHrefSlug(date: string | null, pieceId: string | null, slug: string | null): string | null {
+  if (!date || !pieceId) return null;
+  if (slug) return `/dashboard/admin/piece/${date}/${slug}/`;
+  return `/dashboard/admin/piece/${date}/`;
+}
+
 function statusLabel(r: RowData): { text: string; cls: string } {
   if (r.quality_flag === 'low') return { text: 'Rough', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
   if (r.published_at === null) return { text: 'Pending', cls: 'bg-zee-bg text-zee-muted border-zee-border' };
@@ -387,78 +417,47 @@ function typeLabel(type: RowData['type']): { text: string; cls: string } {
     </p>
   </section>
 
-  {(piecesMissingQuizList.length > 0 || piecesMissingHtmlList.length > 0) && (
+  {gapPieces.length > 0 && (
     <section class="rounded-xl border border-zee-border p-6 mb-8">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
-        Pieces missing interactives
+        Pieces missing interactives <span class="text-zee-text tabular-nums">({gapPieces.length})</span>
       </h2>
       <p class="text-xs text-zee-muted mb-5 leading-relaxed">
-        Newest first, capped at 20 per gap type. Click through to the per-piece admin page; the Generate buttons are in the Interactive section.
+        One row per piece, newest first, capped at 30. Each row shows which interactive types exist; click through to the per-piece admin page where Generate / Regenerate buttons live in the Interactive section.
       </p>
-      <div class="grid gap-6 md:grid-cols-2">
-        <div>
-          <h3 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
-            No quiz <span class="text-zee-text tabular-nums">({pieceWithoutQuizCount})</span>
-          </h3>
-          {piecesMissingQuizList.length === 0 ? (
-            <p class="text-sm text-zee-muted italic">Every published piece has a quiz.</p>
-          ) : (
-            <ul class="divide-y divide-zee-border/60">
-              {piecesMissingQuizList.map((p) => {
-                const href = adminPieceHref(p.date, p.id);
-                return (
-                  <li class="py-2.5 flex items-baseline justify-between gap-3">
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm leading-snug truncate">
-                        {href ? (
-                          <a href={href} class="hover:text-zee-primary transition-colors">{p.headline}</a>
-                        ) : p.headline}
-                      </p>
-                      <p class="text-[11px] text-zee-muted tabular-nums">{p.date}</p>
-                    </div>
-                    {href && (
-                      <a href={href} class="text-xs text-zee-primary hover:underline shrink-0">
-                        Open admin →
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-        <div>
-          <h3 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
-            No HTML <span class="text-zee-text tabular-nums">({pieceWithoutHtmlCount})</span>
-          </h3>
-          {piecesMissingHtmlList.length === 0 ? (
-            <p class="text-sm text-zee-muted italic">Every published piece has an HTML interactive.</p>
-          ) : (
-            <ul class="divide-y divide-zee-border/60">
-              {piecesMissingHtmlList.map((p) => {
-                const href = adminPieceHref(p.date, p.id);
-                return (
-                  <li class="py-2.5 flex items-baseline justify-between gap-3">
-                    <div class="min-w-0 flex-1">
-                      <p class="text-sm leading-snug truncate">
-                        {href ? (
-                          <a href={href} class="hover:text-zee-primary transition-colors">{p.headline}</a>
-                        ) : p.headline}
-                      </p>
-                      <p class="text-[11px] text-zee-muted tabular-nums">{p.date}</p>
-                    </div>
-                    {href && (
-                      <a href={href} class="text-xs text-zee-primary hover:underline shrink-0">
-                        Open admin →
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
+      <ul class="divide-y divide-zee-border/60">
+        {gapPieces.map((p) => {
+          const href = adminPieceHrefSlug(p.date, p.id, p.slug);
+          const QuizPill = p.has_quiz
+            ? <span class="text-emerald-700">quiz ✓</span>
+            : <span class="text-amber-700">quiz ✗</span>;
+          const HtmlPill = p.has_html
+            ? <span class="text-emerald-700">html ✓</span>
+            : <span class="text-amber-700">html ✗</span>;
+          return (
+            <li class="py-2.5 flex items-center gap-4">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm leading-snug truncate">
+                  {href ? (
+                    <a href={href} class="hover:text-zee-primary transition-colors">{p.headline}</a>
+                  ) : p.headline}
+                </p>
+                <p class="text-[11px] text-zee-muted tabular-nums">{p.date}</p>
+              </div>
+              <div class="text-xs tabular-nums shrink-0 flex items-center gap-2">
+                {QuizPill}
+                <span class="text-zee-muted/40">·</span>
+                {HtmlPill}
+              </div>
+              {href && (
+                <a href={href} class="text-xs text-zee-primary hover:underline shrink-0" aria-label={`Open admin for ${p.headline}`}>
+                  Open →
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </section>
   )}
 
