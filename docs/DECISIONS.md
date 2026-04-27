@@ -2,6 +2,43 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27 (followup): Media Session API for background mobile audio
+
+**Context / trigger:** Operator listening on mobile with headphones — locked the screen / pocketed the phone, audio kept playing for a few minutes, then stopped. Reproduced on the 2026-04-27 Ben Sasse piece. Mobile browsers (iOS Safari, Android Chrome) throttle and eventually suspend `<audio>` playback on tabs that haven't registered themselves as a "media session". Without that registration the OS can't tell the difference between a teaching piece's audio and an ambient page sound, so it deprioritises the tab once the screen locks. Auto-advance between per-beat clips compounds the failure — even if the first clip somehow keeps playing, the `audio.src = nextUrl + audio.play()` transition needs an active media session to autoplay in the background.
+
+**The decision:** wire the [Media Session API](https://developer.mozilla.org/en-US/docs/Web/API/Media_Session_API) into [`<audio-player>`](../src/interactive/audio-player.ts). On `connectedCallback`:
+
+1. **Set `navigator.mediaSession.metadata`** with the piece headline (passed in via new `data-piece-title` attribute, threaded from [`AudioPlayer.astro`](../src/components/AudioPlayer.astro) ← [`LessonLayout.astro`](../src/layouts/LessonLayout.astro)), `artist: 'Zeemish'`, `album: 'Beat N of M · {Title}'`, and one artwork entry pointing at the existing `/og-image.png`. Refreshed inside `loadBeat` so each beat advance updates the lock-screen subtitle.
+2. **Register action handlers** for `play` / `pause` / `previoustrack` / `nexttrack` / `seekto` so the OS lock-screen controls + headphone buttons + Bluetooth remotes drive the player.
+3. **Update `playbackState`** in `updatePlayIcon` to reflect real audio state (`'playing'` / `'paused'`), and **clear metadata + state to `'none'`** in `disconnectedCallback`.
+4. **Throttled `setPositionState`** writes (≤1 Hz) on `timeupdate` so the lock-screen scrubber and elapsed-time stay accurate.
+
+The combined effect: the OS treats the page as a real media session, prevents background suspension on screen lock, and gives the reader proper lock-screen / AirPods controls.
+
+**Trade-offs considered:**
+
+- **Media Session API vs. concatenating all beats into a single MP3.** Chose Media Session. The single-MP3 alternative would eliminate the cross-beat boundary entirely (no autoplay-after-`ended` to fail) but loses per-beat captions, prev/next stepping, smooth-scroll-to-beat on auto-advance, and bloats R2 cost (no per-beat caching). Media Session is the standard pattern every podcast / music PWA uses for exactly this scenario.
+
+- **Should we ask the user for a permission prompt?** The user offered. Rejected — there is no browser-level "background audio" permission to request. Media Session is permissionless; the OS infers legitimacy from the metadata + handler registration. Adding any kind of pre-flight prompt would be theatre.
+
+- **Artwork: dynamic per-piece OG vs. one static `/og-image.png`.** Static. The site doesn't yet ship per-piece OG images (still in "remaining minor items"). When that work lands, the artwork array gets one extra line and inherits automatically.
+
+- **iOS Safari residual hiccup.** Even with Media Session set correctly, iOS Safari occasionally hiccups crossing audio `src` boundaries while the screen is fully locked — readers may need to tap lock-screen play once to resume. Documented openly to the user; it's a platform limit (not buyable down with more code).
+
+- **Throttle position-state at 1 Hz.** `timeupdate` fires ~4× per second; writing `setPositionState` on every fire would be wasteful. 1 Hz is more than enough for the lock-screen scrubber, which doesn't render sub-second granularity.
+
+- **Clear metadata on `disconnectedCallback`.** Otherwise stale "Beat 3 of 6 · The Pattern" lingers on the OS surface after the reader navigates away. Defensive cleanup.
+
+**Files changed:**
+- [`src/interactive/audio-player.ts`](../src/interactive/audio-player.ts) — `connectedCallback` reads `data-piece-title`; `installMediaSessionHandlers` registers the 5 action handlers; `refreshMediaSessionMetadata` sets per-beat metadata; `maybeWritePositionState` writes throttled scrubber position; `updatePlayIcon` mirrors `playbackState`; `clearMediaSession` runs on disconnect.
+- [`src/components/AudioPlayer.astro`](../src/components/AudioPlayer.astro) — accepts new `pieceTitle` prop, passes through as `data-piece-title`.
+- [`src/layouts/LessonLayout.astro`](../src/layouts/LessonLayout.astro) — threads `title` into `<AudioPlayer pieceTitle={title}>`.
+- [`docs/DECISIONS.md`](DECISIONS.md) — this entry.
+
+**Verification:** `pnpm build` clean. Dev preview against the 2026-04-27 Ben Sasse piece — confirmed `data-piece-title="What We Owe the Dying"` flows through; `navigator.mediaSession.metadata` set on mount with `{title: 'What We Owe the Dying', artist: 'Zeemish', album: 'Beat 1 of 5 · Hook'}` + artwork pointing at `/og-image.png`; clicking the next-beat button refreshes album to `'Beat 2 of 5 · Dignity Systems'`; `setPositionState` fires once per timeupdate (1 Hz throttle confirmed); zero console errors. Real lock-screen verification needs an iOS or Android device — out of scope for headless preview, but the wiring matches the spec.
+
+**Rollback:** plain `git revert` — three files, no schema, no migration.
+
 ## 2026-04-27 (followup): Gap-list redesign — single flat row per piece, slug-inclusive URLs
 
 **Context / trigger:** First iteration of the "Pieces missing interactives" subsection (commit `6b6ed8a`) shipped a two-column layout (No quiz · No HTML) with each piece appearing in BOTH columns when it lacked both interactives. Operator review caught two real flaws:

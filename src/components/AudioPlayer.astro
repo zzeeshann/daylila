@@ -1,15 +1,20 @@
 ---
 interface Props {
   audioBeats?: Record<string, string>;
+  /** Piece headline — passed through to the Web Component as
+   *  `data-piece-title` so the Media Session API can show the right
+   *  title on lock-screen / headphone controls. */
+  pieceTitle?: string;
 }
 
-const { audioBeats } = Astro.props;
+const { audioBeats, pieceTitle } = Astro.props;
 const hasAudio = !!audioBeats && Object.keys(audioBeats).length > 0;
 ---
 
 {hasAudio ? (
   <audio-player
     data-audio-beats={JSON.stringify(audioBeats)}
+    data-piece-title={pieceTitle}
     class="block"
   >
     <div class="rounded-lg border border-zee-border bg-white/50 px-4 py-3">

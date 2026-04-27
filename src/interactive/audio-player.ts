@@ -35,6 +35,12 @@ class AudioPlayer extends HTMLElement {
   private beatTitles: Map<string, string> = new Map();
   private currentBeat: string | null = null;
   private hasReportedFirstPlay = false;
+  /** Piece headline for Media Session metadata. Without this, the
+   *  lock-screen / headphone controls show a blank title. */
+  private pieceTitle = '';
+  /** Throttle position-state writes — once a second is enough for the
+   *  lock-screen scrubber and avoids hammering the API on timeupdate. */
+  private lastPositionWrite = 0;
 
   private playBtn: HTMLButtonElement | null = null;
   private prevBtn: HTMLButtonElement | null = null;
@@ -51,6 +57,8 @@ class AudioPlayer extends HTMLElement {
     } catch {
       this.audioBeats = {};
     }
+
+    this.pieceTitle = this.getAttribute('data-piece-title') ?? '';
 
     if (Object.keys(this.audioBeats).length === 0) return;
 
@@ -107,10 +115,13 @@ class AudioPlayer extends HTMLElement {
     this.progressEl?.addEventListener('click', (e) =>
       this.seekFromClick(e as MouseEvent),
     );
+
+    this.installMediaSessionHandlers();
   }
 
   disconnectedCallback() {
     this.audio?.pause();
+    this.clearMediaSession();
   }
 
   private loadBeat(beatName: string) {
@@ -121,6 +132,7 @@ class AudioPlayer extends HTMLElement {
     this.audio.src = url;
     this.resetProgressUI();
     this.refreshChrome();
+    this.refreshMediaSessionMetadata();
   }
 
   /**
@@ -234,6 +246,7 @@ class AudioPlayer extends HTMLElement {
       this.progressFill.style.width = `${(cur / dur) * 100}%`;
     }
     if (this.timeEl) this.timeEl.textContent = formatTime(cur);
+    this.maybeWritePositionState();
   }
 
   private resetProgressUI() {
@@ -249,6 +262,9 @@ class AudioPlayer extends HTMLElement {
       playing ? 'Pause audio' : 'Play audio',
     );
     this.playBtn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+    }
   }
 
   private seekFromClick(e: MouseEvent) {
@@ -256,6 +272,101 @@ class AudioPlayer extends HTMLElement {
     const rect = this.progressEl.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     this.audio.currentTime = this.audio.duration * pct;
+  }
+
+  /**
+   * Register Media Session action handlers once per element. These are
+   * what the OS calls when the reader taps play/pause/skip on the lock
+   * screen, taps a headphone button, or uses a Bluetooth remote. Setting
+   * them is also what tells iOS Safari + Android Chrome that this page
+   * is doing legitimate background media playback — without them, the
+   * audio gets suspended a few minutes after screen lock.
+   */
+  private installMediaSessionHandlers() {
+    if (!('mediaSession' in navigator)) return;
+    const ms = navigator.mediaSession;
+    try {
+      ms.setActionHandler('play', () => {
+        this.audio?.play().catch(() => {});
+      });
+      ms.setActionHandler('pause', () => {
+        this.audio?.pause();
+      });
+      ms.setActionHandler('previoustrack', () => this.stepBeat(-1));
+      ms.setActionHandler('nexttrack', () => this.stepBeat(1));
+      ms.setActionHandler('seekto', (details) => {
+        if (!this.audio || details.seekTime == null) return;
+        this.audio.currentTime = details.seekTime;
+      });
+    } catch {
+      // Some browsers throw on unknown actions — silent fallback.
+    }
+  }
+
+  /**
+   * Refresh metadata each time we move to a new beat so the lock screen
+   * shows e.g. "Beat 3 of 6 · The Pattern" alongside the piece title.
+   */
+  private refreshMediaSessionMetadata() {
+    if (!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') {
+      return;
+    }
+    const total = this.beatOrder.length;
+    const idx = this.currentBeat ? this.beatOrder.indexOf(this.currentBeat) : -1;
+    const beatHuman = this.currentBeat
+      ? this.beatTitles.get(this.currentBeat) ?? this.humanise(this.currentBeat)
+      : '';
+    const beatLabel =
+      idx >= 0 && total > 0
+        ? `Beat ${idx + 1} of ${total} · ${beatHuman}`
+        : beatHuman;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: this.pieceTitle || 'Zeemish',
+      artist: 'Zeemish',
+      album: beatLabel,
+      artwork: [
+        { src: '/og-image.png', sizes: '1200x630', type: 'image/png' },
+      ],
+    });
+  }
+
+  /**
+   * Throttled position-state writer (≤1 Hz). Powers the accurate
+   * scrubber + elapsed-time on the lock screen.
+   */
+  private maybeWritePositionState() {
+    if (!('mediaSession' in navigator) || !this.audio) return;
+    const setter = navigator.mediaSession.setPositionState;
+    if (typeof setter !== 'function') return;
+    const now = Date.now();
+    if (now - this.lastPositionWrite < 1000) return;
+    const dur = this.audio.duration;
+    if (!isFinite(dur) || dur <= 0) return;
+    this.lastPositionWrite = now;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: dur,
+        position: Math.min(this.audio.currentTime, dur),
+        playbackRate: this.audio.playbackRate || 1,
+      });
+    } catch {
+      // setPositionState throws on bad values — swallow.
+    }
+  }
+
+  /**
+   * Wipe the lock-screen surface when the player goes away (page nav,
+   * SPA-style cleanup). Avoids stale "Beat 3 of 6" lingering on the OS
+   * after the reader has moved on.
+   */
+  private clearMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = 'none';
+    } catch {
+      // Some browsers throw on assignment — silent.
+    }
   }
 }
 
