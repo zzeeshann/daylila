@@ -2,6 +2,44 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27: Two-row interactive admin section + honest list-page footnote
+
+**Context / trigger:** The 2026-04-27 Ben Sasse piece's HTML interactive failed to generate (`parseAndValidateHtml: Claude returned non-JSON output` — model-side flake). The system's own observer event told the operator to "retry from admin or via /interactive-generate-trigger once the cause is fixed", but the admin had no button for this state:
+
+- Per-piece admin page (`/dashboard/admin/piece/<date>/<slug>/`) hides its retry button whenever `daily_pieces.interactive_id IS NOT NULL`. Since a quiz row exists for the piece, the column is set, button is hidden, even though the HTML companion is missing.
+- Interactives list page (`/dashboard/admin/interactives/`) shows a count of pieces missing each type, but its per-row "Regenerate" button calls `regenerateInteractive()` which requires an existing row of the target type to delete first — so it can't bootstrap a missing-from-day-one HTML.
+
+The only retry path was `curl POST /interactive-generate-trigger?piece_id=X` with `ADMIN_SECRET`. That violates the operator's stated preference (`feedback_admin_ui_over_shell_secret`) and contradicts the observer event's own copy.
+
+**The decision:**
+
+1. **Per-piece admin page becomes two-row.** Drop the legacy single-row Interactive section (which read off `daily_pieces.interactive_id`, the pre-Phase-2 quiz pointer). Replace with two stacked rows scoped by `(source_piece_id, type)` — Quiz · {state} and HTML · {state}. Each row owns its own state machine:
+   - Row exists → "published ✓" + voice/revisions/low-quality badge + **Regenerate** button (destructive, with confirm dialog).
+   - Row missing → "not generated" + last failure reason inline (read from observer events) + **Generate** button (idempotent — fires `/api/agents/interactive-retry` which dispatches to `/interactive-generate-trigger`; the generator's per-type idempotency at [`interactive-generator.ts:306`](agents/src/interactive-generator.ts) skips the existing sibling type and only runs the missing one).
+   - Row missing AND `type='html'` AND `interactives_html_enabled=false` → disabled button with "Flip the toggle on /dashboard/admin/settings/" hover hint. Renders separate "Open settings →" link as a discoverability bonus.
+
+2. **Interactives list page footnote replaced.** Old copy ("Generate via the per-piece admin page when needed") was a lie — the per-piece page didn't actually expose generate-HTML. New copy ("See the gap list below to open any piece's admin page where Generate buttons live") points at a new "Pieces missing interactives" subsection between the catalog and cost cards. Two-column layout (No quiz · No HTML), 20 most-recent gap-pieces per type, each row deep-links to per-piece admin via the existing `adminPieceHref(date, pieceId)` helper.
+
+3. **No agent-side changes, no schema change, no new endpoints.** Both endpoints (`/api/agents/interactive-retry` for bootstrap-missing, `/api/agents/interactive-regenerate?type=Y` for destructive-regen) already exist. The frontend just needed to call the right one based on row state. The agents-side generator's per-type idempotency was already correct from Phase 2 of Interactives v3.
+
+**Trade-offs considered:**
+
+- **Per-piece deep-dive vs. interactives list page as the primary surface.** Chose per-piece. Rationale: when an HTML interactive is missing, the operator usually arrived from the observer feed or from clicking through a daily piece — they're investigating ONE piece. The interactives list page is the catalog/quality view; bootstrapping is a per-piece operator action. The list page got a discoverability surface (gap-piece subsection with deep-links) but doesn't host the buttons themselves. This avoids two near-identical button surfaces in two places.
+- **UI button vs. asking operators to curl.** UI button. The system itself emits "retry from admin" in observer events; making admin not have a button violates that contract. Operator memory `feedback_admin_ui_over_shell_secret` reinforces it. The cost is a ~150-line .astro change; the win is the workflow no longer requires shell + secret for a recurring state.
+- **Generate-HTML disabled-when-flag-off vs. hidden-when-flag-off.** Disabled, with hover tooltip + "Open settings →" link. Hiding it would make the "no html" state silent — which is exactly the original problem this entry exists to fix.
+- **Confirm dialog on regenerate, not on generate.** Generate is idempotent and non-destructive; regenerate wipes the existing D1 row + git file + audit history. The cost asymmetry justifies asymmetric confirms.
+- **Surface inline failure reason on the missing-row state.** Yes. The observer events section already shows it, but it's collapsed under a `<details>` and the operator has to scroll. Surfacing inline ("Last failure: `parseAndValidateHtml: Claude returned non-JSON output`") immediately tells the operator whether to retry-and-hope (model flake) or investigate-the-prompt (validator-max-fail) without leaving the section. Read from `observer_events WHERE title LIKE 'Interactive generation failed:%' ORDER BY created_at DESC LIMIT 1`.
+- **Use existing `adminPieceHref(date, pieceId)` (date-only URL with redirect handler) vs. derive slug-inclusive URL on this page.** Use the existing helper for consistency with the rest of the list page. The redirect handler at the legacy date-only route resolves to slug-inclusive in the unambiguous case and to a disambiguation list at multi-per-day — both correct.
+
+**Specifically NOT in this decision:**
+- Does not extend `regenerateInteractive` to handle missing rows. Its destructive contract is the right shape for "regenerate something that already exists"; bootstrapping is `generate()` via `/interactive-generate-trigger`, which already works correctly.
+- Does not change `interactives_html_enabled` default — the flag is intentionally opt-in per migration 0024.
+- Does not auto-retry failed interactives. The post-publish alarm fires once; retry is operator-initiated. Auto-retry would mask quality signals (a deterministic prompt-or-validator bug would silently consume Claude credits on every cron).
+
+**Files changed:** [`src/pages/dashboard/admin/piece/[date]/[slug].astro`](../src/pages/dashboard/admin/piece/[date]/[slug].astro) — frontmatter queries (quiz row, html row, html flag, last failure event) + two-row Interactive section UI + delegated client JS for state-aware Generate/Regenerate dispatch. [`src/pages/dashboard/admin/interactives/index.astro`](../src/pages/dashboard/admin/interactives/index.astro) — gap-piece queries + new "Pieces missing interactives" subsection + footnote text. [`CLAUDE.md`](../CLAUDE.md) — new section under Interactives v3 narrative. [`docs/DECISIONS.md`](DECISIONS.md) — this entry.
+
+**Verification:** `pnpm build` clean (all routes prerender, no type errors). Local D1 seeded with the Ben-Sasse-shaped state (Hormuz piece + only-quiz interactive + observer warn event with parse-failure reason + admin user + `interactives_html_enabled=true`). Per-piece admin page rendered with summary "quiz ✓ · no html", Quiz row showing "published ✓" + Regenerate button (`data-type="quiz"`, `data-action="regenerate"`), HTML row showing "not generated" + inline failure reason `parseAndValidateHtml: Claude returned non-JSON output` + Generate HTML button (`data-type="html"`, `data-action="generate"`). Interactives list page rendered the gap subsection with correct counts (3 missing quiz, 4 missing html in the local fixture) and deep-links to per-piece admin. Zero console errors. Production verification deferred to first operator click on the new buttons (next handoff step is the Ben Sasse retry).
+
 ## 2026-04-26: Holistic simplification audit — what's well-designed, what's unnecessarily complex, what's missing or fragile (refinement Action 5)
 
 **Context / trigger:** Refinement brief Section 1.5 asked: *"What is the simplest version of this system that does the same job?"* Not a refactor proposal — a clear-eyed audit producing three lists Zishan can act on (or not). The system is mature (16 agents, 19 tables, 23 migrations, two workers, audio + interactives + library + dashboard all live). "Everything's fine" is not a useful answer; "here's what to leave alone, here's what to clean up later, here's where the brittleness lives" is. This entry is that audit.
