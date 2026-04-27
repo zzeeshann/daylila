@@ -1,0 +1,58 @@
+---
+title: Geofence Warrants
+date: "2026-04-27"
+newsSource: The New York Times
+underlyingSubject: what geofence warrants actually are and how proximity data becomes criminal evidence
+estimatedTime: 6 min
+beatCount: 6
+description: A detective draws a circle on a map and Google returns 1,537 device IDs. Most of them are innocent. The Supreme Court is deciding whether the Fourth Amendment permits collecting everyone's movements first and filtering for suspects second.
+voiceScore: 92
+publishedAt: 1777322458811
+pieceId: "9ee14d8e-0128-4829-84c8-406113f28079"
+---
+
+## hook
+
+A detective in Richmond draws a 150-meter circle around a robbery scene on a map, sends it to Google, and gets back 1,537 device IDs — people whose phones pinged a cell tower in that radius during a two-hour window. Most of them have no connection to the crime. They were walking past. Sitting in a coffee shop. Waiting at a bus stop. Their phones recorded their location. Google stored it. The warrant collected it.
+
+Does the Fourth Amendment permit sweeping a location for all devices and narrowing to suspects afterward, or does it require suspicion of a specific person before any collection begins?
+
+## teaching-1
+
+A geofence warrant does not collect the content of messages or calls. It collects timestamped location pings tied to anonymized device IDs. Here is how it works.
+
+Police give Google a boundary — usually a shape drawn on a map, sometimes a circle, sometimes a polygon — and a time range. Google searches its database of location history, which stores pings from any Android phone or iPhone that has location services enabled and is signed into a Google account. Google returns a list of every device ID that pinged inside that boundary during that window. The IDs are anonymized at this stage — random strings, not names.
+
+Police review the list and narrow it. They look for patterns. A device that entered the geofence just before the crime and left immediately after. A device that moved in a way that matches witness descriptions. A device that appears in multiple crime scene geofences. Police tell Google which IDs they want to pursue.
+
+Google then de-anonymizes those specific IDs and provides account details: name, email, phone number, sometimes additional location data from before or after the crime. At that point the person is a suspect. But the initial sweep collected them along with everyone else. The warrant did not name them. It named a place and a time, and they were there.
+
+## teaching-2
+
+The Fourth Amendment says warrants must "particularly describe the place to be searched, and the persons or things to be seized." Traditional warrants do this by naming a suspect first. Police develop probable cause that a specific person committed a crime, then get a warrant to search that person's phone, home, or car. The suspicion precedes the search.
+
+A geofence warrant inverts this. The search precedes the suspicion. Police do not know who committed the crime. They know where it happened. They search that location — not the physical location, but the data location, the record of everyone who was there — and the search itself generates the list of people to suspect.
+
+Justice Kagan asked the government's lawyer during oral arguments: "If the police want to know who committed a crime, can they ask a company for a list of everyone who was nearby and then narrow it down?" The government said yes, because the warrant describes a place — the geofence boundary — and the data being seized is location information tied to that place, not to any person until the filtering step. The boundary satisfies the "particular" requirement.
+
+Civil liberties groups argued the opposite. They said the geofence is not a place being searched. It is a filter being applied to a database of people. The warrant collects data on hundreds or thousands of individuals who are not suspected of anything, reviews their movements, and only then decides who looks worth investigating. That makes every person in the geofence the subject of the search, whether or not they are later cleared.
+
+The government says the warrant describes a place. Civil liberties groups say it describes everyone who was in that place. The Fourth Amendment does not say which reading is correct.
+
+## teaching-3
+
+Google reported in a 2021 legal filing that geofence warrants went from near-zero in 2016 to 11,000 requests in 2020 — about 25% of all data requests the company received from U.S. law enforcement that year. The technique has become standard practice. Police use it for robberies, shootings, arsons, sometimes protests. The radius varies. Some warrants cover a single building. Others cover several city blocks. The time window can be fifteen minutes or six hours.
+
+Most people whose data is collected are never told. If police narrow the list and you are not on it, your location data was reviewed and discarded without your knowledge. If you are on the narrowed list but later excluded as a suspect, you might never know you were investigated. The warrant is sealed. Google does not notify users when their anonymized data is handed over in step one, only when their account is de-anonymized in step three.
+
+In March 2020 in Avondale, Arizona, police used a geofence warrant to investigate the murder of Jorge Garcia-Meza outside a Circle K convenience store. They received location data for 1,537 devices. They narrowed it to seventy-two. Then to nine. Zachary McCoy, a 30-year-old who worked in IT, was on that list. His phone appeared in the geofence because he had been riding his bike past the store three times that week — his regular exercise route took him down that street. He was pulled into an interrogation room at the Avondale Police Department. Detectives told him his phone placed him at a murder scene. He did not know what they were talking about. They analyzed his movement patterns. They compared timestamps. They kept him for five hours. Prosecutors dropped him from the case seven months later. He learned about the geofence from his public defender, who had to file a motion to see the warrant.
+
+## watch
+
+The Supreme Court will issue its ruling by June. Watch whether the opinion defines "place to be searched" as the physical location or the database of people who were there. If physical location, geofence warrants are constitutional. If database of people, they are not. The definition will determine whether police can collect movements in bulk for crimes not yet solved.
+
+Watch also whether the ruling addresses the anonymization step. The government argues that step one — when Google returns anonymized IDs — is not a search of persons because the IDs are not yet tied to names. Civil liberties groups argue that a search of anonymized data about real people is still a search of those people. If the Court agrees with the government, tech companies can hand over anonymized data without triggering Fourth Amendment protections. If the Court agrees with civil liberties groups, the anonymization step does not shield the collection from constitutional scrutiny.
+
+## close
+
+Google has already announced it will stop storing location history in a centralized format starting this year — a technical change that may render the legal question moot before the Court decides it.
