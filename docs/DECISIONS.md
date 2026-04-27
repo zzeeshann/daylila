@@ -2,6 +2,56 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27 (evening, architectural fix): Curator duplicate-pick — hard pre-Curator headline-overlap filter
+
+**The prompt fix shipped at `11c2450` failed at the first test.** Deployed at 21:03:03 UTC. Operator manually triggered another run at 21:06:49 UTC — Curator picked the SAME SCOTUS / cell-location story for the **fourth time in one day**. Verified by checking pipeline_log + candidate set + observer events:
+
+- Curator started 21:06:49 UTC, finished 21:07:16 UTC. The new prompt was live (deploy completed 3min46s earlier).
+- Of 50 candidates Scanner pulled, only ONE was about the SCOTUS cell-location case (NYT wrangles story). The other 49 were diverse — Voyager 1, Roundup case, AI chip stocks, Mali, OpenAI vs. Musk, Ubuntu AI. Curator was not cornered.
+- Curator's underlying_subject was nearly identical to the prior piece's: "what surveillance actually is: how proximity data becomes evidence and why the boundary between finding and tracking matters" → "how proximity becomes evidence and why the boundary between finding and tracking matters". One word changed. Curator SAW the prior piece in `getRecentDailyPieces`, picked the same event, used virtually the same framing.
+- The new prompt's first worked example was literally `"Supreme Court Reviews Police Use of Cell Location Data"` + `"Supreme Court Wrangles With Geofence Warrants"` → SAME EVENT, SKIP. Claude looked at this exact scenario, marked SKIP, and then picked a candidate matching it anyway.
+
+**Diagnosis.** The prompt approach is structurally wrong, not under-tightened:
+1. The model is rewarded for picking, not skipping. Skip requires more cognitive effort than pick.
+2. Worked examples can be read as "this specific case", not "this pattern". Claude rationalizes "but mine is different from the example".
+3. Teachability ranking instinct overrides dedup judgment when a high-newsworthy story sits in the candidate set ("Supreme Court..." reads as newsworthy).
+4. Three rounds of prompt tightening have now failed (2026-04-24 underlying_subject, 2026-04-27 morning observation, 2026-04-27 evening worked-example fix). At some point "the prompt isn't strong enough" stops being a useful framing.
+
+**Decision: hard pre-Curator dedup filter, server-side, deterministic.** Make duplicates **invisible** to Curator, not "ask Curator nicely to skip them". A candidate that doesn't appear in the input list cannot be picked.
+
+**Implementation** at [agents/src/shared/dedup-headlines.ts](../agents/src/shared/dedup-headlines.ts):
+- `tokenizeHeadline(headline)` — strips trailing " - Source" suffix, lowercases, drops stopwords + tokens with length <3.
+- `findHeadlineMatch(candidate, recentHeadlines)` — returns the strongest overlap (or null) by iterating recent pieces and counting shared tokens.
+- `filterDuplicateCandidates(candidates, recentHeadlines)` — returns `{kept, filtered}` where `kept` is what Curator sees.
+- Thresholds: ≥4 substantive tokens shared OR (≥3 shared AND ≥0.5 ratio). The ratio fallback catches short-headline matches that fall under the absolute count.
+
+**Wired into** [agents/src/director.ts](../agents/src/director.ts) `triggerDailyPiece` between `getRecentDailyPieces` and `curator.curate`. Defensive fallback: if the filter would eat every candidate (50 → 0), pass the original list through and log a warn — better a possible duplicate than no piece at all. With 50 candidates and a 30-day recent-pieces window this fallback should never trip.
+
+**Observer event** `Candidates filtered: N of 50 (headline overlap with recent pieces)` fires when the filter removes anything, with sample lines showing each filtered candidate + the recent piece it matched + shared-token count. Visibility matters: the filter shapes Curator's input set invisibly, and high filter rate = news cycle dominated by stories Zeemish has already covered (itself useful signal).
+
+**Regression harness** at [agents/scripts/verify-dedup.mjs](../agents/scripts/verify-dedup.mjs) — `pnpm verify-dedup`. 14 cases drawn from real failure modes (the 2026-04-24 Maduro twin pieces, the 2026-04-27 SCOTUS twins) plus deliberate false-positive probes (Trump signs different bills, Hurricane Helene days apart, distinct SCOTUS cases on the same day). 13 pass + 1 documented borderline (Trump-signs-different-orders is intentionally filtered as an aggressive posture — two pieces about Trump executive orders in a week would teach the same concept).
+
+**The prompt fix from `11c2450` stays as defense-in-depth.** The hard filter catches headline-overlap (same-event detection); the prompt's SAME-UNDERLYING-CONCEPT rule still catches different-event same-concept duplicates that share zero substantive headline tokens (Hormuz + Suez chokepoints). Two layers, deterministic + judgmental.
+
+**Admin engagement query fix shipped same commit.** "Mon 27 Apr · unknown · 1 view · 0 (0%) · 1" was an orphan engagement row — someone hit the still-CDN-cached wrangles page in the brief window after operator reset, fresh INSERT landed against the now-deleted piece_id. [src/pages/dashboard/admin.astro](../src/pages/dashboard/admin.astro) engagement query switched from `LEFT JOIN daily_pieces` → `INNER JOIN` so orphans drop out of the display silently. Same posture: don't surface broken state when the underlying piece is gone.
+
+**Considered alternatives:**
+1. **More data to Curator** (e.g., JOIN `daily_candidates` for picked-candidate news source/summary). Rejected: today's failure shows that adding more data doesn't change which inputs Claude attends to under rationalization pressure. The 2026-04-24 fix already added underlying_subject; that data was working today (visible in the prompt) and Claude still picked the duplicate.
+2. **Semantic embeddings on underlying_subject**. Rejected: introduces a vector-store dependency, threshold tuning becomes recurring chore, and "same news event" is a different axis from "same concept" — a cosine threshold catches the second but not the first.
+3. **Pre-Scanner clustering** (LLM-based topic clustering of the 50 candidates first, surface representatives). Rejected for now: adds another LLM call, adds complexity. Headline-overlap is deterministic and fast; if it proves insufficient we'll escalate to clustering.
+4. **Two-step Curator** (Curator returns top-N ranked, second pass picks non-duplicate). Rejected: two Claude calls per pipeline run, more latency, and the second pass would need the same dedup judgment we already failed to enforce.
+5. **Hard server-side filter** (chosen). Smallest viable architectural fix. No new dependencies. No new LLM calls. Deterministic. Cannot be rationalized through.
+
+**Trade-offs.**
+- False-positive risk: a candidate about a legitimately new development on a previously-covered story might be filtered. Acceptable: the cost of a false positive (skip a teachable candidate, pick a different one) is much smaller than the cost of a false negative (publish a duplicate, embarrass the brand, burn $ on audio + interactives + categoriser + reflection).
+- Trump-signs-different-orders is intentionally filtered. Two pieces about presidential executive orders in a week would teach the same "executive-action-as-policy" concept. Better to skip it than ship a near-duplicate.
+- Same-CONCEPT, different-event duplicates (Hormuz + Suez chokepoints) are NOT caught by this filter — they share zero substantive headline tokens. The Curator prompt's SAME-UNDERLYING-CONCEPT rule remains the layer for that case. If the prompt continues to fail on same-concept cases too, the next escalation is pre-Scanner clustering.
+- The filter ran against a 30-day window of recent pieces. Possible over-filter on legitimate follow-ups (a story that returns 3 weeks later with a substantively new angle). Tunable via `DEDUP_MIN_SHARED_TOKENS` constant.
+
+**Forward verification** in FOLLOWUPS `[observing] 2026-04-27 (architectural fix): Curator dedup filter — recurrence watch`. Unblock conditions: 7 cron runs + manual triggers pass with no twin pieces (sample observer events for filter rate); failure signal is a fifth twin-pieces incident.
+
+**Reset-script gap surfaced** during the orphan cleanup of today's two wrangles pieces. `scripts/reset-today.sh --piece-id` doesn't touch `interactives`, `interactive_engagement`, `interactive_audit_results`, or `content/interactives/<slug>.json` files. Manual cleanup (2 JSON files, 2 interactives rows, 5 interactive_engagement rows, 24 interactive_audit_results rows, 1 orphan engagement row) ran in this session. FOLLOWUPS entry queued to extend the script.
+
 ## 2026-04-27 (evening, later): Curator duplicate-pick — SAME-EVENT / SAME-CONCEPT rule with worked examples
 
 **Trigger.** Recurrence of the 2026-04-24 twin-pieces failure pattern. During same-day voice-doctrine iteration the operator manually fired the daily-piece pipeline twice in addition to the autonomous 02:01 UTC cron. Both manual runs (15:01 UTC + 20:40 UTC) landed on the same SCOTUS / cell-location-data news event:

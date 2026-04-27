@@ -14,6 +14,7 @@ import { LearnerAgent } from './learner';
 import { CategoriserAgent } from './categoriser';
 import { InteractiveGeneratorAgent } from './interactive-generator';
 import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
+import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
 import type { StructureAuditResult } from './structure-editor';
@@ -205,7 +206,44 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     await this.logStep(today, pieceId,'curating', 'running', {});
     const curator = await this.subAgent(CuratorAgent, 'curator');
     const recentPieces = await this.getRecentDailyPieces(30);
-    const curatorResult = await curator.curate(candidates, recentPieces);
+
+    // Hard pre-Curator dedup. Curator (Sonnet) keeps picking
+    // near-duplicate stories despite multiple prompt-language tightenings
+    // (DECISIONS 2026-04-24, 2026-04-27 prompt fix, 2026-04-27
+    // architectural fix). Remove duplicates BEFORE Claude sees them.
+    // Defensive fallback: if the filter would eat every candidate (the
+    // dedup catches everything), pass the original list through to
+    // Curator and log a warn — better to risk a duplicate than skip the
+    // day silently. With 50 candidates this fallback should never trip.
+    const recentHeadlines = recentPieces.map((p) => p.headline);
+    const { kept: keptCandidates, filtered: filteredCandidates } =
+      filterDuplicateCandidates(candidates, recentHeadlines);
+
+    const observerForFilter = await this.subAgent(ObserverAgent, 'observer');
+    if (filteredCandidates.length > 0 && keptCandidates.length > 0) {
+      await observerForFilter.logCandidatesFiltered(
+        today,
+        candidates.length,
+        filteredCandidates.length,
+        filteredCandidates.map((f) => ({
+          candidateHeadline: f.candidate.headline,
+          matchedHeadline: f.match.matchedHeadline,
+          sharedTokens: f.match.sharedTokens,
+        })),
+        pieceId,
+      );
+    }
+
+    const candidatesForCurator = keptCandidates.length > 0 ? keptCandidates : candidates;
+    if (filteredCandidates.length > 0 && keptCandidates.length === 0) {
+      await observerForFilter.logError(
+        'dedup-filter', 0,
+        `Headline-overlap dedup would have removed all ${candidates.length} candidates against recent pieces; falling back to unfiltered list (better a possible duplicate than no piece). Investigate the threshold or Scanner output.`,
+        pieceId,
+      );
+    }
+
+    const curatorResult = await curator.curate(candidatesForCurator, recentPieces);
 
     if (curatorResult.skip) {
       await this.logStep(today, pieceId,'skipped', 'done', { reason: curatorResult.reason });

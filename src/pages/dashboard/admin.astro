@@ -221,9 +221,13 @@ try {
 
   // Engagement per daily piece. Aggregate by piece_id (migration 0017)
   // so two pieces sharing a date at multi-per-day get their own rows.
-  // Join daily_pieces to pull the canonical piece date for sort + deep
-  // link; lesson_id is carried for display compat with pre-0017 rows
-  // (where it held piece_date).
+  // INNER JOIN daily_pieces (was LEFT JOIN until 2026-04-27) so engagement
+  // rows pointing at a deleted piece_id silently drop out instead of
+  // rendering as "unknown" in the admin UI. This happens when a reader
+  // hits the still-CDN-cached page in the brief window after operator
+  // resets a piece — fresh INSERT lands against a now-deleted piece_id.
+  // Same posture as the headline-dedup filter: don't surface broken state
+  // to the operator when the underlying piece is gone.
   const engagementRes = await db
     .prepare(
       `SELECT e.piece_id,
@@ -236,7 +240,7 @@ try {
               MAX(e.drop_off_beat) AS top_drop_off,
               MAX(e.date) AS last_active
        FROM engagement e
-       LEFT JOIN daily_pieces dp ON dp.id = e.piece_id
+       INNER JOIN daily_pieces dp ON dp.id = e.piece_id
        WHERE e.course_id = 'daily'
        GROUP BY e.piece_id
        ORDER BY dp.published_at DESC, MAX(e.date) DESC

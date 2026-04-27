@@ -115,6 +115,38 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /** Pre-Curator headline-overlap dedup ran and removed candidates that
+   *  share substantive headline tokens with recently-published pieces.
+   *  Info severity — this is the deterministic backstop catching what
+   *  the prompt-level rule keeps failing to catch (see DECISIONS
+   *  2026-04-27 architectural fix). Visibility matters because this
+   *  invisibly shapes Curator's input set; if filter rate is high, the
+   *  news cycle is dominated by stories Zeemish has already covered,
+   *  which is itself signal.
+   *
+   *  pieceId is the run's piece_id (pre-allocated at the top of
+   *  triggerDailyPiece) — the filter ran for THIS run's pick, even
+   *  though it filters AGAINST prior pieces. */
+  async logCandidatesFiltered(
+    date: string,
+    totalCandidates: number,
+    filteredCount: number,
+    samples: Array<{ candidateHeadline: string; matchedHeadline: string; sharedTokens: number }>,
+    pieceId: string | null = null,
+  ): Promise<void> {
+    const sampleLines = samples.slice(0, 5).map((s) =>
+      `- "${s.candidateHeadline}" matched "${s.matchedHeadline}" (${s.sharedTokens} shared tokens)`
+    ).join('\n');
+    const more = samples.length > 5 ? `\n…and ${samples.length - 5} more.` : '';
+    await this.writeEvent({
+      severity: 'info',
+      title: `Candidates filtered: ${filteredCount} of ${totalCandidates} (headline overlap with recent pieces)`,
+      body: `Pre-Curator dedup removed ${filteredCount} of ${totalCandidates} candidates for ${date}. Curator saw the remaining ${totalCandidates - filteredCount}.\n${sampleLines}${more}`,
+      context: { date, totalCandidates, filteredCount, samples },
+      piece_id: pieceId,
+    });
+  }
+
   /** Audio landed — text + audio both live. Info severity, no action
    *  needed. Fires AFTER publisher.publishAudio second commit. */
   async logAudioPublished(

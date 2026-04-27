@@ -13,7 +13,57 @@ Format per entry:
 
 ---
 
-## [observing] 2026-04-27 (evening, later): Curator SAME-EVENT/SAME-CONCEPT rule recurrence watch
+## [open] 2026-04-27: reset-today.sh --piece-id misses interactives + interactive_audit_results + content/interactives/<slug>.json
+
+**Surfaced:** 2026-04-27 architectural-fix session. After deleting two wrangles pieces via `scripts/reset-today.sh --piece-id`, manual cleanup found orphans the script didn't touch:
+- 2 `interactives` rows (one quiz, one html, both pointing at the deleted piece's source_piece_id)
+- 24 `interactive_audit_results` rows (3 rounds × 4 dimensions × 2 interactive types)
+- 5 `interactive_engagement` rows
+- 2 `content/interactives/<slug>.json` files in git (`inversion-of-suspicion.json` + `inversion-of-suspicion-html.json`)
+
+Plus 1 separate orphan in `engagement` — a fresh INSERT landed against the deleted piece_id during the brief window after delete (CDN-cached page hit by a reader, fired engagement track). The reset script DID delete `engagement` at delete time, but didn't re-clean afterward. This second case is racier and harder to fix in the script; the admin-UI INNER JOIN fix shipped 2026-04-27 architectural-fix session hides them from the operator's view (which is the right level — orphan rows themselves are harmless data, just shouldn't render).
+
+**Hypothesis:** The reset script was written (2026-04-22 in commit `3208c86`) before the interactives content type existed (Area 4 sub-task 4.1 shipped 2026-04-24, migration 0022). Three new tables + a new content folder appeared after the script was written; nobody extended the DELETE list.
+
+**Investigation hints:**
+- Extend the `[3/4] Clearing D1 rows scoped by piece_id + time window...` block in [`scripts/reset-today.sh:170-180`](../scripts/reset-today.sh) to add:
+  ```
+  DELETE FROM interactive_audit_results WHERE interactive_id IN (SELECT id FROM interactives WHERE source_piece_id = '$PIECE_ID');
+  DELETE FROM interactive_engagement WHERE interactive_id IN (SELECT id FROM interactives WHERE source_piece_id = '$PIECE_ID');
+  DELETE FROM interactives WHERE source_piece_id = '$PIECE_ID';
+  ```
+  Order matters — child tables first (audit + engagement reference interactives.id), then parent.
+- Extend the `[2/4] Removing matching MDX file from git...` block to also `git rm` interactive JSON files. Lookup pattern: scan `content/interactives/*.json`, parse each, match on `source_piece_id == $PIECE_ID`. Slug-suffix variants (`-html`) are bundled by piece_id in `groupBySlug`; both files for a given source_piece_id should be removed.
+- Manual fallback used today: `npx wrangler d1 execute zeemish --remote --command="DELETE FROM interactive_audit_results WHERE interactive_id IN (...); DELETE FROM interactive_engagement WHERE interactive_id IN (...); DELETE FROM interactives WHERE id IN (...);"` then `git rm` the JSONs.
+
+**Priority:** low — manual cleanup works, and operator resets are infrequent (this was the third today only because of voice-doctrine iteration). But every operator reset is now an opportunity for orphan accumulation, and we just landed an admin-UI fix that papers over the symptom — the script's the right layer for the durable fix.
+
+---
+
+## [observing] 2026-04-27 (architectural fix): Curator dedup filter — recurrence watch
+
+**Surfaced:** 2026-04-27 evening, after the prompt fix at `11c2450` failed within minutes of deploy. Curator picked the same SCOTUS / cell-location story for the **fourth time** in one day, with diverse 50-candidate set + new prompt's worked example using the literal same scenario as a SKIP example. Hard pre-Curator headline-overlap filter shipped this commit at [`agents/src/shared/dedup-headlines.ts`](../agents/src/shared/dedup-headlines.ts) + wired into [`agents/src/director.ts`](../agents/src/director.ts) `triggerDailyPiece` between `getRecentDailyPieces` and `curator.curate`. See DECISIONS 2026-04-27 (architectural fix) for the full diagnosis + four rejected alternatives.
+
+**What to verify:**
+1. Over the next 7 cron firings + any operator-triggered runs (~through 2026-05-04 at `interval_hours=24`; sooner if operator runs voice tests), watch the admin observer feed for `Candidates filtered: N of 50 (headline overlap with recent pieces)` events. Expected: low filter rate (0–5 of 50) most days, occasional 10+ when news is dominated by a story Zeemish has already covered.
+2. Same-day twin-piece check: any date with 2+ pieces — diff their headlines + check if the news events match. Specifically: if a SCOTUS case, lawsuit, investigation, legislation, or corporate scandal appears in two pieces' headlines on the same date, the filter did not hold (unlikely with shared-token threshold ≥4) OR the second piece's headline diverged enough to slip past (the next escalation lever).
+3. Filter-rate sanity: if filter removes all 50 candidates on a day with the defensive fallback firing, the threshold may be too low. Watch for the warn event `Headline-overlap dedup would have removed all 50 candidates`. Should be near-impossible at 30-day recent-pieces window.
+
+**Unblock conditions** (any one of):
+- 7 cron runs + manual triggers pass with no twin pieces → mark `[resolved]`. The hard filter held.
+- A fifth twin-pieces incident → mark `[open]`, escalate. Tuning levers in priority order: (a) check the tokenizer — did the new candidate's headline use synonyms that didn't share substantive tokens? Add canonicalisation; (b) lower `DEDUP_MIN_SHARED_TOKENS` from 4 to 3 (more aggressive) and re-run the verify harness to check false-positive rate; (c) consider pre-Scanner LLM-based clustering (the option this fix deliberately did not take — adds another LLM call but catches paraphrased headlines).
+- Filter rate >50% of candidates on a typical news day (no major event dominating) → tune by raising `DEDUP_MIN_SHARED_TOKENS` to 5, re-run verify harness, redeploy.
+
+**Investigation hints:**
+- Production query: `SELECT created_at, title, body FROM observer_events WHERE title LIKE 'Candidates filtered:%' ORDER BY created_at DESC LIMIT 20;` — see filter rate + which candidates got filtered.
+- `SELECT date, headline, underlying_subject, voice_score FROM daily_pieces WHERE published_at >= 1777327330000 ORDER BY published_at;` — check for any twin-pieces post-fix (1777327330000 ≈ deploy time of architectural fix).
+- Defensive-fallback signal: `SELECT * FROM observer_events WHERE title LIKE 'Error: dedup-filter%' ORDER BY created_at DESC;` — should return zero rows in normal operation.
+
+**Priority:** medium — observation only, not blocking, but failure mode is reader-visible (twin pieces on the live site = embarrassing + operator-rescue work + wasted Anthropic + ElevenLabs spend per duplicate). The 2026-04-27 evening incident burned ~$3-5 in API + audio + interactives generation across the four retries; this is real money even at small scale. If the unblock signal hits, escalate same-day.
+
+---
+
+## [resolved] 2026-04-27 (evening, later): Curator SAME-EVENT/SAME-CONCEPT rule recurrence watch
 
 **Surfaced:** 2026-04-27 evening. Operator-triggered manual pipeline runs at 15:01 UTC + 20:40 UTC (in addition to the 02:01 UTC autonomous slot) both landed on the same SCOTUS / cell-location-data news event. Curator picked "Supreme Court Reviews Police Use of Cell Location Data" (subject: how proximity data becomes evidence and why the boundary between finding and tracking matters) and then later "Supreme Court Wrangles With Geofence Warrants" (subject: what geofence warrants actually are and how proximity data becomes criminal evidence) — same SCOTUS case, same underlying concept. Wrangles piece deleted via `scripts/reset-today.sh --piece-id 9ee14d8e-…` (commit `72f312d`).
 
@@ -37,6 +87,8 @@ Recurrence of the 2026-04-24 twin-pieces failure pattern. The 2026-04-24 fix add
 - Cross-check with the existing `[observing] 2026-04-26: Curator taxonomy expansion to 14 examples` watch entry — that one tracks novel framings; this one tracks duplicate suppression. They share an observation window and a shared signal (Curator output diversity).
 
 **Priority:** medium — observation only, not blocking, but the failure mode is reader-visible (twin pieces on the live site = embarrassing and operator-rescue work). If the unblock signal hits, escalate.
+
+**Resolved:** 2026-04-27 (architectural fix, same evening). The prompt fix this entry watches FAILED at the first test — Curator picked the same SCOTUS story for the fourth time within minutes of the fix deploying, with diverse 50-candidate set + new prompt's worked example using the literal same scenario as a SKIP example. The diagnosis was that the prompt approach is structurally wrong (model rewarded for picking, not skipping; rationalizes through soft language; even worked examples are read as "specific situations, not patterns"), not under-tightened. The replacement is a hard server-side dedup filter at `agents/src/shared/dedup-headlines.ts` that removes near-duplicate candidates BEFORE Curator sees them — Curator literally cannot pick what's not in its input. The prompt fix from `11c2450` stays as defense-in-depth for same-CONCEPT different-event cases that share zero substantive headline tokens. Tracked under the new `[observing] 2026-04-27 (architectural fix)` entry above. See DECISIONS 2026-04-27 (architectural fix) "Curator duplicate-pick — hard pre-Curator headline-overlap filter" for full diagnosis + four rejected alternatives.
 
 ---
 
