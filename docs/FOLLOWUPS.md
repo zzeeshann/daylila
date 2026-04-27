@@ -13,6 +13,33 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-27 (evening, later): Curator SAME-EVENT/SAME-CONCEPT rule recurrence watch
+
+**Surfaced:** 2026-04-27 evening. Operator-triggered manual pipeline runs at 15:01 UTC + 20:40 UTC (in addition to the 02:01 UTC autonomous slot) both landed on the same SCOTUS / cell-location-data news event. Curator picked "Supreme Court Reviews Police Use of Cell Location Data" (subject: how proximity data becomes evidence and why the boundary between finding and tracking matters) and then later "Supreme Court Wrangles With Geofence Warrants" (subject: what geofence warrants actually are and how proximity data becomes criminal evidence) — same SCOTUS case, same underlying concept. Wrangles piece deleted via `scripts/reset-today.sh --piece-id 9ee14d8e-…` (commit `72f312d`).
+
+Recurrence of the 2026-04-24 twin-pieces failure pattern. The 2026-04-24 fix added `underlying_subject` to the recent-pieces context Curator sees and named "Two pieces teaching the same concept on the same day is a failure state" but used soft "PREFER a different candidate — unless the news is genuinely developing" wording. Today Claude rationalized through the soft language when the concrete framings diverged ("proximity data" vs. "geofence warrants").
+
+**Fix shipped:** prompt-strength change at [agents/src/curator-prompt.ts](../agents/src/curator-prompt.ts). De-dup section split into TWO named MUST-skip failure modes — SAME NEWS EVENT (same SCOTUS case, lawsuit, investigation, bill, scandal, person's death, disaster — even at different procedural moments or wire angles) and SAME UNDERLYING CONCEPT (same chokepoint, incentive trap, bias, regulatory mechanic). "PREFER" replaced with "MUST pick a different candidate". Three worked examples including a literal walkthrough of today's exact failure. See DECISIONS 2026-04-27 (evening, later) "Curator duplicate-pick — SAME-EVENT / SAME-CONCEPT rule" for full trade-offs.
+
+**What to verify:**
+1. Over the next 7 cron firings + any operator-triggered runs (~through 2026-05-04 at `interval_hours=24`; sooner if operator runs voice tests), watch `daily_pieces.underlying_subject` and `daily_candidates` for the picked candidate. Cross-reference against the 7-day window `getRecentDailyPieces` exposes.
+2. Watch the admin observer feed for Curator decline events. If decline rate jumps (e.g., to >20% of triggered runs), the new rule may be over-rejecting — verify the declines name a specific recent piece they're avoiding (legitimate skip) vs. dismissing categories generically (over-rejection).
+3. Same-day twin-piece check: any date with 2+ pieces — diff their `underlying_subject` strings + check if the news events match. Specifically: if a SCOTUS case, a lawsuit, an investigation, a piece of legislation, or a corporate scandal appears in two pieces' subjects on the same date, the fix did not hold.
+
+**Unblock conditions** (any one of):
+- 7 cron runs + manual triggers pass with no SAME-EVENT or SAME-CONCEPT pair landed → mark `[resolved]`. The worked-examples + MUST-skip wording held.
+- A third twin-pieces incident → mark `[open]`, escalate. Tuning levers in priority order: (a) add a procedural pre-check to the prompt — "before picking, ask: is this the same news event as any of the recent pieces? If yes, skip regardless of angle" — placing it as the first instruction Claude reads after the candidate list; (b) add more worked examples drawn from the actual recurrence; (c) consider the JOIN to `daily_candidates` for picked-candidate news source + summary (the option this fix deliberately did not take).
+- Decline rate jumps >20% with declines that misfire (skip a teachable candidate by misidentifying it as a duplicate) → tune by softening the SAME-CONCEPT example threshold or by clarifying the "narrow exception" wording around substantively new concepts.
+
+**Investigation hints:**
+- Production query: `SELECT date, headline, underlying_subject, voice_score FROM daily_pieces WHERE published_at >= <fix_commit_ts> ORDER BY published_at;` — eyeball for same-event or same-concept pairs.
+- `SELECT created_at, title, body FROM observer_events WHERE title LIKE '%Curator declined%' OR title LIKE '%Curator skipped%' ORDER BY created_at DESC LIMIT 20;` — watch the decline reasons; they should name the specific recent piece being avoided.
+- Cross-check with the existing `[observing] 2026-04-26: Curator taxonomy expansion to 14 examples` watch entry — that one tracks novel framings; this one tracks duplicate suppression. They share an observation window and a shared signal (Curator output diversity).
+
+**Priority:** medium — observation only, not blocking, but the failure mode is reader-visible (twin pieces on the live site = embarrassing and operator-rescue work). If the unblock signal hits, escalate.
+
+---
+
 ## [observing] 2026-04-27: HTML interactive parseAndValidateHtml flake — recurrence watch
 
 **Surfaced:** 2026-04-27 02:06 UTC — Ben Sasse piece's HTML interactive failed at `parseAndValidateHtml: Claude returned non-JSON output` (Claude ignored the JSON output format and emitted prose or code-fenced response the parser couldn't recover). One-time model flake on round 1; piece kept its quiz, missed its HTML companion. Operator triggered Generate HTML via the new admin UI button after `6b6ed8a` deployed; the retry succeeded on the very next round, shipping "Visibility and Attention Debt" at `c466f4f` with `qualityFlag='low'`.

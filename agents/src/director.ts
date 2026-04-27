@@ -1447,7 +1447,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    *  overlap across different-source / different-headline same-story picks
    *  (the 2026-04-24 twin-pieces incident — both taught information asymmetry
    *  via prediction markets from the same news event). Headlines alone lexically
-   *  look different; subjects make the semantic cluster legible. */
+   *  look different; subjects make the semantic cluster legible. The 2026-04-27
+   *  recurrence (twin SCOTUS / cell-location pieces) showed that data alone
+   *  isn't enough — Curator can rationalize when subject phrasings diverge.
+   *  The fix landed in the prompt as named SAME-EVENT and SAME-CONCEPT failure
+   *  modes with worked examples; this query stays unchanged. */
   private async getRecentDailyPieces(
     days: number,
   ): Promise<Array<{ headline: string; underlyingSubject: string }>> {

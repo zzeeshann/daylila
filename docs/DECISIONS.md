@@ -2,6 +2,41 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-27 (evening, later): Curator duplicate-pick — SAME-EVENT / SAME-CONCEPT rule with worked examples
+
+**Trigger.** Recurrence of the 2026-04-24 twin-pieces failure pattern. During same-day voice-doctrine iteration the operator manually fired the daily-piece pipeline twice in addition to the autonomous 02:01 UTC cron. Both manual runs (15:01 UTC + 20:40 UTC) landed on the same SCOTUS / cell-location-data news event:
+
+- **Piece 2** (`cfd3f570…`, "Supreme Court Reviews…"): subject = *"how proximity data becomes evidence and why the boundary between finding and tracking matters"*
+- **Piece 3** (`9ee14d8e…`, "Supreme Court Wrangles With…"): subject = *"what geofence warrants actually are and how proximity data becomes criminal evidence"*
+
+Same SCOTUS case, same news event, same underlying concept. Operator caught it, deleted the wrangles piece via `scripts/reset-today.sh --piece-id 9ee14d8e-…` (commit `72f312d`), and asked for the proper fix.
+
+**Why the 2026-04-24 fix didn't catch this.** That fix added `underlying_subject` to the recent-pieces context Curator sees, paired with prompt language ("avoid repetition of UNDERLYING SUBJECT, not just headline wording"). The data path was working today — both subjects shared "proximity data becomes evidence" — but Claude rationalized through the soft "PREFER a different candidate — unless the news is genuinely developing in a way that warrants follow-up teaching" wording when the concrete framing diverged ("proximity data" generally vs. "geofence warrants" specifically). The escape hatch ("genuinely developing") was load-bearing on the failure mode: once Claude convinced itself the second piece was a "different angle of a developing story", the rule was satisfied by its internal reasoning even though the news event was the same.
+
+**Decision: rule-strength, not more data.**
+
+Considered three fix shapes:
+1. **More data** — JOIN `daily_candidates` to add the picked candidate's news source + summary to recent-pieces context. Rejected: the same-event signal was already legible from the underlying_subject overlap; Claude chose to discount it. Adding more inputs doesn't change which inputs the model attends to under rationalization pressure.
+2. **Semantic embeddings** — store an embedding of each `underlying_subject` and refuse picks above a cosine threshold. Rejected: introduces a vector-store dependency, threshold tuning becomes a recurring chore, and "same news event" (today's miss) is not the same axis as "same underlying concept" — a cosine threshold catches the second but not the first.
+3. **Stronger rule + worked examples** — split the de-dup rule into two named MUST-skip failure modes (SAME EVENT, SAME CONCEPT), drop the soft "PREFER" language, add three worked examples including a literal worked example of today's exact failure. **Chosen.** Smallest viable change, addresses the actual failure mechanism (Claude rationalizing through soft language), zero new dependencies.
+
+**What shipped** ([agents/src/curator-prompt.ts](../agents/src/curator-prompt.ts) `buildCuratorPrompt`):
+- Section heading rewritten: "Already published recently — Curator must skip duplicates of either kind below"
+- New section header "Two duplicate failure modes — both are MUST-skip, not soft preference"
+- **SAME NEWS EVENT** rule named explicitly with concrete examples of what counts as the same event (same SCOTUS case, same lawsuit, same investigation, same legislative bill, same scandal, same person's death, same disaster) and what counts as the same event at a different angle (oral argument vs. ruling, indictment vs. verdict, House vote vs. Senate vote, hearing vs. decision, leak vs. confirmation). Narrow exception tightened from "the news is genuinely developing in a way that warrants follow-up teaching" to "the news has produced a substantively new underlying concept to teach — not when the angle merely differs". The phrase "the angle merely differs" names the exact failure mode of today.
+- **SAME UNDERLYING CONCEPT** rule preserves the 2026-04-24 protection but reframes as MUST-skip not PREFER.
+- **Three worked examples** — first example is a literal walkthrough of today's failure ("Supreme Court Reviews…" + "Supreme Court Wrangles With Geofence Warrants…" → SAME EVENT, SKIP), second covers same-concept-different-event (Hormuz + Suez chokepoints), third covers different-event-different-concept that should PICK (FDA + Pfizer). Worked examples are concrete enough that Claude can pattern-match against them rather than rely on abstract conceptual judgement.
+- "PREFER a different candidate" replaced with "MUST pick a different candidate" throughout.
+
+**What didn't ship.** No schema change. No new JOIN. No agent-side rate-limit. No semantic embedding. The `getRecentDailyPieces` query in [agents/src/director.ts](../agents/src/director.ts) is unchanged; only its in-code comment is updated to reference today's recurrence + name the prompt as the leverage point.
+
+**Forward verification.** Watch the next 7 cron firings + manual triggers (~2026-05-04 if at `interval_hours=24`; sooner if operator tests). Expected signal: when a candidate echoes a prior piece's news event or concept, Curator skips it via the existing decline path, observable in the admin observer feed. Failure signal: a third twin-pieces incident — would mean the worked examples need to be more numerous or the language needs an even harder must-skip framing (e.g., procedural framing — "before picking, ask: 'is this the same news event as any of the recent pieces? If yes, skip regardless of angle.'"). FOLLOWUPS `[observing] 2026-04-27: Curator SAME-EVENT/SAME-CONCEPT rule recurrence watch` carries the unblock conditions and tuning levers.
+
+**Trade-offs.**
+- The new prompt is longer (~30 lines added). Acceptable: Curator is a single Claude call per pipeline run; the prompt cost is amortized over an entire piece.
+- The worked examples lean on Zeemish's actual published-piece subjects (Hormuz chokepoints, FDA approvals). If the Curator's reuse-bias for these specific examples becomes too strong, the examples would need rotation. Watch for this in the FOLLOWUPS observation window.
+- The narrow exception for "substantively new underlying concept" is still a soft judgement — if a SCOTUS case produces a *genuinely new* teaching concept (e.g., the Court invents a new doctrine), Curator can still pick it. The failure mode this fix targets is rationalization-without-new-concept, not blocking legitimate follow-ups.
+
 ## 2026-04-27 (Iteration 1): Doctrine tightenings from the geofence piece + voice system documentation
 
 **Context.** First piece under the doctrine architecture (shipped 9afcd85, deployed via GitHub Actions, triggered from admin) — `2026-04-27-supreme-court-reviews-police-use-of-cell-location-data-to-fi`. Voice score 92. The piece passed the gate but operator review surfaced two real failures the auditor missed:

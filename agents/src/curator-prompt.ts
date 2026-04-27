@@ -111,10 +111,21 @@ export function buildCuratorPrompt(
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
-## Already published recently — avoid repetition of UNDERLYING SUBJECT, not just headline wording. Includes today's earlier picks if any:
+## Already published recently — Curator must skip duplicates of either kind below. Includes today's earlier picks if any:
 ${recentBlock}
 
-Pick the most teachable story and create a brief. If a candidate's underlying concept is the same as one already published (even if the headline is worded differently, even from a different news source, even about a different country or company), PREFER a different candidate — unless the news is genuinely developing in a way that warrants follow-up teaching. Two pieces teaching the same concept on the same day is a failure state.
+## Two duplicate failure modes — both are MUST-skip, not soft preference:
+
+**SAME NEWS EVENT = duplicate, even at a different angle.** If a candidate is about the same SCOTUS case, the same lawsuit, the same investigation, the same legislative bill, the same corporate scandal, the same person's death, the same natural disaster as a recent piece — you MUST pick a different candidate. Different wire services covering the same event from different angles do not count as different stories. Different procedural moments of one story (oral argument vs. written ruling, indictment vs. trial verdict, House vote vs. Senate vote, hearing vs. decision, leak vs. confirmation) do not count as different stories. Narrow exception: when the news has produced a substantively new underlying concept to teach — not when the angle merely differs.
+
+**SAME UNDERLYING CONCEPT = duplicate, even at a different event.** If a candidate teaches the same concept as a recent piece — the same chokepoint pattern, the same incentive trap, the same cognitive bias, the same systems-design failure, the same regulatory mechanic — pick a different candidate even when the news event is genuinely different. Two pieces teaching "information asymmetry" or "supply-chain chokepoints" or "regulatory capture" within the same week is the failure state.
+
+Worked examples:
+- Recent: "Supreme Court Reviews Police Use of Cell Location Data" (subject: how proximity data becomes evidence). Today's candidate: "Supreme Court Wrangles With Geofence Warrants in the Cell Data Case." → SAME EVENT. SKIP. Even though the candidate frames it as "geofence warrants" specifically and the prior piece framed it as "proximity data" generally, both pieces are about the same SCOTUS case. A different framing is not a different event.
+- Recent: "Iran-Israel tensions raise oil prices 8%" (subject: Hormuz chokepoint). Today's candidate: "Suez Canal blockage drives shipping costs up 12%." → DIFFERENT EVENT, SAME CONCEPT (chokepoints). SKIP unless a meaningfully different teaching angle is reachable.
+- Recent: "FDA approves new diabetes drug" (subject: market structure of pharma approvals). Today's candidate: "Pfizer earnings beat expectations on weight-loss drug." → DIFFERENT EVENT, DIFFERENT CONCEPT. PICK if teachable.
+
+Pick the most teachable story and create a brief. Two pieces about the same news event or teaching the same concept on the same day is a failure state.
 
 Return JSON only. The "selectedCandidateId" field MUST be the exact UUID copied verbatim from the chosen candidate's "id:" field above — do not invent, truncate, guess, or substitute a list position number.`;
 }
