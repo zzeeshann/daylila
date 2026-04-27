@@ -12,7 +12,15 @@ Every piece serves this purpose. If a piece doesn't help someone understand the 
 
 ---
 
-This document is the single source of truth for how Zeemish sounds. Every agent that writes or audits reader-facing text must follow these rules exactly.
+## Two layers
+
+This document is the **operational layer** — tribe words, length targets, the editor's read-aloud test. The rules are mechanical and easy to check.
+
+The **deeper standard** lives at [`content/ZEEMISH_MANTO_VOICE.md`](./ZEEMISH_MANTO_VOICE.md). That doc names the posture — drop the reader into something already happening, find a specific person, let contradictions stand, end on an image not a moral, never write "this matters because". The Drafter reads it before writing every piece. The Voice Auditor judges every piece against it. The contract below is the polish; the doctrine is the bar. If they conflict, the doctrine wins.
+
+The doctrine's contents currently express the standard through Saadat Hasan Manto's posture, but the principle that must persist is *clear teaching, not robotic prose*. The doc may evolve; the principle does not.
+
+---
 
 ## The non-negotiables
 

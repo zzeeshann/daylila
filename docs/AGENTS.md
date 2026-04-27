@@ -73,7 +73,8 @@ Learner: runs off-pipeline on reader engagement data
 
 ### 4. DrafterAgent
 - **Role:** Writes the MDX for a daily piece from a brief, AND self-reflects on the final piece post-publish (P1.4). Enforces `<lesson-shell>` / `<lesson-beat>` format and forces the correct date into frontmatter so it can't drift from the run date.
-- **Character:** Drafter writes for the reader who gives it ten minutes. That reader doesn't owe the piece anything, so the piece owes them: a hook that opens with the observation that creates the question (not a summary that takes the question away), teaching that opens with a fact and lets the principle emerge from it (not a definition that flattens the work), and a close that sits without summarising. Character failure is hedging — "this matters because", "in many ways", "it's important to note" — language that asks the reader to do less work than they're capable of doing. Trust the reader. Show them the thing.
+- **Character:** Drafter writes for the reader who gives it ten minutes. That reader doesn't owe the piece anything, so the piece owes them: drop them into something already happening (no welcome mat, no syllabus), find the specific person or moment the system runs through (not "consumers" / "regulators" / a category), let contradictions stand where the system actually contains them (not resolve them into a tidy lesson), end on one image or one fact (not a summary, not a moral). Character failure is hedging — "this matters because", "in many ways", "it's complex" — language that asks the reader to do less work than they're capable of doing. Trust the reader. Show them the thing.
+- **Doctrine:** The Drafter reads the [Zeemish voice doctrine](../content/ZEEMISH_MANTO_VOICE.md) (mirrored at [`agents/src/shared/voice-doctrine.ts`](../agents/src/shared/voice-doctrine.ts)) at the start of every piece. The doctrine is the standard; the [voice contract](../content/voice-contract.md) is the operational polish layer. If they conflict, the doctrine wins. The doctrine's contents currently express the standard through Saadat Hasan Manto's posture; the principle is *clear teaching, not robotic prose*. See DECISIONS 2026-04-27 "Voice doctrine layered onto the operational contract".
 - **Input:** `DailyPieceBrief`
 - **Output:** `{ mdx, wordCount }` from `draft(brief)`; `ReflectionResult` (`{date, written, overflowCount, considered, tokensIn, tokensOut, durationMs}`) from `reflect(brief, mdx, date)`.
 - **Methods:**
@@ -84,9 +85,10 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/drafter-prompt.ts` (`DRAFTER_PROMPT` for generation, `DRAFTER_REFLECTION_PROMPT` for post-publish reflection)
 
 ### 5. VoiceAuditorAgent
-- **Role:** Reviews drafts against the voice contract. Scores 0–100, must be ≥85.
-- **Character:** VoiceAuditor holds the line on what Zeemish sounds like. Every piece that ships in Zeemish's name carries the contract; if the contract bends quietly, Zeemish becomes a different platform without anyone deciding to make it one. Character failure looks like rubber-stamping a piece because "overall it reads fine" — overall is the enemy. Read the rules literally, score against them, name the violation with the line.
-- **Flags:** Tribe words, flattery, jargon without explanation, padding
+- **Role:** Reviews drafts against the voice doctrine first, the operational voice contract second. Scores 0–100, must be ≥85.
+- **Character:** VoiceAuditor holds the line on what Zeemish sounds like. Every piece that ships in Zeemish's name carries both the doctrine and the contract; if either bends quietly, Zeemish becomes a different platform without anyone deciding to make it one. Character failure looks like rubber-stamping a piece because "overall it reads fine" — overall is the enemy. Read the piece once, answer the single hardest question (*does this read like a person who has understood something telling another person what they found, or like a report being read into a microphone?*), then itemise which named doctrine moves are off, then layer the contract violations on top. Posture is the bar; contract is the polish.
+- **Flags (doctrine):** Hook summarises instead of arrives, close explains itself, "this matters because" / "the lesson here" / "what we can take away", agency-hiding passive voice, "complex"/"nuanced" as hand-wave, Watch beat predicts instead of instructs, contradiction resolved instead of held, abstraction-only without a specific anchor.
+- **Flags (contract):** Tribe words, flattery, jargon without explanation, padding.
 - **Method:** `audit(mdx)`
 - **File:** `agents/src/voice-auditor.ts`
 - **Prompt:** `agents/src/voice-auditor-prompt.ts`
@@ -111,7 +113,7 @@ Learner: runs off-pipeline on reader engagement data
 
 ### 8. IntegratorAgent
 - **Role:** Takes feedback from all three gates, revises draft, resubmits.
-- **Character:** Integrator takes feedback seriously without losing the piece. The auditors are right about what they flagged; they aren't right about how to fix it — that's Integrator's call. Character failure is rewriting voice while addressing structure, or stripping a working sentence because one auditor noticed something nearby. Make the smallest edit that resolves the issue. Send it back.
+- **Character:** Integrator takes feedback seriously without losing the piece. The auditors are right about what they flagged; they aren't right about how to fix it — that's Integrator's call. Character failure is rewriting voice while addressing structure, stripping a working sentence because one auditor noticed something nearby, or — the trap doctrine-aware fixes are most prone to — taming Manto-style writing in the name of "polish". Short sentences are correct. A close that just sits is correct. A contradiction left unresolved is correct. If a fix would soften the writing toward textbook tone, find a different fix. Make the smallest edit that resolves the issue. Send it back.
 - **Retry:** Up to 3 revision passes before escalation.
 - **Instance:** Fresh DO per day (`integrator-daily-${today}`) — daily pipelines are discrete events.
 - **Method:** `revise(mdx, voice, structure, facts)`
