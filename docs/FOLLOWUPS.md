@@ -13,6 +13,47 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-27: HTML interactive parseAndValidateHtml flake — recurrence watch
+
+**Surfaced:** 2026-04-27 02:06 UTC — Ben Sasse piece's HTML interactive failed at `parseAndValidateHtml: Claude returned non-JSON output` (Claude ignored the JSON output format and emitted prose or code-fenced response the parser couldn't recover). One-time model flake on round 1; piece kept its quiz, missed its HTML companion. Operator triggered Generate HTML via the new admin UI button after `6b6ed8a` deployed; the retry succeeded on the very next round, shipping "Visibility and Attention Debt" at `c466f4f` with `qualityFlag='low'`.
+
+**Hypothesis:** Non-deterministic Claude formatting flake — the prompt's JSON contract is fine when the model honours it, and the per-round retry mechanism inside `runHtmlLoop` would have recovered if the parse error had landed AFTER the produce call instead of being thrown out of `parseAndValidateHtml` itself. **Bug to consider:** should `parseAndValidateHtml` return a structured failure that lets the auditor loop count it as a failed round (and retry), rather than throwing and aborting the whole HTML alarm? Would change the failure mode from "abort with no commit" to "max-fail with ship-as-low" — closer to how the other auditor dimensions handle bad model output.
+
+**Investigation hints:**
+- Watch `observer_events WHERE title LIKE 'Interactive generation failed:%'` over the next 7 cron runs. If `parseAndValidateHtml: Claude returned non-JSON output` recurs on a different piece, it's a class of flake worth hardening the loop against. If it doesn't recur, leave the parseAndValidateHtml throw-on-failure semantic alone — the manual retry path now works.
+- If the flake recurs, [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) `runHtmlLoop` is the right surface — wrap `parseAndValidateHtml` in a try/catch that converts the throw into a failed-round with the parse error as the auditor note, lets the loop iterate.
+
+**Unblock:** if no recurrence by 2026-05-04, mark `[wontfix]` (one-off model flake; the manual retry path in admin handles it). If recurrence ≥1 within 7 days, escalate to `[open]` and harden the loop.
+
+**Priority:** low (manual retry works; just observability).
+
+---
+
+## [resolved] 2026-04-27: Admin had no UI to retry a missing HTML companion when quiz exists
+
+**Surfaced:** 2026-04-27 — Ben Sasse piece's HTML interactive failed; per-piece admin's "Retry interactive" button was hidden because `daily_pieces.interactive_id` was set (pointing at the quiz). Interactives list page's "Regenerate" button required an existing row of the target type to delete first, so couldn't bootstrap missing HTML. Only path was `curl POST /interactive-generate-trigger` with `ADMIN_SECRET`.
+
+**Resolved:** 2026-04-27 across three commits:
+- `6b6ed8a feat(admin): two-row interactive section + honest list-page footnote` — per-piece admin Interactive section now exposes Quiz · HTML rows with state-aware Generate (idempotent bootstrap) / Regenerate (destructive) buttons + inline last-failure reason. Interactives list page footnote replaced + first iteration of "Pieces missing interactives" subsection (two columns).
+- `4195a2b fix(admin): gap-list redesign — single flat row + slug-inclusive URLs` — operator review caught duplication and ambiguous date-only URLs at multi-per-day. Redesigned to single flat list, one row per piece, inline status pills (`quiz ✓ · html ✗`), one Open link per row, slug-inclusive URLs sourced from the dailyPieces content collection.
+- Operator-verified: clicked Generate HTML on Ben Sasse → `c466f4f feat(interactives): Visibility and Attention Debt (value-revelation-under-constraint) [html, flagged low]` shipped via the new flow.
+
+See DECISIONS 2026-04-27 "Two-row interactive admin section + honest list-page footnote" + "Gap-list redesign — single flat row per piece, slug-inclusive URLs" for full trade-off logs.
+
+---
+
+## [resolved] 2026-04-27: Agents-worker deploy broken since refinement.2 merge
+
+**Surfaced:** 2026-04-27 13:48 UTC — operator noticed red CI status on every commit since the morning's `9c2dd82` merge. Investigation showed the `deploy-site` job (Astro site worker) was passing every run, but `deploy-agents` was failing with `Syntax error "#"` at [agents/src/structure-editor-prompt.ts:16](../agents/src/structure-editor-prompt.ts:16). The line had markdown-style code spans `` `## kebab-case` `` and `` `<lesson-shell>` `` inside a backtick-delimited template literal — the inner backticks terminated the outer template and esbuild parsed `## kebab-case` as JS where `#` is invalid private-field syntax. Bug introduced by refinement.2 commit `93d6500`.
+
+**Why prod stayed up:** Cloudflare keeps the last-good deploy live when a new deploy fails. The agents-worker ran the pre-7:06 AM code (`9609f6a` Categoriser-floor) all day — including handling the Generate HTML retry on Ben Sasse correctly. The deploy gap risk is FUTURE prompt changes / fixes, not current runtime.
+
+**Resolved:** `ca3bce8 fix(agents): escape backticks in structure-editor-prompt template literal` — backslash-escaped the four inner backticks. Local `wrangler deploy --dry-run` confirmed clean build (1678 KiB, 16 DO bindings). CI ran `ca3bce8` green; agents-worker is back on the latest code.
+
+**Lesson:** when a CHECK item or piece of agent prompt copy contains markdown code spans, those backticks need to be `\\\`` in source or the template literal breaks. A future tightening: wire a CI assertion that `agents/src/*-prompt.ts` files compile through esbuild before the deploy step (would have caught this without burning a deploy).
+
+---
+
 ## [resolved] 2026-04-26: Area 5 single-scroll layout in progress
 
 **Snapshot tag:** `area-5-snapshot` (commit `148f7f4`) — rollback point. Pushed to origin at the start of Area 5 work; the tag pins the daily-piece reader surface in its paginated-stepper shape so a `git reset --hard area-5-snapshot` recovers the pre-Area-5 state without ambiguity.
