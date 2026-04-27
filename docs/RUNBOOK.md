@@ -595,6 +595,39 @@ Three options:
 
 For minor tightenings, eyeball + cron is fine. For wholesale doctrine swaps, do all three and watch 5–7 cron firings before deciding it's stable.
 
+## Curator dedup filter — observability + tuning
+
+The hard pre-Curator headline-overlap filter (2026-04-27 architectural fix) sits between Scanner output and Curator. Tunables in [`agents/src/shared/dedup-headlines.ts`](../agents/src/shared/dedup-headlines.ts):
+
+- `DEDUP_MIN_SHARED_TOKENS = 4` — substantive-token overlap threshold for filter trigger.
+- `DEDUP_RATIO_FALLBACK_MIN_SHARED = 3` + `DEDUP_HIGH_RATIO_FALLBACK = 0.5` — short-headline fallback so 3 shared tokens on a 5-token headline still catches.
+
+### Verify the filter regression suite
+
+```
+cd agents
+pnpm verify-dedup
+```
+
+14 cases covering the 2026-04-24 Maduro twins, the 2026-04-27 SCOTUS twins, plus deliberate false-positive probes (Trump signs different bills, Hurricane Helene days apart, distinct SCOTUS cases on same day). 13 should pass; 1 documented borderline (Trump-signs-different-orders, intentionally filtered as aggressive posture). Re-run after any tuning change.
+
+### Watch the filter activity in production
+
+Admin observer feed shows:
+- `Candidates filtered: N of 50 (headline overlap with recent pieces)` — info severity, fires whenever the filter removes anything. Body lists each filtered candidate + the recent piece it matched + shared-token count.
+- `Error: dedup-filter` — warn severity, fires only on the defensive fallback (filter would eat all 50 candidates → pass original list through). Should be near-impossible at 30-day recent-pieces window; if it fires, threshold is too low.
+
+Direct query:
+```
+npx wrangler d1 execute zeemish --remote --command="SELECT created_at, title, body FROM observer_events WHERE title LIKE 'Candidates filtered:%' ORDER BY created_at DESC LIMIT 10;"
+```
+
+### Tuning levers if filter misfires
+
+- **Filter rate too high (>50% of candidates) on normal news days** → raise `DEDUP_MIN_SHARED_TOKENS` from 4 to 5, re-run verify suite, redeploy.
+- **Twin pieces still slip through** → lower threshold to 3 (more aggressive). If that doesn't help, the new candidate's headline is using synonyms that don't share substantive tokens — escalate to pre-Scanner LLM-based clustering (the option deliberately not taken in the architectural fix; would add another LLM call but catches paraphrased headlines).
+- **Legitimate follow-ups getting filtered** (a story returning weeks later with a substantively new angle) → tune the recent-pieces window in `getRecentDailyPieces(30)` to `getRecentDailyPieces(7)`.
+
 ## Add a daily piece manually
 Create an MDX file at `content/daily-pieces/YYYY-MM-DD-{slug}.mdx`:
 ```yaml

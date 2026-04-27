@@ -2,7 +2,7 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
-**Currently working on:** Voice doctrine (2026-04-27 evening) — local edits, not yet deployed. See "Voice doctrine layered onto the operational contract" below for details. Pending: typecheck clean, deploy, watch the next 5–7 cron runs for posture signal.
+**Currently working on:** Nothing — session closed 2026-04-27 late evening. Two deployed-and-watching items from today: (1) voice doctrine (Iteration 1 tightenings shipped at `f8bdb0c`, watch 5–7 cron runs for title/close/rhythm signal); (2) Curator pre-Curator dedup filter (architectural fix shipped at `e7ce2a4` after three rounds of prompt fixes failed; watch the same 5–7 cron runs for `Candidates filtered:` observer events + zero twin pieces). FOLLOWUPS has the named tuning levers if either watch turns red. See "Curator duplicate-pick — hard headline-overlap filter" section below + DECISIONS 2026-04-27 (architectural fix) for the full story including why prompt-language fixes structurally failed.
 
 Session 2026-04-27 (earlier) closed across 5 commits on origin/main:
 
