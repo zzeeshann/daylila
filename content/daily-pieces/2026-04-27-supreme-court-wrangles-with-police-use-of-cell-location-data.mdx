@@ -1,0 +1,52 @@
+---
+title: Geofence Warrants
+date: "2026-04-27"
+newsSource: The New York Times
+underlyingSubject: what surveillance actually is — how proximity becomes evidence and why the boundary between finding and tracking matters
+estimatedTime: 6 min
+beatCount: 5
+description: A detective in Virginia pulled cell tower records for a robbery and got location data for 19,000 people. The Supreme Court is deciding if that's a search.
+voiceScore: 92
+publishedAt: 1777324076678
+pieceId: "2b084d3c-7401-48a3-b6e2-0f85dc478e1c"
+---
+
+## hook
+
+A detective investigating a robbery in Virginia sent a request to a cell service provider: give me records for every phone that was near the crime scene between 3pm and 6pm on a Tuesday afternoon. The provider sent back data for 19,000 devices.
+
+The detective was looking for one suspect. The tower recorded everyone whose phone pinged within range — which in a city means anyone within a half-mile radius for three hours. Is opening that database a search?
+
+## teaching-1
+
+Cell towers don't record GPS coordinates. They record proximity: your phone connected to this tower at this time. The tower's range varies — 500 meters in dense urban areas, several miles in rural ones. Every connection generates a log entry: device ID, timestamp, tower location.
+
+A phone pings a tower every time you make a call, send a text, or refresh an app. In an active area, a single tower might log 10,000 to 50,000 connections in an hour. The system doesn't know who committed a crime. It knows who was within range when the crime happened — and who else was there, and where they went after.
+
+The request the Virginia detective made is called a geofence warrant. Police give a service provider a geographic boundary and a time range. The provider returns every device that connected to towers inside that boundary during that window. Then investigators narrow the list — eliminate people whose movement patterns don't match, whose phone stayed in one place, who left the area before the crime. What remains is a suspect pool.
+
+## teaching-2
+
+The Supreme Court case turns on this: is requesting all the phones in an area finding a suspect, or tracking a population?
+
+A traditional warrant names a suspect. Police have probable cause that John Smith committed a crime. They request records for John Smith's phone. One person, one device, one set of records.
+
+A geofence warrant reverses the process. Police don't know who the suspect is. They request records for a place and a time. The service provider returns every device that was there — thousands of people who are not suspects, have never been suspects, whose only connection to the crime is that their phone was nearby.
+
+In a case in Raleigh, North Carolina, police investigating a murder requested tower data for a two-hour window covering six city blocks. The query returned 5,623 devices. Investigators filtered it down to 19 phones based on movement patterns. One of those 19 was charged. The other 5,604 people never knew their location data had been pulled, analyzed, and stored in a criminal investigation file.
+
+The legal question is whether casting that wide net — pulling data for 5,623 people to find one — constitutes a search under the Fourth Amendment. If it's a search, it requires a warrant based on probable cause. If it's not a search, it's an investigative technique police can use without prior judicial approval.
+
+## teaching-3
+
+The boundary matters because the pattern extends beyond cell towers. License plate readers already photograph every car passing a checkpoint — police query the database later when they're looking for a specific vehicle, but the system photographs everyone first. Facial recognition systems scan crowds in public spaces and store the data; investigators search the archive when they need to identify someone who was present at a specific location.
+
+The structure is the same: collect everyone's data, search it later. The question the Court is deciding sets the rule for all of it — does mass collection plus filtered search equal a search of the individuals whose data got swept up, or is it something else?
+
+If geofence warrants aren't searches, the precedent permits: querying purchase records for everyone who bought a specific item in a specific area during a specific time range; accessing transit card data for everyone who entered a subway station during an investigation window; pulling browsing history for everyone who visited a website.
+
+The system already logs this. The question is what law enforcement can request without naming a suspect first.
+
+## close
+
+Last year in the United States, prosecutors filed geofence warrant requests that returned location data for an estimated 5.9 million devices.
