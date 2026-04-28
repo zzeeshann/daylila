@@ -1,0 +1,71 @@
+{
+  "slug": "defection-incentives-under-asymmetry",
+  "type": "quiz",
+  "title": "Defection Incentives Under Asymmetry",
+  "concept": "Mutual-restraint agreements become unstable when participants face different cost structures, capacity constraints, or outside options — asymmetry in exposure creates asymmetry in the payoff from abandoning coordination.",
+  "interactiveId": "b3855a60-b126-4718-abf5-c795f9de6597",
+  "sourcePieceId": "b4ffbd42-cd10-484e-b92e-3085f2303266",
+  "publishedAt": 1777385141998,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does asymmetry in outside options destabilize coordination agreements even when mutual restraint would benefit all participants?",
+        "options": [
+          "Participants with strong outside options can negotiate better terms within the agreement",
+          "A participant with viable alternatives faces lower cost if coordination collapses, reducing the penalty that keeps them compliant",
+          "Outside options signal distrust and trigger retaliation from other participants",
+          "Participants focus on outside opportunities instead of monitoring compliance"
+        ],
+        "correctIndex": 1,
+        "explanation": "When one participant can survive or profit outside the agreement, the threat of collective breakdown loses force. If coordination fails, the participant with alternatives simply pivots; the participant dependent on coordination absorbs the full loss. This asymmetry in fallback positions translates directly into asymmetry in willingness to maintain restraint."
+      },
+      {
+        "question": "How does variance in per-unit cost across participants affect the stability of output-restriction agreements?",
+        "options": [
+          "Low-cost producers can profitably undercut agreed prices, while high-cost producers cannot",
+          "High-cost producers require compensation from low-cost producers to maintain parity",
+          "Low-cost producers remain profitable across a wider price range, making them less dependent on elevated prices that require coordination to sustain",
+          "Cost variance creates distrust because participants cannot verify each other's true expenses"
+        ],
+        "correctIndex": 2,
+        "explanation": "A producer with low per-unit cost can tolerate price declines that would bankrupt a high-cost producer. When prices fall after coordination breaks, the efficient producer survives or even thrives on volume, while the inefficient producer faces insolvency. The low-cost participant has less to lose from abandoning the agreement, while the high-cost participant depends on it for survival."
+      },
+      {
+        "question": "What role does the gap between production capability and permitted output play in a participant's decision to abandon restraint?",
+        "options": [
+          "Large unused capability becomes a sunk cost that justifies exit",
+          "Participants with large gaps face political pressure from domestic constituencies to maximize employment",
+          "Unused capability represents forgone profit in every period — the wider the margin between what you can produce and what you may produce, the higher the opportunity cost of continued compliance",
+          "Excess capability signals inefficiency and reduces bargaining power within the coordination group"
+        ],
+        "correctIndex": 2,
+        "explanation": "When your production infrastructure sits idle because an agreement caps your output, you sacrifice profit every day the constraint holds. A participant operating at half capacity while capable of doubling output faces enormous daily opportunity cost. As the capability-to-quota gap widens, the temptation to abandon restraint and capture that forgone revenue grows."
+      },
+      {
+        "question": "Why might a participant choose to exit a mutual-restraint agreement even when price collapse after exit would harm all parties including the defector?",
+        "options": [
+          "The participant miscalculates the consequences of breakdown",
+          "Reputational benefits from appearing decisive outweigh financial losses",
+          "The participant anticipates that others will eventually defect anyway, making early exit preferable to being the last compliant member absorbing losses while others capture gains",
+          "Exit allows the participant to negotiate better terms for re-entry later"
+        ],
+        "correctIndex": 2,
+        "explanation": "If coordination appears unstable, waiting to defect becomes costly. The first defector captures high prices at unrestricted volume; later defectors face falling prices as supply floods the market. When a participant expects others will eventually break restraint, preemptive exit limits downside — better to be the cause of collapse than the victim of it."
+      },
+      {
+        "question": "How does revenue-source concentration determine a participant's tolerance for coordination breakdown?",
+        "options": [
+          "Participants dependent on a single revenue stream cannot afford the monitoring costs required for compliance verification",
+          "Concentration creates desperation, making participants more willing to accept unfavorable agreement terms",
+          "A participant whose income derives entirely from the coordinated market cannot absorb the revenue shock if coordination fails; a participant with income from multiple sources can withstand breakdown in one market",
+          "Diversified participants have conflicts of interest that make trustworthy coordination impossible"
+        ],
+        "correctIndex": 2,
+        "explanation": "When one market provides all your income, its collapse is catastrophic. When that market is one of several income sources, its collapse is manageable. This asymmetry in exposure determines who can afford to trigger breakdown. The mono-dependent participant must preserve coordination at almost any cost; the diversified participant can walk away when restraint becomes burdensome."
+      }
+    ]
+  }
+}
