@@ -1,0 +1,71 @@
+{
+  "slug": "observation-without-authority",
+  "type": "quiz",
+  "title": "Observation Without Authority",
+  "concept": "Documentation systems can record patterns of concern while possessing no mechanism to intervene until behavior crosses predefined legal or procedural thresholds — accumulation of sub-threshold signals does not generate power to act.",
+  "interactiveId": "3cf90704-63a3-4316-8541-a105ba70e453",
+  "sourcePieceId": "871db594-7344-4fcd-bdaf-d410fa29d73c",
+  "publishedAt": 1777347270870,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What determines whether documented concern about someone's behavior can trigger formal intervention?",
+        "options": [
+          "Whether the documentation comes from credible sources with direct observation",
+          "Whether the behavior described meets specific predefined criteria for compulsory action",
+          "Whether the volume of documentation establishes a pattern rather than isolated incidents",
+          "Whether authorities judge the accumulated information indicates elevated risk"
+        ],
+        "correctIndex": 1,
+        "explanation": "Intervention authority activates at defined behavioral thresholds, not through information quality or quantity. A system may possess extensive documentation of troubling patterns from highly credible observers, yet lack any legal mechanism to compel action unless specific criteria — typically imminent danger, completed offense, or statutory definition of incapacity — are satisfied. Professional judgment and pattern recognition inform decisions within existing authority but cannot manufacture authority where none exists."
+      },
+      {
+        "question": "Why do retrospective investigations often reveal that authorities possessed multiple reports about someone before a harmful event, yet took no preventive action?",
+        "options": [
+          "Resource constraints force triage decisions that deprioritize reports without immediate urgency indicators",
+          "Organizations develop institutional blind spots that prevent pattern recognition across separate reports",
+          "The reports described behavior that individually remained below intervention thresholds when they were filed",
+          "Privacy protections prevent investigators from examining prior reports until after harm establishes probable cause"
+        ],
+        "correctIndex": 2,
+        "explanation": "The gap is structural, not operational. After harm occurs, scattered observations cohere into an obvious pattern. Before harm, those same observations existed as isolated descriptions of sub-threshold behavior — no specific threat articulated, no offense committed, no demonstration of immediate incapacity. Retrospectively they form a trajectory; prospectively each was information without actionable content. This is not about resource prioritization, institutional blindness, or privacy barriers preventing access to existing reports. The behavior described genuinely did not cross intervention thresholds at the time."
+      },
+      {
+        "question": "A person's concerning behavior gets reported to three different institutions over several months. What structural feature typically prevents these reports from forming a unified assessment?",
+        "options": [
+          "Each institution applies different risk evaluation frameworks that produce incompatible assessments",
+          "Privacy regulations prohibit cross-institutional sharing without consent or court order in most contexts",
+          "Institutions maintain separate information systems without routine protocols for cross-database pattern detection",
+          "Competing institutional priorities mean no single agency accepts responsibility for synthesizing external reports"
+        ],
+        "correctIndex": 2,
+        "explanation": "The primary barrier is architectural fragmentation. Different institutions collect observations in independent systems without established integration mechanisms. An emergency helpline's documentation, an educational institution's behavioral notes, and a public safety agency's field assessment records sit in unconnected databases. The core problem is not conflicting frameworks, privacy law (which permits sharing in many threat contexts), or responsibility diffusion — it is that absent formal sharing protocols, the pattern they collectively form never becomes visible to any single decision-maker who might recognize its significance."
+      },
+      {
+        "question": "When does a history of multiple reports about escalating troubling behavior become legally relevant for intervention decisions?",
+        "options": [
+          "When the cumulative documentation demonstrates a persistent pattern sufficient to establish grounds for preventive restriction",
+          "When any single report describes threshold-crossing behavior, with earlier documentation providing context",
+          "When the reporting frequency indicates systematic rather than episodic concern from observers",
+          "When independent sources corroborate the pattern, eliminating the possibility of biased or mistaken observation"
+        ],
+        "correctIndex": 1,
+        "explanation": "Prior documentation does not accumulate into intervention authority. Compulsory action requires a current report describing behavior that independently satisfies legal criteria. Earlier reports may help authorities understand trajectory or establish history for evidentiary purposes, but they do not lower the threshold required for the present intervention. The tenth instance of sub-threshold behavior carries the same legal weight as the first — none — unless that tenth instance describes something that independently meets action criteria. Frequency and source independence strengthen credibility assessment but cannot generate authority where described behavior remains below the line."
+      },
+      {
+        "question": "A support line receives a call expressing concern about someone's recent behavioral changes. What constraint determines whether this call can initiate coercive intervention?",
+        "options": [
+          "Whether trained responders assess the described risk level warrants precautionary measures",
+          "Whether the caller provides sufficient detail for authorities to evaluate the concern's credibility",
+          "Whether the described behavior satisfies legally defined standards for imminent danger",
+          "Whether the call represents the first formal report or continues a documented pattern of concern"
+        ],
+        "correctIndex": 2,
+        "explanation": "Coercive intervention — involuntary evaluation, protective orders, arrest — requires behavior meeting specific statutory standards, typically immediate danger to self or others. Behavioral changes and expressed worry do not satisfy this requirement regardless of responder assessment, detail quality, or reporting history. Support line staff may offer voluntary resources or arrange voluntary in-person assessment, but they cannot compel intervention based on concern alone. The constraint is legal authority boundaries, not information adequacy or professional judgment."
+      }
+    ]
+  }
+}
