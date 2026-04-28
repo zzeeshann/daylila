@@ -76,9 +76,7 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Tier.** The label Zeemish attaches to each published piece based on its final voice score. `Polished` (≥85), `Solid` (70–84), `Rough` (<70).
 
-**Voice contract.** The operational layer of Zeemish's voice — the versioned document that lists the mechanical rules: plain English, no tribe words, short sentences, hospitality principle, length targets, no flattery. Lives at `content/voice-contract.md` (mirrored at `agents/src/shared/voice-contract.ts` for runtime). Loaded into the Drafter, Voice Auditor, Integrator, Interactive Generator, and Interactive Auditor. The polish layer; the doctrine sits above it. See **Voice doctrine** and chapter 08.5.
-
-**Voice doctrine.** The deeper layer of Zeemish's voice — the standing instruction that names posture, not rules. Drop the reader into something already happening, find the specific person, let contradictions stand, end on an image not a moral, never write *"this matters because"*. Lives at `content/ZEEMISH_MANTO_VOICE.md` (mirrored at `agents/src/shared/voice-doctrine.ts` for runtime). Currently expressed through Saadat Hasan Manto's writing discipline — the principle the doctrine encodes is *clear teaching, not robotic prose*, and the Manto framing is the current expression of it. The Drafter reads the doctrine fresh on every piece; the Voice Auditor judges every piece against it. If doctrine and contract conflict, the doctrine wins. See chapter 08.5 for the why and `docs/VOICE.md` for the operator-facing how.
+**Voice contract.** The versioned document in the Zeemish repo that defines how the publication writes. Plain English, no tribe words, short sentences, hospitality principle. Lives at `content/voice-contract.md`. Loaded into the Drafter's prompt every time.
 
 **Web Component.** A standard browser feature for building reusable UI elements with custom HTML tags. Zeemish uses Web Components for the interactive parts of pieces (`<lesson-shell>`, `<lesson-beat>`, `<audio-player>`, `<zita-chat>`).
 

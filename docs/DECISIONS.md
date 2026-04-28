@@ -2,6 +2,45 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-28 (rollback): Voice doctrine rolled back. Three doctrine-era pieces deleted.
+
+**Trigger.** Operator review of the 2026-04-28 14:00 UTC piece (`/daily/2026-04-28/the-supreme-court-seems-a-bit-nervous-about-letting-the-poli/`, voice score 92, *"Cell Tower Logs and the Fourth Amendment"*) surfaced a hospitality-principle violation. The piece's hook included the line *"Which gas stations. Which girlfriend's house. Which mosque on Friday afternoons."* — a specifics-list framing religious practice as inherently suspicious surveillance signal. A teaching beat in the same piece extended the pattern: *"who do you meet, where do you sleep, which neighborhoods do you avoid, how often do you visit the mosque or the union hall or the medical clinic at the edge of town."* The operator's read: *"Manto-style 'find the specific person/place' has bent into 'find the politically-charged specific'. Reverse Manto completely."*
+
+**Diagnosis.** The doctrine instruction *"find Bishan Singh — the person for whom the system was not designed"* worked for partition-violence stories (its source material) where naming the specific anchored the human cost. Applied to systems-of-government stories — surveillance, policing, regulation — the same instruction produced specifics that read as tribal markers (mosque, union hall, the clinic at the edge of town). The Voice Auditor's posture-question check passed the piece because it sounded like *"a person telling another person what they found"* — but what the person was telling was tribally charged. The contract's hospitality principle (*"a Hindu grandmother in Delhi, a Muslim teenager in Bradford…"*) was supposed to gate this, but the doctrine's "find the specific" instruction outweighed the contract's universality test in the auditor's scoring — *"if doctrine and contract conflict, the doctrine wins"* turned into *"the doctrine produces specifics that the contract can't override"*.
+
+The deeper problem: Manto's specificity worked in his domain because he was writing fiction about real human beings during a specific historical violence. He was naming Bishan Singh — one man, named, placed, embodied. The Drafter, instructed to find "Bishan Singh in every system", landed on category-shaped specifics (which mosque, which union hall) because it had no actual person to name. Category-shaped specificity is exactly the failure mode that produces tribal framing. The instruction to find the specific person, applied without an actual specific person available, produces typed specifics — and typed specifics ARE tribal framing.
+
+**Decision.** Roll the doctrine back wholesale. Single-layer voice contract restored as the only voice rule. The contract was working for the months before the doctrine landed; the cartel-gold piece's *"95-on-robotic-prose"* failure that triggered the doctrine work is reframed as a different problem (writing that's mechanically clean but tonally robotic) that needs a different solution than a posture doctrine. Future attempts to address it should not introduce instructions that override the hospitality principle.
+
+**What rolled back:**
+- **Prompts** (via `git checkout 9afcd85^`): `agents/src/drafter-prompt.ts`, `agents/src/voice-auditor-prompt.ts`, `agents/src/integrator-prompt.ts`, `agents/src/curator-prompt.ts`, `content/voice-contract.md`, `agents/src/shared/voice-contract.ts`. All six restored to pre-doctrine state.
+- **Files removed** (`git rm`): `content/ZEEMISH_MANTO_VOICE.md`, `agents/src/shared/voice-doctrine.ts`, `agents/scripts/verify-doctrine.mjs`, `book/08.5-the-voice-doctrine.md`, `docs/VOICE.md`.
+- **Pieces deleted** (`git rm` + D1 wipe + R2 cleanup): `2026-04-27-supreme-court-reviews-police-use-of-cell-location-data-to-fi.mdx` (Iteration 1 piece, the *"Tower Pinged"* title), `2026-04-28-brother-of-suspect-in-deaths-of-2-tampa-doctoral-students-we.mdx`, `2026-04-28-the-supreme-court-seems-a-bit-nervous-about-letting-the-poli.mdx` (the *"Which mosque"* piece). Six associated interactive JSON files removed (`proximity-as-inference{,-html}.json`, `predictive-restriction-and-temporal-thresholds{,-html}.json`, `passive-logging-and-retrospective-assembly{,-html}.json`).
+- **Doc reverts** (via `git checkout 9afcd85^`): `docs/AGENTS.md`, `docs/RUNBOOK.md`, `book/CONTENTS.md`, `book/00.5-the-four-words.md`, `book/WRITING-MORE.md`, `book/11-quality-gates.md`, `book/09-the-sixteen-roles.md`, `book/99-glossary.md`, `CLAUDE.md`. CLAUDE.md gets a new "Currently working on: Voice doctrine fully rolled back" preface explaining what happened.
+- **D1 wipe** for the three pieces across 13 tables: `daily_pieces`, `audit_results`, `daily_candidates`, `daily_piece_audio`, `zita_messages`, `learnings`, `engagement`, `pipeline_log` (time-window scoped per published_at ±10min), `observer_events` (time-window scoped), `interactives`, `interactive_audit_results`, `interactive_engagement`, `piece_categories`. `categories.piece_count` recounted from remaining `piece_categories` rows.
+- **R2 audio** for the three pieces deleted via `wrangler r2 object delete` across all beat clips.
+- **Memory** (`~/.claude/projects/-Users-zee-zeemish-v2/memory/feedback_voice_doctrine.md`) updated to record the rollback + the lesson, so future sessions don't try the same architecture without the prior failure context.
+
+**What stays as historical record:**
+- DECISIONS 2026-04-27 (later) "Voice doctrine layered onto the operational contract" — the original architecture commit's trade-off log.
+- DECISIONS 2026-04-27 (Iteration 1) "Doctrine tightenings from the geofence piece + voice system documentation" — the Iteration 1 commit's trade-off log.
+- This entry — the rollback and post-mortem.
+
+The append-only rule on DECISIONS.md is honoured: nothing edited or deleted; the rollback is a new entry that supersedes the prior architecture in the present-tense system but doesn't erase the record of what was tried and why it failed.
+
+**The lesson.**
+1. *Posture instructions that ask for "specifics" need to specify what KIND of specifics.* Bishan Singh worked because Manto had a specific person. Asking the Drafter to "find Bishan Singh" without an actual person to name reduces to "find a specific" — and the model fills that gap with category-shaped specifics, which are tribal markers.
+2. *The hospitality principle has to be a hard floor, not a layer in a hierarchy.* The doctrine-over-contract precedence let "find the specific" outweigh "feel-written-for-everyone" in the scoring. A future architecture that re-introduces a posture layer must ensure the hospitality principle gates above it, not below.
+3. *Pre-deploy verification on a single brief is insufficient.* The cartel-gold-brief subagent verification (DECISIONS 2026-04-27 "Voice doctrine layered…") produced doctrine-aligned output for a supply-chain story. It missed the failure mode entirely because the failure mode is domain-conditional — it surfaces in stories about systems-of-government, not stories about supply chains. A meaningful pre-deploy verification needs at minimum 5 briefs sampled across the Curator's TEACHABILITY domains (crime, policy, surveillance, infrastructure, business, etc.), not a single representative.
+4. *Voice scores can lie about hospitality.* The piece scored 92 on voice. Voice score doesn't measure whether a piece welcomes every reader — that's a separate axis. The auditor would need a hospitality dimension that's separately scored and gates the score before posture-quality is assessed.
+
+**What's NOT changed by this rollback:**
+- The voice contract itself (1000–1500 words, 5–6 beats, tribe-word list, plain English, hospitality principle, etc.) is unchanged from its pre-doctrine 2026-04-26 state.
+- All other agent improvements from prior sessions (Curator reuse-bias, Categoriser confidence floor, audio retry trio fix, Area 4 interactives, etc.) stay live. The rollback is scoped to the voice-doctrine architecture only.
+- The `2026-04-27-former-sen-ben-sasse-dying-of-cancer-reflects-on-family-fait` piece (the morning 2026-04-27 piece, *"What We Owe the Dying"*) was published before the doctrine commit and stays live. Pre-doctrine architecture; not in scope for the rollback.
+
+**Forward.** Operator may re-trigger fresh pipeline runs from admin. Pieces will produce under the pre-doctrine voice contract. The "robotic writing" diagnosis that triggered the doctrine work remains an open question; future approaches should not assume a posture-doctrine layer is the answer.
+
 ## 2026-04-27 (evening, architectural fix): Curator duplicate-pick — hard pre-Curator headline-overlap filter
 
 **The prompt fix shipped at `11c2450` failed at the first test.** Deployed at 21:03:03 UTC. Operator manually triggered another run at 21:06:49 UTC — Curator picked the SAME SCOTUS / cell-location story for the **fourth time in one day**. Verified by checking pipeline_log + candidate set + observer events:

@@ -1,20 +1,12 @@
 /**
  * The Zeemish voice contract as a string constant.
+ * This is the single source of truth for how Zeemish sounds.
+ * Agents reference this when drafting or auditing content.
  *
- * The OPERATIONAL layer of Zeemish's voice — tribe words, length
- * targets, the editor's read-aloud test. Mechanical, easy to check.
- *
- * The DEEPER standard lives in `voice-doctrine.ts` (mirrored from
- * `content/ZEEMISH_MANTO_VOICE.md`). That doc names posture: drop the
- * reader into something already happening, find a specific person,
- * let contradictions stand, end on an image not a moral. The Drafter
- * reads it before every piece; the Voice Auditor judges against it.
- * The contract is polish; the doctrine is the bar.
- *
- * The canonical version of this file lives at /content/voice-contract.md.
+ * The canonical version lives at /content/voice-contract.md.
  * If you update one, update the other.
  */
-export const VOICE_CONTRACT = `# Zeemish Voice Contract (operational layer)
+export const VOICE_CONTRACT = `# Zeemish Voice Contract
 
 ## The Zeemish Protocol
 
@@ -25,10 +17,6 @@ export const VOICE_CONTRACT = `# Zeemish Voice Contract (operational layer)
 Everything that follows is an attempt to show you what that means — and how to do it.
 
 Every piece serves this purpose. If a piece doesn't help someone understand the world better so they can make more humble, more informed decisions — it doesn't belong on Zeemish.
-
----
-
-The deeper standard — the doctrine that names the writing posture — sits above this contract. The Drafter has already been handed it. This contract is the operational polish layer. If the contract conflicts with the doctrine, the doctrine wins.
 
 ---
 

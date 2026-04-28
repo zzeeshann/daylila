@@ -60,19 +60,6 @@ Your default is to PICK. Skip is rare — reserved for narrow conditions:
 
 When in doubt, find the connection. A no-piece day is a worse outcome than a piece that ends up Rough-tier — the auditors will gate quality, and the tier surfacing on the live site is honest about it.
 
-## How the brief shapes the writing
-
-The Drafter writes against the Zeemish voice doctrine — the standing instruction at \`content/ZEEMISH_MANTO_VOICE.md\` — which says: drop the reader into something already happening, name a specific person or moment, let contradictions stand, end on an image not a moral, never write "this matters because". The brief you produce is not the writing, but it can quietly work for or against that standard. Constraints:
-
-- **Hook beat description** — specify the entry point: the moment, the action, the encounter. Not "introduce the topic of X" or "set up the question of Y". The Drafter should be able to read your description and know what to drop the reader into.
-- **Teaching beat descriptions** — specify the angle plus a concrete anchor: a person, a place, a number, a moment. Not "explain how X works". The pattern is invisible until the reader sees it in a body.
-- **Close beat description** — one true thing. An image, a fact, a state of the world. Not "summarise the lesson" or "leave the reader with a takeaway". The reader's takeaway is theirs to find.
-- **Candidate hooks** — each is an arrival, not a summary. Drop the reader in. Don't preview what the piece will teach.
-- **toneNote** — reinforce posture, not theme. Bad: *"explanatory, accessible to a general reader"*. Good: *"arrival not framing; the system is already running, show it running"*. This field is one of the few places per-piece guidance lands in front of the Drafter — use it.
-- **avoid** — name the specific failure mode this story tempts: tribe-side framing, a moral the news invites, a tidy resolution to a real contradiction. Not generic ("don't be too political").
-
-5–6 beats total: hook + 3–4 teaching + close. Five is fine. Seven is the padding zone.
-
 Return JSON:
 {
   "selectedCandidateId": "<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-2d1e-4f9a-b7c8-1e2d3f4a5b6c>",
@@ -82,14 +69,13 @@ Return JSON:
   "underlyingSubject": "what this really teaches about",
   "teachingAngle": "what to teach and why it matters",
   "estimatedTime": "10 min",
-  "toneNote": "posture guidance for the Drafter",
-  "avoid": "the specific failure mode this story tempts",
+  "toneNote": "guidance for the Drafter",
+  "avoid": "what not to do",
   "hooks": ["hook 1", "hook 2", "hook 3"],
   "beats": [
     { "name": "hook", "type": "hook", "description": "..." },
     { "name": "teaching-1", "type": "teaching", "description": "..." },
     { "name": "teaching-2", "type": "teaching", "description": "..." },
-    { "name": "teaching-3", "type": "teaching", "description": "..." },
     { "name": "close", "type": "close", "description": "..." }
   ]
 }
@@ -111,21 +97,10 @@ export function buildCuratorPrompt(
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
-## Already published recently — Curator must skip duplicates of either kind below. Includes today's earlier picks if any:
+## Already published recently — avoid repetition of UNDERLYING SUBJECT, not just headline wording. Includes today's earlier picks if any:
 ${recentBlock}
 
-## Two duplicate failure modes — both are MUST-skip, not soft preference:
-
-**SAME NEWS EVENT = duplicate, even at a different angle.** If a candidate is about the same SCOTUS case, the same lawsuit, the same investigation, the same legislative bill, the same corporate scandal, the same person's death, the same natural disaster as a recent piece — you MUST pick a different candidate. Different wire services covering the same event from different angles do not count as different stories. Different procedural moments of one story (oral argument vs. written ruling, indictment vs. trial verdict, House vote vs. Senate vote, hearing vs. decision, leak vs. confirmation) do not count as different stories. Narrow exception: when the news has produced a substantively new underlying concept to teach — not when the angle merely differs.
-
-**SAME UNDERLYING CONCEPT = duplicate, even at a different event.** If a candidate teaches the same concept as a recent piece — the same chokepoint pattern, the same incentive trap, the same cognitive bias, the same systems-design failure, the same regulatory mechanic — pick a different candidate even when the news event is genuinely different. Two pieces teaching "information asymmetry" or "supply-chain chokepoints" or "regulatory capture" within the same week is the failure state.
-
-Worked examples:
-- Recent: "Supreme Court Reviews Police Use of Cell Location Data" (subject: how proximity data becomes evidence). Today's candidate: "Supreme Court Wrangles With Geofence Warrants in the Cell Data Case." → SAME EVENT. SKIP. Even though the candidate frames it as "geofence warrants" specifically and the prior piece framed it as "proximity data" generally, both pieces are about the same SCOTUS case. A different framing is not a different event.
-- Recent: "Iran-Israel tensions raise oil prices 8%" (subject: Hormuz chokepoint). Today's candidate: "Suez Canal blockage drives shipping costs up 12%." → DIFFERENT EVENT, SAME CONCEPT (chokepoints). SKIP unless a meaningfully different teaching angle is reachable.
-- Recent: "FDA approves new diabetes drug" (subject: market structure of pharma approvals). Today's candidate: "Pfizer earnings beat expectations on weight-loss drug." → DIFFERENT EVENT, DIFFERENT CONCEPT. PICK if teachable.
-
-Pick the most teachable story and create a brief. Two pieces about the same news event or teaching the same concept on the same day is a failure state.
+Pick the most teachable story and create a brief. If a candidate's underlying concept is the same as one already published (even if the headline is worded differently, even from a different news source, even about a different country or company), PREFER a different candidate — unless the news is genuinely developing in a way that warrants follow-up teaching. Two pieces teaching the same concept on the same day is a failure state.
 
 Return JSON only. The "selectedCandidateId" field MUST be the exact UUID copied verbatim from the chosen candidate's "id:" field above — do not invent, truncate, guess, or substitute a list position number.`;
 }

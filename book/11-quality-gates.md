@@ -9,8 +9,7 @@
 - Why "let the AI write it and ship" doesn't work for a daily publishing system.
 - The three gates in detail: Voice Auditor, Fact Checker, Structure Editor.
 - What each one checks, what its pass/fail thresholds are, and why those thresholds.
-- How the Voice Auditor judges against two layers — the doctrine (posture, the bar) and the contract (polish). Chapter 08.5 covers the layers themselves; this chapter covers how the auditor uses them. The microphone test runs first; named doctrine moves second; contract violations on top.
-- The Integrator pattern: take the feedback, revise, resubmit. Up to three rounds. Including the Integrator's restraint rule — do not tame Manto-style writing in the name of polish.
+- The Integrator pattern: take the feedback, revise, resubmit. Up to three rounds.
 - Tier labels on published pieces — Polished (≥85), Solid (70–84), Rough (<70) — and why all of them ship.
 - What happens when a gate consistently fails on a topic: the piece is not forced through. It escalates to a human.
 
