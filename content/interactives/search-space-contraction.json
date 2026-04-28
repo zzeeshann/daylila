@@ -1,0 +1,71 @@
+{
+  "slug": "search-space-contraction",
+  "type": "quiz",
+  "title": "Search Space Contraction",
+  "concept": "Complex identification problems resolve through sequential observations that divide the remaining possibility space — efficiency depends on choosing tests that maximize eliminated candidates per effort expended.",
+  "interactiveId": "529c6ae3-5547-4efa-8f6a-2a89d5c1639d",
+  "sourcePieceId": "e55021d2-da15-4aec-a21b-3c691e62372d",
+  "publishedAt": 1777350451152,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a single coarse observation often narrow a search more than multiple precise measurements?",
+        "options": [
+          "Coarse observations are less prone to measurement error and deliver more reliable results",
+          "A binary partition removes half the possibility space; precision only distinguishes among what survives that cut",
+          "Precise measurements require specialized training while coarse observations can be done by anyone",
+          "Initial observations establish context that makes later precision meaningful"
+        ],
+        "correctIndex": 1,
+        "explanation": "Dividing the remaining field in half eliminates 50% of candidates in one step. Measuring a detailed property only differentiates among survivors of earlier cuts — you must first reduce the space to where that precision matters. Option D sounds compelling but confuses sequencing strategy with elimination efficiency."
+      },
+      {
+        "question": "When does further investigation stop adding value?",
+        "options": [
+          "When remaining candidates produce identical consequences for the decision being made",
+          "When the research budget allocated to the question has been exhausted",
+          "When peer reviewers agree the conclusion has been adequately supported",
+          "When the lead investigator declares sufficient confidence in the result"
+        ],
+        "correctIndex": 0,
+        "explanation": "If all remaining options lead to the same action — same treatment protocol, same risk assessment, same operational response — additional narrowing becomes cosmetic. Investigation serves decisions, not abstract completeness. Budget constraints (B) are real but external to the logic of when narrowing matters."
+      },
+      {
+        "question": "What makes an observation worthless for narrowing?",
+        "options": [
+          "The measurement tool's precision falls below the threshold needed to detect differences",
+          "The feature being measured appears identically in all candidates still under consideration",
+          "The observation contradicts results from earlier, more reliable tests",
+          "The observed value falls outside the range predicted by any remaining theory"
+        ],
+        "correctIndex": 1,
+        "explanation": "An observation that finds the same property in every remaining option eliminates zero candidates — it adds information but changes nothing about what might be true. Measurement imprecision (A) can blur boundaries, but a feature present in all survivors is useless even if measured with infinite precision."
+      },
+      {
+        "question": "What governs which test gets performed next?",
+        "options": [
+          "Tests proceed from least invasive to most invasive to preserve sample integrity",
+          "Standard protocols dictate measurement order to ensure reproducibility across studies",
+          "The ratio of candidates eliminated to observation cost determines priority",
+          "Available equipment constrains which measurements are technically feasible at that moment"
+        ],
+        "correctIndex": 2,
+        "explanation": "A cheap test that halves the field gets performed before an expensive test that distinguishes only two finalists. You maximize eliminated options per unit of effort — whether that effort is time, money, or sample consumption. Option D describes a constraint, not a selection principle."
+      },
+      {
+        "question": "Why do some possibility spaces never contract to a single answer?",
+        "options": [
+          "Measurement tools lack the resolution to distinguish candidates below a certain similarity threshold",
+          "The cost of the next test exceeds the benefit of knowing which finalist is correct",
+          "Natural variation within the correct category exceeds the difference between candidate categories",
+          "Remaining candidates occupy positions in conceptual space where no defining test exists yet"
+        ],
+        "correctIndex": 0,
+        "explanation": "Tools impose a resolution floor — if candidates differ only in ways no available test can detect, contraction stops at 'one of these few'. This is a harder limit than cost-benefit tradeoffs (B) or natural variation (C), both of which allow decision rules like 'close enough'. Option D describes knowledge gaps, not contraction mechanics."
+      }
+    ]
+  }
+}
