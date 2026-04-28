@@ -2,6 +2,26 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-28 (rollback follow-up): Restore SAME-EVENT/SAME-CONCEPT prompt rule (collateral damage of the Manto rollback)
+
+**Trigger.** After the Manto rollback at `79a914d`, operator review surfaced that the rollback's `git checkout 9afcd85^ -- agents/src/curator-prompt.ts` had inadvertently swept up the SAME-EVENT/SAME-CONCEPT MUST-skip prompt rule from `11c2450`. Reasoning: `11c2450` shipped chronologically AFTER `9afcd85`, so checking out `9afcd85^` (the doctrine commit's parent) restored a curator-prompt.ts that predated both the doctrine AND the dedup prompt rule. The hard pre-Curator dedup filter at `e7ce2a4` (architectural, deterministic) survived because it lives in different files (`shared/dedup-headlines.ts` + `director.ts` wiring); only the prompt-level layer was lost.
+
+**Demonstration that the rule was needed.** The 02:00 UTC cron after the rollback re-picked the Tampa-brother news event we'd just deleted (different framing — "Observation Without Authority" instead of "Predictive Restriction" — same news event). The hard filter couldn't catch it because `getRecentDailyPieces` no longer saw the deleted original; the prompt rule that would have said "wait, you covered this event already" was gone. Without two layers, deletion of the original = open door for re-pick.
+
+**Decision.** Re-apply `11c2450` to `agents/src/curator-prompt.ts`. The patch was scoped exclusively to the dedup section of `buildCuratorPrompt` — three new paragraphs (SAME NEWS EVENT MUST-skip, SAME UNDERLYING CONCEPT MUST-skip, three worked examples including the literal Cell-Location-Data twin failure) replacing the previous soft "PREFER a different candidate" language. Zero Manto-doctrine artifacts in the patch; verified post-apply that grep for `Manto` / `VOICE_DOCTRINE` / `voice-doctrine` in the file returns zero matches.
+
+**What's now live (two-layer dedup architecture restored):**
+- **Layer 1 — Hard filter** (`e7ce2a4`, never rolled back): tokenizes headlines, removes candidates sharing ≥4 substantive tokens with any recent piece. Curator literally cannot see the duplicates. Catches headline-token overlap (the dominant failure mode — twin SCOTUS headlines, twin earnings stories).
+- **Layer 2 — Prompt rule** (`11c2450`, restored in commit `072da00`): MUST-skip instructions for SAME NEWS EVENT and SAME UNDERLYING CONCEPT, with worked examples. Catches concept overlap when headlines share zero substantive tokens (Hormuz + Suez both teaching chokepoints, FDA approval + Pfizer earnings both teaching pharma market-structure, etc).
+
+**What stays rolled back:** the Manto doctrine architecture itself. `VOICE_DOCTRINE` / Manto-posture / hospitality-principle-as-layer all stay gone. The voice contract is the only voice rule. The 2026-04-28 (rollback) entry below captures that lesson.
+
+**Files touched:** `agents/src/curator-prompt.ts` (one file; 13 insertions, 2 deletions per `git diff --stat`). No D1 changes, no R2 changes, no piece deletions.
+
+**Verification post-restore.** `grep "SAME NEWS EVENT" agents/src/curator-prompt.ts` → 1 match. `grep "SAME UNDERLYING CONCEPT" agents/src/curator-prompt.ts` → 1 match. `grep "MUST pick a different" agents/src/curator-prompt.ts` → 1 match. Typecheck clean. Site builds clean. The next 5–7 cron firings will exercise the rule against new candidates; failure signal is a same-news-event re-pick the way the Tampa piece re-published before the restore.
+
+**Forward.** Tag `alpha-stable` stays at `79a914d` as the pure rollback marker. Current `main` HEAD (after `072da00`) is the rollback + dedup-rule restored — the actual desired stable state. If a future change goes wrong, `alpha-stable` is still a safe rollback target; just be aware that resetting to it loses the dedup prompt rule restoration and the rule would need re-applying.
+
 ## 2026-04-28 (rollback): Voice doctrine rolled back. Three doctrine-era pieces deleted.
 
 **Trigger.** Operator review of the 2026-04-28 14:00 UTC piece (`/daily/2026-04-28/the-supreme-court-seems-a-bit-nervous-about-letting-the-poli/`, voice score 92, *"Cell Tower Logs and the Fourth Amendment"*) surfaced a hospitality-principle violation. The piece's hook included the line *"Which gas stations. Which girlfriend's house. Which mosque on Friday afternoons."* — a specifics-list framing religious practice as inherently suspicious surveillance signal. A teaching beat in the same piece extended the pattern: *"who do you meet, where do you sleep, which neighborhoods do you avoid, how often do you visit the mosque or the union hall or the medical clinic at the edge of town."* The operator's read: *"Manto-style 'find the specific person/place' has bent into 'find the politically-charged specific'. Reverse Manto completely."*
