@@ -1,0 +1,71 @@
+{
+  "slug": "predictive-restriction-and-temporal-thresholds",
+  "type": "quiz",
+  "title": "Predictive Restriction and Temporal Thresholds",
+  "concept": "Legal authority to restrict liberty activates only when harm crosses a temporal threshold — 'about to happen' rather than 'might happen' — creating a structural gap between forecast accuracy and intervention permission.",
+  "interactiveId": "294aa02a-5152-4a4f-96e1-1df7cf985bb8",
+  "sourcePieceId": "9eab8da6-7dac-4e9d-a56b-0d610035a1e2",
+  "publishedAt": 1777341837097,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What distinguishes a temporal threshold from a probabilistic threshold in systems that restrict liberty?",
+        "options": [
+          "Temporal thresholds require harm to be imminent regardless of likelihood; probabilistic thresholds authorize action when likelihood exceeds a percentage cutoff",
+          "Temporal thresholds apply to physical harm while probabilistic thresholds apply to financial harm",
+          "Temporal thresholds are set by judges while probabilistic thresholds are set by administrators",
+          "Temporal thresholds prevent detention while probabilistic thresholds permit surveillance"
+        ],
+        "correctIndex": 0,
+        "explanation": "A temporal threshold compresses the authorization window to 'about to happen now' — even a 90% chance of harm next month doesn't cross it. Probabilistic systems would authorize action when forecast confidence is high enough, which conflicts with liberty protections that require the state to wait until harm is immediate."
+      },
+      {
+        "question": "Why do threshold-based intervention systems tolerate documented accurate forecasts that don't trigger action?",
+        "options": [
+          "Documentation creates liability protection even when intervention authority is absent",
+          "The system prioritizes avoiding false positives — restricting people who would never cause harm — over preventing true positives",
+          "Agencies lack resources to investigate every documented concern",
+          "Accurate forecasts are statistically rare so the system discounts them by default"
+        ],
+        "correctIndex": 1,
+        "explanation": "These systems accept that some preventable harm will occur because the alternative — acting on forecasts before thresholds are met — means detaining many people who would never cause harm. The design treats false positives (liberty restricted unnecessarily) as worse than false negatives (harm that occurs)."
+      },
+      {
+        "question": "An institution receives advance notice that harm may occur but has no legal mechanism to act until a statutory trigger is met. What does the gap between notice and authority reflect?",
+        "options": [
+          "Administrative inefficiency in translating warnings into actionable intelligence",
+          "Separation between knowing harm might happen and having permission to prevent it",
+          "Insufficient training for personnel who receive initial reports",
+          "Absence of coordination protocols between warning recipients and enforcement units"
+        ],
+        "correctIndex": 1,
+        "explanation": "The gap is structural, not procedural. Knowledge that harm might occur does not grant authority to restrict liberty — that authority activates only when statutory conditions are met. The system intentionally separates prediction from permission, even when predictions prove accurate."
+      },
+      {
+        "question": "A professional assessment concludes that harm is 'highly probable within the next month.' Under an imminence standard, what prevents this assessment from authorizing intervention?",
+        "options": [
+          "Professional assessments require corroboration from multiple independent evaluators",
+          "'Highly probable' addresses likelihood but 'within the next month' fails the temporal compression required for imminence",
+          "Probability-based forecasts are inadmissible in legal proceedings without statistical validation",
+          "Intervention requires the assessed individual to acknowledge the forecast"
+        ],
+        "correctIndex": 1,
+        "explanation": "Imminence compresses time to 'about to happen now' — not 'likely next week' or 'probable next month.' The assessment could be 99% confident and still fail the standard because the temporal window remains too wide. This is intentional: detaining someone based on what they might do later conflicts with liberty protections."
+      },
+      {
+        "question": "When retrospective analysis shows that a system documented accurate harm forecasts but did not prevent the harm, institutional pressure typically moves toward:",
+        "options": [
+          "Expanding the set of people authorized to submit forecasts to the system",
+          "Lowering the threshold that triggers intervention authority",
+          "Improving documentation procedures to create clearer audit trails",
+          "Training personnel to recognize imminent harm signals earlier"
+        ],
+        "correctIndex": 1,
+        "explanation": "The documented-forecast-but-harm-occurred pattern creates pressure to lower intervention thresholds so authority activates earlier. But lowering thresholds means more false positives — people restricted who would never cause harm. Systems resist this because the design treats preventing false positives as primary, accepting that some foreknown harms will occur."
+      }
+    ]
+  }
+}
