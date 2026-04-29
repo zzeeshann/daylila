@@ -53,6 +53,13 @@ const dailyPieces = defineCollection({
     // kept as a fallback signal for the tier helper when voiceScore
     // is missing, and for future admin/operator use.
     qualityFlag: z.enum(['low']).optional(),
+    // Source news article URL — captured by Scanner into
+    // daily_candidates.url, spliced by Director at publish time from
+    // the picked candidate's row. Optional because pre-2026-04-22
+    // pieces have no reliably resolvable URL (selectedCandidateId fix
+    // landed in commit 6999c5e). Reader-side "Source: {newsSource} ↗"
+    // link omits when absent.
+    sourceUrl: z.string().url().optional(),
   }),
 });
 

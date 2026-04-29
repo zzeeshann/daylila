@@ -417,6 +417,31 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       `$1\npieceId: "${pieceId}"$2`,
     );
 
+    // Splice `sourceUrl` into frontmatter from the picked candidate.
+    // daily_candidates.url is the only place the source URL lands —
+    // never propagated through DailyPieceBrief / daily_pieces. Reader-
+    // side link surfaces in the meta line (LessonLayout). Pre-2026-04-22
+    // pieces have no reliably resolvable URL (selectedCandidateId fix
+    // in 6999c5e); skip silently when missing.
+    if (curatorResult.selectedCandidateId) {
+      try {
+        const sourceUrlRow = await this.env.DB
+          .prepare('SELECT url FROM daily_candidates WHERE id = ? LIMIT 1')
+          .bind(curatorResult.selectedCandidateId)
+          .first<{ url: string | null }>();
+        const sourceUrl = sourceUrlRow?.url?.trim();
+        if (sourceUrl) {
+          currentMdx = currentMdx.replace(
+            /^(---\n[\s\S]*?)(\n---\n)/,
+            `$1\nsourceUrl: ${JSON.stringify(sourceUrl)}$2`,
+          );
+        }
+      } catch {
+        // Fail-quiet: missing source link is acceptable, blocking the
+        // publish over a metadata read isn't.
+      }
+    }
+
     if (!passed) {
       // Splice `qualityFlag: "low"` into the frontmatter too. No longer
       // drives archive filtering (see 2026-04-17 soften-quality decision)

@@ -31,6 +31,14 @@ interface Props {
   qualityFlag?: 'low';
   /** Optional one-line description for social-share meta. */
   description?: string;
+  /** Source news article URL — daily_candidates.url spliced by Director
+   *  at publish time. Pre-2026-04-22 pieces don't have it (selectedCand-
+   *  idateId fix in 6999c5e). Surfaces as a "Source: {newsSource} ↗"
+   *  link in the meta line when both fields are present. */
+  sourceUrl?: string;
+  /** News publication name (e.g. "Reuters") from MDX frontmatter. Used
+   *  as the visible label of the source link. */
+  newsSource?: string;
   /** Optional interactive(s) bundle for the inline section after the
    *  beats. With Area 5's single-scroll layout, the companion quiz +
    *  HTML interactive embed directly on the daily piece page; the
@@ -51,6 +59,8 @@ const {
   voiceScore,
   qualityFlag,
   description,
+  sourceUrl,
+  newsSource,
   interactiveBundle,
 } = Astro.props;
 
@@ -111,7 +121,7 @@ const interactiveSlug = primary?.data.slug ?? null;
 
   <h1 class="text-3xl md:text-4xl font-bold mb-4 leading-[1.15] tracking-tight">{title}</h1>
 
-  <p class="text-sm text-zee-muted mb-8 flex flex-wrap items-center gap-x-2 gap-y-1">
+  <p class="text-sm text-zee-muted mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
     <span>{timeDisplay}</span>
     {subject && (
       <>
@@ -119,7 +129,22 @@ const interactiveSlug = primary?.data.slug ?? null;
         <span>{subject}</span>
       </>
     )}
+    {sourceUrl && newsSource && (
+      <>
+        <span class="opacity-40" aria-hidden="true">·</span>
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
+        >
+          Source: {newsSource} <span aria-hidden="true">↗</span>
+        </a>
+      </>
+    )}
   </p>
+
+  {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
 
   <div class="mb-8">
     <AudioPlayer audioBeats={audioBeats} pieceTitle={title} />
@@ -212,8 +237,6 @@ const interactiveSlug = primary?.data.slug ?? null;
       <span class="lesson-finish-toast" data-share-toast aria-live="polite" hidden>Link copied</span>
     </div>
   </footer>
-
-  {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
 
   <zita-chat
     course="daily"
