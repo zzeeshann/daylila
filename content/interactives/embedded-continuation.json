@@ -1,0 +1,71 @@
+{
+  "slug": "embedded-continuation",
+  "type": "quiz",
+  "title": "Embedded Continuation",
+  "concept": "Systems persist when adjacent structures are built to expect their outputs — replacement requires coordinating dependent mechanisms, not demonstrating a superior alternative.",
+  "interactiveId": "d5b0e915-e619-4bfc-bc6c-3fcb56f5a3b0",
+  "sourcePieceId": "c0b08dee-c011-44d7-acc2-78ecc3c2f7a6",
+  "publishedAt": 1777471629088,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A measurement unit produces known distortions but remains universal. What explains its persistence?",
+        "options": [
+          "Users are unaware that alternative measurement approaches exist",
+          "Archives store data in this format, professionals interpret these units, regulatory thresholds reference these scales",
+          "The distortions are small relative to the cost of developing a replacement",
+          "Leadership across institutions has voted to retain the current unit"
+        ],
+        "correctIndex": 1,
+        "explanation": "Measurement units persist when downstream structures expect their outputs — changing the unit breaks interfaces these structures rely on. Awareness of alternatives doesn't overcome the structural expectation that this format will continue. Explicit retention votes are rare; persistence happens through assumed continuation."
+      },
+      {
+        "question": "A harmful practice becomes suddenly intolerable despite decades of acceptance. What drives this shift?",
+        "options": [
+          "A new technology makes the alternative cheaper to implement",
+          "Costs that were dispersed become concentrated and visible to actors with enforcement power",
+          "A charismatic leader launches a public campaign against the practice",
+          "Younger generations who never adopted the practice gain institutional authority"
+        ],
+        "correctIndex": 1,
+        "explanation": "Practices shift from tolerated to intolerable when costs that were invisible accumulate into forms that institutional actors must address. Cost reduction and generational change help but are insufficient without this visibility crossing a threshold that triggers response."
+      },
+      {
+        "question": "An organization continues a procedure that participants agree produces worse outcomes. What explains the persistence?",
+        "options": [
+          "Participants lack the authority to unilaterally change the procedure",
+          "Evaluation systems are built around this procedure's outputs — deviation appears as anomaly in accountability mechanisms regardless of actual improvement",
+          "The superior alternative requires capital investment the organization cannot secure",
+          "The procedure is specified in contracts that would be expensive to renegotiate"
+        ],
+        "correctIndex": 1,
+        "explanation": "When accountability systems expect a procedure's outputs, deviation registers as failure in the mechanisms that matter — audit trails, stakeholder reports, regulatory filings. The procedure persists because evaluation infrastructure expects it. Authority limitations and capital constraints are real but downstream of this measurement dependency."
+      },
+      {
+        "question": "What separates a widespread practice from a universal constraint?",
+        "options": [
+          "Practices are cultural, constraints are physical or legal",
+          "Practices can be changed by individual choice, constraints require collective action",
+          "Practices persist through surrounding systems expecting their continuation; constraints persist through direct blocking of alternatives",
+          "Practices evolve over time, constraints remain fixed"
+        ],
+        "correctIndex": 2,
+        "explanation": "A constraint prevents action directly — physical law forbids it, legal penalty blocks it. A practice persists because dependent systems assume it — interfaces are designed for it, expertise is built around it, adjacent processes expect its outputs. Breaking a practice requires rebuilding what depends on it. The cultural/physical distinction misses that practices feel unchosen precisely because of embedded dependency."
+      },
+      {
+        "question": "A standard causes measurable harm but remains mandatory across an industry. What enables replacement?",
+        "options": [
+          "Publishing research quantifying the harm in peer-reviewed journals",
+          "A competitor demonstrating that the alternative works at small scale",
+          "Harm that was distributed becomes concentrated in a group with enforcement power, making inaction costlier than coordination",
+          "Waiting for the standard's original architects to retire from decision-making roles"
+        ],
+        "correctIndex": 2,
+        "explanation": "Standards shift when harm that was distributed becomes concentrated in a form that actors with enforcement power must address. Research documentation and proof-of-concept demonstrations are necessary but insufficient — replacement requires the political threshold where inaction becomes more costly than coordination."
+      }
+    ]
+  }
+}
