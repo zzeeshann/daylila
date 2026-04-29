@@ -17,6 +17,14 @@ export interface Category {
   pieceCount: number;
 }
 
+/** Reserved Categoriser fallback category slug (seeded by migration
+ *  0027). Hidden from every reader-facing surface — the chip bar, the
+ *  filtered library route, the per-piece "Filed under" drawer
+ *  section. A piece landing here is an operator review signal, not
+ *  a reader-browseable category. Keep in sync with
+ *  agents/src/categoriser-prompt.ts CATEGORISER_FALLBACK_SLUG. */
+const FALLBACK_SLUG = 'patterns-yet-to-cluster';
+
 /**
  * Every category that has at least one piece assigned, sorted by
  * piece_count DESC then name ASC. Rendered as the chip bar on
@@ -32,9 +40,10 @@ export async function getCategories(db: D1Database): Promise<Category[]> {
       .prepare(
         `SELECT id, slug, name, description, piece_count
          FROM categories
-         WHERE piece_count > 0
+         WHERE piece_count > 0 AND slug != ?
          ORDER BY piece_count DESC, name ASC`,
       )
+      .bind(FALLBACK_SLUG)
       .all<{
         id: string;
         slug: string;
@@ -65,6 +74,8 @@ export async function getCategoryBySlug(
   db: D1Database,
   slug: string,
 ): Promise<Category | null> {
+  // Reserved fallback slug is never reader-facing — 404 instead.
+  if (slug === FALLBACK_SLUG) return null;
   try {
     const row = await db
       .prepare(

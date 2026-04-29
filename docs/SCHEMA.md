@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**19 tables across 26 migrations.**
+**19 tables across 27 migrations.**
 
 ## Reader-side tables
 
@@ -267,7 +267,7 @@ Taxonomy for browsing the library by subject and for the Categoriser agent's reu
 | created_at | INTEGER NOT NULL | Unix ms |
 | updated_at | INTEGER NOT NULL | Unix ms, bumped on any mutation |
 
-Indexes: `idx_categories_slug` on `slug` (explicit, alongside the UNIQUE auto-index), `idx_categories_piece_count` on `piece_count DESC`. Migration: `0021_categories.sql`.
+Indexes: `idx_categories_slug` on `slug` (explicit, alongside the UNIQUE auto-index), `idx_categories_piece_count` on `piece_count DESC`. Migrations: `0021_categories.sql` (table), `0027_categoriser_fallback_category.sql` (seed reserved fallback row `slug='patterns-yet-to-cluster'`, `locked=1`, used only when both Categoriser attempts return empty/all-sub-floor; hidden from reader-facing surfaces and from Claude's context list).
 
 ### piece_categories
 Join table — one row per (piece, category) assignment. Categoriser writes 1–3 rows per piece; admin merge/delete rewrites in bulk inside a transaction.

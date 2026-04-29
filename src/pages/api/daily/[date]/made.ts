@@ -301,6 +301,14 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // backfill era, so no date-keyed fallback is needed. Empty array when
   // the piece pre-dates Categoriser (pre-2026-04-23) or the agent
   // failed/hasn't run yet — the drawer omits the section in all cases.
+  //
+  // The reserved fallback slug `patterns-yet-to-cluster` (migration
+  // 0027) is excluded here too — when both Categoriser attempts return
+  // empty/all-sub-floor the piece is parked in the fallback, but
+  // surfacing "Filed under: Patterns Yet to Cluster" to readers reads
+  // as a confusing self-report. Operator visibility lives in
+  // observer_events. Slug literal stays in sync with src/lib/categories.ts
+  // FALLBACK_SLUG and agents/src/categoriser-prompt.ts CATEGORISER_FALLBACK_SLUG.
   if (pieceIdFilter) {
     try {
       const cats = await db
@@ -309,6 +317,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
              FROM piece_categories pc
              JOIN categories c ON c.id = pc.category_id
             WHERE pc.piece_id = ?
+              AND c.slug != 'patterns-yet-to-cluster'
             ORDER BY pc.confidence DESC, c.name ASC`,
         )
         .bind(pieceIdFilter)

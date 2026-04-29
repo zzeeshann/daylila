@@ -5,6 +5,9 @@ import { extractJson } from './shared/parse-json';
 import {
   CATEGORISER_PROMPT,
   CATEGORISER_MAX_ASSIGNMENTS,
+  CATEGORISER_REUSE_CONFIDENCE_STRETCH,
+  CATEGORISER_FALLBACK_SLUG,
+  CATEGORISER_RETRY_MESSAGE,
   buildCategoriserPrompt,
   type CategoryContextRow,
   type PieceContext,
@@ -93,14 +96,30 @@ export interface CategoriserResult {
   assignmentsWritten: number;
   novelCategoriesCreated: number;
   novelCategoryNames: string[]; // for the observer body
-  considered: number;         // how many assignments Claude returned (pre-cap)
-  tokensIn: number;
-  tokensOut: number;
+  considered: number;         // total raw assignments across both attempts (pre-cap)
+  tokensIn: number;           // total across both attempts
+  tokensOut: number;          // total across both attempts
   durationMs: number;
   /** Populated only on the skipped path. Empty on the success path
    *  (the success log already names the just-written assignments via
    *  novelCategoryNames). */
   existingAssignments: ExistingAssignmentSummary[];
+  /** True iff Claude was called twice — the first attempt returned
+   *  empty (or all-sub-floor) and we re-prompted with the retry
+   *  message. Director uses this to fire logCategoriserRetried. */
+  retried: boolean;
+  /** Why the retry fired. Undefined when retried=false. */
+  retryReason?: 'empty' | 'all-sub-floor';
+  /** Token + considered counts from JUST the first attempt — surfaced
+   *  for the retry-info observer event. */
+  consideredFirst: number;
+  tokensInFirst: number;
+  tokensOutFirst: number;
+  /** True iff both attempts returned empty/all-sub-floor and the
+   *  piece was written to the reserved fallback category. Director
+   *  uses this to fire logCategoriserFallback (warn) instead of the
+   *  regular metered log. */
+  fallbackFired: boolean;
 }
 
 interface CategoriserState {
@@ -197,6 +216,11 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
         tokensOut: 0,
         durationMs: Date.now() - started,
         existingAssignments,
+        retried: false,
+        consideredFirst: 0,
+        tokensInFirst: 0,
+        tokensOutFirst: 0,
+        fallbackFired: false,
       };
     }
 
@@ -220,6 +244,11 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
     };
 
     // ── 3. Existing categories (full list — prompt needs all for reuse-bias) ─
+    // The reserved fallback category is filtered out before passing
+    // to Claude — it must NEVER be visible as a "reuse target", or
+    // Claude could pick it directly and defeat the retry layer's
+    // purpose. The fallback row is only written to by the agent's
+    // last-resort path.
     const catsRes = await this.env.DB
       .prepare(
         `SELECT id, name, slug, description, piece_count
@@ -234,117 +263,105 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
         piece_count: number;
       }>();
 
-    const existing: CategoryContextRow[] = catsRes.results.map((r) => ({
-      id: r.id,
-      name: r.name,
-      slug: r.slug,
-      description: r.description,
-      pieceCount: r.piece_count,
-    }));
+    const fallbackRow = catsRes.results.find(
+      (r) => r.slug === CATEGORISER_FALLBACK_SLUG,
+    );
+    if (!fallbackRow) {
+      throw new Error(
+        `categorise: reserved fallback category "${CATEGORISER_FALLBACK_SLUG}" not found in categories table — migration 0024 must be applied`,
+      );
+    }
 
-    // ── 4. Ask Claude ────────────────────────────────────────────
+    const existing: CategoryContextRow[] = catsRes.results
+      .filter((r) => r.slug !== CATEGORISER_FALLBACK_SLUG)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        slug: r.slug,
+        description: r.description,
+        pieceCount: r.piece_count,
+      }));
+
+    // ── 4. Ask Claude (with a single retry on empty/all-sub-floor) ─
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
+    const userPrompt = buildCategoriserPrompt(pieceContext, existing);
+
+    const existingById = new Map(existing.map((c) => [c.id, c] as const));
+    const existingBySlug = new Map(existing.map((c) => [c.slug, c] as const));
+
+    // First attempt
+    const first = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1500,
       system: CATEGORISER_PROMPT,
-      messages: [
-        { role: 'user', content: buildCategoriserPrompt(pieceContext, existing) },
-      ],
+      messages: [{ role: 'user', content: userPrompt }],
     });
+    const firstText = first.content[0].type === 'text' ? first.content[0].text : '{}';
+    const firstRaw = parseRawAssignments(firstText);
+    const firstResolveOutcome = await this.resolveAssignments(
+      firstRaw,
+      existingById,
+      existingBySlug,
+    );
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    let parsed: { assignments?: RawAssignment[] };
-    try {
-      parsed = extractJson<typeof parsed>(text);
-    } catch {
-      parsed = { assignments: [] };
+    let resolved: ResolvedAssignment[] = firstResolveOutcome.resolved;
+    let considered = firstRaw.length;
+    let tokensIn = first.usage?.input_tokens ?? 0;
+    let tokensOut = first.usage?.output_tokens ?? 0;
+
+    const consideredFirst = firstRaw.length;
+    const tokensInFirst = tokensIn;
+    const tokensOutFirst = tokensOut;
+
+    let retried = false;
+    let retryReason: 'empty' | 'all-sub-floor' | undefined;
+
+    if (resolved.length === 0) {
+      retried = true;
+      retryReason =
+        firstRaw.length === 0 ? 'empty' : 'all-sub-floor';
+
+      const second = await client.messages.create({
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 1500,
+        system: CATEGORISER_PROMPT,
+        messages: [
+          { role: 'user', content: userPrompt },
+          { role: 'assistant', content: firstText },
+          { role: 'user', content: CATEGORISER_RETRY_MESSAGE },
+        ],
+      });
+      const secondText = second.content[0].type === 'text' ? second.content[0].text : '{}';
+      const secondRaw = parseRawAssignments(secondText);
+      const secondResolveOutcome = await this.resolveAssignments(
+        secondRaw,
+        existingById,
+        existingBySlug,
+      );
+
+      if (secondResolveOutcome.resolved.length > 0) {
+        resolved = secondResolveOutcome.resolved;
+      }
+      considered += secondRaw.length;
+      tokensIn += second.usage?.input_tokens ?? 0;
+      tokensOut += second.usage?.output_tokens ?? 0;
     }
-    const raw: RawAssignment[] = Array.isArray(parsed.assignments) ? parsed.assignments : [];
-    const considered = raw.length;
 
-    // ── 5. Resolve assignments (existing vs novel) ───────────────
-    // Cap to MAX so a misbehaving response can't over-tag. Defensive
-    // clamping on confidence. Novel categories are deduplicated by
-    // slug against existing (Claude might propose a name that
-    // normalises to an existing slug — reuse instead of collide).
-    const existingById = new Map(existing.map((c) => [c.id, c] as const));
-    const existingBySlug = new Map(existing.map((c) => [c.slug, c] as const));
-    const resolved: ResolvedAssignment[] = [];
-
-    for (const a of raw.slice(0, CATEGORISER_MAX_ASSIGNMENTS)) {
-      const confidence = clampConfidence(a.confidence);
-
-      // Prefer an existing category if id is supplied and valid.
-      if (typeof a.categoryId === 'string' && existingById.has(a.categoryId)) {
-        if (resolved.some((r) => r.categoryId === a.categoryId)) continue; // dedup
-        resolved.push({ categoryId: a.categoryId, confidence, isNovel: false });
-        continue;
-      }
-
-      // Fall through to newCategory path.
-      const nc = a.newCategory;
-      if (!nc || typeof nc.name !== 'string' || nc.name.trim().length === 0) {
-        continue; // malformed — skip this assignment
-      }
-      const proposedSlug = typeof nc.slug === 'string' && nc.slug.length > 0
-        ? normaliseSlug(nc.slug)
-        : normaliseSlug(nc.name);
-      if (proposedSlug.length === 0) continue;
-
-      // If the proposed slug collides with an existing category,
-      // reuse instead of creating a duplicate.
-      const slugCollision = existingBySlug.get(proposedSlug);
-      if (slugCollision) {
-        if (resolved.some((r) => r.categoryId === slugCollision.id)) continue;
-        resolved.push({ categoryId: slugCollision.id, confidence, isNovel: false });
-        continue;
-      }
-
-      // Genuine novel category — create it now.
-      const newId = crypto.randomUUID();
-      const now = Date.now();
-      const name = nc.name.trim().slice(0, 100);
-      const description = typeof nc.description === 'string'
-        ? nc.description.trim().slice(0, 500)
-        : null;
-      try {
-        await this.env.DB
-          .prepare(
-            `INSERT INTO categories (id, slug, name, description, locked, piece_count, created_at, updated_at)
-             VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
-          )
-          .bind(newId, proposedSlug, name, description, now, now)
-          .run();
-      } catch {
-        // Race condition — another categoriser run created the same
-        // slug between our SELECT and INSERT. Re-read and reuse.
-        const collision = await this.env.DB
-          .prepare('SELECT id FROM categories WHERE slug = ? LIMIT 1')
-          .bind(proposedSlug)
-          .first<{ id: string }>();
-        if (!collision) continue; // mystery failure — skip, don't crash
-        if (resolved.some((r) => r.categoryId === collision.id)) continue;
-        resolved.push({ categoryId: collision.id, confidence, isNovel: false });
-        continue;
-      }
-      // Make the new category discoverable by subsequent iterations
-      // in this same loop (e.g. if Claude returned two novel
-      // categories that collapse to the same slug).
-      existingById.set(newId, {
-        id: newId, name, slug: proposedSlug,
-        description, pieceCount: 0,
-      });
-      existingBySlug.set(proposedSlug, {
-        id: newId, name, slug: proposedSlug,
-        description, pieceCount: 0,
-      });
-      resolved.push({
-        categoryId: newId,
-        confidence,
-        isNovel: true,
-        novelName: name,
-      });
+    // ── 5. Last-resort fallback ──────────────────────────────────
+    // If both attempts produced nothing usable, the piece lands in
+    // the reserved "Patterns Yet to Cluster" category so the user-
+    // stated rule "every piece must have a category" holds. Operator
+    // gets a warn observer event from Director.
+    let fallbackFired = false;
+    if (resolved.length === 0) {
+      fallbackFired = true;
+      resolved = [
+        {
+          categoryId: fallbackRow.id,
+          confidence: 0,
+          isNovel: false,
+        },
+      ];
     }
 
     // ── 6. Write assignments + bump piece_count counters ─────────
@@ -396,10 +413,128 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
       novelCategoriesCreated: novelNames.length,
       novelCategoryNames: novelNames,
       considered,
-      tokensIn: response.usage?.input_tokens ?? 0,
-      tokensOut: response.usage?.output_tokens ?? 0,
+      tokensIn,
+      tokensOut,
       durationMs: Date.now() - started,
       existingAssignments: [],
+      retried,
+      retryReason,
+      consideredFirst,
+      tokensInFirst,
+      tokensOutFirst,
+      fallbackFired,
     };
   }
+
+  /**
+   * Resolve raw Claude output into write-ready assignments.
+   *
+   * Three jobs:
+   * 1. Cap to MAX so a misbehaving response can't over-tag.
+   * 2. **Filter sub-floor existing-cat assignments** — anything below
+   *    {@link CATEGORISER_REUSE_CONFIDENCE_STRETCH} (60) is treated as
+   *    Claude violating the prompt's tiered reuse rule. Caller can
+   *    detect "all sub-floor" via `resolved.length === 0` while
+   *    `rawArr.length > 0`. Catches the 2026-04-25 Cartels @ 50
+   *    bug class.
+   * 3. Create novel categories on the spot, dedup against existing
+   *    by slug, race-safe via try/catch + re-read.
+   *
+   * Mutates `existingById` + `existingBySlug` so a subsequent call
+   * (e.g. the retry path) sees this call's just-created novel
+   * categories as reuse targets.
+   */
+  private async resolveAssignments(
+    rawArr: RawAssignment[],
+    existingById: Map<string, CategoryContextRow>,
+    existingBySlug: Map<string, CategoryContextRow>,
+  ): Promise<{ resolved: ResolvedAssignment[] }> {
+    const resolved: ResolvedAssignment[] = [];
+
+    for (const a of rawArr.slice(0, CATEGORISER_MAX_ASSIGNMENTS)) {
+      const confidence = clampConfidence(a.confidence);
+
+      // Existing category path
+      if (typeof a.categoryId === 'string' && existingById.has(a.categoryId)) {
+        if (confidence < CATEGORISER_REUSE_CONFIDENCE_STRETCH) {
+          continue; // sub-floor — drop
+        }
+        if (resolved.some((r) => r.categoryId === a.categoryId)) continue; // dedup
+        resolved.push({ categoryId: a.categoryId, confidence, isNovel: false });
+        continue;
+      }
+
+      // newCategory path
+      const nc = a.newCategory;
+      if (!nc || typeof nc.name !== 'string' || nc.name.trim().length === 0) {
+        continue;
+      }
+      const proposedSlug = typeof nc.slug === 'string' && nc.slug.length > 0
+        ? normaliseSlug(nc.slug)
+        : normaliseSlug(nc.name);
+      if (proposedSlug.length === 0) continue;
+
+      // Slug collision against existing → reuse instead of duplicate.
+      const slugCollision = existingBySlug.get(proposedSlug);
+      if (slugCollision) {
+        if (resolved.some((r) => r.categoryId === slugCollision.id)) continue;
+        resolved.push({ categoryId: slugCollision.id, confidence, isNovel: false });
+        continue;
+      }
+
+      // Genuine novel category — create now.
+      const newId = crypto.randomUUID();
+      const now = Date.now();
+      const name = nc.name.trim().slice(0, 100);
+      const description = typeof nc.description === 'string'
+        ? nc.description.trim().slice(0, 500)
+        : null;
+      try {
+        await this.env.DB
+          .prepare(
+            `INSERT INTO categories (id, slug, name, description, locked, piece_count, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
+          )
+          .bind(newId, proposedSlug, name, description, now, now)
+          .run();
+      } catch {
+        // Race — another run created the same slug. Re-read and reuse.
+        const collision = await this.env.DB
+          .prepare('SELECT id FROM categories WHERE slug = ? LIMIT 1')
+          .bind(proposedSlug)
+          .first<{ id: string }>();
+        if (!collision) continue;
+        if (resolved.some((r) => r.categoryId === collision.id)) continue;
+        resolved.push({ categoryId: collision.id, confidence, isNovel: false });
+        continue;
+      }
+      existingById.set(newId, {
+        id: newId, name, slug: proposedSlug, description, pieceCount: 0,
+      });
+      existingBySlug.set(proposedSlug, {
+        id: newId, name, slug: proposedSlug, description, pieceCount: 0,
+      });
+      resolved.push({
+        categoryId: newId,
+        confidence,
+        isNovel: true,
+        novelName: name,
+      });
+    }
+
+    return { resolved };
+  }
+}
+
+/** Parse Claude's text output into a raw assignments array. Returns
+ *  an empty array on any parse failure rather than throwing — the
+ *  caller treats empty as a retry trigger, not an error. */
+function parseRawAssignments(text: string): RawAssignment[] {
+  let parsed: { assignments?: RawAssignment[] };
+  try {
+    parsed = extractJson<typeof parsed>(text);
+  } catch {
+    return [];
+  }
+  return Array.isArray(parsed.assignments) ? parsed.assignments : [];
 }

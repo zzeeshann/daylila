@@ -10,7 +10,8 @@
     "verify-splice": "node scripts/verify-splice.mjs",
     "verify-normalize": "node scripts/verify-normalize.mjs",
     "verify-validator": "node scripts/verify-validator.mjs",
-    "verify-dedup": "node scripts/verify-dedup.mjs"
+    "verify-dedup": "node scripts/verify-dedup.mjs",
+    "verify-categoriser-floor": "node scripts/verify-categoriser-floor.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

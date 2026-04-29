@@ -391,6 +391,61 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /** Categoriser's first Claude attempt returned an empty (or all
+   *  sub-floor) assignments array — info-level breadcrumb so the admin
+   *  feed shows the retry happening. The follow-up
+   *  logCategoriserMetered (success) or logCategoriserFallback (both
+   *  attempts failed) reports the terminal state. Added 2026-04-29 as
+   *  part of the zero-assignment fix. */
+  async logCategoriserRetried(
+    date: string,
+    title: string,
+    detail: {
+      reason: 'empty' | 'all-sub-floor';
+      consideredFirst: number;
+      tokensInFirst: number;
+      tokensOutFirst: number;
+    },
+    pieceId: string | null = null,
+  ): Promise<void> {
+    const reasonNote =
+      detail.reason === 'empty'
+        ? 'first response was an empty assignments array'
+        : 'first response had only sub-floor (<60 confidence) existing-cat assignments';
+    await this.writeEvent({
+      severity: 'info',
+      title: `Categorisation retried: ${title}`,
+      body: `"${title}" (${date}) — Categoriser firing one retry: ${reasonNote}. First call: considered=${detail.consideredFirst}, tokens in=${detail.tokensInFirst} out=${detail.tokensOutFirst}.`,
+      context: { date, ...detail },
+      piece_id: pieceId,
+    });
+  }
+
+  /** Both Categoriser attempts returned empty/all-sub-floor — the
+   *  piece was written to the reserved "Patterns Yet to Cluster"
+   *  fallback category. Warn-severity because this should be rare; if
+   *  it fires more than ~once per 10 pieces, the prompt or taxonomy
+   *  needs tuning. Added 2026-04-29 as part of the zero-assignment
+   *  fix. */
+  async logCategoriserFallback(
+    date: string,
+    title: string,
+    detail: {
+      tokensInTotal: number;
+      tokensOutTotal: number;
+      durationMs: number;
+    },
+    pieceId: string | null = null,
+  ): Promise<void> {
+    await this.writeEvent({
+      severity: 'warn',
+      title: `Categorisation fallback fired: ${title}`,
+      body: `"${title}" (${date}) landed in the reserved "Patterns Yet to Cluster" category — both Claude attempts returned empty or all-sub-floor. Operator review recommended; the taxonomy may need a new category. Tokens: in=${detail.tokensInTotal} out=${detail.tokensOutTotal}. Latency: ${detail.durationMs}ms.`,
+      context: { date, ...detail },
+      piece_id: pieceId,
+    });
+  }
+
   /** InteractiveGenerator ran — combined quiz + html observer event.
    *
    * As of Phase 2 (2026-04-26), the Generator produces TWO artefacts

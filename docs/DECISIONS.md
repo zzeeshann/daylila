@@ -2,6 +2,32 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-29: Categoriser zero-floor + tiered reuse + fallback category (golden-orb fix)
+
+**Trigger:** the 2026-04-28 02:00 UTC cron's "Mystery of golden orb found in depths of ocean off Alaska finally solved" piece was assigned 0 categories — the first and only piece in the 22-piece catalogue without one. Piece subject ("how knowledge accumulates through incremental observation") was genuinely orthogonal to the trade/policy/commodity/violence-skewed taxonomy; Claude's available reuse targets were Pattern Recognition & Sensing (stretchy at ~65–70 confidence) or Information Asymmetry & Markets (stretchier still). The prompt left an explicit empty-array escape hatch in the bootstrap branch ("you may return zero assignments and the next piece's run will revisit with more context") — Claude generalised the latitude to the populated case and chose `{"assignments":[]}`. Code-level had no minimum-1 floor; observer event fired "0 categories", piece quietly stayed untagged.
+
+**Decision:** ship a layered defense — strengthen the prompt to forbid zero with a tiered decision (≥75 ideal reuse → 60–74 stretch reuse → propose-novel), add a code-level filter that drops sub-60 existing-cat assignments (separately catches the 2026-04-25 Cartels @ 50 bug class), wire a single retry on empty/all-sub-floor with a multi-turn message that names the violation, and fall back as a last resort to a reserved "Patterns Yet to Cluster" category seeded by migration 0027. The fallback is hidden from every reader-facing surface and from Claude's context list (so Claude can never pick it directly — defeats retry purpose).
+
+**Rejected alternatives:**
+- *Prompt-only fix.* Strengthen wording, trust Claude. Light touch, no code change. Rejected — the same instruction-violation latitude that caused the orb miss can recur on edge cases the prompt didn't anticipate. Multi-layer enforcement is cheaper (2 Claude calls in worst case + one DB write) than another 3-week recurrence cycle.
+- *Force reuse-only, no novel category creation.* Would have forced the orb into Pattern Recognition & Sensing at ~65 stretch confidence. Rejected — the user audit suggests the taxonomy is genuinely missing a "Science & Discovery" cluster (two pieces in three days sit in it). Letting Claude propose a durable new category when warranted preserves taxonomy convergence.
+- *Make "Miscellaneous" a Categoriser-visible target.* User said this would be acceptable as a literal fallback. Rejected — exposing it as a visible reuse target risks Claude over-using it ("when in doubt, dump it in Miscellaneous"). Keeping it hidden + warn-on-use forces the retry layer to do the work and gives operator a clear escalation signal.
+- *Lower the ideal reuse floor to 60 globally.* Rejected — Cartels @ 50 already showed sub-floor stretches; lowering further would compound. The tiered approach (75 ideal, 60 fallback for stretch, with a reasoning sentence naming what's stretchy) preserves the discipline at the high end while opening a controlled stretch path.
+- *Proactively seed a "Science & Discovery" category via migration.* Considered for the orb backfill. Rejected — the framing (name + description) is better discovered organically through Categoriser when it actually sees the piece, rather than guessed by a human in advance.
+
+**Trade-offs:**
+- Worst-case Claude calls per piece doubles (2 instead of 1) on retry path. Expected hit rate is rare under the new prompt — Claude has explicit instruction to use stretch-reuse rather than empty-array. Cost ceiling of one extra ~2.5k-token call per affected piece is acceptable.
+- The fallback category becomes a graveyard for genuinely confusing pieces. A piece landing there is an operator review signal (warn-severity observer event) — not a quiet failure.
+- Three files now duplicate the literal `'patterns-yet-to-cluster'` slug (categoriser-prompt.ts, categories.ts, made.ts). Single source-of-truth via cross-worker import was rejected — site and agents workers don't share code; the literal duplication is small enough that comment cross-references are sufficient.
+- Fallback row carries `id='fallback-patterns-yet-to-cluster'` (deterministic, not UUID) so the migration is idempotent under re-apply via `INSERT OR IGNORE` on the unique slug.
+- Migration count: 19 tables across 24 migrations.
+
+**Same-session orphan cleanup:** Deleted "Surveillance & Data Power" category from remote D1. Created 2026-04-21 by a Manto-doctrine-era piece subsequently deleted in the rollback; piece_count=0 since creation. Pre-delete verified zero `piece_categories` references. Single DELETE on `slug='surveillance-data-power' AND piece_count=0`.
+
+**Verification:** unit-style verifier `pnpm verify-categoriser-floor` (10 cases — empty / sub-floor / stretch-reuse / boundary 60 / boundary 59 / malformed JSON / non-array). All pass. Post-deploy backfill via `/categorise-trigger?piece_id=<orb>`. Forward observation (FOLLOWUPS): 5 cron firings, must hit `assignments_written ≥ 1`, zero fallback events, zero sub-60 rows.
+
+**See:** plan `~/.claude/plans/majestic-mixing-meerkat.md`.
+
 ## 2026-04-28 (rollback follow-up): Restore SAME-EVENT/SAME-CONCEPT prompt rule (collateral damage of the Manto rollback)
 
 **Trigger.** After the Manto rollback at `79a914d`, operator review surfaced that the rollback's `git checkout 9afcd85^ -- agents/src/curator-prompt.ts` had inadvertently swept up the SAME-EVENT/SAME-CONCEPT MUST-skip prompt rule from `11c2450`. Reasoning: `11c2450` shipped chronologically AFTER `9afcd85`, so checking out `9afcd85^` (the doctrine commit's parent) restored a curator-prompt.ts that predated both the doctrine AND the dedup prompt rule. The hard pre-Curator dedup filter at `e7ce2a4` (architectural, deterministic) survived because it lives in different files (`shared/dedup-headlines.ts` + `director.ts` wiring); only the prompt-level layer was lost.

@@ -750,9 +750,45 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       }
       const categoriser = await this.subAgent(CategoriserAgent, 'categoriser');
       const result = await categoriser.categorise(pieceId, date, current.mdx);
-      await observer
-        .logCategoriserMetered(date, title, result, pieceId)
-        .catch(() => { /* observer write failure never blocks */ });
+      // Retry breadcrumb fires whenever the first Claude call returned
+      // empty/all-sub-floor — info severity, doesn't replace the
+      // terminal log.
+      if (result.retried && result.retryReason) {
+        await observer
+          .logCategoriserRetried(
+            date,
+            title,
+            {
+              reason: result.retryReason,
+              consideredFirst: result.consideredFirst,
+              tokensInFirst: result.tokensInFirst,
+              tokensOutFirst: result.tokensOutFirst,
+            },
+            pieceId,
+          )
+          .catch(() => { /* observer write failure never blocks */ });
+      }
+      // Terminal log — fallback (warn) replaces the regular metered
+      // event when both attempts produced nothing usable. Otherwise
+      // the metered (info) path fires as before.
+      if (result.fallbackFired) {
+        await observer
+          .logCategoriserFallback(
+            date,
+            title,
+            {
+              tokensInTotal: result.tokensIn,
+              tokensOutTotal: result.tokensOut,
+              durationMs: result.durationMs,
+            },
+            pieceId,
+          )
+          .catch(() => { /* observer write failure never blocks */ });
+      } else {
+        await observer
+          .logCategoriserMetered(date, title, result, pieceId)
+          .catch(() => { /* observer write failure never blocks */ });
+      }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer

@@ -13,6 +13,39 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-29: Categoriser zero-floor + retry + fallback — verify shape over next 5 cron firings
+
+**Surfaced:** 2026-04-29 same session as the fix shipped. Plan `~/.claude/plans/majestic-mixing-meerkat.md`. The 2026-04-28 golden-orb piece was assigned 0 categories due to layered prompt/code/filter gaps — fix shipped in this session as a strengthened prompt (tiered ≥75 / 60 / novel decision), a sub-60 confidence filter, a single retry on empty/all-sub-floor, and a reserved "Patterns Yet to Cluster" fallback category (migration 0027).
+
+**Watch for** over the next 5 cron firings (≈2026-05-01 14:00 UTC):
+- Every piece must end with `assignments_written ≥ 1` (no piece can land in `daily_pieces` with zero `piece_categories` rows).
+- Zero `Categoriser fallback fired` warn observer events. The retry layer should catch nearly every case; if the fallback fires, the prompt or taxonomy needs another tuning pass.
+- Zero rows in `piece_categories` with `confidence < 60` (sub-floor filter must hold).
+- Median assignments-per-piece stays in the 1–2 band.
+- Novel-category creation rate ≤ 2 per 5 pieces. If higher, the stretch-reuse path may be too restrictive — consider relaxing the prompt's "if you're on the fence, stretch-reuse" wording.
+
+**Unblock condition:** all 5 pieces hit ≥1 assignment, zero fallback events, zero sub-60 rows. Mark `[resolved]` with cron-firing SHAs.
+
+**Escalation path:** if any cron fires `Categoriser fallback fired`, pull the piece's full underlying_subject + body excerpt + observer event chain from D1; investigate whether (a) the prompt can be tuned to recognise the cluster, or (b) the taxonomy genuinely needs a new permanent category seeded.
+
+**Priority:** medium — observation gates confidence in the fix; doesn't block other work.
+
+---
+
+## [observing] 2026-04-29: Resource Constraints ↔ Infrastructure Debt and Chokepoints ↔ Commodity Shocks overlap pairs
+
+**Surfaced:** 2026-04-29 taxonomy audit during the golden-orb fix. Two category pairs co-fire frequently and look conceptually adjacent:
+- Resource Constraints & Trade-offs (3 pieces) ↔ Infrastructure & Technical Debt (3 pieces) — co-fired on the Maine data center piece (90% / 75%).
+- Chokepoints & Supply (4 pieces) ↔ Commodity Shocks (3 pieces) — co-fired on Hormuz, Airline fuel, U.S. Mint cartel-gold (3×).
+
+Both pairs feel like legitimately distinct mechanisms (resource constraints = hard limits; infrastructure debt = falling-behind costs; chokepoints = geographic bottleneck; commodity shocks = price volatility), but with 22 pieces total it's too early to call. Aggressive merging now risks losing useful distinctions; if the pairs continue to always co-fire and never differentiate, that's a merge signal.
+
+**Unblock condition:** revisit when each category in either pair has ≥5 pieces. By then either: (a) they routinely fire alone (independent, keep), (b) they always co-fire with no daylight (merge candidate), or (c) operator-clear distinct semantics emerge in piece-bodies (clarify descriptions instead of merging).
+
+**Priority:** low — taxonomy hygiene, not correctness.
+
+---
+
 ## [open] 2026-04-27: reset-today.sh --piece-id misses interactives + interactive_audit_results + content/interactives/<slug>.json
 
 **Surfaced:** 2026-04-27 architectural-fix session. After deleting two wrangles pieces via `scripts/reset-today.sh --piece-id`, manual cleanup found orphans the script didn't touch:
