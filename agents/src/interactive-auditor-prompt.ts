@@ -48,10 +48,11 @@ The Zeemish voice contract applies to interactives the same way it applies to da
 ${VOICE_CONTRACT}
 
 Extra rules for quizzes:
-- Questions should read in the same register as a teaching piece would — plain English, no academic jargon, no marketing flourish.
+- **Plain English split rule.** The precise concept name is correct in \`title\` and \`concept\`; questions, options, and explanations use everyday words. Flag concept-jargon when it appears inside a stem, an option, or an explanation — words like *asymmetry, coordination, mitigation, throughput, allocation, displacement, propagation, restraint, structural, mechanism, aggregate, threshold, trade-off* should be translated into plain language inside the question body (e.g., *asymmetry → imbalance / one side has more*; *coordination agreement → deal*; *mutual restraint → holding back*). The list isn't exhaustive — apply the test below to anything that reads academic.
+- **The 14-year-old test as the scoring anchor.** Score 100 if a curious 14-year-old reads each stem cleanly on first read. Score 85 if minor polish. Score below 85 if vocabulary forces re-reads — *"Why does asymmetry in outside options destabilize coordination agreements?"* fails the test; *"Why do deals fall apart when one side has more options to walk away?"* passes.
 - Explanations should be declarative, not hedged ("Because X causes Y" not "It could be argued that X might potentially cause Y").
 - No flattery or meta-commentary ("Great thinking!", "This is a tough one!").
-- The \`concept\` line is part of the quiz too — it must be a non-empty, voice-compliant sentence naming the underlying principle. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice. Cite it as a violation if it's empty or off-voice.
+- The \`concept\` line is part of the quiz too — it must be a non-empty, voice-compliant sentence naming the underlying principle. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice. Cite it as a violation if it's empty or off-voice. Concept-jargon is allowed and correct here — that's the precise term doing its job.
 
 Score 100 if you'd leave it untouched. Score 85 if minor polish. Score below 85 for anything that a voice-compliant rewrite would visibly improve.
 
@@ -231,9 +232,10 @@ ${VOICE_CONTRACT}
 
 Extra rules for HTML interactives:
 - Short imperatives are GOOD. "Drag the slider." "Watch the line move." Slider labels read as nouns; that's correct register.
-- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words.
+- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words. They are correct in the \`title\` and \`concept\` line.
 - Numbers and units displayed on axes or readouts are data, not voice — don't audit them as voice.
 - The \`concept\` line must be a non-empty, voice-compliant sentence. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice.
+- **Plain English split rule for prose.** Caption text, status messages, tooltips inside the iframe follow the same rule the quiz auditor enforces: precise concept name lives in \`title\` and \`concept\` only; everywhere else uses everyday words. Flag captions like *"Throughput collapses under capacity asymmetry"* — the rewrite *"Flow drops sharply when the gap narrows"* teaches the same thing without forcing a re-read. Slider labels, axis units, and short imperatives stay exempt (already covered above).
 
 Score 100 if you'd leave the copy untouched. Score 85 for minor polish. Below 85 for anything a voice-compliant rewrite would visibly improve.
 

@@ -422,8 +422,12 @@ What fails voice (non-exhaustive):
 
 What does NOT fail voice:
 - Short imperatives. "Drag the slider." "Watch the line move." Interactive copy is allowed to be terse — a quiz question reads as a sentence; a slider label reads as a noun.
-- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off). These are concept vocabulary, not tribe words.
+- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off) **inside the `title` and `concept` line**. These are concept vocabulary, not tribe words, and the title/concept fields are exempt from the Plain English split rule below.
 - Numbers and units displayed on axes or as readouts. They're data, not voice.
+
+**Plain English split rule (2026-04-29).** The voice contract's *"Plain English. No jargon without immediate translation"* line is enforced harder for interactives via a split. The precise concept name lives in `title` and `concept` only. Every quiz question stem / option / explanation, and every HTML caption / status message / tooltip, uses everyday words a curious 14-year-old reads cleanly first time. Concept-jargon translations the auditor expects: *asymmetry → imbalance / one side has more · coordination agreement → deal · mutual restraint → holding back · throughput → flow · allocation → who gets what · displacement → being pushed aside · propagation → spreading · structural → built into the system · mechanism → how it works · aggregate → total · threshold → tipping point · trade-off → giving up X to get Y*. The list isn't exhaustive — apply the 14-year-old test to anything that reads academic. Slider labels, axis units, and short imperatives stay exempt.
+
+Worked before/after: *"Why does asymmetry in outside options destabilize coordination agreements?"* fails (forces a re-read); *"Why do deals fall apart when one side has more options to walk away?"* passes. See [DECISIONS 2026-04-29 "Plain English layer for interactive prompts"](DECISIONS.md) for the trade-off log.
 
 Score 100 if you'd leave the copy untouched. Score 85 if minor polish would help. Below 85 for anything a voice-compliant rewrite would visibly improve.
 

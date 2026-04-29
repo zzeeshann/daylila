@@ -13,6 +13,27 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-29: Plain English layer for interactives — verify register over next 5 cron-generated quizzes
+
+**Surfaced:** 2026-04-29 same session as the fix shipped. Plan `~/.claude/plans/for-the-interactives-specially-enchanted-crab.md`. Quizzes were passing voice 88/100 with stems like *"Why does asymmetry in outside options destabilize coordination agreements even when mutual restraint would benefit all participants?"* Fix shipped: quiz generator now embeds `VOICE_CONTRACT` (parity with HTML generator) + new "Plain English for quizzes — split rule" subsection with concept-jargon translation list, 14-year-old test, and worked before/after pair. Quiz auditor's plain-English line strengthened with the same checklist + scoring anchor. HTML generator + auditor get mirror Plain-English bullets for caption text / status messages / tooltips. Verifier `pnpm verify-interactive-voice` (10 cases) passes.
+
+**Watch for** over the next 5 cron-generated quizzes (≈2026-05-01 14:00 UTC):
+- Every quiz's `title` + `concept` line uses precise concept words — they're correct register there.
+- Every question stem uses everyday words — a curious 14-year-old reads cleanly first time.
+- Concept-jargon (asymmetry, coordination, mitigation, throughput, allocation, displacement, propagation, restraint, structural, mechanism, aggregate, threshold, trade-off) absent from stems / options / explanations unless quoted as a definition (which the prompt also discourages).
+- Explanations declarative — no *"could be argued / might potentially / arguably / it is suggested that / it could be that"*.
+- Voice score in `interactives.voice_score` stays ≥85. If a quiz drops below 85 on the new rules, that's the auditor catching the new register correctly during the produce→audit→revise loop — expected outcome, not a regression.
+
+**Unblock condition:** ≥4 of 5 quizzes cleanly readable on first read by a non-specialist, zero hedge phrases in explanations, zero concept-jargon in stems. Mark `[resolved]` with cron-firing SHAs and a one-line commentary on register.
+
+**Escalation path:** if next 5 quizzes still use academic vocabulary in stems (the prompt change isn't biting), pick one of:
+- (a) Tighten the flag-list with more concept words observed in production cron output (the JS verifier's `JARGON_FLAG_LIST` and the prompt's translation list both grow together — keep them in sync by hand).
+- (b) Add a runtime pre-Claude shim using the verifier's `checkSimpleEnglish` heuristic — reject jargon-heavy first attempts before the auditor burns tokens. Wires into `agents/src/interactive-generator.ts` `runQuizLoop` between produce and audit, raises a synthetic `auditor failed: jargon` so the existing revise-loop machinery handles it without a separate code path.
+
+If neither bites within ~10 cron quizzes total, revisit whether the change should escalate to a voice-contract tightening (would cascade to Drafter / Voice Auditor / Integrator on daily pieces — bigger blast radius, deliberately deferred at the 2026-04-29 fix).
+
+---
+
 ## [observing] 2026-04-29: Categoriser zero-floor + retry + fallback — verify shape over next 5 cron firings
 
 **Surfaced:** 2026-04-29 same session as the fix shipped. Plan `~/.claude/plans/majestic-mixing-meerkat.md`. The 2026-04-28 golden-orb piece was assigned 0 categories due to layered prompt/code/filter gaps — fix shipped in this session as a strengthened prompt (tiered ≥75 / 60 / novel decision), a sub-60 confidence filter, a single retry on empty/all-sub-floor, and a reserved "Patterns Yet to Cluster" fallback category (migration 0027).

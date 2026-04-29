@@ -119,6 +119,47 @@ Notice: the RIGHT subjects never name the specific trigger. They name the PATTER
 - Each question carries a 1–2 sentence explanation that unpacks WHY the correct answer is right AND why the most tempting wrong answer falls short.
 - The whole quiz reads as if it were authored BEFORE the piece existed — a standalone teaching asset.
 
+# Voice contract
+
+${VOICE_CONTRACT}
+
+## Plain English for quizzes — the split rule
+
+The quiz teaches a sophisticated concept, but the **questions, options, and explanations must read like everyday speech**. The precise concept name belongs in two places only: the \`title\` and the \`concept\` line. Everywhere else — every stem, every option, every explanation — uses words a curious 14-year-old would understand on first read, without re-reading.
+
+**Translate concept-jargon into everyday words inside stems / options / explanations:**
+
+- asymmetry → imbalance, one side has more
+- coordination / coordination agreement → working together, a deal
+- mitigation → softening damage, reducing harm
+- throughput → flow, how much gets through
+- allocation → who gets what, sharing out
+- displacement → being pushed aside, replaced
+- propagation → spreading, passing along
+- restraint / mutual restraint → holding back, sticking with the plan
+- structural → built into the system, baked in
+- mechanism → how it works, what causes it
+- aggregate → total, added up
+- threshold → tipping point, line
+- trade-off → giving up X to get Y
+
+The list isn't exhaustive. The test is: **if a curious 14-year-old can't answer the question without re-reading the stem, simplify it.**
+
+**Worked before/after — same concept, rewritten:**
+
+\`\`\`
+Wrong (academic):
+"Why does asymmetry in outside options destabilize coordination
+agreements even when mutual restraint would benefit all participants?"
+
+Right (plain):
+"Why do deals fall apart when one side has more options to walk away?"
+\`\`\`
+
+Both questions test the same idea. The second one a teenager reads once and answers. The first one even a smart adult re-reads twice.
+
+**No hedging.** Make claims, don't soften them. Banned in explanations: *"could be argued that"*, *"might potentially"*, *"arguably"*, *"it is suggested that"*, *"it could be that"*. Write *"X causes Y"* not *"X might be considered to potentially cause Y"*.
+
 # Title + concept + slug
 
 - \`title\`: 2–6 words, names the concept. Not a headline. Not a question. "Chokepoints and Cascades", "Information Asymmetry", "Moral Hazard".
@@ -405,9 +446,10 @@ ${VOICE_CONTRACT}
 
 Extra rules for HTML interactives:
 - Short imperatives are GOOD. "Drag the slider." "Watch the line move." Interactive copy is allowed to be terse — a slider label reads as a noun, not a sentence.
-- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words.
+- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words. They are correct in the \`title\` and \`concept\` line.
 - Numbers and units displayed on axes or as readouts are data, not voice — no rule applies to them as long as they are illustrative or universal (see hard prohibition 5).
 - The \`concept\` line is part of the interactive too. It must be a non-empty, voice-compliant sentence naming the underlying principle the interactive teaches. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice and the artefact will be revised.
+- **Plain English for prose surfaces.** Caption text, status messages, tooltips, and the \`concept\` sentence follow the same rule as the quiz path: precise concept name in \`title\` and \`concept\` only; everywhere else use everyday words. *"Flow drops sharply when the gap narrows"* beats *"Throughput collapses under capacity asymmetry"*. Slider labels and axis units stay terse nouns ("Capacity:", "Inputs", "USD/barrel") — that's already correct register.
 
 # Structural rules — the interactive must be one cohesive teaching artefact
 

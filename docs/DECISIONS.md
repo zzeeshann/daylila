@@ -2,6 +2,43 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-29: Plain English layer for interactive prompts
+
+**Trigger:** the 2026-04-25 [defection-incentives-under-asymmetry quiz](content/interactives/defection-incentives-under-asymmetry.json) shipped voice 88/100 with the stem *"Why does asymmetry in outside options destabilize coordination agreements even when mutual restraint would benefit all participants?"* Contract-compliant on the letter (every concept word is the right term, no tribe words, no hedging, no flattery), but the voice contract's own test — *"sounds like something a human would actually say to a friend"* — fails on first read. A curious 14-year-old has to re-read the stem twice. Three real gaps surfaced: (1) the quiz generator did not embed `VOICE_CONTRACT` at all (only the auditor and HTML generator did), (2) the auditor's plain-English line was generic enough that "asymmetry / coordination / mitigation / throughput / restraint" all passed, (3) no worked before/after pair anywhere in the prompts to anchor the rewrite intuition.
+
+**Decision:** ship a Plain-English layer in the interactive generator and auditor prompts (both quiz and HTML paths), with a JS verifier mirroring the rule shape. Voice contract itself stays untouched.
+
+The split rule: precise concept name lives in `title` and `concept` line; questions / options / explanations (quiz) and caption text / status messages / tooltips (HTML) use everyday words. Concept-jargon translation list anchors the rewrite intuition (asymmetry → imbalance / one side has more; coordination agreement → deal; mutual restraint → holding back; etc.). 14-year-old test as scoring anchor: voice 100 if a curious 14-year-old reads cleanly first time, 85 if minor polish, <85 if vocabulary forces re-reads. One worked before/after pair using the actual production stem ("Why does asymmetry in outside options destabilize coordination agreements?" → "Why do deals fall apart when one side has more options to walk away?").
+
+**Trade-offs considered:**
+
+- **Voice contract tightening (rejected).** Could have added a "Plain English split rule" to the canonical [content/voice-contract.md](content/voice-contract.md). Rejected: the contract is embedded by Drafter / Voice Auditor / Integrator on daily pieces. Daily-piece register is genuinely different — pieces teach sophisticated concepts at length, with room to introduce a precise term and define it in the next sentence. Quizzes and HTML-interactive captions don't have that scaffolding budget — a 4-option question on a single screen has to land in everyday words on first read. Tightening the contract would over-correct daily pieces. The contract's "Plain English. No jargon without immediate translation" line is correct as written; we're applying it harder for interactives via the embedding agents, not changing it.
+
+- **Reading-level metric (rejected).** Could have specified Flesch-Kincaid or lexile target. Rejected as not actionable in a prompt — Claude can't reliably score Flesch-Kincaid on its own output. The 14-year-old test is a heuristic Claude can apply on each stem.
+
+- **Title and concept exempt (decided).** Concept-jargon (asymmetry, chokepoint, threshold, trade-off) is the correct term and belongs in `title` and `concept`. The auditor and verifier explicitly skip those fields. Stems / options / explanations are where the simplification bites.
+
+- **JS verifier instead of runtime shim (decided).** The verifier is a documentation + regression artefact (mirrors the prompt's flag-list as deterministic regex), not a pre-Claude runtime gate. Same convention as `verify-categoriser-floor` / `verify-splice` / `verify-dedup` / `verify-normalize` / `verify-validator`. If the prompt change doesn't bite over the next 5 cron-generated quizzes, FOLLOWUPS entry escalates to either tightening the flag-list with more concept words observed in production OR adding a runtime pre-Claude shim using the verifier's JS heuristic.
+
+- **No backfill of existing 16 interactive JSON files.** Permanence rule. New register applies to future cron runs only. Operator can manually retag any individual file via `/interactive-regenerate-trigger?piece_id=<id>&type=quiz` if a specific historical quiz reads off-register, but this is not part of the change.
+
+**Files touched (5 + 1 new):**
+- [agents/src/interactive-generator-prompt.ts](agents/src/interactive-generator-prompt.ts) — quiz path: embed `VOICE_CONTRACT` + new "Plain English for quizzes" subsection. HTML path: append Plain-English bullet to existing extra rules.
+- [agents/src/interactive-auditor-prompt.ts](agents/src/interactive-auditor-prompt.ts) — quiz auditor: replace soft line 51 with explicit checklist + 14-year-old test + worked before/after. HTML auditor: append mirror Plain-English bullet.
+- [agents/scripts/verify-interactive-voice.mjs](agents/scripts/verify-interactive-voice.mjs) — new file, 10 fixture cases.
+- [agents/package.json](agents/package.json) — `verify-interactive-voice` script.
+- [CLAUDE.md](CLAUDE.md) — narrative section "Plain English for interactives (2026-04-29)".
+- [docs/AGENTS.md](docs/AGENTS.md) — touched Interactive Generator + Interactive Auditor character paragraphs.
+- [docs/FOLLOWUPS.md](docs/FOLLOWUPS.md) — new `[observing]` entry.
+
+**Verification (this session):** `pnpm verify-interactive-voice` — 10/10 pass. `npx tsc --noEmit` from `agents/` — 27 pre-existing `server.ts` SubAgent typing errors (unchanged from pre-session); touched prompt files compile clean. `pnpm build` site-side clean.
+
+**Rollback:** single `git revert` of the change set. No schema, no migration, no D1 surgery, no R2 surgery, no historical backfill to undo.
+
+**Forward observation:** next 5 cron-generated quizzes (≈2026-05-01 14:00 UTC). Unblock the FOLLOWUPS entry at ≥4/5 cleanly readable by a non-specialist on first read. Escalate if the prompt change isn't biting.
+
+---
+
 ## 2026-04-29: Categoriser zero-floor + tiered reuse + fallback category (golden-orb fix)
 
 **Trigger:** the 2026-04-28 02:00 UTC cron's "Mystery of golden orb found in depths of ocean off Alaska finally solved" piece was assigned 0 categories — the first and only piece in the 22-piece catalogue without one. Piece subject ("how knowledge accumulates through incremental observation") was genuinely orthogonal to the trade/policy/commodity/violence-skewed taxonomy; Claude's available reuse targets were Pattern Recognition & Sensing (stretchy at ~65–70 confidence) or Information Asymmetry & Markets (stretchier still). The prompt left an explicit empty-array escape hatch in the bootstrap branch ("you may return zero assignments and the next piece's run will revisit with more context") — Claude generalised the latitude to the populated case and chose `{"assignments":[]}`. Code-level had no minimum-1 floor; observer event fired "0 categories", piece quietly stayed untagged.
