@@ -32,6 +32,15 @@ Format per entry:
 
 If neither bites within ~10 cron quizzes total, revisit whether the change should escalate to a voice-contract tightening (would cascade to Drafter / Voice Auditor / Integrator on daily pieces — bigger blast radius, deliberately deferred at the 2026-04-29 fix).
 
+**2026-04-30 cycle-1 update (essence false-positive watch folded into this entry).** Operator triaged 4 `WARN` "Interactive(s) shipped (flagged low)" events from 2026-04-29 in the live admin feed. Plan `~/.claude/plans/are-these-normal-investigate-lexical-hennessy.md`. Findings:
+
+- 2 of 3 verifiable HTML interactives (`gradient-climbing-navigation` smell-maps `7857a1b`, `embedded-continuation` capitalism `35ae1c5` + `8516546`) are **clean abstract teachings — zero leaks** of names/dates/quotes/industry labels. Both flagged-low on essence; auditor caught only concept-match + thematic echo despite the loosened rule explicitly excluding both. **Cycle 2 of the essence false-positive watch confirmed** (predicted by CLAUDE.md 2026-04-24 entry: *"1–2 fresh cycles will tell us whether to ship a second tuning pass"*).
+- Hippos HTML (`waste-driven-ecosystem-reorganization` `309a3f7`, voice 72) is **post-fix, system working as designed**. Plain English fix `573fdd6` deployed 22:05 UTC; HTML committed 22:45 UTC. Auditor correctly caught real Plain-English misses on `structural` (Q5 stem: *"structurally difficult beyond the logistics"*) and `mechanisms` (Q4 explanation: *"the existing cleanup mechanisms cannot match"*) — both on the new explicit translation list. 2 revisions plateaued at 72 on complex-domain (ecosystem/nutrient biology) prose; shipped `qualityFlag='low'` per Area 4 design.
+
+**Extended unblock condition:** the original 5-cron Plain-English watch holds (≥4/5 cleanly readable, zero hedge phrases, zero concept-jargon in stems). Additionally, watch the **essence false-positive rate** over the same 5-firing window — if ≥3 of 5 ship flagged-low for essence with no concrete leak (verified by reading the JSON content), that's the auditor's loosened rule still over-strict and the recommended next step is **Move A from the 2026-04-30 plan**: surgical prompt-only edit at [agents/src/interactive-auditor-prompt.ts](agents/src/interactive-auditor-prompt.ts) `INTERACTIVE_HTML_AUDITOR_PROMPT` essence section — re-emphasise the "Do NOT fail for" list with a worked PASS example using one of today's verified false-positive HTMLs (`gradient-climbing-navigation` or `embedded-continuation`). If essence false-positive rate is ≤2 of 5, the loosened rule is good enough; mark this entire entry resolved.
+
+**Risk on Move A:** over-correcting and missing real leaks. Mitigation: keep the 6 "Fail if" concrete rules verbatim; only tighten the "Do NOT fail for" guidance with the worked PASS example.
+
 ---
 
 ## [observing] 2026-04-29: Categoriser zero-floor + retry + fallback — verify shape over next 5 cron firings
