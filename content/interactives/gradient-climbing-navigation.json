@@ -1,0 +1,71 @@
+{
+  "slug": "gradient-climbing-navigation",
+  "type": "quiz",
+  "title": "Gradient Climbing",
+  "concept": "Systems navigate toward sources by detecting whether a measurable quantity increases or decreases along their current path, converting local comparisons into directional movement without requiring knowledge of the global field structure.",
+  "interactiveId": "1e41807d-be42-4fa7-9224-13fbc88b3cbb",
+  "sourcePieceId": "ad0c68c2-d745-4cde-b776-faf7feb554d0",
+  "publishedAt": 1777428265069,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What minimum capability allows a system to navigate toward a source using gradient climbing?",
+        "options": [
+          "The ability to measure absolute intensity at its current position",
+          "The ability to detect whether intensity is increasing or decreasing relative to recent measurements",
+          "A memory of all previously visited positions and their intensities",
+          "Knowledge of the maximum possible intensity the field can produce"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradient climbing requires only comparative information—'getting stronger' or 'getting weaker'—to choose direction. Absolute measurements, historical records, and field boundaries may improve performance but aren't necessary for the core strategy to function."
+      },
+      {
+        "question": "A field contains two sources of different strengths positioned far apart. A gradient-climbing navigator starts equidistant from both. Which source will it reach?",
+        "options": [
+          "The stronger source, because its gradient extends farther and will be encountered first",
+          "Whichever source it happens to move toward initially, because gradient climbing provides no information for comparing distant alternatives",
+          "The weaker source, because stronger sources create steeper gradients that are harder to climb accurately",
+          "Neither—the navigator will stop at the midpoint where both gradients cancel out"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradient climbing is path-dependent. The system follows whichever slope it encounters, with no mechanism to evaluate whether an unexplored direction might lead to a stronger source. Initial direction determines outcome. The strongest global source wins only if the navigator starts on its slope."
+      },
+      {
+        "question": "When measurement intervals are large relative to how quickly the field changes, how does this affect gradient-climbing performance?",
+        "options": [
+          "Performance improves because large intervals average out short-term fluctuations",
+          "Performance degrades because the system may move past optimal positions before detecting that intensity has started decreasing",
+          "Interval size has no effect as long as the system can still distinguish increasing from decreasing",
+          "The system automatically adjusts by taking smaller steps between measurements"
+        ],
+        "correctIndex": 1,
+        "explanation": "If the system samples too infrequently relative to field variation, it may overshoot—moving from an increasing gradient into a decreasing one without detecting the peak between measurements. The strategy depends on matching measurement frequency to the rate at which the field changes along the path."
+      },
+      {
+        "question": "Why does gradient climbing work in optimization algorithms that search for parameter values maximizing a mathematical function, even though no physical molecules are involved?",
+        "options": [
+          "Mathematical functions are simpler than physical fields, so the same strategy works more reliably",
+          "Both contexts present a quantity that varies across a domain—concentration across space or function value across parameters—creating a slope structure that can be followed",
+          "Optimization algorithms use gradient climbing as an approximation, while physical systems implement the true version",
+          "The similarity is superficial—physical navigation requires analog sensing while optimization uses digital calculation"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradient climbing generalizes across any domain where a measurable quantity varies along dimensions you can traverse—physical space, parameter space, configuration space. The substrate changes but the logic remains: sample, compare, move toward 'better'. Implementation details differ; the structural pattern is identical."
+      },
+      {
+        "question": "A gradient-climbing system approaches a source but then encounters a barrier that blocks direct movement while allowing the field to pass through. What happens?",
+        "options": [
+          "The system follows the gradient around the barrier because intensity continues increasing along accessible paths",
+          "The system stalls at the barrier because gradient climbing provides no strategy for navigating obstacles—it only indicates 'toward higher intensity', not 'how to reach higher intensity when blocked'",
+          "The system switches to a random search pattern until it finds a path, then resumes gradient climbing",
+          "The barrier creates a local maximum that traps the system permanently"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradient climbing reads field structure, not spatial topology. At a barrier, intensity may still increase 'through the wall', but the system cannot move there. The strategy fails because it lacks obstacle-avoidance logic—it only knows 'this direction is better', not 'this direction is blocked, find an alternate route'."
+      }
+    ]
+  }
+}
