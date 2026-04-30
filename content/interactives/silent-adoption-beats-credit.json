@@ -1,0 +1,71 @@
+{
+  "slug": "silent-adoption-beats-credit",
+  "type": "quiz",
+  "title": "Silent Adoption Beats Credit",
+  "concept": "A method proves itself when former skeptics use it without announcement — real validation shows up in changed practice across a field, not in who gets named or remembered.",
+  "interactiveId": "3d217800-3af2-4894-a741-396cd83972a8",
+  "sourcePieceId": "2aba2c5f-0a3e-4c61-a3e2-8dddfc7945e7",
+  "publishedAt": 1777552201773,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What shows a new method actually works better than the old one?",
+        "options": [
+          "The inventor publishes a paper with impressive results",
+          "Labs that resisted it start using it without saying they switched",
+          "A major funder gives it an award",
+          "Critics stop writing negative reviews about it"
+        ],
+        "correctIndex": 1,
+        "explanation": "Methods prove themselves when former resisters quietly integrate them into daily work — behavior change across a field is validation. Published results make a claim but don't prove adoption; awards recognize past work; silence from critics might just mean they stopped paying attention."
+      },
+      {
+        "question": "Why do people who said a technique was too risky end up using it?",
+        "options": [
+          "They admit they were wrong after seeing more data",
+          "The technique keeps delivering and the feared problems never arrive",
+          "Everyone else is using it so they feel pressured to follow",
+          "Funding agencies require proposals to use newer approaches"
+        ],
+        "correctIndex": 1,
+        "explanation": "Adoption happens when a method keeps working and the dangers people worried about don't show up — the technique earns trust through repeated use, not through anyone admitting error. People rarely announce they changed their minds; they just start doing what works."
+      },
+      {
+        "question": "What happens to a technique once everyone in a field uses it?",
+        "options": [
+          "It gets taught in textbooks with the inventor's name attached",
+          "It becomes the normal way of working and stops seeming new",
+          "People debate its ethics forever even though everyone relies on it",
+          "The inventor gets more recognition because the impact is obvious"
+        ],
+        "correctIndex": 1,
+        "explanation": "When a technique becomes standard practice, it stops being remarkable — it becomes invisible baseline knowledge rather than someone's contribution. Universal use proves value but erases novelty; the innovation disappears into how things are done."
+      },
+      {
+        "question": "Why does intense competition between two groups speed up both of them?",
+        "options": [
+          "Each group gets more funding because funders want their side to win",
+          "Knowing someone else might finish first changes what counts as fast enough",
+          "Both groups share techniques to make sure neither falls too far behind",
+          "Leaders push their teams harder when pride is on the line"
+        ],
+        "correctIndex": 1,
+        "explanation": "Competition redefines the timeline — what seemed acceptably careful becomes unacceptably slow when someone else might beat you. The threat of losing forces re-evaluation of every delay. Extra funding helps but doesn't create urgency; groups rarely share techniques mid-race; individual motivation matters less than collective realization that the old pace no longer works."
+      },
+      {
+        "question": "When does borrowing someone else's work to build something faster cross from smart to unfair?",
+        "options": [
+          "Whenever you use their data without asking permission first",
+          "When the thing you build wouldn't exist without their foundation but you claim full credit",
+          "Never — if the work is public, using it to go faster is just efficient",
+          "Only if you profit from it and they don't"
+        ],
+        "correctIndex": 1,
+        "explanation": "Using public work is legitimate; denying the foundation made your speed possible crosses into unfairness. The line is acknowledgment — if you'd still be starting from zero without their years of effort, pretending you did it independently misrepresents the dependency. Profit isn't the test; credit for enabling contribution is."
+      }
+    ]
+  }
+}
