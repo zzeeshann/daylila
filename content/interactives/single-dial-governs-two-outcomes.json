@@ -1,0 +1,71 @@
+{
+  "slug": "single-dial-governs-two-outcomes",
+  "type": "quiz",
+  "title": "Single Dial Governs Two Outcomes",
+  "concept": "When two things you want are controlled by the same underlying knob, turning it to improve one makes the other worse — they're not separate controls you can adjust independently.",
+  "interactiveId": "1535e623-7c37-49c4-9efb-ba27d19dfafe",
+  "sourcePieceId": "280dc1c7-5a72-4928-aef7-123e19996fb4",
+  "publishedAt": 1777582140545,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A painkiller blocks receptors throughout your body. Why does making it better at stopping your headache also make you more nauseous?",
+        "options": [
+          "The same receptor exists in your brain and your stomach — blocking it more strongly affects both places at once",
+          "Stronger doses stay in your system longer, building up in your stomach over time",
+          "Your body develops tolerance to the pain relief, requiring higher doses that upset your digestive system",
+          "Pain and nausea signals travel along connected nerve pathways, so blocking one eventually affects the other"
+        ],
+        "correctIndex": 0,
+        "explanation": "The receptor you're trying to block isn't only in your head. It's also in your gut. The drug molecule doesn't distinguish locations — it finds that receptor type wherever it exists and blocks it. Turn up the blocking effect and both sites feel it. The pathway option suggests two separate targets linked by wiring; the actual situation is one target type present in two locations."
+      },
+      {
+        "question": "A city builds more ambulance stations to cut response time in half. Why does this leave them with fewer fire stations than before?",
+        "options": [
+          "Ambulance calls become more common when response time improves, pulling resources away from fire services",
+          "Emergency workers prefer ambulance work, creating staffing shortages at fire stations",
+          "Both need money and land — spending more on one leaves less for the other",
+          "Fast ambulance response reduces fire deaths, making fire stations seem less urgent to voters"
+        ],
+        "correctIndex": 2,
+        "explanation": "The city has a fixed budget and a fixed number of good locations. Every dollar and every site given to ambulance stations is a dollar and site unavailable for fire stations. The resource pool doesn't expand because you need two things. The preference option suggests a worker allocation problem; the actual constraint is total resources — there's only so much money and land to divide."
+      },
+      {
+        "question": "A bridge designer uses less steel to cut costs. Why does this make the bridge weaker, regardless of how brilliant the engineer is?",
+        "options": [
+          "Less steel means gaps appear in the support structure where stress concentrates",
+          "Strength comes from how much material resists the load — less material means less resistance, no matter how you arrange it",
+          "Budget cuts force engineers to work faster, increasing the chance of design errors",
+          "Cheaper steel grades contain impurities that reduce structural capacity"
+        ],
+        "correctIndex": 1,
+        "explanation": "Physics doesn't negotiate. Strength is the total amount of material pushing back against the weight pressing down. Remove material and you remove resistance capacity. Clever design changes where you land on the strength curve, but it doesn't erase the curve itself. The gaps option suggests bad arrangement is the problem; even perfectly arranged steel has less total pushback capacity when there's less of it."
+      },
+      {
+        "question": "A manager wants the team to ship fastest and check quality most carefully. Why can't both happen at their maximum at the same time?",
+        "options": [
+          "Rushing creates stress that makes quality checks less effective",
+          "Team members disagree about priorities, slowing down both speed and quality",
+          "Careful checking takes hours — every quality step uses time that could go to finishing and shipping",
+          "Shipping quickly builds momentum that makes later quality checks more efficient"
+        ],
+        "correctIndex": 2,
+        "explanation": "Time is the shared resource. Thorough checking means testing edge cases, getting multiple reviews, running checks again — all of which takes hours. Maximum speed means shortening or skipping those steps. The day has only so many hours. The stress option suggests psychological effects change the trade-off; the core constraint is simply that hours spent on checking are hours not spent on shipping."
+      },
+      {
+        "question": "A hiring filter screens for 'team culture fit' by looking for matching communication styles. Why does this reduce the range of problem-solving approaches available to the team?",
+        "options": [
+          "People who communicate similarly tend to think similarly — filtering for one narrows the other because both come from how someone processes information",
+          "Cultural fit interviews take longer, eliminating qualified candidates who can't spend extra time on the process",
+          "Strong team culture makes members resistant to new ideas, reducing the impact of diverse thinkers even after hiring",
+          "Candidates who don't fit the culture turn down job offers, shrinking the pool of available approaches"
+        ],
+        "correctIndex": 0,
+        "explanation": "Communication style and thinking approach aren't separate traits you could filter independently. Someone who processes information visually thinks differently from someone who processes it through conversation — and they communicate those thoughts differently too. Screen for matching communication and you're also screening for matching thought patterns. One control affects both. The interview-time option suggests a scheduling problem is the constraint; the actual issue is that the filtering criterion itself correlates with both communication and cognition."
+      }
+    ]
+  }
+}
