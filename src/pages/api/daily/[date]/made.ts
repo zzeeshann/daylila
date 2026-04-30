@@ -489,11 +489,28 @@ function parseClaims(notes: string | null | undefined): MadeFactClaim[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter((c) => c && typeof c === 'object' && typeof c.claim === 'string')
-      .map((c: any) => ({
-        claim: c.claim,
-        status: typeof c.status === 'string' ? c.status : undefined,
-        note: typeof c.note === 'string' ? c.note : undefined,
-      }));
+      .map((c: any) => {
+        const claim: MadeFactClaim = {
+          claim: c.claim,
+          status: typeof c.status === 'string' ? c.status : undefined,
+          note: typeof c.note === 'string' ? c.note : undefined,
+        };
+        // Phase F (2026-04-30): per-claim sources from web_search citations.
+        // Pre-Phase-F audit rows have no `sources` field; map to nothing.
+        // Each source should carry url + optional title/citedText/searchQuery.
+        if (Array.isArray(c.sources)) {
+          const sources = c.sources
+            .filter((s: any) => s && typeof s === 'object' && typeof s.url === 'string' && s.url.length > 0)
+            .map((s: any) => ({
+              url: s.url,
+              title: typeof s.title === 'string' ? s.title : undefined,
+              citedText: typeof s.citedText === 'string' ? s.citedText : undefined,
+              searchQuery: typeof s.searchQuery === 'string' ? s.searchQuery : undefined,
+            }));
+          if (sources.length > 0) claim.sources = sources;
+        }
+        return claim;
+      });
   } catch {
     return [];
   }
