@@ -8,8 +8,8 @@ interface Props {
   /** "article" for daily pieces, "website" for everything else (default). */
   ogType?: 'website' | 'article';
   /** When set, emits a JSON-LD Article schema (and an AudioObject when
-   *  audioUrl is present). Daily-piece pages pass this; other pages
-   *  don't. Self-gating — no separate enable flag. */
+   *  audioUrl is present) plus a BreadcrumbList for Home → Daily → Title.
+   *  Daily-piece pages pass this; other pages don't. Self-gating. */
   article?: {
     /** Unix-ms timestamp from MDX frontmatter `publishedAt`. */
     publishedAt: number;
@@ -18,9 +18,15 @@ interface Props {
      *  AudioObject per Article in v1; per-beat array deferred. */
     audioUrl?: string;
   };
+  /** When set, emits a JSON-LD LearningResource schema. Interactive pages
+   *  (/interactives/<slug>/) pass this. Self-gating, parallel to `article`. */
+  learningResource?: {
+    /** "Quiz" for quizzes, "Interactive simulation" for HTML widgets. */
+    resourceType: string;
+  };
 }
 
-const { title, description, ogType = 'website', article } = Astro.props;
+const { title, description, ogType = 'website', article, learningResource } = Astro.props;
 
 // Single source of truth for the page description — used by
 // <meta name="description">, og:description, and twitter:description.
@@ -35,20 +41,28 @@ const siteOrigin = Astro.site ?? Astro.url;
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
 const ogImageUrl = new URL('/og-image.png', siteOrigin).toString();
 
+// Defend against `</script>` injection if a future title or
+// description ever contains the literal string. JSON.stringify
+// doesn't escape `<` by default.
+const escapeForScript = (obj: unknown) =>
+  JSON.stringify(obj).replace(/</g, '\\u003c');
+
 // JSON-LD Article schema for daily pieces. Article (not NewsArticle —
 // Zeemish teaches, doesn't report) per Google's structured-data guide.
 // All fields recommended-only per the current docs (no `required`
 // fields), but the more we provide the richer the result card.
 let articleJsonLd: string | null = null;
+let breadcrumbJsonLd: string | null = null;
 if (article) {
   const isoPublished = new Date(article.publishedAt).toISOString();
   const audioUrl = article.audioUrl
     ? new URL(article.audioUrl, siteOrigin).toString()
     : null;
+  const cleanHeadline = title.replace(/ — Zeemish$/, '');
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: title.replace(/ — Zeemish$/, ''),
+    headline: cleanHeadline,
     description: metaDescription,
     datePublished: isoPublished,
     // Pieces are permanent (the hard rule) — modified date is always
@@ -86,10 +100,60 @@ if (article) {
       uploadDate: isoPublished,
     };
   }
-  // Defend against `</script>` injection if a future title or
-  // description ever contains the literal string. JSON.stringify
-  // doesn't escape `<` by default.
-  articleJsonLd = JSON.stringify(schema).replace(/</g, '\\u003c');
+  articleJsonLd = escapeForScript(schema);
+
+  // BreadcrumbList — Home → Daily → Title. Lets Google render the
+  // breadcrumb above the SERP snippet instead of the raw URL.
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: new URL('/', siteOrigin).toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Daily',
+        item: new URL('/daily/', siteOrigin).toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: cleanHeadline,
+        item: canonicalUrl,
+      },
+    ],
+  };
+  breadcrumbJsonLd = escapeForScript(breadcrumbSchema);
+}
+
+// JSON-LD LearningResource for /interactives/<slug>/. Self-gating
+// parallel to `article` — interactive pages pass this prop, others
+// don't. Quiz-specific schema (acceptedAnswer) deferred; the higher-
+// level LearningResource type covers both quiz + html widgets and is
+// the right granularity for v1.
+let learningResourceJsonLd: string | null = null;
+if (learningResource) {
+  const lrSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    name: title,
+    description: metaDescription,
+    url: canonicalUrl,
+    learningResourceType: learningResource.resourceType,
+    educationalUse: 'self-paced learning',
+    isAccessibleForFree: true,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Zeemish',
+      url: siteOrigin.toString(),
+    },
+  };
+  learningResourceJsonLd = escapeForScript(lrSchema);
 }
 ---
 
@@ -118,6 +182,9 @@ if (article) {
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Zeemish — educate yourself for humble decisions" />
     <meta property="og:site_name" content="Zeemish" />
 
     <!-- Twitter -->
@@ -128,6 +195,12 @@ if (article) {
 
     {articleJsonLd && (
       <script type="application/ld+json" set:html={articleJsonLd} />
+    )}
+    {breadcrumbJsonLd && (
+      <script type="application/ld+json" set:html={breadcrumbJsonLd} />
+    )}
+    {learningResourceJsonLd && (
+      <script type="application/ld+json" set:html={learningResourceJsonLd} />
     )}
 
     <!-- Feed auto-discovery for Feedly / Inoreader / NetNewsWire / etc. -->
@@ -158,7 +231,7 @@ if (article) {
       <slot />
     </main>
 
-    <footer class="w-full max-w-3xl mx-auto px-6 pt-12 pb-10 border-t border-zee-border/50 mt-8">
+    <footer class="w-full max-w-3xl mx-auto px-6 pt-12 pb-10 border-t border-zee-border/50 mt-8" data-nosnippet>
       <p class="text-sm italic text-zee-muted text-center">
         Educate yourself for humble decisions.
       </p>

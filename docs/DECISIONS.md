@@ -2,6 +2,46 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (evening): SEO snippet fix + structured-data expansion
+
+**Context.** Operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."* — the footer text, not a meaningful description. Diagnosis: [src/pages/index.astro:35](../src/pages/index.astro:35) passed the literal tagline as the homepage description, AND [src/layouts/BaseLayout.astro:162](../src/layouts/BaseLayout.astro:162) renders the same string verbatim in the footer. Google deduplicates the meta description against on-page text and falls back to the most prominent stable content — the footer wins. The "Made by 16 agents" line in Google's cached snippet is from before commit `6779115` (2026-04-29 late-late evening drop of the "Made by N agents" footer line) — Google hadn't re-crawled yet, but the same problem persists either way.
+
+The 2026-04-25 SEO foundations pass (`v1.3.0`) shipped sitemap + RSS + robots + 1200×630 PNG og:image + JSON-LD Article on daily pieces + always-render meta description + canonical URL + GSC submission with 31 pages discovered. Audit confirmed those are solid. Plan `~/.claude/plans/zeemish-seo-we-did-moonlit-floyd.md`.
+
+**Decision.** Six small additive changes, single commit. No schema, no agent prompts, no migrations. Display-layer + meta-tag work only.
+
+1. **Homepage description differentiated** — `src/pages/index.astro:35` now passes ~142 chars naming the news anchor + system-thinking framing. Distinct from the footer.
+2. **Footer marked `data-nosnippet`** — Google-supported HTML attribute on the `<footer>` element; reader sees the footer, search engines skip it for snippet extraction.
+3. **og:image:width / og:image:height / og:image:alt** — declared so Twitter + LinkedIn render previews without a HEAD round-trip on the PNG.
+4. **BreadcrumbList JSON-LD on daily pieces** — second `<script type="application/ld+json">` alongside the existing Article schema. Self-gates on the same `article` prop. Helper `escapeForScript` extracted for the shared `<` injection defense.
+5. **LearningResource JSON-LD on interactives** — new `learningResource` prop on BaseLayout (parallel to `article`'s self-gating). `interactives/[slug].astro` passes `resourceType: quizEntry ? 'Quiz' : 'Interactive simulation'`. Quiz-specific `acceptedAnswer` markup deferred — LearningResource is the right granularity for v1 across both artefact types.
+6. **Library index description dynamic** — names the top 4 categories by piece_count (already sorted by `getCategories()`), keeps the description keyword-relevant as the taxonomy grows. Falls back to a generic line on empty-library.
+
+**Trade-offs considered.**
+
+- **Why not just longer copy in the homepage description?** Necessary but not sufficient. Even with a longer description, Google's snippet algorithm can still pick footer text if it's the most consistent on-page signal. `data-nosnippet` plus a distinctive description is the durable fix — the description gives Google something better; nosnippet tells it not to fall back to the footer.
+- **Why `LearningResource` not `Quiz` schema?** `Quiz` requires per-question `acceptedAnswer` markup that materially expands the prompt's output schema and the page render; the lift in actual Google rich-results for educational quiz content is unclear. `LearningResource` covers both quiz + html widgets at the same granularity with a fraction of the code. Quiz schema can layer on later if a real signal emerges.
+- **Why not concept-based slugs in this commit?** Already explicit `[wontfix]` per FOLLOWUPS — Drafter prompt change with backwards-compat implications, deferred to 50+ pieces (currently 22 over 13 days). Right call to keep the SEO surgical fix separate.
+- **Why not 301 redirects for old date-only URLs?** Already explicit `[wontfix]` per FOLLOWUPS; the legacy `[date]/index.astro` handler mitigates the case. Reopen if Search Console shows incoming hits on the old shape.
+- **Why dynamic library description and not hardcoded category names?** Hardcoded copy goes stale every time the taxonomy changes. Sourcing from `categories.slice(0, 4).map(c => c.name)` (already in scope, already sorted by piece_count DESC) keeps the description accurate as the taxonomy grows.
+- **Why `escapeForScript` helper extracted now?** Three JSON-LD blocks instead of one — the existing inline `.replace(/</g, '\\u003c')` in the Article block was already fine, but copying it twice would risk drift if the escape rule ever needs to change. Extracted to a single function called by all three.
+
+**What stayed unchanged.** Sitemap, RSS, robots.txt, PNG og:image, the existing Article JSON-LD shape, canonical URL emission, the 2026-04-25 GSC submission. Daily-piece description fields in MDX frontmatter (audited via Drafter + Voice Auditor) untouched — they're already well-shaped.
+
+**Files.**
+- [src/layouts/BaseLayout.astro](../src/layouts/BaseLayout.astro) — `learningResource` prop, three JSON-LD blocks, `escapeForScript` helper, og:image dimensions + alt, footer `data-nosnippet`.
+- [src/pages/index.astro](../src/pages/index.astro) — homepage description.
+- [src/pages/interactives/[slug].astro](../src/pages/interactives/[slug].astro) — pass `learningResource` to BaseLayout.
+- [src/pages/library/index.astro](../src/pages/library/index.astro) — dynamic `libraryDescription`.
+
+**Verification.**
+- `pnpm build` clean.
+- Dev preview against the homepage + a daily piece + an interactive: `<meta name="description">` carries new homepage copy; footer has `data-nosnippet`; daily-piece head emits two ld+json blocks (Article + BreadcrumbList); interactive head emits one ld+json block (LearningResource); every page emits og:image:width/height/alt.
+- Post-deploy: Google Rich Results Test (https://search.google.com/test/rich-results) on a live daily-piece URL — expect Article + BreadcrumbList valid; on a live interactive URL — expect LearningResource valid. Schema.org validator (https://validator.schema.org/) — expect 0 errors on both.
+- Forward observation in Google Search Console (1–2 weeks): homepage SERP snippet should switch from footer text to the new meta description after next crawl.
+
+**Forward.** New FOLLOWUPS `[observing]` entry tracks the SERP snippet flip. Larger projects (concept slugs, per-piece dynamic OG, related-pieces section, trailingSlash enforcement) remain in their existing FOLLOWUPS state — none promoted by this work.
+
 ## 2026-04-30 (PM): Manual interactive-retry routes through alarm path; quiz/html decoupled in generate()
 
 **Context.** The morning's loop-counted parse-retry + assistant-prefill `{` work (entry below) shipped, but the operator's regenerate of the Voting Rights Act piece exposed two bugs the morning fix didn't address:

@@ -13,6 +13,28 @@ Format per entry:
 
 ---
 
+## [observing] 2026-04-30: SEO snippet flip — confirm homepage SERP description switches off footer text
+
+**Surfaced:** 2026-04-30 evening, when an operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."* — the footer text, not a meaningful description. Fix shipped: homepage description differentiated to ~142 chars naming the news anchor and system-thinking framing; `<footer>` marked `data-nosnippet`; BreadcrumbList JSON-LD on daily pieces; LearningResource JSON-LD on interactives; og:image dimensions + alt; library index description dynamic by top-4 categories. See DECISIONS 2026-04-30 (evening) "SEO snippet fix + structured-data expansion" and CLAUDE.md section of the same name.
+
+**Watch for** over the next 1–2 weeks:
+- Google Search Console homepage snippet renders the new meta description (`"Daily teaching anchored in today's news, written and audited by 16 autonomous agents…"`) instead of footer text. Crawl frequency on a domain with daily fresh content is typically 1–3 days; longer if Google deprioritises the homepage in favour of fresh daily pieces.
+- Daily-piece SERP results may render Home › Daily › Title breadcrumb above the snippet (Google chooses whether to display BreadcrumbList; presence in the schema is necessary but not sufficient).
+- Interactive pages remain indexed; the LearningResource schema doesn't unlock a specific rich-result type but does help with educational-content search differentiation.
+- Run Google Rich Results Test (https://search.google.com/test/rich-results) on a live daily piece + a live interactive 24-48 hours post-deploy. Expect Article + BreadcrumbList valid on the daily-piece URL; LearningResource valid on the interactive URL. Schema.org validator (https://validator.schema.org/) — expect 0 errors on both.
+- Search Console Coverage report — no new "Crawled — currently not indexed" or "Discovered — currently not indexed" entries from the schema additions.
+
+**Unblock condition:** Homepage SERP snippet for "zeemish" no longer reads the footer text (any of: new meta description used, breadcrumb displayed, or just visibly different from `"Educate yourself for humble decisions. ... © 2026 Zeemish."`). Mark `[resolved]` once observed.
+
+**Escalation path:** if 2 weeks pass and the snippet still falls back to footer-shape text:
+- (a) The `data-nosnippet` attribute may not be propagating through Cloudflare Workers Static Assets — verify with `curl -s https://zeemish.io/ | grep -o 'data-nosnippet'`. If absent, Cloudflare CDN is serving cached HTML; manual cache purge needed (per CLAUDE.md "Remaining minor items").
+- (b) Description still considered too generic — extend with 1-2 concrete teaching examples (e.g. *"Stories like commodity shocks, infrastructure debt, and chokepoints — explained as systems, not events."*).
+- (c) Add `<meta name="googlebot" content="max-snippet:160">` as a directive override (per Google's snippet-control docs).
+
+**Priority:** medium. Cosmetic for the SERP layer; doesn't affect any reader behaviour. Sitemap is already submitted (per [resolved] entry below) so crawls are happening; this is just a snippet-quality improvement.
+
+---
+
 ## [observing] 2026-04-29: Plain English layer for interactives — verify register over next 5 cron-generated quizzes
 
 **Surfaced:** 2026-04-29 same session as the fix shipped. Plan `~/.claude/plans/for-the-interactives-specially-enchanted-crab.md`. Quizzes were passing voice 88/100 with stems like *"Why does asymmetry in outside options destabilize coordination agreements even when mutual restraint would benefit all participants?"* Fix shipped: quiz generator now embeds `VOICE_CONTRACT` (parity with HTML generator) + new "Plain English for quizzes — split rule" subsection with concept-jargon translation list, 14-year-old test, and worked before/after pair. Quiz auditor's plain-English line strengthened with the same checklist + scoring anchor. HTML generator + auditor get mirror Plain-English bullets for caption text / status messages / tooltips. Verifier `pnpm verify-interactive-voice` (10 cases) passes.

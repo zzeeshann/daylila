@@ -37,9 +37,18 @@ if (!bundle) {
   throw new Error(`No interactive entries for slug ${Astro.params.slug}`);
 }
 const { primary, quizEntry, htmlEntry, quizContentJson } = bundle;
+
+// LearningResource schema. If a quiz ships for this slug it's a Quiz;
+// otherwise the page is just the HTML widget — Interactive simulation.
+const resourceType = quizEntry ? 'Quiz' : 'Interactive simulation';
 ---
 
-<BaseLayout title={primary.data.title} description={primary.data.concept} ogType="article">
+<BaseLayout
+  title={primary.data.title}
+  description={primary.data.concept}
+  ogType="article"
+  learningResource={{ resourceType }}
+>
   <article class="mx-auto">
     <p class="text-xs uppercase tracking-wider text-zee-muted mb-2">
       Interactive
