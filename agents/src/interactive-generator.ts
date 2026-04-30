@@ -1526,7 +1526,15 @@ function parseAndValidateHtml(rawText: string): ValidatedHtml | null {
   try {
     parsed = extractJson<typeof parsed>(rawText);
   } catch {
-    throw new Error('parseAndValidateHtml: Claude returned non-JSON output');
+    // 2026-04-30 PM diagnostic — include first 200 chars of what came
+    // back so the observer event body shows the actual model output
+    // (or empty/truncated content) instead of just naming the failure
+    // class. The loop's catch matches on the message prefix only.
+    const sample = rawText.slice(0, 200).replace(/\n/g, '\\n');
+    const len = rawText.length;
+    throw new Error(
+      `parseAndValidateHtml: Claude returned non-JSON output (len=${len}, head=${JSON.stringify(sample)})`,
+    );
   }
 
   const slug = typeof parsed.slug === 'string' ? parsed.slug.trim() : '';
@@ -1568,7 +1576,12 @@ function parseAndValidate(rawText: string): ValidatedQuiz | null {
   try {
     parsed = extractJson<RawQuiz>(rawText);
   } catch {
-    throw new Error('parseAndValidate: Claude returned non-JSON output');
+    // 2026-04-30 PM diagnostic — see parseAndValidateHtml comment.
+    const sample = rawText.slice(0, 200).replace(/\n/g, '\\n');
+    const len = rawText.length;
+    throw new Error(
+      `parseAndValidate: Claude returned non-JSON output (len=${len}, head=${JSON.stringify(sample)})`,
+    );
   }
 
   const questionsRaw = Array.isArray(parsed.questions) ? parsed.questions : [];
