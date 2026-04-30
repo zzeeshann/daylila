@@ -12,7 +12,7 @@ CHECK:
 2. Hook is ONE screen — opens with the observation that creates the question; question follows. No summary-then-question.
 3. Each teaching beat has ONE idea (not crammed) and opens with a specific observation, not a definition.
 4. Total length across all beats: 1000-1500 words.
-5. Close is ONE sentence — no summary, no CTA, no congratulations.
+5. Close lands — one to four sentences, no summary, no CTA, no congratulations. Don't fail on sentence count alone; fail only if the close summarises, calls to action, congratulates, or rambles past four sentences.
 6. Beats demarcated by \`## kebab-case\` headings (one per beat). NO \`<lesson-shell>\` / \`<lesson-beat>\` JSX tags — the build step wraps headings into Web Components automatically.
 7. Valid MDX frontmatter (title, date, newsSource, underlyingSubject, estimatedTime, beatCount, description).
 8. No padding, no filler paragraphs.

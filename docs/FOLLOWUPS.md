@@ -12,6 +12,29 @@ Format per entry:
 - **Priority:** blocker / medium / low
 
 ---
+## [observing] 2026-04-30: Close-beat loosening — verify next 5 cron-generated pieces breathe
+
+**Surfaced:** 2026-04-30 (last). Constraint loosened from "ONE sentence" to "one to four sentences" across 4 surfaces (voice contract .md + .ts, Drafter prompt, StructureEditor CHECK #5). See DECISIONS 2026-04-30 (last) "Loosened Close beat from 'ONE sentence' to 'one to four sentences'" and CLAUDE.md "Close-beat loosened from one sentence to one-to-four (2026-04-30, last)".
+
+**What we want to see in the next 5 cron-generated daily pieces** (≈2026-05-01 02:00 UTC onward):
+
+- At least 2 of 5 ship with Closes longer than 1 sentence (the rule allows it; pre-fix audit data suggests Drafter naturally reaches for 2–3 sentences when not constrained).
+- Voice scores stay in the 85–95 band (loosening should not lower scores; Voice Auditor unchanged).
+- No Closes that summarise the piece, call to action, or congratulate the reader (the negative guards stay strict in all 4 surfaces).
+- No StructureEditor failures specifically citing "Close has more than one sentence" (CHECK #5 updated to allow 1–4).
+- Subjectively: the strongest landings should echo the news hook, apply the teaching to the reader's world, or both — the empirical pattern from the pre-fix audit (Hormuz, Palestinian elections, Tampa, sperm-detection, NOLA-sheriff).
+
+**Escalation paths.**
+
+- **If loosening doesn't bite (5/5 next pieces still ship 1-sentence taglines):** add a worked before/after example pair to the Drafter prompt at [agents/src/drafter-prompt.ts:21](../agents/src/drafter-prompt.ts:21), mirroring the interactive Plain English prompt edit shape (2026-04-29 commit `573fdd6`). Pre-fix audit has 7 mechanical Closes ready to use as "before" examples; pair them with the 5 strongest landings as "after" examples.
+- **If loosening bites too hard (Closes start summarising or rambling past 4 sentences):** tighten StructureEditor CHECK #5 back toward "one to three sentences" and add an explicit summary-detection cue (e.g., "fail if the close opens with 'In summary' / 'To recap' / 'The key takeaway' or restates more than one teaching beat").
+- **If voice scores drop (sub-85 on flagged pieces with longer Closes):** investigate whether Voice Auditor needs an ending-shape rule. Today it doesn't audit endings; this would be the natural next surface to look at.
+
+**Unblock:** after 5 cron-generated pieces have shipped post-fix (≈2026-05-03 02:00 UTC at `interval_hours=12`). Mark `[resolved]` if the criteria hold; escalate per above otherwise.
+
+**Priority:** medium.
+
+---
 
 ## [resolved] 2026-04-30: Divergent quiz + html slugs for one piece (sperm-cell, two URLs)
 

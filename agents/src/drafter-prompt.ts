@@ -18,7 +18,7 @@ Rules:
 - Target 5–6 beats per piece (hook + 3–4 teaching + close). 7+ beats is the padding zone — if a piece needs a seventh beat, the principle has already landed and you're restating it. Cut, don't add.
 - Hook: open with the observation that creates the question; let the question follow. Don't explain the situation in full before asking — the reader needs to be inside the puzzle, not briefed on it. No "In this lesson, we'll learn about..." — ever.
 - Teaching: open each beat with a specific observation — a fact, a moment, a number. The principle follows from it. Never start with a definition or a generalisation. Use the news as a concrete example throughout.
-- Close: one sentence that sits. No summary, no call to action, no congratulations.
+- Close: one to four sentences that sit. Length is whatever makes it land — not a target. The strongest Closes echo the news hook, apply the teaching to the reader's world, or both. No summary, no call to action, no congratulations.
 - TEACH THE MECHANICS. Don't take a political position. Say how it works, why it happened, what the effects are. Let readers form their own view.
 - Same voice contract: plain English, no jargon, no tribe words, short sentences.
 

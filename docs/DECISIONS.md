@@ -2,6 +2,33 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (last): Loosened Close beat from "ONE sentence" to "one to four sentences"
+
+**Context.** Operator surfaced that the closing beat ("Close") on daily pieces sometimes lands as a single short line and feels mechanical — more tagline than thoughtful ending. They asked where the "sharp endings / clean finish" guidance lived, what was enforcing the short-line pattern, and whether we were over-controlling beat length. Plan `~/.claude/plans/now-about-the-pieces-dazzling-valiant.md`.
+
+**Investigation.** Two parallel Explore agents traced the constraint and audited shipped pieces. Findings:
+
+- The "lands like the last line of a short story — it just sits there" line — the operator's remembered guidance — lives at [content/voice-contract.md:39](../content/voice-contract.md:39). Phrasing is good.
+- BUT the "ONE sentence" rule is enforced verbatim in **four places**: voice contract .md + .ts mirror + Drafter prompt + StructureEditor CHECK #5. The Drafter writes from it; StructureEditor gates on it; the Voice Auditor sees it via the contract.
+- Empirical audit of 13 recent pieces: 7 of 13 have 11–18 word taglines. The strongest landings (Hormuz 66w, Palestinian elections 66w, Tampa 22w, sperm-detection 26w, NOLA-sheriff 28w) all break the one-sentence rule and correlate with voice 92–95. The mechanical Closes (QVC 11w, capitalism 11w, golden orb 16w, voting rights 18w, Venter genome 15w) restate the concept, list outcomes, or describe a state — exactly the failure modes a strict 1-sentence constraint forces a model toward when it tries to sound conclusive.
+- The pattern matches the operator's read: 3–4 line Closes hit harder than 1-line Closes; the system was producing what we asked for, and what we asked for was too tight.
+
+**Decision.** Loosen "ONE sentence" → "one to four sentences" across all 4 surfaces. Keep negative guards (no summary, no CTA, no congratulations) and the "lands like the last line of a short story" cue. Add to the Drafter prompt the single positive cue surfaced by the audit: the strongest Closes echo the news hook, apply the teaching to the reader's world, or both. Update StructureEditor CHECK #5 in lockstep so the auditor judges on landing quality, not sentence count.
+
+**Trade-offs.**
+- **Why 1–4 not 1–3 or 1–5.** The audit's 22w / 28w landings are 2 sentences; 47w (jet-fuel piece) is 3 sentences; 66w (Hormuz, Palestinian elections) is 4 sentences. Range needs to admit 4 without inviting 5+. "1–4" captures the working span; "1–3" cuts off the strongest landings; "1–5" risks rambling. Range upper bound is also explicitly enforced in StructureEditor CHECK #5 ("rambles past four sentences") so 5+ can be caught.
+- **Why no Voice Auditor change.** The Voice Auditor doesn't currently audit ending shape (per Phase 1 explore). Adding ending-quality scoring is the next surface to look at IF the looser rule produces rambling or summary-shaped Closes. No data yet — would be premature. Operator's "small changes" framing is explicit.
+- **Why no backfill.** Permanence rule. 23 existing pieces stay as-is. Forward-only fix matches every prior prompt-edit fix.
+- **Why no worked before/after example pair in the Drafter prompt.** The interactive Plain English prompt (2026-04-29 commit `573fdd6`) added a worked pair because the Plain English split rule was a NEW rule needing scaffolding. The Close loosening is a constraint relaxation — the existing "lands like the last line of a short story" cue plus the new "echo the hook / apply the teaching" cue gives the model two anchors. If 5/5 next pieces still produce 1-sentence taglines, the worked pair becomes the natural next move (escalation path documented in the FOLLOWUPS observing entry).
+- **Why no doc cascade beyond CLAUDE.md / DECISIONS.md / FOLLOWUPS.md.** Book chapters describe the system narratively; AGENTS.md character paragraphs don't quote the rule verbatim; README doesn't mention beat structure. Verified via grep — no other surface needs touching.
+- **Why a single commit.** All 4 edits are co-dependent (loosening Drafter without loosening StructureEditor would produce flagged-low pieces from the next cron firing). Atomic.
+
+**Verification.** Pre-deploy: `pnpm verify-interactive-voice` 10/10 ✓; `pnpm verify-categoriser-floor` 10/10 ✓; `pnpm build` clean across all 23 daily pieces + 23 interactives + library + dashboard ✓; agents `npx tsc --noEmit` 26 errors (matches pre-session baseline of pre-existing `server.ts` SubAgent typing errors) ✓. Post-deploy: forward observation over next 5 cron-generated daily pieces (FOLLOWUPS observing entry).
+
+**Closes:** see CLAUDE.md "Close-beat loosened from one sentence to one-to-four (2026-04-30, last)" for the full narrative.
+
+---
+
 ## 2026-04-30 (late evening): Documentation staleness audit + sync
 
 **Context.** After shipping the SEO snippet fix (`7744086`) and the Drafter SEO guidance + book ch.18 sync (`0f17ac0`) earlier on 2026-04-30, the operator pushed back on the framing I'd used to justify NOT touching `book/09-the-sixteen-roles.md` ("character-level, doesn't need updating"). The pushback was correct. I'd skimmed 15 lines around the Drafter section and reached for a justification rather than reading the chapter end-to-end. The pattern — narrow read, find a justification, ship — was the wrong shape for a system where the book is a published deliverable and the docs are the operational source of truth.
