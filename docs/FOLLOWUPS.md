@@ -12,6 +12,135 @@ Format per entry:
 - **Priority:** blocker / medium / low
 
 ---
+
+## [open] 2026-04-30 (last): Centralise contracts — single source of truth across agents
+
+**Surfaced:** 2026-04-30 (last). After shipping the Close-beat loosening (4 prompt edits across `content/voice-contract.md`, `agents/src/shared/voice-contract.ts`, `agents/src/drafter-prompt.ts`, `agents/src/structure-editor-prompt.ts`), the operator asked: *why is the voice contract duplicated in 4 places? What was the original reason? Is this pattern repeated elsewhere? What would a clean version look like?* This entry is the investigation. Two parallel Explore agents mapped the duplication landscape and surveyed the build-pipeline constraints that shaped the current pattern. No code change shipped from this investigation; the operator wants to read first, decide later.
+
+**Hypothesis (now confirmed):** The voice contract is the most visible case but not the only one. Across the 16-agent codebase there are **~12–15 distinct rules duplicated across 2–4 surfaces**, with ~5 cases of *exact* text duplication and the rest paraphrased. The 2026-04-28 Manto-doctrine rollback (commit `79a914d`) is the empirical evidence of cost: a single doctrine reversal had to coordinate across 5 separate files. The duplication exists for a real technical reason (Cloudflare Workers can't `readFileSync` at runtime, so prompt content must be inlined as TypeScript string constants at bundle time), but the *manual sync* between markdown sources and TypeScript mirrors is convention, not necessity — and convention drifts.
+
+### Scope — what's actually duplicated
+
+#### Tier 1 — exact text, multiple agent prompts (highest drift risk)
+
+| Rule | Surfaces | Files |
+|---|---|---|
+| Voice contract (full body) | 4 | `content/voice-contract.md` ↔ `agents/src/shared/voice-contract.ts`; embedded via `${VOICE_CONTRACT}` in `voice-auditor-prompt.ts`, `interactive-generator-prompt.ts`, `interactive-auditor-prompt.ts`, `drafter.ts`, `integrator.ts` (5 import sites) |
+| `1000–1500 words across all beats` | 3 | `voice-contract.md:33`, `drafter-prompt.ts:17`, `structure-editor-prompt.ts:14` |
+| `Target 5–6 beats; 7+ is padding zone` | 3 | `voice-contract.md:34`, `drafter-prompt.ts:18`, `structure-editor-prompt.ts:11` |
+| `ONE idea per teaching beat / specific observation, not definition` | 3 | `voice-contract.md:37`, `drafter-prompt.ts:20`, `structure-editor-prompt.ts:13` |
+| Hook format (`one screen, observation first`) | 3 | `voice-contract.md:36`, `drafter-prompt.ts:19`, `structure-editor-prompt.ts:12` |
+| Close format (just loosened to `1–4 sentences, no summary/CTA/congrats`) | 3 | `voice-contract.md:39`, `drafter-prompt.ts:21`, `structure-editor-prompt.ts:15` |
+| 6 essence-not-reference prohibitions (proper nouns / dates / quoted phrases / industry labels / "according to" / piece-specific numbers) | 2 | `interactive-generator-prompt.ts:432–448` and `interactive-auditor-prompt.ts:285–300` (exact list, two places) |
+| `No JSX tags; use ## kebab-case headings` | 2 | `drafter-prompt.ts:36`, `structure-editor-prompt.ts:16` |
+
+#### Tier 2 — paraphrased across surfaces (drift via wording, not content)
+
+| Rule | Surfaces |
+|---|---|
+| Plain English split for quizzes (concept-jargon allowed in `title`/`concept` only) | 3 — `interactive-generator-prompt.ts:126`, `interactive-auditor-prompt.ts:51`, `book/09-the-sixteen-roles.md:159–175` (three different paraphrasings of the same rule) |
+| 14-year-old reading test as scoring anchor | 2 — `interactive-auditor-prompt.ts:51`, `book/09-the-sixteen-roles.md:175` |
+| "Manipulation embodies the mechanism" (HTML essence guidance) | 2 — `interactive-generator-prompt.ts:463`, `interactive-auditor-prompt.ts:273` |
+
+#### Tier 3 — constants defined but not injected (silent drift class)
+
+| Constant | Defined | Used in prompt | Drift risk |
+|---|---|---|---|
+| `QUIZ_MIN_QUESTIONS = 3`, `QUIZ_MAX_QUESTIONS = 5` | `interactive-generator-prompt.ts:20–21` | Hardcoded as `"3–5"` in prompt prose, NOT `${QUIZ_MIN_QUESTIONS}–${QUIZ_MAX_QUESTIONS}` | Medium — change the constant, prompt prose stays stale |
+| `CATEGORISER_REUSE_CONFIDENCE_FLOOR = 75`, `CATEGORISER_REUSE_CONFIDENCE_STRETCH = 60` | `categoriser-prompt.ts:4–5` | Properly injected via `${...}` | Low (this is the right pattern) |
+| `INTERACTIVE_VOICE_MIN_SCORE = 85`, structure/essence/factual ≥75 | `interactive-auditor-prompt.ts:28–31` | Properly injected | Low |
+
+#### Tier 4 — known precedent (already self-documented as fragile)
+
+[`agents/src/shared/interactive-html-reference.ts`](agents/src/shared/interactive-html-reference.ts) is a 1:1 string mirror of `docs/examples/interactive-reference.html`. Its own header says: *"This .ts mirror exists because Cloudflare Workers can't readFileSync at runtime; the prompt module needs the content as a string at build time. … A pnpm script (`pnpm verify-reference-sync`) is queued in FOLLOWUPS to detect drift."* That FOLLOWUPS entry was never actually written — meta-evidence that the convention "edit both together; queue a verifier later" loses energy in flight.
+
+#### The Manto rollback — empirical cost evidence
+
+Commit `79a914d` (2026-04-28) had to coordinate across 11 files to reverse one doctrine: deleted `content/ZEEMISH_MANTO_VOICE.md`, `agents/src/shared/voice-doctrine.ts`, `agents/scripts/verify-doctrine.mjs`, `book/08.5-the-voice-doctrine.md`, `docs/VOICE.md`; modified `drafter-prompt.ts`, `voice-auditor-prompt.ts`, `integrator-prompt.ts`, `curator-prompt.ts`, `voice-contract.md`, `voice-contract.ts`. A subsequent commit `072da00` had to *re-apply* the dedup rule that the rollback had inadvertently swept up — direct evidence that surgical edits across N duplicated surfaces are error-prone. The duplication's marginal cost was paid in operator time during a stress event.
+
+### Why the duplication exists (the real technical constraint)
+
+- Cloudflare Workers (where the agents run as Durable Objects) **cannot `fs.readFileSync` at runtime**. Prompt content must be embedded in the TypeScript bundle at build time.
+- The site (`zeemish-v2` worker) and the agents (`zeemish-agents` worker) are **separate Wrangler projects**, each with its own `package.json` + lockfile + bundle. There is no `pnpm-workspace.yaml` or workspace config — they are independent monorepo entries.
+- Agents can't currently `import '../../content/voice-contract.md'` because (a) markdown isn't a default esbuild loader for TypeScript, and (b) the file is outside the agents project root.
+- **Wrangler v4 (used here) does NOT support user esbuild plugin config in `wrangler.toml`**. So the "esbuild markdown loader" approach is not directly accessible without wrapping Wrangler in a custom build script.
+
+So the constraint is real. What's *not* a constraint is the manual sync convention. Two architectural options sidestep the manual step.
+
+### Architectural options
+
+#### Option A — Build-time codegen (recommended)
+
+A pre-build script reads canonical markdown sources, writes generated TypeScript constants. Agents import the generated file.
+
+**Concrete shape:**
+- New `agents/scripts/codegen-contracts.mjs` — reads `content/voice-contract.md`, `docs/examples/interactive-reference.html`, and any other named canonical source; writes `agents/src/shared/generated/contracts.ts` exporting `VOICE_CONTRACT`, `INTERACTIVE_HTML_REFERENCE`, etc. as string constants.
+- Hook into `agents/package.json`: add `"build": "node scripts/codegen-contracts.mjs"`, `"prebuild": "..."` or chain into the deploy script.
+- GitHub Actions `.github/workflows/deploy-agents.yml`: insert the codegen step before `wrangler deploy`. Local dev: add `"predev"` so `wrangler dev` re-codegens.
+- Delete the manual mirror files (`agents/src/shared/voice-contract.ts`, `agents/src/shared/interactive-html-reference.ts`); replace imports with the generated path.
+- Optional: a verifier `pnpm verify-contracts-fresh` that re-runs codegen and `git diff --exit-code` to fail CI if the committed generated file is stale.
+
+**Cost:** ~30 minutes implementation, no runtime overhead (content baked at build time, identical to current pattern), no async refactor of prompt code, no architecture change.
+
+**Risk:** Generated files in git. Two patterns possible: (a) check in the generated file (drift visible in diffs, CI verifies freshness — preferred for this codebase's "diff is the audit trail" culture), or (b) gitignore generated files (cleaner but loses visibility). Recommend (a).
+
+#### Option B — esbuild markdown loader plugin (not feasible here)
+
+Standard pattern in non-Workers TypeScript projects: register an esbuild plugin that treats `*.md` imports as `export default "<content>"`. Then `import VOICE_CONTRACT from '../../content/voice-contract.md'` Just Works.
+
+**Blocker:** Wrangler v4 doesn't expose esbuild plugin config. Would require wrapping Wrangler in a custom build script that calls the bundler API directly — fragile, breaks with Wrangler upgrades, defeats the simplicity goal.
+
+#### Option C — Static Assets binding (runtime fetch)
+
+Add `[assets]` block to `agents/wrangler.toml`, copy markdown to `agents/public/`, fetch at runtime via the binding.
+
+**Cost:** Async refactor of every prompt-build site (5+ agents become async); 1–5ms per cold-start invocation; introduces a manual sync between `content/` and `agents/public/` (defeats the whole point unless paired with codegen-to-public).
+
+**Verdict:** worse than A on every axis except theoretical purity. Skip.
+
+### What centralisation does NOT solve
+
+- **Cross-prompt re-quoting of structural rules** (Tier 1 rows 2–6: word count, beat target, ONE idea, hook format, close format, no-JSX) is partly intentional. Drafter writes from the rule; StructureEditor audits against the rule. They COULD both import a single `BEAT_STRUCTURE_RULES` constant — but then the rule needs to be authored in a form that reads naturally in *both* a write-this prompt context and an audit-this prompt context. That's harder than it looks. Worth attempting for the simplest rules (word count, beat target) and skipping for the more context-dependent ones (hook/close format) until the simpler centralisation has been observed for a few weeks.
+- **Paraphrased rules** (Tier 2): generator says "concept-jargon OK in title, banned in stems"; auditor says "exempt: title, concept; flag: stem, options, explanation"; book says "the precise concept name belongs in title and concept only." These three wordings are intentionally different — generator gives the writer permission, auditor gives the auditor a checklist, book gives the reader narrative. Centralising the underlying *rule* into a shared `PLAIN_ENGLISH_SPLIT_RULE` constant and having each surface inject the appropriate framing is possible but pushes complexity into the constant's authoring. Not part of v1 of this work.
+- **Constants-without-injection** (Tier 3 — `QUIZ_MIN_QUESTIONS` / `QUIZ_MAX_QUESTIONS`) is independent of contracts work. One-line fix per site: change `"3–5"` in the prompt to `${QUIZ_MIN_QUESTIONS}–${QUIZ_MAX_QUESTIONS}`. Could ship inside this work or separately.
+
+### Risks
+
+1. **Local dev friction.** `wrangler dev` needs the generated file to exist. Mitigate via `predev` script and a CI check that the committed generated file matches what codegen would produce.
+2. **Generated-file diff noise in PRs.** Solved by the verifier-on-CI pattern; the file is regenerated, diff is reviewed alongside source.
+3. **Cross-project path coupling.** Agents script will read `../content/voice-contract.md` — a path crossing the agents-project boundary. Acceptable; documented in the script's header. Doesn't require pnpm workspace setup.
+4. **Migration risk.** Initial codegen run must produce text byte-identical to the current `voice-contract.ts` (and `interactive-html-reference.ts`) so no semantic drift sneaks in during the swap. Verifier diff is the gate.
+5. **Rolling back this work.** If the codegen approach goes wrong, rollback is `git revert` on the codegen commit + restore the deleted manual mirror files. Rollback-safe.
+6. **Doesn't reduce prompt-level re-quoting.** The 4-place voice contract becomes 1 source + N injection sites — fixes the *mirror* drift class entirely, but the auditor still embeds the contract verbatim into its prompt. That's correct; the agent needs the rule in-prompt to enforce it. The win is that all N injection sites read from the same source.
+7. **Tooling sprawl.** One more script in CI. Same shape as existing `verify-*.mjs` scripts; not novel.
+
+### Proposed sequence if greenlit
+
+**Phase A (~1 hour):** Codegen for voice contract + html reference + (optionally) categoriser prompt's confidence constants. Migrate 2 mirror files. Add CI verifier. Single commit.
+
+**Phase B (~30 minutes):** Fix Tier 3 constants-without-injection (`QUIZ_MIN_QUESTIONS` / `QUIZ_MAX_QUESTIONS` injected into prompt prose). Independent of A but natural sequel. Single commit.
+
+**Phase C (~2 hours, separate plan):** Tier 1 structural-rule centralisation for the simplest cases (word count, beat target, no-JSX rule). Author each as a constant that reads naturally in both write-context and audit-context. Test by inspection of resulting prompt text. May or may not happen — depends on whether the v1 Phase A produces drift-free output for several weeks.
+
+**Phase D (~unknown, deferred):** Tier 2 paraphrased rules — likely never. The intentionally-different framings are a feature, and centralising would make the prompts harder to read and tune.
+
+### Why this isn't shipping right now
+
+The user's stated cadence is "small changes, not major ones" (this session's Close-beat fix being the canonical example). Phase A is small in absolute terms (~1 hour) but architectural in shape — it changes how the agents project consumes content from outside its tree, and adds a CI step. The right call is to read this entry, decide whether to schedule Phase A (now / next session / when the next doctrine reversal forces our hand), and pick a moment where the disruption is sized appropriately.
+
+The Manto rollback is also recent enough (2026-04-28) that the operator has fresh memory of the cost. Useful pressure for scheduling the work; also useful caution for not over-engineering the cure.
+
+### Investigation hints (for whoever picks this up)
+
+- Plan agents that ran this investigation: see `~/.claude/plans/now-about-the-pieces-dazzling-valiant.md` for the Close-beat work that surfaced the question, plus the inline tables above for the duplication map.
+- Existing precedent for build-time content embedding: [`agents/src/shared/interactive-html-reference.ts`](../agents/src/shared/interactive-html-reference.ts) header — already self-documents the constraint AND mentions a verifier that was never written.
+- Existing convention for verifier scripts: `agents/scripts/verify-*.mjs` (`verify-pair-slug`, `verify-parse-retry`, `verify-categoriser-floor`, `verify-interactive-voice`). Same shape will work for `verify-contracts-fresh`.
+- GitHub Actions: `.github/workflows/deploy-agents.yml` is where the codegen step inserts.
+
+**Priority:** medium. Not blocking; ongoing fragility cost. Drift surface grows monotonically with system size. The next doctrine evolution (whatever shape it takes) will pay this cost in operator time and rollback risk if not addressed first.
+
+---
+
 ## [observing] 2026-04-30: Close-beat loosening — verify next 5 cron-generated pieces breathe
 
 **Surfaced:** 2026-04-30 (last). Constraint loosened from "ONE sentence" to "one to four sentences" across 4 surfaces (voice contract .md + .ts, Drafter prompt, StructureEditor CHECK #5). See DECISIONS 2026-04-30 (last) "Loosened Close beat from 'ONE sentence' to 'one to four sentences'" and CLAUDE.md "Close-beat loosened from one sentence to one-to-four (2026-04-30, last)".
