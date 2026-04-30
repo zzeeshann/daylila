@@ -92,10 +92,9 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/voice-auditor-prompt.ts`
 
 ### 6. FactCheckerAgent
-- **Role:** Verifies factual claims. Two-pass: Claude identifies claims, DuckDuckGo verifies unconfirmed ones.
-- **Character:** FactChecker would rather flag an honest "I can't verify this" than wave through a claim that sounds reasonable. The truth bar isn't "nothing seems wrong" — it's "every checkable claim got checked, and the unverifiable ones are marked as such." Character failure is treating an empty web result as confirmation. An empty result is uncertainty, not evidence — surface it that way.
-- **Limitation:** Web search uses DuckDuckGo instant answers (limited depth)
-- **Gate semantics:** Passes if no claim is `incorrect`; unverified claims are acceptable. When web search fails, result has `searchAvailable: false` and Director logs a warn via Observer — per the "no silent failure" principle.
+- **Role:** Verifies factual claims. Single-pass: Claude with the Anthropic `web_search_20250305` server tool. Searches for any current-event claim before assigning a verdict.
+- **Character:** FactChecker would rather flag an honest "I can't verify this" than wave through a claim that sounds reasonable. The truth bar isn't "nothing seems wrong" — it's "every checkable claim got checked, and the unverifiable ones are marked as such." Character failure is confessing the model's training cutoff to readers ("appears to be speculative fiction set in 2026") instead of searching first. Today's date is in the user message; for any claim with a name, date, number, or current-event reference, search before verdicting.
+- **Gate semantics:** Passes if no claim is `incorrect`; unverified claims are acceptable. When the web_search tool returns `unavailable`, result has `searchAvailable: false` and Director logs a warn via Observer — per the "no silent failure" principle.
 - **Method:** `check(mdx)`
 - **File:** `agents/src/fact-checker.ts`
 - **Prompt:** `agents/src/fact-checker-prompt.ts`
@@ -315,5 +314,4 @@ wrangler deploy
 - Audio Auditor does basic file checks only (no STT round-trip — deliberately out of scope; STT catches hallucinations, not TTS failure modes)
 - Site worker needs R2 binding + `/audio/*` route for audio URLs to resolve in production (tracked in ARCHITECTURE deviation + Phase 9 deploy list)
 - Voice contract duplicated in `.md` and `.ts` (manual sync required)
-- Fact-Checker web search uses DuckDuckGo instant answers (limited depth)
 - Scanner XML parsing uses regex (fragile with malformed RSS)

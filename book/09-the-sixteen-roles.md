@@ -62,11 +62,11 @@ The prompt's TEACHABILITY section carries fourteen worked examples — eight fro
 
 **Job:** Check that the claims in the piece are correct.
 
-**What it does:** Extracts factual claims from the draft ("fuel rose 40%," "Spirit's margin is 4%," "QVC reached 96 million households"). Checks each one. Originally designed to use a web search tool for verification; in practice, most verification currently lands on Claude's own knowledge because the web search tool it uses (DuckDuckGo Instant Answer) only resolves about 5% of specific claims. A richer search backend is in the followups list.
+**What it does:** Extracts factual claims from the draft ("fuel rose 40%," "Spirit's margin is 4%," "QVC reached 96 million households"). Checks each one against the live web. The user message includes today's date, and for any claim with a specific name, date, number, or current-event reference, the model searches before deciding. This matters because every Zeemish piece is anchored in current news — by definition, post-cutoff. From launch through April 2026 the agent used DuckDuckGo's Instant Answer API, which only resolved Wikipedia-style topics and returned empty for ~95% of news claims; the verdict collapsed back to training-data inference, which produced confidently-wrong reader-facing notes ("this appears to be speculative fiction set in 2026" on a real news event). Replaced 2026-04-30 with Anthropic's native `web_search_20250305` server tool — Claude decides per-claim whether to search, runs searches inside the same Messages turn, and returns one JSON verdict.
 
-**Claude call?** Yes. Plus a web search call that often returns nothing useful.
+**Claude call?** Yes. One call per audit round, with the web_search tool attached. Claude may invoke the tool 0–8 times per call.
 
-**Pass condition:** No claim is flagged `incorrect`. Unverified claims are allowed — see the honesty about the DDG limitation above.
+**Pass condition:** No claim is flagged `incorrect`. Unverified claims are allowed (an honest "couldn't verify against current sources" is the right answer when search returns nothing).
 
 ## 7. Structure Editor
 

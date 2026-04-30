@@ -141,6 +141,31 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 
 ---
 
+## [observing] 2026-04-30: FactChecker rewrite — verify next 5–10 cron pieces actually search
+
+**Surfaced:** 2026-04-30 (after Close-beat). FactChecker rewritten to replace DuckDuckGo Instant Answer with Anthropic's `web_search_20250305` server tool. Triggered by the J. Craig Venter piece's drawer rendering "this appears to be speculative fiction set in 2026" on a real death the model didn't know about (cutoff). See DECISIONS 2026-04-30 (after Close-beat) "Replace DuckDuckGo IA with Anthropic web_search in fact-checker" and CLAUDE.md "FactChecker — Anthropic web_search replaces DuckDuckGo (2026-04-30, after Close-beat)".
+
+**What we want to see in the next 5–10 cron-generated daily pieces** (≈2026-05-01 02:00 UTC onward):
+
+- Every piece's `audit_results` row for the `fact` auditor has `searchUsed=true` (news-anchored claims should trigger searches; the only way to ship `searchUsed=false` is for Claude to judge every claim verifiable from training data alone, which should be rare on news-driven pieces).
+- Zero claims marked `incorrect` purely on cutoff basis. Specifically: scan the rendered drawer at `/daily/<date>/<slug>/#made` for any of these phrases — "speculative fiction", "knowledge cutoff", "as of my", "training data", "is set in 2026", "is hypothetical", "this is beyond". The hardened prompt forbids them; the Phase B drawer filter (separate commit) is defense-in-depth.
+- No `Anthropic web_search tool unavailable` observer warns unless Anthropic's API actually fails (≤1/week tolerable; >5% of calls = real problem).
+- Drawer reads naturally — notes are short, name what was searched and what was found (or honestly say "couldn't verify against current sources").
+- Cost check after 7 days: Anthropic dashboard's `usage.server_tool_use.web_search_requests` should land in the 30–60/day range. Flag if >100/day (something is over-searching — probably Drafter inserted too many claims, or the `max_uses: 8` cap needs tightening).
+
+**Escalation paths.**
+
+- **If cutoff-confession phrasing slips through despite the prompt:** ship the Phase B drawer filter immediately (defensive regex on `c.note` for the four phrases — the plan defines it). If even THAT doesn't catch them, tighten the prompt with worked before/after examples.
+- **If Anthropic web_search returns errors >5% of calls (`searchAvailable=false` warns):** check the Console privacy settings (web search may have been disabled at the org level); if enabled and still failing, fall back to a Brave Search API integration (smaller scope than the original DDG → web_search swap; `webSearch` private method comes back, signature unchanged).
+- **If cost runs >$30/month:** drop `max_uses` from 8 to 4 (covers 3 claims with 1 retry; rare news pieces with 7+ specific claims may suffer). Or add a system-prompt hint: *"Cap yourself at 5 searches per piece — choose the most fact-dense claims."*
+- **If `searchUsed=false` on news-driven pieces:** the prompt's search-first rule isn't biting. Inspect the audit_results notes; if Claude is rationalising "the claim is general knowledge", tighten the prompt's distinction between "general well-known science" and "current event with specific name/date/number".
+
+**Unblock:** after 5–10 cron-generated pieces have shipped post-fix (≈2026-05-05 to 2026-05-10 at `interval_hours=12`). Mark `[resolved]` if the criteria hold; escalate per above otherwise.
+
+**Priority:** medium. Not blocking — fact-checker degraded behaviour ships pieces (with verbose-but-wrong notes) rather than blocking them, so a regression here is embarrassing rather than catastrophic.
+
+---
+
 ## [observing] 2026-04-30: Close-beat loosening — verify next 5 cron-generated pieces breathe
 
 **Surfaced:** 2026-04-30 (last). Constraint loosened from "ONE sentence" to "one to four sentences" across 4 surfaces (voice contract .md + .ts, Drafter prompt, StructureEditor CHECK #5). See DECISIONS 2026-04-30 (last) "Loosened Close beat from 'ONE sentence' to 'one to four sentences'" and CLAUDE.md "Close-beat loosened from one sentence to one-to-four (2026-04-30, last)".

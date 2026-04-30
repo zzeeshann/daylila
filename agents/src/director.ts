@@ -328,15 +328,17 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
       await this.saveAuditResults(taskId, pieceId, round, voiceResult, structureResult, factResult);
 
-      // "No silent failure" (architecture §3.2): if the fact-checker's web
-      // search was down, surface it via Observer. Pipeline continues with
-      // first-pass Claude assessment, but Zishan needs to know.
+      // "No silent failure" (architecture §3.2): if the fact-checker's
+      // web_search tool was unavailable, surface it via Observer. Pipeline
+      // continues with whatever Claude could verify from training data,
+      // but Zishan needs to know — that fallback is unreliable for the
+      // news-anchored claims that dominate daily pieces.
       if (!factResult.searchAvailable) {
         const obs = await this.subAgent(ObserverAgent, 'observer');
         await obs.logError(
           'fact-check',
           0,
-          'Web search unavailable — fact-check used first-pass Claude assessment only',
+          'Anthropic web_search tool unavailable — fact-check fell back to training-data inference',
         ).catch(() => {});
       }
 

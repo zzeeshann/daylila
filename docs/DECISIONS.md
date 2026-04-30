@@ -2,6 +2,53 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (after Close-beat): Replace DuckDuckGo IA with Anthropic web_search in fact-checker
+
+**Context.** Operator opened the 2026-04-30 J. Craig Venter piece's "How this was made" drawer at `/daily/2026-04-30/j-craig-venter-…/#made` and saw the Facts section render: *Claim: "J. Craig Venter died this week" · Status: incorrect · Note: "J. Craig Venter is alive as of my knowledge cutoff in April 2024. This lesson appears to be speculative fiction set in 2026."* Venter actually did die — the NYT piece cited as source confirms it. Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md`.
+
+**Investigation.** Two parallel Explore agents traced the current FactChecker code path and the DDG removal history. Findings:
+
+- The operator remembered "we used DuckDuckGo before and switched to Claude alone." Code says no — DDG was never removed. The `webSearch()` private method at [agents/src/fact-checker.ts:216](../agents/src/fact-checker.ts:216) (pre-this-commit) was still calling `https://api.duckduckgo.com/?q=...`. What happened on 2026-04-19 (commit `5d66437`) was a refactor that fixed silent DDG failures via discriminated outcomes, not a removal.
+- The deeper problem — DDG's Instant Answer API only resolves Wikipedia-style topics — is documented at this DECISIONS.md line ~4433 ("**Replace DDG Instant Answer with Brave/Serper/Claude-web-search.** Correct long-term fix — DDG IA realistically resolves ~5% of specific factual claims. Scoped out of tonight's patch"), in CLAUDE.md "Remaining minor items" line ~877, and in book/09 §6 line 65. It was logged as a future upgrade and never picked up.
+- Why it bites today specifically: every Zeemish daily piece is anchored in current news. By definition, post-cutoff. With DDG empty for ~95% of news claims, Claude's first-pass verdict — formed from training data alone — became the reader-facing truth. Cutoff confessions ("speculative fiction set in 2026") rendered verbatim through the drawer's `renderClaims` function, which trusts `c.note` as-written.
+- Empirical Anthropic SDK check: the codebase uses `@anthropic-ai/sdk ^0.52.0` (modern, supports server-side tools); model `claude-sonnet-4-5-20250929` supports the `web_search_20250305` server tool; pricing is $10/1000 searches + standard token costs.
+
+**Decision.** Replace the two-pass DDG architecture with a single Messages call attaching Anthropic's `web_search_20250305` tool. The user message includes today's date. The system prompt names the cutoff explicitly, mandates search-first for current-event claims, and forbids cutoff-confession phrasing in notes. Two-pass `searchClaims` / `webSearch` / `WebSearchOutcome` / `SearchPassOutcome` all deleted. `FactCheckResult.searchUsed` / `searchAvailable` flags retained for back-compat with Director's observer-warn path; semantics shift slightly (`searchAvailable=false` now means "Anthropic's web_search returned `unavailable`", not "DDG unreachable").
+
+**Trade-offs.**
+
+- **Why Anthropic's native tool over Brave / Serper / Tavily.** Anthropic SDK already wired; tool is server-side (Claude decides when to search, results return in the same response, citations included automatically); no new vendor, no new API key, no new env var. Pricing comparable to Brave at our volume. Trade-off: vendor lock-in to Anthropic's tool — if Anthropic deprecates `web_search_20250305` we have to adopt the next version (or switch backend). Acceptable given everything else in the pipeline already depends on Anthropic.
+- **Why single-pass instead of two-pass.** With server-side web_search Claude does claim extraction + per-claim search + verdict in one Messages turn. Two-pass with DDG made sense when DDG was a separate HTTP call between two Claude calls; with the tool inside Claude's turn, splitting into two passes only adds latency and a JSON-merging cost. One pass is cleaner and matches how the tool is designed to be used.
+- **Why pass today's date in the user message vs the system prompt.** System prompts are cached; user messages aren't. If today's date is in the system prompt, Anthropic's prompt-caching layer might serve a stale prompt across days. User-message placement avoids that and is also where Anthropic's docs-pattern places dynamic context.
+- **Why retain `searchUsed` / `searchAvailable` instead of dropping them.** Director's observer-warn at [director.ts:334-341](../agents/src/director.ts:334) consumes `searchAvailable`; the public dashboard's "How it's holding up" panel reads aggregate `searchAvailable` rates. Dropping the flags would ripple. Semantics tighten without breaking the contract.
+- **Why max_uses: 8.** Average daily piece has ~5 claims; ~3 trigger searches; budget for 1-2 retries per search. 8 is comfortably above the typical case and well below cost concern. Lower (e.g. 5) would risk truncating fact-check on dense pieces; higher (e.g. 16) would invite Claude to over-search.
+- **Why no body-citation surfacing.** The drawer could render source URLs alongside each claim from `web_search_result_location` blocks. Nice-to-have but the cutoff bug is the urgent fix. Defer.
+- **Why no Drafter web_search.** Drafter could ALSO benefit from web_search to ground its prose. Larger blast radius (Drafter prompt is the most-touched, most-tuned prompt in the codebase) and would change the produce side of the produce-audit dynamic in unpredictable ways. Revisit if fact-checker fix alone proves insufficient.
+- **Why no backfill of historical pieces.** 23 published pieces have stored `audit_results` rows with the old (sometimes embarrassing) notes. Going-forward only matches operator's stated preference everywhere else in this codebase. If operator wants the live Venter drawer cleaned up specifically, `Director.refactCheck(pieceId)` is a small one-off addition (deferred — Phase C in plan).
+
+**What stays the same (intentional).**
+- Gate semantics: `passed = !claims.some(c => c.status === 'incorrect')`. Unverified still allowed. Same asymmetric gate.
+- `audit_results` table shape: `notes = JSON.stringify(claims)`; `claim`/`status`/`note` triple. No schema change, no migration.
+- Director invocation signature: `(await this.subAgent(FactCheckerAgent, ...)).check(currentMdx)`. Unchanged.
+- Permanence rule: 23 published pieces and their stored audit rows untouched.
+
+**Changes shipped.**
+- [agents/src/fact-checker.ts](../agents/src/fact-checker.ts) full rewrite of `check()` + new `parseResponse()` helper. DDG private methods deleted.
+- [agents/src/fact-checker-prompt.ts](../agents/src/fact-checker-prompt.ts) collapsed to one prompt (`FACT_CHECKER_PROMPT`); `FACT_CHECKER_PASS1_PROMPT` + `FACT_CHECKER_PASS2_PROMPT` deleted. New 4-section structure: CONTEXT (cutoff acknowledgement) / THE WEB SEARCH TOOL (search-first rule) / VERDICTS / RULES (no-speculation + verdict-floor).
+- [agents/src/director.ts:334-341](../agents/src/director.ts:334) observer-warn comment + message updated. Semantics-only change; no signature change.
+- New verifier at [agents/scripts/verify-fact-checker.mjs](../agents/scripts/verify-fact-checker.mjs); `pnpm verify-fact-checker` 5/5 pass. Inlined `parseFactCheckerResponse` mirrors agent's content-block walk.
+- Doc sync: CLAUDE.md (intro + agent list line + Remaining-items bullet + new section narrative), [docs/AGENTS.md:95](../docs/AGENTS.md:95) (Role + Limitation), [book/09:65](../book/09-the-sixteen-roles.md:65) (full §6 narrative), [book/05:64](../book/05-ai-models.md:64) (touch the fact-checker line), [docs/FOLLOWUPS.md](../docs/FOLLOWUPS.md) new observing entry.
+
+**Pre-flight (operator action, not code).** Confirm web search is enabled at https://console.anthropic.com/settings/privacy. Same `ANTHROPIC_API_KEY`; no new env var. If web search is disabled at the org level, the API call returns errors and `searchAvailable=false` fires the observer warn — pipeline still ships pieces (degraded fact-check) but admin feed will be loud.
+
+**Verified.** `pnpm verify-fact-checker` 5/5. Agents-side `npx tsc --noEmit` 26 pre-existing `server.ts` SubAgent typing errors — matches baseline; touched files compile clean. Site-side build not exercised (no site files touched).
+
+**Forward observation.** FOLLOWUPS observing entry "FactChecker rewrite — verify next 5–10 cron pieces actually search" tracks: every piece's `audit_results` has `searchUsed=true`; zero cutoff-confession notes; ≤1/week web_search unavailable warns; cost ≤$30/month. Escalation paths documented in the FOLLOWUPS entry — Phase B drawer filter ships first if cutoff-confession phrasing slips through; Brave fallback if Anthropic web_search proves unreliable.
+
+**References.** Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md`. Anthropic web search docs https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool.
+
+---
+
 ## 2026-04-30 (last): Loosened Close beat from "ONE sentence" to "one to four sentences"
 
 **Context.** Operator surfaced that the closing beat ("Close") on daily pieces sometimes lands as a single short line and feels mechanical — more tagline than thoughtful ending. They asked where the "sharp endings / clean finish" guidance lived, what was enforcing the short-line pattern, and whether we were over-controlling beat length. Plan `~/.claude/plans/now-about-the-pieces-dazzling-valiant.md`.

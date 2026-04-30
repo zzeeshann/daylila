@@ -61,6 +61,6 @@ Bad at:
 - Not confidently making things up when it doesn't know.
 - Tasks that require real-time information or actual web browsing (unless explicitly connected to tools that do these things).
 
-A well-built system plays to the model's strengths and compensates for its weaknesses. Zeemish's fact-checker exists precisely because Claude is good at writing and bad at reliably knowing. The voice auditor exists because Claude can drift out of a specific voice across a long piece. The integrator handles revision rounds because Claude is better at fixing specific things when told what's wrong than at getting everything perfect on the first try.
+A well-built system plays to the model's strengths and compensates for its weaknesses. Zeemish's fact-checker exists precisely because Claude is good at writing and bad at reliably knowing — and is now grounded against current web sources via the model's native search tool, so a piece anchored in today's news doesn't get measured against last year's training data. The voice auditor exists because Claude can drift out of a specific voice across a long piece. The integrator handles revision rounds because Claude is better at fixing specific things when told what's wrong than at getting everything perfect on the first try.
 
 The whole architecture is shaped by the model's actual capabilities. Understand the model, and the architecture makes sense.
