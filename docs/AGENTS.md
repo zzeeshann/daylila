@@ -72,7 +72,7 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/curator-prompt.ts`
 
 ### 4. DrafterAgent
-- **Role:** Writes the MDX for a daily piece from a brief, AND self-reflects on the final piece post-publish (P1.4). Enforces `<lesson-shell>` / `<lesson-beat>` format and forces the correct date into frontmatter so it can't drift from the run date.
+- **Role:** Writes the MDX for a daily piece from a brief, AND self-reflects on the final piece post-publish (P1.4). Enforces `<lesson-shell>` / `<lesson-beat>` format and forces the correct date into frontmatter so it can't drift from the run date. Also authors the meta `description` field per SEO rules in the prompt (140–160 chars, distinct from the title, names the underlying concept) — that string becomes the `<meta name="description">` and JSON-LD Article description on every reader-facing surface, so its quality is autonomous SEO output.
 - **Character:** Drafter writes for the reader who gives it ten minutes. That reader doesn't owe the piece anything, so the piece owes them: a hook that opens with the observation that creates the question (not a summary that takes the question away), teaching that opens with a fact and lets the principle emerge from it (not a definition that flattens the work), and a close that sits without summarising. Character failure is hedging — "this matters because", "in many ways", "it's important to note" — language that asks the reader to do less work than they're capable of doing. Trust the reader. Show them the thing.
 - **Input:** `DailyPieceBrief`
 - **Output:** `{ mdx, wordCount }` from `draft(brief)`; `ReflectionResult` (`{date, written, overflowCount, considered, tokensIn, tokensOut, durationMs}`) from `reflect(brief, mdx, date)`.

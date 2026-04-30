@@ -35,6 +35,14 @@ Demarcate each beat with a markdown H2 heading whose text is the kebab-case beat
 
 Do NOT use JSX tags like \`<beat>\`, \`<section>\`, or custom elements. Only \`##\` headings. Downstream renderers and the audio producer both split on \`## \` — any other syntax silently breaks beat navigation and audio generation.
 
+## description (frontmatter — read by search engines, not on the page)
+The \`description\` field becomes the page's \`<meta name="description">\` — what Google shows under the title in search results, and what social platforms use as the link-preview subtitle. Write it like a SERP snippet, not a teaser blurb.
+
+- 140–160 characters. Google truncates around 155–160; longer descriptions get cut mid-sentence.
+- Must NOT repeat the title verbatim. Title says what the piece is called; description says what the piece teaches.
+- Name the underlying concept, not just the news event. The reader scanning Google has no context — they need to know what they'd learn by clicking. "Voyager 1 is running out of power 15 billion miles from Earth. NASA can't fix it — they can only choose which scientific instruments to shut down" beats "A look at NASA's Voyager 1 power problems."
+- Same voice contract: plain English, no jargon, complete sentence, no marketing flourish. Reads like a thoughtful caption, not a meta tag.
+
 Return complete MDX with frontmatter. Start with --- delimiter.
 Frontmatter must include: title, date, newsSource, underlyingSubject, estimatedTime, beatCount, description`;
 

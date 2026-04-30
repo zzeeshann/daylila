@@ -30,7 +30,7 @@ The first commit added a sitemap at `https://zeemish.io/sitemap.xml`. It's an XM
 
 The format is a standard. Every search engine knows how to read it. Submit the URL once to Google Search Console (a free tool), and Google starts crawling the listed pages on a schedule. New pages added later are picked up automatically — the sitemap is regenerated on every request, so it's always current.
 
-Zeemish's sitemap currently lists 25 URLs: the homepage, the daily index, the library, the 12 published daily pieces, the 7 standalone interactives, and 3 category pages. As the library grows, the sitemap grows with it. No human ever has to update it.
+Zeemish's sitemap grows automatically with the library. At v1.3.0 ship time it listed 25 URLs; five days later, after twelve more daily pieces and a dozen more interactives landed, it lists about seventy. As the library grows, the sitemap grows with it. No human ever has to update it.
 
 Two choices in this commit are worth noting because they break from the obvious path.
 
@@ -91,6 +91,44 @@ The fix consolidated both tags onto a single source of truth in the page layout.
 Small fix. Five lines of code. Closes the gap on every page.
 
 A fourth commit closed the same gap from the other direction. The interactive pages — those standalone-quiz URLs — were already feeding their meta description from a field called `concept`: the one-sentence summary of what each quiz teaches ("How a single narrow point in a system can determine the shape of everything downstream.", say, for the chokepoints quiz). But the field was *optional* in the schema. A future bug, or a future minimally-authored interactive, could ship with an empty concept and silently fall back to the generic site description. The fix made the field required at the schema level, added a structural check that rejects empty concepts before any file is written, and extended the auditor — the agent that judges quiz quality — to flag concepts that are blank or written like a topic label rather than a sentence. Three layers of defense, so an empty meta description never reaches a search engine. The bug never actually fired in production; the fix is the kind of belt-and-braces that pays off on the day a new interactive type lands and someone forgets to populate one field.
+
+## April 30: closing the snippet gap
+
+The April 25 commits made Zeemish findable. Five days later, a Google search for "zeemish" surfaced the homepage — and the snippet under the title read *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."*
+
+That's the footer. Not a description of what Zeemish is — the literal text of the footer of every page on the site, copy-pasted into the search result.
+
+The cause was a small thing with a large consequence. The homepage was passing the string `"Educate yourself for humble decisions."` as its own meta description. That same string appeared, verbatim, in the footer. When Google's snippet algorithm compares a page's stated description against the page's body and finds them identical, it treats the description as redundant and looks elsewhere on the page for something to show. The footer was the most stable repeated text on the homepage; the footer won.
+
+Two fixes solved this directly. A third group of fixes piggybacked because they were small and the file was open.
+
+**The homepage description got differentiated.** Instead of repeating the tagline, the homepage now declares what Zeemish actually is: *"Daily teaching anchored in today's news, written and audited by 16 autonomous agents. Each piece teaches the system behind the headline."* About 142 characters — Google truncates around 155, so this fits. Mentions both the news anchor and the system-thinking framing. It can no longer collapse to a duplicate of the footer.
+
+**The footer was marked `data-nosnippet`.** This is a small, well-supported HTML attribute. Add it to an element and search engines treat the element as off-limits for snippet extraction. The footer still renders for human readers; only crawlers skip it. This means even if a future page's description ever does collide with the footer text again, Google has no fallback — it has to use the meta description or pull from the body.
+
+Three more fixes shipped in the same commit because they're related and small.
+
+The Open Graph image tags now declare the image's pixel dimensions (1200 × 630) and an alt text. Twitter and LinkedIn pre-fetch images to render link previews; declaring dimensions in the HTML lets them lay out the preview card before the image finishes loading. Without dimensions, the preview reflows when the image arrives — a tiny visible jump that makes shared links feel cheap.
+
+A `BreadcrumbList` JSON-LD block now ships on every daily piece. Google reads it and can render the breadcrumb above the search result — *Home › Daily › What We Owe the Rule-Breakers* — instead of just the raw URL. Same idea as the Article schema from April 25, applied to navigation context.
+
+A `LearningResource` JSON-LD block now ships on every interactive page. The schema names the learning artefact ("Quiz" or "Interactive simulation"), declares it's free, names the publisher. There's a more specific `Quiz` schema with per-question structured-answer markup; we deferred it. The verbosity-to-payoff ratio is unclear, and `LearningResource` covers both quiz and HTML-widget interactives at the same granularity. Specificity can layer on later if a real signal emerges.
+
+The library index also got a richer description. Instead of the generic *"Every piece we've published. The library grows every day."*, the description now names the top categories by piece count — *"Browse every Zeemish piece. 27 pieces across 22 categories — chokepoints, commodity shocks, infrastructure debt, knowledge formation, and more."* The variables come from the same database query the page already runs. The description stays accurate as the taxonomy grows, without anyone updating copy.
+
+Why bundle these together. Each was small. Each was discovered during the audit triggered by the snippet problem. Shipping them in one pass means one round of verification, one commit message that names the whole story, one set of docs synced. The alternative — five separate commits over five days — would have produced the same result with five times the surface for things to drift.
+
+## Why autonomy matters here
+
+Every fix in this chapter, on both April 25 and April 30, applies to *every page Zeemish has ever published and every page it ever will publish.* That's the point.
+
+The pipeline that publishes a daily piece runs entirely on its own. Curator picks a story; Drafter writes the MDX; the auditors gate quality; Publisher commits to the repository; the site builds; the page goes live; Categoriser tags it; the interactive generator builds a companion quiz. No human edits the metadata. No human decides what the meta description should be. No human runs a script to update the sitemap.
+
+For SEO to work in this kind of system, the SEO has to be baked into the pipeline, not applied as a manual step after each publish. That's the design. The sitemap is a server-rendered endpoint that enumerates the database every time a search engine asks. The RSS feed is the same. The JSON-LD blocks self-emit when the layout sees an article. The breadcrumb generates from the URL structure. The footer's `data-nosnippet` is in the layout component every page uses. The `og:image` dimensions and alt are declared once.
+
+The only piece of SEO that depends on a single Claude call is the meta description itself — Drafter writes it as part of the MDX frontmatter. After April 30 the Drafter prompt names the rules: 140–160 characters, must differ from the title, must name the underlying concept, plain English. So even that piece is autonomous; the next cron firing applies the new rules without anyone touching anything.
+
+This is the thing the foundations layer enables. Once the standards are wired into the layout and the schema is wired into the layout and the prompt knows what good meta description looks like, every new piece arrives in the world with all of it already done. The platform never asks for a human in the loop. The human comes in, periodically, to read the search console and decide whether the autonomous output is doing its job.
 
 ## Why this matters more than it sounds
 

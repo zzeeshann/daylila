@@ -2,6 +2,38 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (evening, follow-up): Drafter SEO guidance + book chapter 18 sync
+
+**Context.** The earlier 2026-04-30 evening commit shipped the snippet fix + structured-data expansion (homepage description, footer `data-nosnippet`, BreadcrumbList, LearningResource, og:image dimensions, dynamic library description). After verifying autonomy end-to-end via pipeline trace — every new cron piece auto-flows through `getCollection('dailyPieces')` and gets the full meta + JSON-LD stack with no human in the loop — two gaps remained:
+
+1. **Drafter has no SEO awareness for the `description` frontmatter field.** That field becomes the page's `<meta name="description">` and the JSON-LD Article description. The prompt at [agents/src/drafter-prompt.ts:39](../agents/src/drafter-prompt.ts:39) listed `description` as a required field but offered zero guidance on length, distinctiveness, or shape. Measured the last 10 daily pieces: 9 of 10 land at 162–244 chars (fine — Google truncates around 155–160 but ~200 reads cleanly); 1 of 10 (2026-04-30 New Orleans sheriff piece) is 360 chars and gets cut mid-sentence in SERP. The output was variable not because of model failure but because the prompt didn't ask for SEO-shaped descriptions.
+2. **Book chapter 18 (`book/18-discoverability.md`) was stale by one day.** The chapter documented the 2026-04-25 v1.3.0 work but did not yet cover the 2026-04-30 evening additions, and didn't include the autonomy framing — *"every new piece arrives in the world with all of it already done"* — that explains why the SEO design works inside an agent pipeline.
+
+**Decision.** Two surgical edits, single commit. No schema, no runtime change.
+
+- **A. Drafter prompt SEO block.** New `## description (frontmatter — read by search engines, not on the page)` section in `DRAFTER_PROMPT`, between the existing rule list and the frontmatter requirements. Names four constraints: 140–160 chars target, must differ from the title verbatim, must name the underlying concept (Drafter already sees `underlyingSubject` from Curator's brief), plain English per the voice contract. Includes one worked example contrasting *"A look at NASA's Voyager 1 power problems."* (generic teaser) with *"Voyager 1 is running out of power 15 billion miles from Earth. NASA can't fix it — they can only choose which scientific instruments to shut down"* (names the teaching). Catches the next cron firing without any code path change.
+- **B. Book chapter 18 expansion.** New section "April 30: closing the snippet gap" placed between "The meta description fix" and "Why this matters more than it sounds". Explains the snippet diagnosis (the homepage description was identical to the footer; Google deduplicated and fell back to footer), then walks through the five 2026-04-30 fixes in chapter-voice. Plus a new "Why autonomy matters here" section that closes the loop the chapter was missing — explaining that every fix in the chapter applies to every page Zeemish has ever published or will publish, and that for SEO to work inside an agent pipeline it has to be baked into the layout and the schema and the prompt rather than applied as a manual post-publish step. Existing "currently lists 25 URLs" line updated to "grows automatically with the library; v1.3.0 had 25, five days later about seventy" so the chapter ages gracefully.
+
+**Trade-offs considered.**
+
+- **Why prompt-only and not a structural validator on description length?** The current Drafter output is mostly fine (1 of 10 too long is the visible failure rate). A hard-cap validator would force a re-roll on edge cases that are otherwise readable. Prompt instruction alone catches the structural shape; if the next 5 cron firings still produce >250-char descriptions, escalate to a Voice Auditor extra rule or a structural cap. Don't add machinery before the prompt has had a chance to bite.
+- **Why update the AGENTS.md Drafter Role line too?** The Drafter description field is now SEO-relevant in a way it wasn't documented as. One sentence in AGENTS.md keeps the role description honest for the next session.
+- **Why not touch book chapter 09 (sixteen roles)?** Chapter 09 operates at the role/character level. The description-SEO requirement is operational metadata — the right home is chapter 18 where SEO lives. Chapter 09 already says Drafter writes frontmatter; adding "and the description follows SEO rules" would be a layer-violation. The new chapter 18 section closes that.
+- **Why update CLAUDE.md but keep the morning's section as-is?** The morning's evening section is accurate for that commit. This commit is a follow-up of the same logical pass, so a follow-up paragraph in the same section reads as one coherent story rather than two unrelated entries.
+
+**Files.**
+- [agents/src/drafter-prompt.ts](../agents/src/drafter-prompt.ts) — new `## description (frontmatter — read by search engines, not on the page)` block in `DRAFTER_PROMPT`.
+- [book/18-discoverability.md](../book/18-discoverability.md) — new "April 30: closing the snippet gap" section + new "Why autonomy matters here" section + updated URL-count line.
+- [docs/AGENTS.md](../docs/AGENTS.md) — Drafter Role line gains a sentence on description-SEO responsibility.
+- [CLAUDE.md](../CLAUDE.md) — follow-up paragraph appended to the existing 2026-04-30 evening SEO section.
+
+**Verification.**
+- `pnpm build` clean (book chapter is markdown — not parsed by build, but content collection rebuild surfaces no warnings).
+- Drafter prompt change is pure text — no typecheck risk; agents-side typecheck baseline unchanged.
+- Forward observation: the next cron firing (~02:00 UTC 2026-05-01) produces a daily piece. Read its frontmatter `description` field — expect 140–160 char range, distinct from the title, names the concept. If still drifting, escalate per the trade-off note above.
+
+**Forward.** No new FOLLOWUPS entry. The existing `[observing] 2026-04-30: SEO snippet flip` covers the broader SEO observation; description-quality observations roll into the same watch.
+
 ## 2026-04-30 (PM, late): Symmetric slug-pairing for quiz + html
 
 **Context.** The 2026-04-30 sperm-cell piece (`sourcePieceId 5d0918d4-9800-45b1-9e96-17b181a1c3fb`) shipped quiz + html on **two** different URLs:
