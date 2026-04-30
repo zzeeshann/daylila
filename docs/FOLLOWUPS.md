@@ -155,19 +155,23 @@ Recurrence of the 2026-04-24 twin-pieces failure pattern. The 2026-04-24 fix add
 
 ---
 
-## [observing] 2026-04-27: HTML interactive parseAndValidateHtml flake — recurrence watch
+## [resolved] 2026-04-27: HTML interactive parseAndValidateHtml flake — recurrence watch
 
 **Surfaced:** 2026-04-27 02:06 UTC — Ben Sasse piece's HTML interactive failed at `parseAndValidateHtml: Claude returned non-JSON output` (Claude ignored the JSON output format and emitted prose or code-fenced response the parser couldn't recover). One-time model flake on round 1; piece kept its quiz, missed its HTML companion. Operator triggered Generate HTML via the new admin UI button after `6b6ed8a` deployed; the retry succeeded on the very next round, shipping "Visibility and Attention Debt" at `c466f4f` with `qualityFlag='low'`.
 
-**Hypothesis:** Non-deterministic Claude formatting flake — the prompt's JSON contract is fine when the model honours it, and the per-round retry mechanism inside `runHtmlLoop` would have recovered if the parse error had landed AFTER the produce call instead of being thrown out of `parseAndValidateHtml` itself. **Bug to consider:** should `parseAndValidateHtml` return a structured failure that lets the auditor loop count it as a failed round (and retry), rather than throwing and aborting the whole HTML alarm? Would change the failure mode from "abort with no commit" to "max-fail with ship-as-low" — closer to how the other auditor dimensions handle bad model output.
+**Recurrence:** 2026-04-30 02:04 UTC — Voting Rights Act piece's quiz interactive failed at the same shape, `parseAndValidate: Claude returned non-JSON output` (quiz path this time, not HTML). Two flakes inside 3 days triggered the unblock condition this entry already named: "If recurrence ≥1 within 7 days, escalate to `[open]` and harden the loop."
 
-**Investigation hints:**
-- Watch `observer_events WHERE title LIKE 'Interactive generation failed:%'` over the next 7 cron runs. If `parseAndValidateHtml: Claude returned non-JSON output` recurs on a different piece, it's a class of flake worth hardening the loop against. If it doesn't recur, leave the parseAndValidateHtml throw-on-failure semantic alone — the manual retry path now works.
-- If the flake recurs, [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) `runHtmlLoop` is the right surface — wrap `parseAndValidateHtml` in a try/catch that converts the throw into a failed-round with the parse error as the auditor note, lets the loop iterate.
+**Resolved:** 2026-04-30 — two-layer hardening shipped to [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) at this same session's commit. **Layer 1 (loop-counted retry):** `runQuizLoop` and `runHtmlLoop` now wrap `produceQuiz`/`reviseQuiz`/`produceHtml`/`reviseHtml` in try/catch on the `'Claude returned non-JSON output'` message-prefix; on catch the round is counted as a failed round, breadcrumbed via new `observer.logInteractiveGeneratorParseFail` (severity `info`), and the loop continues to the next round. If all 3 rounds parse-fail, the loop throws a terminal parse-fail message that Director routes to `logInteractiveGeneratorFailure` (operator-retry posture, same as today's single-strike behaviour, just earned across the budget). Other parse errors (empty slug, missing fields, html-must-start-with-DOCTYPE) stay fatal — those are validator-shape rejections, not transient model flakes. **Layer 2 (assistant-prefill `{`):** all 4 Claude calls now prepend `{ role: 'assistant', content: '{' }` to the messages array, forcing Claude to continue from a literal `{`. The continuation is reassembled with the prefilled `{` before parsing. Strongly biases against preamble + markdown fences; reduces the rate at which Layer 1 has to fire.
 
-**Unblock:** if no recurrence by 2026-05-04, mark `[wontfix]` (one-off model flake; the manual retry path in admin handles it). If recurrence ≥1 within 7 days, escalate to `[open]` and harden the loop.
+**What stayed unchanged:** `extractJson`'s 3-pass fallback chain (markdown-fence strip → whole-text parse → first-`{`-to-last-`}` extraction); the prompt's existing "No prose outside the object. No markdown fences." directives; the 3-round budget shape; the existing terminal states (declined / committed / committed-low / 3-round exhaustion → operator retry).
 
-**Priority:** low (manual retry works; just observability).
+**Verification:**
+- Synthetic test [agents/scripts/verify-parse-retry.mjs](../agents/scripts/verify-parse-retry.mjs) — 4 cases (round 1 parse-fail → round 2 success, rounds 1+2 parse-fail → round 3 success, all 3 parse-fail → terminal throw, no parse-fails → committed). All pass. Runs as `pnpm verify-parse-retry` from `agents/`.
+- Agents-side typecheck — 27 pre-existing `server.ts` SubAgent errors unchanged; touched files (`interactive-generator.ts`, `observer.ts`, `director.ts`) compile clean.
+- Site-side `pnpm build` clean.
+- Live observation window: monitor next 5 cron firings (≈2026-05-03 02:00 UTC) for any `Interactive generation parse retry` info events (Layer 1 firing) AND any `Interactive generation failed: ... parseAnd*` warn events (Layer 1 missed → 3-round exhaustion). Expected: zero terminal failures; ≤1 parse-retry breadcrumb across the 5 runs (Layer 2 should drop the rate substantially).
+
+**Operator next:** the 2026-04-30 Voting Rights Act piece's quiz can be regenerated via `/dashboard/admin/piece/2026-04-30/supreme-court-limits-key-provision-of-the-landmark-voting-/` → click **Generate** on the quiz row (idempotent on `interactive_id IS NULL`). With Layer 2 prefill in place the regenerate should land cleanly on round 1; even if it flakes, Layer 1 catches it and round 2 should land.
 
 ---
 

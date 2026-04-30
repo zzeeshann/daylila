@@ -668,6 +668,33 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /** A produce/revise round inside the InteractiveGenerator loop saw
+   *  Claude return non-JSON output. Info severity — the loop counts it
+   *  as a failed round and retries on the next iteration within the
+   *  existing 3-round budget. The terminal state still surfaces via
+   *  `logInteractiveGeneratorMetered` (committed, declined, or shipped-
+   *  low) or `logInteractiveGeneratorFailure` (3-round exhaustion);
+   *  this event is just the breadcrumb trail. Replaces the pre-2026-04-30
+   *  fatal-throw shape where the first parse-fail abandoned the whole
+   *  generation and forced operator manual retry. */
+  async logInteractiveGeneratorParseFail(
+    date: string,
+    title: string,
+    type: 'quiz' | 'html',
+    round: number,
+    pieceId: string | null = null,
+  ): Promise<void> {
+    await this.writeEvent({
+      severity: 'info',
+      title: `Interactive generation parse retry: ${title}`,
+      body:
+        `InteractiveGenerator round ${round} (${type}) for "${title}" (${date}) returned non-JSON output. ` +
+        `Treating as failed round and retrying within the 3-round budget.`,
+      context: { date, type, round },
+      piece_id: pieceId,
+    });
+  }
+
   /** Operator-triggered regeneration of an interactive. Info severity
    *  — routine ops, not a failure. The fresh `generateInteractiveScheduled`
    *  alarm fires its own `logInteractiveGeneratorMetered` event when

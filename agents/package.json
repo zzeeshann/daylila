@@ -12,7 +12,8 @@
     "verify-validator": "node scripts/verify-validator.mjs",
     "verify-dedup": "node scripts/verify-dedup.mjs",
     "verify-categoriser-floor": "node scripts/verify-categoriser-floor.mjs",
-    "verify-interactive-voice": "node scripts/verify-interactive-voice.mjs"
+    "verify-interactive-voice": "node scripts/verify-interactive-voice.mjs",
+    "verify-parse-retry": "node scripts/verify-parse-retry.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

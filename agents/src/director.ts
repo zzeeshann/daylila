@@ -872,6 +872,22 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           pieceId,
         )
         .catch(() => { /* observer write failure never blocks */ });
+      // 2026-04-30 hardening — emit one info-severity breadcrumb per
+      // round that returned non-JSON output. Loop already retried
+      // within the 3-round budget; these events make the recovery
+      // visible in the admin feed without firing as warns.
+      for (const pf of result.quiz.parseFailures) {
+        await observer
+          .logInteractiveGeneratorParseFail(date, title, 'quiz', pf.round, pieceId)
+          .catch(() => { /* observer write failure never blocks */ });
+      }
+      if (result.html) {
+        for (const pf of result.html.parseFailures) {
+          await observer
+            .logInteractiveGeneratorParseFail(date, title, 'html', pf.round, pieceId)
+            .catch(() => { /* observer write failure never blocks */ });
+        }
+      }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer

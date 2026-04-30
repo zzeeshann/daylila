@@ -115,6 +115,11 @@ export interface QuizArtefactResult {
   roundsUsed: number;          // total rounds executed (1, 2, or 3)
   voiceScore: number | null;
   finalAudit: FinalAuditSummary | null;
+  /** Rounds that threw `'Claude returned non-JSON output'` and were
+   *  caught + counted as failed rounds (2026-04-30 hardening). Director
+   *  emits one info-severity `logInteractiveGeneratorParseFail` event
+   *  per entry. Empty array on the happy path. */
+  parseFailures: Array<{ round: number }>;
   /** Aggregated token totals across every Claude call in this loop —
    *  produce + revise + audit. Cache fields land in observer events
    *  too; powers Phase 3.4 cost telemetry. See `shared/usage.ts`. */
@@ -151,6 +156,9 @@ export interface HtmlArtefactResult {
   roundsUsed: number;
   voiceScore: number | null;        // null in 2.3 (auditor not yet wired)
   finalAudit: FinalAuditSummary | null; // null in 2.3
+  /** Same shape as QuizArtefactResult.parseFailures (2026-04-30
+   *  hardening). One entry per round that returned non-JSON output. */
+  parseFailures: Array<{ round: number }>;
   /** Aggregated token totals — see QuizArtefactResult comment. */
   tokensIn: number;
   tokensOut: number;
@@ -381,6 +389,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         roundsUsed: 0,
         voiceScore: null,
         finalAudit: null,
+        parseFailures: [],
         tokensIn: 0,
         tokensOut: 0,
         cacheCreateTokens: 0,
@@ -412,6 +421,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         roundsUsed: 0,
         voiceScore: null,
         finalAudit: null,
+        parseFailures: [],
         tokensIn: 0,
         tokensOut: 0,
         cacheCreateTokens: 0,
@@ -462,6 +472,10 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let passed = false;
     let declinedInLoop = false;
     let roundsUsed = 0;
+    // Rounds that returned non-JSON output. Caught inside the loop and
+    // re-attempted within the 3-round budget; surfaces as info-severity
+    // breadcrumbs through the Director's metered observer write path.
+    const parseFailures: Array<{ round: number }> = [];
 
     for (let round = 1; round <= INTERACTIVE_MAX_ROUNDS; round += 1) {
       roundsUsed = round;
@@ -472,31 +486,44 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let cacheCreate = 0;
       let cacheRead = 0;
 
-      if (round === 1) {
-        const res = await this.produceQuiz(pieceContext, recent);
-        produced = res.quiz;
-        tokensIn = res.tokensIn;
-        tokensOut = res.tokensOut;
-        cacheCreate = res.cacheCreateTokens;
-        cacheRead = res.cacheReadTokens;
-      } else {
-        if (!lastQuiz || !lastAudit) {
-          throw new Error(
-            `runQuizLoop: round ${round} has no previous quiz or audit to revise from`,
+      try {
+        // When the previous round parse-failed, lastQuiz/lastAudit are
+        // null — fall back to the initial produce path. Decline (empty
+        // shape) breaks out of the loop, so reaching here with null
+        // refs after round 1 can ONLY mean the prior round parse-failed.
+        if (round === 1 || !lastQuiz || !lastAudit) {
+          const res = await this.produceQuiz(pieceContext, recent);
+          produced = res.quiz;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
+        } else {
+          const res = await this.reviseQuiz(
+            lastQuiz,
+            lastAudit,
+            pieceContext,
+            recent,
+            round,
           );
+          produced = res.quiz;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
         }
-        const res = await this.reviseQuiz(
-          lastQuiz,
-          lastAudit,
-          pieceContext,
-          recent,
-          round,
-        );
-        produced = res.quiz;
-        tokensIn = res.tokensIn;
-        tokensOut = res.tokensOut;
-        cacheCreate = res.cacheCreateTokens;
-        cacheRead = res.cacheReadTokens;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg.startsWith('parseAndValidate: Claude returned non-JSON output')) {
+          // Loop-counted retry: treat parse-fail as a consumed round
+          // and continue. If all 3 rounds parse-fail, the loop falls
+          // through to the !lastQuiz commit-path guard and the throw
+          // surfaces to Director (operator-retry case). Other errors
+          // (validator-shape, infra) stay fatal.
+          parseFailures.push({ round });
+          continue;
+        }
+        throw err;
       }
 
       cumulativeTokensIn += tokensIn;
@@ -569,6 +596,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         roundsUsed,
         voiceScore: lastAudit?.voice.score ?? null,
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
+        parseFailures,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
@@ -578,6 +606,14 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     }
 
     if (!lastQuiz) {
+      // 3-round parse-fail exhaustion — same operator-retry posture as
+      // the pre-2026-04-30 single-strike fatal, just earned across the
+      // full budget. Director catches and routes to logInteractiveGeneratorFailure.
+      if (parseFailures.length === roundsUsed) {
+        throw new Error(
+          `parseAndValidate: Claude returned non-JSON output across all ${roundsUsed} rounds`,
+        );
+      }
       throw new Error('runQuizLoop: commit path reached without a lastQuiz');
     }
     const qualityFlag: 'low' | null = passed ? null : 'low';
@@ -671,6 +707,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       roundsUsed,
       voiceScore,
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
+      parseFailures,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       cacheCreateTokens: cumulativeCacheCreate,
@@ -718,6 +755,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let auditPassed = false;
     let declinedInLoop = false;
     let roundsUsed = 0;
+    // See runQuizLoop.parseFailures. Same shape, same posture.
+    const parseFailures: Array<{ round: number }> = [];
 
     const auditor = await this.subAgent(
       InteractiveAuditorAgent,
@@ -733,40 +772,49 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let cacheCreate = 0;
       let cacheRead = 0;
 
-      if (round === 1) {
-        const res = await this.produceHtml(pieceContext, recent);
-        produced = res.html;
-        tokensIn = res.tokensIn;
-        tokensOut = res.tokensOut;
-        cacheCreate = res.cacheCreateTokens;
-        cacheRead = res.cacheReadTokens;
-      } else {
-        if (!lastHtml) {
-          throw new Error(
-            `runHtmlLoop: round ${round} has no previous html to revise from`,
+      try {
+        // When prior round parse-failed, lastHtml is null — fall back
+        // to the initial produce path. Decline (empty shape) breaks out
+        // of the loop, and validator failures keep lastHtml populated,
+        // so reaching here with null after round 1 ONLY means the prior
+        // round parse-failed.
+        if (round === 1 || !lastHtml) {
+          const res = await this.produceHtml(pieceContext, recent);
+          produced = res.html;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
+        } else {
+          // Build audit feedback for the revision prompt — only when the
+          // PRIOR round's failure was at the audit gate (validator passed
+          // but auditor rejected). When the prior round failed validator,
+          // lastAudit stays null and the revision is validator-feedback-only.
+          const auditFeedback: RevisionFeedback | null =
+            lastAudit && validatorPassed
+              ? buildAuditFeedback(lastAudit)
+              : null;
+          const res = await this.reviseHtml(
+            lastHtml,
+            lastValidatorViolations,
+            auditFeedback,
+            pieceContext,
+            recent,
+            round,
           );
+          produced = res.html;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
         }
-        // Build audit feedback for the revision prompt — only when the
-        // PRIOR round's failure was at the audit gate (validator passed
-        // but auditor rejected). When the prior round failed validator,
-        // lastAudit stays null and the revision is validator-feedback-only.
-        const auditFeedback: RevisionFeedback | null =
-          lastAudit && validatorPassed
-            ? buildAuditFeedback(lastAudit)
-            : null;
-        const res = await this.reviseHtml(
-          lastHtml,
-          lastValidatorViolations,
-          auditFeedback,
-          pieceContext,
-          recent,
-          round,
-        );
-        produced = res.html;
-        tokensIn = res.tokensIn;
-        tokensOut = res.tokensOut;
-        cacheCreate = res.cacheCreateTokens;
-        cacheRead = res.cacheReadTokens;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        if (msg.startsWith('parseAndValidateHtml: Claude returned non-JSON output')) {
+          parseFailures.push({ round });
+          continue;
+        }
+        throw err;
       }
 
       cumulativeTokensIn += tokensIn;
@@ -868,12 +916,25 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         roundsUsed,
         voiceScore: lastAudit?.voice.score ?? null,
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
+        parseFailures,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
         cacheReadTokens: cumulativeCacheRead,
         durationMs: Date.now() - started,
       };
+    }
+
+    // 3-round parse-fail exhaustion — throw so Director routes it to
+    // logInteractiveGeneratorFailure (operator-retry posture). Same
+    // shape as the quiz path's lastQuiz-null exhaustion guard. Sits
+    // before the validator-max-failed branch because parse-fails
+    // DON'T reach the validator — surfacing them as validator failures
+    // would mislead operators about the cause.
+    if (!lastHtml && parseFailures.length === roundsUsed) {
+      throw new Error(
+        `parseAndValidateHtml: Claude returned non-JSON output across all ${roundsUsed} rounds`,
+      );
     }
 
     if (!validatorPassed || !lastHtml) {
@@ -904,6 +965,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         roundsUsed,
         voiceScore: null,
         finalAudit: null,
+        parseFailures,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
@@ -1029,6 +1091,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       roundsUsed,
       voiceScore,
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
+      parseFailures,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       cacheCreateTokens: cumulativeCacheCreate,
@@ -1059,10 +1122,17 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       system: INTERACTIVE_GENERATOR_PROMPT,
       messages: [
         { role: 'user', content: buildInteractivePrompt(pieceContext, recent) },
+        // 2026-04-30 hardening — prefill the assistant turn with `{`
+        // so Claude must continue with valid JSON. The prompt already
+        // bans preamble + markdown fences; this layer enforces it at
+        // the API contract. Anthropic returns only the continuation in
+        // content[0].text, so we re-add the `{` before parsing.
+        { role: 'assistant', content: '{' },
       ],
     });
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
     return {
@@ -1101,10 +1171,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           role: 'user',
           content: buildRevisionPrompt(previous, feedback, pieceContext, recent, round),
         },
+        // See produceQuiz for the prefill rationale.
+        { role: 'assistant', content: '{' },
       ],
     });
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
     return {
@@ -1151,10 +1224,15 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
       messages: [
         { role: 'user', content: buildHtmlInteractivePrompt(pieceContext, recent) },
+        // See produceQuiz for the prefill rationale. The HTML JSON
+        // envelope's first field is also `slug`; an open brace is the
+        // correct continuation anchor for both shapes.
+        { role: 'assistant', content: '{' },
       ],
     });
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
     return {
@@ -1220,10 +1298,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
             round,
           ),
         },
+        // See produceQuiz for the prefill rationale.
+        { role: 'assistant', content: '{' },
       ],
     });
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
     return {
