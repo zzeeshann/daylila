@@ -1,0 +1,71 @@
+{
+  "slug": "adding-requirements-through-practice",
+  "type": "quiz",
+  "title": "Adding Requirements Through Practice",
+  "concept": "When people can't rewrite a rule, they add new requirements one decision at a time by saying those requirements were always implied — until what the rule allows becomes something different from what the words say.",
+  "interactiveId": "36f442f7-4c47-4e6a-809e-7e063f6b1bda",
+  "sourcePieceId": "2fb4bb9e-1918-4a84-8e80-ad1974b8bcf4",
+  "publishedAt": 1777550120959,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A store's return policy says 'Returns accepted for defective items.' Over time, staff only process returns when customers bring the receipt, original box, and photos of the problem. A customer brings back a broken item without those things. What happened to the policy?",
+        "options": [
+          "Nothing — staff are just being careful about what counts as defective",
+          "The words stayed the same but what you must do to return something grew from zero extra steps to three",
+          "The store updated the policy to prevent fraud",
+          "The customer should have read the fine print more carefully"
+        ],
+        "correctIndex": 1,
+        "explanation": "The policy's words stayed the same, but what customers must do to use it grew from zero requirements to three. That's adding to the rule through how you apply it. The first option treats the additions as if they were always there. The third explains why but not what changed."
+      },
+      {
+        "question": "Why do rule-enforcers often prefer tightening what a rule requires through practice rather than changing what the rule says?",
+        "options": [
+          "Changing the written rule takes more paperwork and approvals",
+          "Because adding requirements through practice doesn't require announcing you changed the rule",
+          "Courts give more respect to changes made through applying rules than rewriting them",
+          "Most rules are written too loosely to rewrite clearly"
+        ],
+        "correctIndex": 1,
+        "explanation": "Rewriting the rule means saying out loud 'we're changing this' — that invites pushback and questions. Adding requirements decision by decision ('we're just interpreting what was always meant') gets you to the same place without that cost. The first option names hassle but misses the political reason."
+      },
+      {
+        "question": "An apartment lease says tenants can paint walls 'with permission.' Over time, the landlord only says yes when tenants submit color samples, agree to repaint before moving out, and pay a fee. A tenant asks to paint and is told those three things are required. What does this show?",
+        "options": [
+          "The landlord is protecting the property's resale value",
+          "'With permission' now means 'with permission if you meet three conditions the lease never listed'",
+          "The lease was always vague about what permission involved",
+          "Previous tenants must have caused damage that forced the change"
+        ],
+        "correctIndex": 1,
+        "explanation": "'With permission' meant yes-or-no. Now it means yes-if-you-do-three-things. The words didn't change but the gate got narrower through how the landlord applies them. The first option explains why, not what shifted. The third treats vagueness as the cause when specificity was added."
+      },
+      {
+        "question": "A school handbook says students may use the library 'during free periods.' Eventually, staff only admit students who sign in at the front desk, state their purpose, and leave phones in a basket. What's the test for whether the rule changed?",
+        "options": [
+          "Whether the new steps improve behavior or reduce noise",
+          "Whether someone reading 'during free periods' would expect those three steps from the words alone",
+          "Whether most students now follow the sign-in process",
+          "Whether the handbook was officially updated to include the new requirements"
+        ],
+        "correctIndex": 1,
+        "explanation": "The rule changed if it now requires things the original words didn't contain or imply. 'During free periods' doesn't naturally mean 'if you sign in, explain why, and surrender your phone.' The first option asks if the change is good, not whether it happened. The third measures compliance, not whether the rule's meaning shifted."
+      },
+      {
+        "question": "A club's rules say members may propose new activities 'by majority vote.' Over time, proposals only get voted on when someone submits a written plan, gathers twenty signatures, and presents to the board first. Why does this pattern appear across institutions?",
+        "options": [
+          "Because written plans and approval chains produce better decisions",
+          "Because formal rule changes invite conflict — raising the bar quietly through practice avoids announcing you're restricting access",
+          "Because most rules are written by people who don't understand how organizations actually work",
+          "Because gathering support before a vote shows the proposal is serious"
+        ],
+        "correctIndex": 1,
+        "explanation": "Changing the written rule means public debate about why you're restricting what was open. Adding requirements through 'that's how we've always interpreted it' reaches the same result without that friction. The first option justifies the change but doesn't explain why institutions pick this path. The fourth describes one requirement's purpose, not the overall pattern."
+      }
+    ]
+  }
+}
