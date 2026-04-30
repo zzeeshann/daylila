@@ -17,7 +17,7 @@
 
 - The gates are what separates "autonomous publishing" from "spam engine." They are the thing that makes daily autonomous publishing safe enough to brand as a teaching system.
 - Each gate is itself a Claude call with a specialised prompt. Keeping the writing call and the judging calls separate is deliberate — chapter 6 explains why.
-- The Fact Checker's DDG limitation is covered here explicitly (and tracked in FOLLOWUPS).
+- The Fact Checker now reaches the live web through Anthropic's `web_search_20250305` server tool (replaced DuckDuckGo Instant Answer 2026-04-30, after the J. Craig Venter piece exposed cutoff-confessing notes on a real death). The drawer surfaces what was checked and what was found per claim — chapter 9 has the full agent description.
 
 ## Key terms introduced
 

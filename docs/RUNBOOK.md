@@ -414,10 +414,14 @@ curl "https://zeemish-agents.zzeeshann.workers.dev/engagement?course=daily" \
 ### What to watch for on a fresh run
 - `severity: 'info'`, title `Published: …` — the happy path
 - `severity: 'escalation'`, title `Escalation: …` — failed 3 revision rounds
-- `severity: 'warn'`, title `Error: fact-check` — web search (DuckDuckGo)
-  was unreachable, so fact-checking used Claude's first-pass assessment
-  only. Pipeline continued, but unverified claims may have slipped past.
-  Worth re-running or spot-checking the piece.
+- `severity: 'warn'`, title `Error: fact-check` — Anthropic's web_search
+  tool returned `unavailable` (org-level toggle off, or transient API
+  failure). Fact-checking fell back to training-data inference, which
+  is unreliable for the news-anchored claims that dominate daily
+  pieces. Pipeline continued, but unverified claims may have slipped
+  past. First check: org admin toggle at console.anthropic.com/settings/privacy.
+  If enabled, retry or spot-check the piece. Replaced the 2026-04-19
+  DDG Instant Answer leg on 2026-04-30 — see DECISIONS.
 - `severity: 'info'`, title `Zita synthesis skipped: …` — P1.5 fired at
   01:45 UTC but the piece had fewer than 5 reader messages. Expected at
   current traffic levels.

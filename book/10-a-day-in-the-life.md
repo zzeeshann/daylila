@@ -62,7 +62,7 @@ Drafter sends everything to Claude with an instruction: *write the piece.*
 - **Fact Checker** — "Extract the factual claims. Mark each as verified, unverified, or incorrect."
 - **Structure Editor** — "Check the beat count, hook length, close length, overall flow."
 
-**02:01:15.** All three return. Voice Auditor scored 92. Fact Checker found seven claims, flagged six as unverified (the DDG search returned nothing) and none as incorrect. Structure Editor passed — six beats, hook on one screen, close on one sentence.
+**02:01:15.** All three return. Voice Auditor scored 92. Fact Checker found seven claims and verified them against the live web through Claude's web_search tool — the user message carries today's date, so Claude searches before assigning a verdict on any current-event claim. Six came back verified with source attributions in the notes ("CNN published coverage on…", "FAA's safety bulletin lists…"), one came back unverified because nothing solid surfaced and the prompt forbids inventing certainty. None incorrect. Structure Editor passed — six beats, hook on one screen, close on one sentence.
 
 All three pass. No revision needed. This piece was a "one-round" piece, which the dashboard will eventually show as `1 round` in its recent runs list.
 
