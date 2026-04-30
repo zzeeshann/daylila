@@ -1,0 +1,71 @@
+{
+  "slug": "credible-commitment-through-cost",
+  "type": "quiz",
+  "title": "Credible Commitment Through Cost",
+  "concept": "When trust is broken, cheap signals—statements, promises, announced plans—don't rebuild it because they cost nothing to fake; only actions that hurt if you're insincere convince others you've actually changed.",
+  "interactiveId": "fcc9617c-45c8-4952-b5e2-047af6cfdec8",
+  "sourcePieceId": "fd644822-c6c6-4c23-811b-a6cef4e203fc",
+  "publishedAt": 1777590809632,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why don't public apologies and announced improvements usually rebuild trust after a catastrophic failure?",
+        "options": [
+          "Because people who are angry refuse to accept apologies no matter what",
+          "Because statements and future promises cost nothing to make, so they don't prove you've changed",
+          "Because apologies are inherently dishonest in business contexts",
+          "Because people expect perfection and any failure permanently destroys reputation"
+        ],
+        "correctIndex": 1,
+        "explanation": "Cheap signals—words, promises, plans—don't work because anyone can make them, whether sincere or not. The test of real change is whether you're willing to pay a cost that would hurt if you were just performing. If saying 'we'll do better' costs you nothing, it proves nothing."
+      },
+      {
+        "question": "What makes shutting down operations a stronger signal than announcing safety upgrades?",
+        "options": [
+          "It shows you care more about public relations than actual improvements",
+          "It proves leadership is willing to lose money and admit they can't fix the problem quickly",
+          "It's easier than doing the hard work of real operational changes",
+          "It satisfies legal requirements that safety upgrades don't"
+        ],
+        "correctIndex": 1,
+        "explanation": "Closing costs real money, halts revenue, and admits you're not ready—those costs would hurt badly if you were just pretending to take it seriously. Announced upgrades are cheap talk until proven. The shutdown is expensive whether you're sincere or not, which makes it credible."
+      },
+      {
+        "question": "When stakeholders ask 'how could you think we'd come back?' instead of 'what will you fix?', what are they really testing?",
+        "options": [
+          "Whether you've replaced the specific equipment or people that failed",
+          "Whether you understand what kind of judgment failure led to the disaster, not just the technical breakdown",
+          "Whether you've hired better public relations consultants",
+          "Whether enough time has passed for them to forget what happened"
+        ],
+        "correctIndex": 1,
+        "explanation": "The question isn't about the broken part—it's about the system that let someone think the broken part was acceptable. Stakeholders want proof you see the deeper failure in decision-making, oversight, or culture. Fixing drainage doesn't answer a judgment question."
+      },
+      {
+        "question": "Why do hospitals restructure supervision systems after malpractice deaths instead of just removing the surgeon involved?",
+        "options": [
+          "Because employment law makes it too expensive to fire individuals",
+          "Because removing one person is a cheap signal—restructuring the system that allowed the error is costly and credible",
+          "Because restructuring spreads blame so no one person is held responsible",
+          "Because hospitals want to avoid admitting a single person was at fault"
+        ],
+        "correctIndex": 1,
+        "explanation": "Removing one surgeon is easy and costs little—it looks like scapegoating. Restructuring how decisions get escalated, who has stop authority, and how oversight works is expensive, disruptive, and only worth doing if you truly believe the system failed. That's why it rebuilds trust."
+      },
+      {
+        "question": "What's the danger of relying only on cheap signals—statements, plans, promises—to restore trust after failure?",
+        "options": [
+          "They take too long to produce and people lose patience",
+          "They work in the short term but create dependency on constant reassurance",
+          "They don't prove change because anyone can make them—so stakeholders assume you're performing, not fixing",
+          "They're legally risky because promises create binding obligations"
+        ],
+        "correctIndex": 2,
+        "explanation": "Cheap signals fail because they're indistinguishable from pretending. If words cost nothing, sincere actors and insincere ones both use them. Stakeholders learn to ignore them. Real proof requires doing something that would hurt badly if you were faking it—closing, restructuring, losing money."
+      }
+    ]
+  }
+}
