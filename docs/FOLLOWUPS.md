@@ -159,6 +159,9 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 - **(Phase F)** No excessive "[fact-checker] dropping unattested URL from claim sources:" console warns from the agents worker. Baseline ≈1 per 5 pieces (Claude occasionally name-drops a URL it half-remembered). >1 per piece would suggest the prompt regression — Claude not honouring the EXACT-URLs rule.
 - **(Phase G)** Each claim's sources sub-section shows the "Searched: '...'" eyebrow with the actual web_search query Claude used. Empty/missing eyebrow on a verified-via-search claim suggests the positional attribution heuristic missed.
 - **(Phase F+G mobile)** Drawer renders without horizontal overflow on 375px viewport. The new sources sub-section uses `word-break: break-word` on long URLs; verify the cited_text blockquote wraps cleanly.
+- **(Phase H)** Each new piece's HTML carries ≥1 `<script type="application/ld+json">` block with `"@type": "ClaimReview"`. Block count per piece should equal the number of verified-status claims in that piece's audit_results. View source on the piece's URL or curl + grep `"ClaimReview"` to verify. Validate clean against Google Rich Results Test (https://search.google.com/test/rich-results) and Schema.org validator (https://validator.schema.org/).
+- **(Phase H caveat)** Google may NOT show fact-check rich results in SERPs even with valid markup. Their criteria favour IFCN-certified fact-checkers. Don't expect rich-result snippets; the win is machine-readable provenance regardless of SERP display.
+- **(Phase I)** `daily_audit_claims` row count grows after each cron piece. Spot-check: `SELECT COUNT(*) FROM daily_audit_claims WHERE piece_id = '<latest-piece-id>'` should equal number of claims summed across all audit rounds (1-3 rounds × N claims). `sources_json` column should match the agent's enrichment shape (`Array<{url, title, citedText, searchQuery}>`).
 
 **Escalation paths.**
 

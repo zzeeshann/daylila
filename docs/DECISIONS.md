@@ -2,6 +2,67 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (after Phase F+G): JSON-LD ClaimReview + per-claim audit table (Phase H + I)
+
+**Context.** After Phase F+G shipped per-claim citations in the drawer, operator's "go keep going" green-lit Phase H + I. Plus a critical mid-flight bug discovery: the made-by API endpoint's `parseClaims` was hand-mapping each claim to `{claim, status, note}` only, silently stripping the new `sources` field Phase F started writing. Phase F's data was reaching D1 but not the drawer. Hotfix shipped first (`cf01e54`), then H + I as one commit.
+
+**Decisions.**
+
+**Phase H — JSON-LD ClaimReview via Director frontmatter splice.** Three implementation paths considered:
+- (A) Director splices verified-claim text array into MDX frontmatter at publish time; BaseLayout reads it from `piece.data.claimReviews` at build time. **Picked.**
+- (B) Astro middleware fetches made-data at request time, injects JSON-LD into HTML before `</head>`. Rejected — request-time D1 cost on every page load + HTML manipulation complexity.
+- (C) Convert daily piece pages to SSR. Rejected — loses prerender benefits, ~50ms per request.
+
+**Why A.** Pattern-aligned with existing splices (voiceScore, audioBeats, qualityFlag, pieceId, publishedAt, sourceUrl). Page stays prerendered (fast first paint, edge-cacheable). Zero request-time cost. Trade-off: 23 historical pieces have no `claimReviews` field → no JSON-LD on them. Going-forward only matches operator preference everywhere else (sourceUrl was added the same way 2026-04-29).
+
+**Phase H — emit ClaimReview only for verified claims.** Unverified means we don't have evidence either way (honest in the drawer text, but unhelpful as machine-readable structured data). Incorrect should never reach published pieces (gate fails on incorrect). So Director's splice filters to status='verified' before serialising to frontmatter. ReviewRating is fixed at 5/5 "True" since only verified claims are in the array.
+
+**Phase H — honest caveat on Google rich-results.** Schema.org ClaimReview rich results in Google SERPs favour IFCN-certified fact-checkers and "high reach with a long history of fact-checking". Zeemish is 2 weeks old, not IFCN-certified. Rich results unlikely. The win is machine-readable provenance for forward-looking AI-content disclosure regulations, third-party content scrapers, citation-aware browsers, and basic compliance posture — not necessarily SERP visibility.
+
+**Phase I — `daily_audit_claims` table breakout, despite no immediate consumer.** Operator's `feedback_schema_over_bandaid` rule: if a future bug can be stated as "table X needs column Y", surface the schema option up front. The dashboard rewrite is in flight; building it against JSON-in-column would be a layered bandaid. Adding the structured table now (~8 lines of writer code, migration 0028, zero reader changes today) means the rewrite can use proper SQL the day it lands. Cost is ~10 INSERTs per audit round (well under 100ms in a batch). Acceptable.
+
+**Phase I — table shape mirrors `interactive_audit_results` precedent (migration 0023).** `(id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)`. `audit_result_id` is the (app-level) FK to the parent `audit_results` row; `piece_id` is denormalized for query convenience. `sources_json` carries the Phase F enrichment shape (`Array<{url, title, citedText, searchQuery}>`); `search_query` denormalizes the first source's `searchQuery` for fast filtering. Two indexes: `(piece_id, round)` for the primary access path (drawer + future admin views: "show me every claim for piece X"), `status` for cross-piece queries ("show me every incorrect claim across all pieces").
+
+**Phase I — best-effort per-claim INSERTs in a separate try/catch from the parent.** A transient D1 failure on the per-claim breakout can't poison the parent `audit_results` row. Pre-allocates the `fact` audit row's `id` so child rows can FK-reference it. Empty at migration time; no backfill of the 23 historical rows (their JSON in `audit_results.notes` stays authoritative). Source-of-truth-by-table: `audit_results.notes` JSON for back-compat, `daily_audit_claims` rows for going-forward query convenience. Both written for new audits.
+
+**parseClaims hotfix (`cf01e54`).** Before-fix shape: `parsed.map((c: any) => ({claim, status, note}))` — explicit field projection, no spread. The new `sources` field on Phase F's audit data was silently dropped en route to the drawer. Fix: keep the explicit projection (it's defense against schema drift), but add a separate sanitised passthrough for `sources` with per-source field validation (url required + non-empty, title/citedText/searchQuery optional + string-typed). Filters malformed source entries before they reach the renderer.
+
+**Trade-offs.**
+
+- **Why splice frontmatter rather than client-fetch JSON-LD.** Crawlers may not execute JS reliably for structured data; Google explicitly recommends server-rendered JSON-LD. Frontmatter splice + build-time render guarantees the JSON-LD is in the HTML at first paint.
+- **Why sanity-cap claimReviews at 20.** Defense against pathological cases (Drafter writes 50 claims; FactChecker verifies all). Realistically pieces have 5-10 claims; cap is well above the 99th percentile.
+- **Why pre-allocate `factAuditId` in saveAuditResults.** Without it, child rows can't FK-reference the parent. Could've used a different child-keying approach (composite `(piece_id, round)` PK on daily_audit_claims), but FK-by-id matches the precedent and is more flexible for future "show me which audit_results row spawned this claim" queries.
+- **Why no admin UI for daily_audit_claims yet.** Per the operator's confirmed dashboard rewrite-in-flight, building admin UI on the about-to-be-deleted dashboard is wasted work. Plumbing-only commit; future post-rewrite admin gets queryable data.
+
+**What stays the same (intentional).**
+- `audit_results.notes` stays the authoritative JSON for back-compat with all 23 historical rows.
+- `FactCheckResult` interface unchanged.
+- Director's `runAudioPipeline` / `categoriseScheduled` / `requestInteractiveGenerate` paths untouched.
+- Permanence rule — no piece-body edits, going-forward only on the new `claimReviews` frontmatter field.
+
+**Changes shipped.**
+- migrations/0028_daily_audit_claims.sql — new table + 2 indexes; applied to remote D1 same session.
+- [agents/src/director.ts](../agents/src/director.ts) — `lastFactResult` capture outside audit loop; `claimReviews` frontmatter splice block (after sourceUrl, before quality_flag); `saveAuditResults` extension with pre-allocated `factAuditId` + per-claim batch INSERT.
+- [src/content.config.ts](../src/content.config.ts) — `dailyPieces.claimReviews?: z.array(z.string()).optional()`.
+- [src/layouts/BaseLayout.astro](../src/layouts/BaseLayout.astro) — `claimReviews?: string[]` prop; new `claimReviewJsonLds` array build (one ClaimReview schema per claim, 5/5 True rating); render before LearningResource block.
+- [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) — `claimReviews` Props field + destructure + pass to BaseLayout.
+- [src/pages/daily/[date]/[slug].astro](../src/pages/daily/[date]/[slug].astro) — `piece.data.claimReviews` forwarding.
+- [src/pages/api/daily/[date]/made.ts](../src/pages/api/daily/[date]/made.ts) — parseClaims hotfix shipped at `cf01e54` ahead of H+I.
+- Doc sync: CLAUDE.md narrative section, [docs/SCHEMA.md](../docs/SCHEMA.md) tables count + 0028 migration entry, [docs/FOLLOWUPS.md](../docs/FOLLOWUPS.md) extend the existing observing entry.
+
+**Verified.** `pnpm verify-fact-checker` 10/10 pass. Agents-side `npx tsc --noEmit` baseline unchanged on touched files. Site-side `pnpm build` clean. Synthetic JSON-LD shape test against 3 sample claims renders valid schema.org/ClaimReview blocks with `escapeForScript` defending against `</script>` injection. Migration 0028 applied to remote D1; `PRAGMA table_info(daily_audit_claims)` returns all 11 columns.
+
+**Post-deploy verification path.**
+1. Operator triggers a piece via admin button.
+2. Curl the rendered HTML at `https://zeemish.io/daily/<date>/<slug>/` and grep for `"@type":"ClaimReview"` — expect ≥1 block per verified claim.
+3. Validate via Google Rich Results Test (https://search.google.com/test/rich-results) and Schema.org validator (https://validator.schema.org/) — expect zero errors.
+4. Query D1: `SELECT COUNT(*) FROM daily_audit_claims WHERE piece_id = '<new-piece-id>'` — expect = number of claims in that piece's audit, summed across rounds.
+5. Spot-check `sources_json` column matches the agent's enrichment shape.
+
+**References.** Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md` (follow-on plan section, Phases H + I). Schema.org/ClaimReview: https://schema.org/ClaimReview. Migration 0023 precedent for per-round per-dimension audit table.
+
+---
+
 ## 2026-04-30 (after Phase A): Per-claim citations + cited_text in drawer (Phase F + G)
 
 **Context.** Phase A shipped the DDG → Anthropic web_search swap and verified clean fact-check notes against the 2026-04-30 sycophancy piece. Operator surfaced the next planning question: dashboard is being rewritten — where should fact-check info live going forward, deeper, more honest? Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md` (follow-on plan section).

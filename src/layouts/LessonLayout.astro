@@ -45,6 +45,11 @@ interface Props {
    *  standalone /interactives/<slug>/ URL still works (essence-not-
    *  reference posture from Area 4). */
   interactiveBundle?: InteractiveBundle | null;
+  /** Verified factual claims for ClaimReview JSON-LD render (Phase H,
+   *  2026-04-30 after Phase F+G). Threaded straight to BaseLayout's
+   *  `claimReviews` prop. Optional — pre-Phase-H pieces have no field;
+   *  no JSON-LD blocks emitted in that case. */
+  claimReviews?: string[];
 }
 
 const {
@@ -62,6 +67,7 @@ const {
   sourceUrl,
   newsSource,
   interactiveBundle,
+  claimReviews,
 } = Astro.props;
 
 // Pick a representative audio URL for the JSON-LD AudioObject (v1 emits
@@ -108,6 +114,7 @@ const interactiveSlug = primary?.data.slug ?? null;
   description={description}
   ogType="article"
   article={{ publishedAt, audioUrl: canonicalAudioUrl }}
+  claimReviews={claimReviews}
 >
   <nav class="text-sm text-zee-muted mb-6" aria-label="Breadcrumb">
     <a href="/daily/" class="hover:text-zee-primary transition-colors">Daily</a>

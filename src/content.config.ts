@@ -60,6 +60,15 @@ const dailyPieces = defineCollection({
     // landed in commit 6999c5e). Reader-side "Source: {newsSource} ↗"
     // link omits when absent.
     sourceUrl: z.string().url().optional(),
+    // Verified factual claims for schema.org ClaimReview JSON-LD render
+    // (Phase H, 2026-04-30 after Phase F+G). Spliced by Director from
+    // the final round's verified-status claims. Sanity-capped at 20 in
+    // the splicer. Optional — pre-Phase-H pieces have no field; older
+    // audits without `sources` enrichment are still verifiable since
+    // ClaimReview only needs the claim text + piece URL + org +
+    // rating, not the per-claim source URLs (those live in
+    // audit_results.notes for the drawer's per-claim sources sub-section).
+    claimReviews: z.array(z.string()).optional(),
   }),
 });
 

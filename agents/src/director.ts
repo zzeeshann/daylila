@@ -316,6 +316,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     let lastVoiceScore = 0;
     let totalRounds = 0;
     let failedGates: string[] = [];
+    /** Last round's fact-check result, hoisted out of the loop for the
+     *  Phase H frontmatter splice (claimReviews → JSON-LD render). The
+     *  splice consumes the FINAL round's verified claims, not earlier
+     *  rounds, since Integrator may have rewritten the prose in
+     *  between. */
+    let lastFactResult: import('./fact-checker').FactCheckResult | null = null;
 
     for (let round = 1; round <= MAX_REVISIONS; round++) {
       totalRounds = round;
@@ -325,6 +331,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         (await this.subAgent(StructureEditorAgent, `struct-daily-r${round}`)).review(currentMdx),
         (await this.subAgent(FactCheckerAgent, `fact-daily-r${round}`)).check(currentMdx),
       ]);
+
+      lastFactResult = factResult;
 
       await this.saveAuditResults(taskId, pieceId, round, voiceResult, structureResult, factResult);
 
@@ -441,6 +449,28 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       } catch {
         // Fail-quiet: missing source link is acceptable, blocking the
         // publish over a metadata read isn't.
+      }
+    }
+
+    // Splice `claimReviews` into frontmatter (Phase H, 2026-04-30 after
+    // Phase F+G). Just the verified claim text strings — JSON-LD
+    // ClaimReview render in BaseLayout consumes them. The full sources
+    // (URLs, cited_text) stay in audit_results.notes for the drawer;
+    // ClaimReview only needs claimReviewed text, the piece URL, the
+    // org, and a rating. Empty array → no splice → no JSON-LD emitted.
+    // Sanity cap at 20 to prevent any single piece dumping a giant
+    // frontmatter array if Drafter ever writes 50+ claims.
+    if (lastFactResult && lastFactResult.claims.length > 0) {
+      const verifiedClaims = lastFactResult.claims
+        .filter((c) => c.status === 'verified')
+        .map((c) => c.claim)
+        .filter((s): s is string => typeof s === 'string' && s.length > 0)
+        .slice(0, 20);
+      if (verifiedClaims.length > 0) {
+        currentMdx = currentMdx.replace(
+          /^(---\n[\s\S]*?)(\n---\n)/,
+          `$1\nclaimReviews: ${JSON.stringify(verifiedClaims)}$2`,
+        );
       }
     }
 
@@ -1646,7 +1676,18 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    *  run-scoped UUID (pre-allocated at the top of triggerDailyPiece); it
    *  scopes rows per-piece at multi-per-day cadence — same UUID that
    *  ends up as daily_pieces.id for this run. See DECISIONS 2026-04-22
-   *  "piece_id columns on day-keyed tables". */
+   *  "piece_id columns on day-keyed tables".
+   *
+   *  Phase I (2026-04-30 after Phase H): also writes one row per claim
+   *  to `daily_audit_claims` (migration 0028) so future admin views and
+   *  cross-piece analytics can query per-claim data without parsing
+   *  JSON. The parent `audit_results.notes` JSON stays the source of
+   *  truth for back-compat with the 23 historical rows; the new table
+   *  is additive structured data. Best-effort try/catch — a transient
+   *  D1 failure on the per-claim INSERTs can't sink an otherwise-passing
+   *  audit (matches the per-round persist pattern from
+   *  `interactive_audit_results`). Pre-generates the fact `audit_results.id`
+   *  so child rows can reference it via `audit_result_id`. */
   private async saveAuditResults(
     taskId: string,
     pieceId: string,
@@ -1657,6 +1698,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   ): Promise<void> {
     const now = Date.now();
     const draftId = `${taskId}-r${round}`;
+    const factAuditId = crypto.randomUUID();
     try {
       await this.env.DB.batch([
         this.env.DB.prepare(
@@ -1667,9 +1709,49 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId),
         this.env.DB.prepare(
           'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(crypto.randomUUID(), taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts.claims), now, pieceId),
+        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts.claims), now, pieceId),
       ]);
     } catch { /* audit logging shouldn't break the pipeline */ }
+
+    // Phase I: per-claim breakout into daily_audit_claims. Separate
+    // try/catch from the parent INSERT so a transient D1 failure here
+    // can't poison the parent audit row. If parent INSERT failed (above),
+    // we'd still attempt these — the FK is application-level so orphan
+    // rows are tolerated (same pattern as audit_results vs daily_pieces).
+    if (Array.isArray(facts.claims) && facts.claims.length > 0) {
+      try {
+        const stmts = facts.claims.map((claim, idx) => {
+          const sourcesJson = Array.isArray(claim.sources) && claim.sources.length > 0
+            ? JSON.stringify(claim.sources)
+            : null;
+          const searchQuery = Array.isArray(claim.sources)
+            ? claim.sources.find((s) => typeof s.searchQuery === 'string' && s.searchQuery.length > 0)?.searchQuery ?? null
+            : null;
+          return this.env.DB.prepare(
+            `INSERT INTO daily_audit_claims
+              (id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ).bind(
+            crypto.randomUUID(),
+            factAuditId,
+            pieceId,
+            round,
+            idx,
+            claim.claim ?? '',
+            claim.status ?? 'unverified',
+            claim.note ?? null,
+            sourcesJson,
+            searchQuery,
+            now,
+          );
+        });
+        await this.env.DB.batch(stmts);
+      } catch {
+        /* per-claim breakout failure is non-fatal; parent audit_results
+         * still holds the full JSON. Future replay possible from the
+         * JSON if needed. */
+      }
+    }
   }
 
   /** Write a step to the pipeline_log table for the admin monitor.
