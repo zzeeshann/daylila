@@ -1,0 +1,71 @@
+{
+  "slug": "detection-floors-and-invisible-presence",
+  "type": "quiz",
+  "title": "Detection Floors and Invisible Presence",
+  "concept": "Every measurement system has a lower boundary — below that threshold, the thing being measured still exists, but the system calls it zero because looking harder costs too much.",
+  "interactiveId": "0cbbd6e1-98b6-416d-b2ff-5d6c17b35e42",
+  "sourcePieceId": "5d0918d4-9800-45b1-9e96-17b181a1c3fb",
+  "publishedAt": 1777560988064,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A test reports 'none detected'. What does that actually mean?",
+        "options": [
+          "Nothing exists in the sample",
+          "Nothing exists above the level where the system stopped looking",
+          "The test equipment malfunctioned",
+          "The thing is there but changed form"
+        ],
+        "correctIndex": 1,
+        "explanation": "A 'none detected' result means the system looked down to a certain level and found nothing above it — not that nothing exists below. Hearing 'none' makes people think absolute zero, but every system stops at a chosen cut-off, and things below that line stay invisible."
+      },
+      {
+        "question": "Why don't measurement systems just push their lower boundaries as far down as physically possible?",
+        "options": [
+          "Regulations forbid measuring below certain levels",
+          "Most things being measured don't exist in tiny amounts",
+          "Looking harder costs more time, equipment, or expertise than the benefit justifies for most cases",
+          "Lower boundaries make false positives more common"
+        ],
+        "correctIndex": 2,
+        "explanation": "Boundaries sit where they do because pushing lower requires something — longer processing, pricier tools, specialists to read weak signals. For most samples, the standard level works fine. Focusing on noise rather than the cost-benefit trade-off misses what actually determines where systems stop."
+      },
+      {
+        "question": "A test measures concentration of a substance in a sample. The lower boundary is set fairly high. What happens to samples with small amounts of the substance?",
+        "options": [
+          "They get flagged for retesting",
+          "They get reported as 'none detected' even though some is there",
+          "The test automatically switches to a more sensitive method",
+          "Results come back as 'inconclusive'"
+        ],
+        "correctIndex": 1,
+        "explanation": "If the substance sits below the boundary, the system reports 'none detected' — not because nothing's there, but because the cut-off was set above where those samples land. The substance exists; the system stopped looking before reaching it. Most systems don't flag borderline cases for extra work unless someone specifically requests it."
+      },
+      {
+        "question": "You're designing a measurement system. How do you decide where to set the lower boundary?",
+        "options": [
+          "At the lowest level the equipment can possibly detect",
+          "Where the cost of looking harder stops being worth it for most samples",
+          "Where false positives and false negatives balance out mathematically",
+          "At whatever level professional standards require"
+        ],
+        "correctIndex": 1,
+        "explanation": "The boundary goes where the trade-off tips: how much does pushing lower cost versus how many samples does it help? For most samples, a higher boundary works fine. For the few below it, that trade-off means being called 'zero'. Mathematical symmetry sounds precise but dodges the real constraint — economics and utility drive the choice."
+      },
+      {
+        "question": "The lower boundary for an existing test is pushed down using better equipment. What changes for samples previously called 'none detected'?",
+        "options": [
+          "All samples now get more accurate results",
+          "Some samples that were called 'none detected' now show a measurable amount",
+          "The test takes less time to run",
+          "Samples with high concentrations show even higher numbers"
+        ],
+        "correctIndex": 1,
+        "explanation": "Lowering the boundary means seeing things that were always there but below the old cut-off. Samples that got 'none detected' under the old system might now show a number — not because the sample changed, but because the system started looking harder. Results improve only for samples near the old boundary; for everyone else, nothing changes."
+      }
+    ]
+  }
+}
