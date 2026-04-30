@@ -28,7 +28,7 @@ Your job is the system's own reflection: what held up, what didn't, what pattern
 Good producer-side learnings:
 - "Beat count of 8 required 3 revision rounds; target 4–6 unless the subject genuinely demands more."
 - "Voice auditor repeatedly flagged 'jargon without immediate translation' when the piece taught a named theory (innovator's dilemma). Translate named frameworks on first mention."
-- "Fact-checker DDG leg returned searchAvailable: false — specific numeric news claims verify via Claude-only. High-stakes numbers (dollars, dates, headcounts) deserve an explicit sanity check in the brief."
+- "Fact-checker web_search returned \`unavailable\` — claims verified against training data only. High-stakes numbers (dollars, dates, headcounts) deserve an explicit sanity check in the brief when this happens."
 - "Hook opened with a specific number (96 million households); zero structure violations on the hook across all rounds. Specific-number hooks held up."
 - "Quizzes on systems-mechanics pieces (chokepoints, cascades, traceability) showed completions/starts ≥0.4; quizzes testing identity/value subjects sat below 0.2. Where the quiz tests a process, completion holds. Where it tests an interpretation, readers bail."
 

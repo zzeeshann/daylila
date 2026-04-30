@@ -2,6 +2,57 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (after Phase A): Per-claim citations + cited_text in drawer (Phase F + G)
+
+**Context.** Phase A shipped the DDG → Anthropic web_search swap and verified clean fact-check notes against the 2026-04-30 sycophancy piece. Operator surfaced the next planning question: dashboard is being rewritten — where should fact-check info live going forward, deeper, more honest? Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md` (follow-on plan section).
+
+**Investigation.** Two findings missed in Phase A:
+
+- Anthropic's web_search response carries structured citation data attached to text blocks (`web_search_result_location` objects with `url`, `title`, `cited_text`). `cited_text` is a verbatim ≤150-char source snippet, free of token cost. Phase A's `parseResponse` threw all of this away — only `claim/status/note` survived.
+- Anthropic's docs state: *"When displaying API outputs directly to end users, citations must be included to the original source."* Zeemish renders Claude's `note` to readers in the drawer without citations. Phase A closed the cutoff-confession bug; it left a compliance gap open.
+
+**Decision.** Ship Phase F (per-claim citations + cross-reference hallucination defense) and Phase G (search-query peek + verbatim cited_text rendering) bundled into one commit. Defer Phase H (JSON-LD ClaimReview) and Phase I (per-claim audit table) until F+G validate on real cron pieces.
+
+**Trade-offs.**
+
+- **Why per-claim citations over aggregate URLs.** First-pass plan considered "aggregate sources at the result level" as the v1 simplification, citing per-claim mapping as "brittle". Empirical re-read of Anthropic's docs showed per-claim mapping is achievable: each text block carries its own `citations[]` array, so positional walking attributes citations to the text block they accompany. Then cross-referencing against the URLs Claude names in each claim's `sources` field gives clean per-claim attribution. The "brittle" framing was a shortcut.
+- **Why cross-reference instead of trusting Claude's `sources` field.** LLMs hallucinate URLs — observed across many domains. Without cross-reference, a Claude-named URL like `https://nytimes.com/article/this-doesnt-exist` would render as a clickable link to a 404. Cross-reference: any URL Claude names that doesn't appear in the citation blocks is dropped before rendering. Defense-in-depth.
+- **Why drop "unnamed citation URLs" (URLs in citations Claude didn't name in any claim's sources).** Considered surfacing as "additional sources Claude consulted" — rejected. Readers seeing a URL not attached to any specific claim would be confused ("why is this URL here?"). Honest interpretation is "Claude searched but didn't find anything useful in this result" — not worth surfacing as a trust signal. Drop silently.
+- **Why drop the `'training data'` cutoff-confession trigger phrase.** Phase B's sanitizer included `'training data'` as a trigger, but with the new fact-check now legitimately covering current AI/ML research that mentions training data ("the model was trained on synthetic data from..."), this phrase now carries false-positive risk. Other 5 cutoff-confession phrases (`speculative fiction`, `knowledge cutoff`, `as of my`, `is hypothetical`, `beyond my training`) are uniquely cutoff-confession phrasings — keep.
+- **Why max 3 sources per claim.** Claude's prompt cap. Visual budget concern in the drawer (claims with many sources would dominate Facts section). Three is enough for "claim verified across multiple sources" without overwhelming.
+- **Why eyebrow shows only the FIRST source's searchQuery.** Most claims trigger one search; multiple queries per claim are rare with `max_uses: 8`. Showing all queries would clutter; showing the first is representative + concise.
+- **Why no JSON-LD ClaimReview yet (Phase H deferred).** Real SEO + machine-readable trust value but depends on F+G producing well-shaped `sources` arrays at scale. Need to see real production data before committing to the JSON-LD shape (which Google may surface in SERPs).
+- **Why no per-claim audit table yet (Phase I deferred).** Structural depth, low risk (additive table, back-compat reader path), but no admin UI consumes it yet. Plumbing-only commit doesn't pay for itself until the dashboard rewrite needs it.
+- **Why discard the dashboard "Fact-check web" copy fix.** Operator confirmed dashboard is being rewritten/deleted. Patching its copy is wasted work. Reverted before commit.
+
+**What stays the same (intentional).**
+
+- `audit_results.notes` stays a TEXT JSON column. New `sources` field rides as part of the JSON shape. No migration.
+- 23 pre-Phase-F audit rows have no `sources` field. `renderClaimSources` returns empty string when undefined/empty. Drawer falls back gracefully.
+- Gate semantics, Director invocation signature, observer-warn logic, `FactCheckResult` interface — all untouched.
+- Permanence rule — going-forward only; no backfill of historical pieces.
+- The `searchUsed` / `searchAvailable` flags on `FactCheckResult` — back-compat with Director's observer-warn path.
+
+**Changes shipped.**
+
+- [agents/src/fact-checker.ts](../agents/src/fact-checker.ts) — `parseResponse` deeper extension (citation harvesting + searchQuery positional attribution + cross-reference URL filter). New `FactClaimSource` interface. `FactClaim.sources?: FactClaimSource[]`.
+- [agents/src/fact-checker-prompt.ts](../agents/src/fact-checker-prompt.ts) — extended JSON output shape with `sources: string[]` per claim. New SOURCES section explaining the EXACT-URL rule and 3-URL-per-claim cap.
+- [src/lib/made-by.ts](../src/lib/made-by.ts) — extended `MadeFactClaim` with optional `sources?: MadeFactClaimSource[]`. New `MadeFactClaimSource` interface mirroring agent shape.
+- [src/interactive/made-drawer.ts](../src/interactive/made-drawer.ts) — new `renderClaimSources()` helper rendering eyebrow + link list + cited_text blockquotes per claim. Phase B sanitizer's `'training data'` trigger dropped.
+- [src/styles/made.css](../src/styles/made.css) — new `.made-claim-sources` block + child styles. Mobile-friendly.
+- [agents/src/learner-prompt.ts:31](../agents/src/learner-prompt.ts:31) — DDG-shaped worked-example fixed to web_search semantics. Bundled.
+- [agents/scripts/verify-fact-checker.mjs](../agents/scripts/verify-fact-checker.mjs) — 5 new fixture cases (10 total). 10/10 pass.
+
+**Verified.** `pnpm verify-fact-checker` 10/10. Agents-side `npx tsc --noEmit` baseline unchanged on touched files. Site-side `pnpm build` clean. Synthetic render-path test of `renderClaimSources` against 6 cases (empty, undef, 1 source, overflow, titleless, XSS) — all correct including XSS escape.
+
+**Anthropic ToS compliance angle.** The web_search docs note: *"When displaying API outputs directly to end users, citations must be included to the original source."* Phase F+G closes this gap. Further note: *"If you are making modifications to API outputs, including by reprocessing and/or combining them with your own material before displaying them to end users, display citations as appropriate based on consultation with your legal team."* — flagged for operator awareness; no immediate action since the drawer renders Claude's `note` text alongside Anthropic-returned citations.
+
+**Forward observation.** Extends the existing Phase A observing entry in FOLLOWUPS — watch next 5–10 cron pieces' drawers + `audit_results.notes` for per-claim `sources` field present, cited_text verbatim against linked pages, no excessive "[fact-checker] dropping unattested URL" warns (>1 per 5 pieces would suggest prompt regression), drawer renders cleanly on mobile.
+
+**References.** Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md` (follow-on section). Anthropic web search docs: https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool.
+
+---
+
 ## 2026-04-30 (after Close-beat): Replace DuckDuckGo IA with Anthropic web_search in fact-checker
 
 **Context.** Operator opened the 2026-04-30 J. Craig Venter piece's "How this was made" drawer at `/daily/2026-04-30/j-craig-venter-…/#made` and saw the Facts section render: *Claim: "J. Craig Venter died this week" · Status: incorrect · Note: "J. Craig Venter is alive as of my knowledge cutoff in April 2024. This lesson appears to be speculative fiction set in 2026."* Venter actually did die — the NYT piece cited as source confirms it. Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md`.

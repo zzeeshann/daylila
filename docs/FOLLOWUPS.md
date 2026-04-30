@@ -145,13 +145,20 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 
 **Surfaced:** 2026-04-30 (after Close-beat). FactChecker rewritten to replace DuckDuckGo Instant Answer with Anthropic's `web_search_20250305` server tool. Triggered by the J. Craig Venter piece's drawer rendering "this appears to be speculative fiction set in 2026" on a real death the model didn't know about (cutoff). See DECISIONS 2026-04-30 (after Close-beat) "Replace DuckDuckGo IA with Anthropic web_search in fact-checker" and CLAUDE.md "FactChecker — Anthropic web_search replaces DuckDuckGo (2026-04-30, after Close-beat)".
 
+**Updated 2026-04-30 (after Phase A) for Phase F + G:** the watch criteria now also cover per-claim citations, cited_text rendering, and the cross-reference hallucination defense. See DECISIONS 2026-04-30 (after Phase A) "Per-claim citations + cited_text in drawer (Phase F + G)" for the rationale + trade-offs.
+
 **What we want to see in the next 5–10 cron-generated daily pieces** (≈2026-05-01 02:00 UTC onward):
 
 - Every piece's `audit_results` row for the `fact` auditor has `searchUsed=true` (news-anchored claims should trigger searches; the only way to ship `searchUsed=false` is for Claude to judge every claim verifiable from training data alone, which should be rare on news-driven pieces).
-- Zero claims marked `incorrect` purely on cutoff basis. Specifically: scan the rendered drawer at `/daily/<date>/<slug>/#made` for any of these phrases — "speculative fiction", "knowledge cutoff", "as of my", "training data", "is set in 2026", "is hypothetical", "this is beyond". The hardened prompt forbids them; the Phase B drawer filter (separate commit) is defense-in-depth.
+- Zero claims marked `incorrect` purely on cutoff basis. Specifically: scan the rendered drawer at `/daily/<date>/<slug>/#made` for any of these phrases — "speculative fiction", "knowledge cutoff", "as of my", "is set in 2026", "is hypothetical", "this is beyond". The hardened prompt forbids them; the Phase B drawer filter is defense-in-depth (note: Phase F dropped `'training data'` from the trigger list as a false-positive risk now that fact-check notes can cover current AI/ML research).
 - No `Anthropic web_search tool unavailable` observer warns unless Anthropic's API actually fails (≤1/week tolerable; >5% of calls = real problem).
 - Drawer reads naturally — notes are short, name what was searched and what was found (or honestly say "couldn't verify against current sources").
 - Cost check after 7 days: Anthropic dashboard's `usage.server_tool_use.web_search_requests` should land in the 30–60/day range. Flag if >100/day (something is over-searching — probably Drafter inserted too many claims, or the `max_uses: 8` cap needs tightening).
+- **(Phase F)** Per-claim `sources` field present in `audit_results.notes` JSON — every claim that triggered a search has a non-empty `sources: Array<{url, title, citedText, searchQuery}>`. Claims in the "general knowledge" branch (no search) may have empty/absent sources.
+- **(Phase F)** Drawer renders the new sources sub-section per claim — clickable links + verbatim cited_text quotes. Spot-check 2–3 cited_text snippets per piece by clicking the source and finding the verbatim text on the page.
+- **(Phase F)** No excessive "[fact-checker] dropping unattested URL from claim sources:" console warns from the agents worker. Baseline ≈1 per 5 pieces (Claude occasionally name-drops a URL it half-remembered). >1 per piece would suggest the prompt regression — Claude not honouring the EXACT-URLs rule.
+- **(Phase G)** Each claim's sources sub-section shows the "Searched: '...'" eyebrow with the actual web_search query Claude used. Empty/missing eyebrow on a verified-via-search claim suggests the positional attribution heuristic missed.
+- **(Phase F+G mobile)** Drawer renders without horizontal overflow on 375px viewport. The new sources sub-section uses `word-break: break-word` on long URLs; verify the cited_text blockquote wraps cleanly.
 
 **Escalation paths.**
 

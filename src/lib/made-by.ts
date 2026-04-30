@@ -45,6 +45,23 @@ export interface MadeFactClaim {
   claim: string;
   status?: string;
   note?: string;
+  /** Per-claim sources from FactChecker's web_search citations.
+   *  Populated 2026-04-30 (Phase F) onward; absent on the 23
+   *  pre-Phase-F audit rows — drawer renders gracefully without. */
+  sources?: MadeFactClaimSource[];
+}
+
+export interface MadeFactClaimSource {
+  url: string;
+  title?: string;
+  /** Verbatim ≤150-char snippet from the source page (Anthropic
+   *  web_search `cited_text`). Renders as a quoted blockquote under
+   *  the source link in the drawer. */
+  citedText?: string;
+  /** The text Claude searched for (`server_tool_use.input.query`)
+   *  before this URL surfaced. Renders as a muted "Searched: '…'"
+   *  eyebrow. */
+  searchQuery?: string;
 }
 
 export interface MadeFacts {

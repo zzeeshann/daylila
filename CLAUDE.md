@@ -2,9 +2,9 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
-**Currently working on:** Nothing — FactChecker rewritten 2026-04-30 to replace DuckDuckGo Instant Answer with Anthropic's `web_search_20250305` server tool. Triggered by the J. Craig Venter piece's drawer rendering "this appears to be speculative fiction set in 2026" on a real death the model didn't know about (cutoff). Single-pass now: today's date in the user message; Claude searches per-claim; one JSON verdict comes back. Two-pass DDG architecture deleted. New verifier `pnpm verify-fact-checker` 5/5 pass. See "FactChecker — Anthropic web_search replaces DuckDuckGo (2026-04-30, after Close-beat)" section below.
+**Currently working on:** Nothing — Phase F + G of the fact-check transparency work shipped 2026-04-30 (after Phase A's web_search swap). The drawer at `/daily/<date>/<slug>/#made` now renders per-claim citations: clickable source links + verbatim `cited_text` snippets + the `searchQuery` Claude used, harvested from Anthropic's `web_search_result_location` blocks. URLs Claude names that don't appear in the citation blocks are dropped as hallucinations (cross-reference defense). Closes the Anthropic ToS compliance gap (their docs require source citations when displaying API output to readers). See "FactChecker Phase F + G — per-claim citations + cited_text in drawer (2026-04-30, after Phase A)" section below. Plus bundled fix to the Learner prompt's worked example (DDG → web_search wording). Verifier `pnpm verify-fact-checker` 10/10 pass.
 
-**Pre-flight before deploy:** org admin must enable web search at https://console.anthropic.com/settings/privacy. Same `ANTHROPIC_API_KEY`; no new env var.
+**Pre-flight before deploy (Phase A only):** org admin must enable web search at https://console.anthropic.com/settings/privacy. Same `ANTHROPIC_API_KEY`; no new env var. Phase F + G need no additional pre-flight — they consume data Anthropic already returns when web_search is invoked.
 
 **Earlier today (last entry chronologically before fact-checker) —** Close-beat constraint loosened from "ONE sentence" to "one to four sentences" across 4 prompt surfaces, shipped 2026-04-30 (late, after the slug-pairing fix). Editorial-only change; existing pieces stay permanent. See "Close-beat loosened from one sentence to one-to-four (2026-04-30, last)" section below.
 
@@ -43,6 +43,53 @@ Prior session closed 2026-04-28 evening with three commits on origin/main:
 **State at session close:** 18 daily pieces live (matches D1); 14 D1 interactive rows + 2 chokepoints test fixtures = 16 JSON files; zero orphans across child tables; zero doctrine residue in source code; `agents/src/shared/dedup-headlines.ts` + curator-prompt's SAME-EVENT rule both live (two-layer dedup); typecheck clean (ignoring pre-existing server.ts SubAgent typing); site builds clean. Tag `alpha-stable` → `79a914d` is the rollback-only checkpoint. Current `main` HEAD `072da00` is the rollback + dedup rule restored — the actual desired stable state. Memory entry `feedback_voice_doctrine.md` updated to note Manto was rolled back AND the dedup-rule restoration so future sessions have the full sequence.
 
 **The lesson** — *Manto-style "find the specific" instructions, applied to systems-of-government stories, produced tribally-charged specifics that violated the hospitality principle* — is recorded in DECISIONS 2026-04-28 (rollback) and in the memory file `feedback_voice_doctrine.md` so future sessions don't reach for the same approach. The "robotic writing" diagnosis that triggered the doctrine work stays an open question; future approaches must not assume a posture-doctrine layer is the answer, and any future architecture re-introducing one must keep the hospitality principle as a hard floor above it.
+
+## FactChecker Phase F + G — per-claim citations + cited_text in drawer (2026-04-30, after Phase A)
+
+After Phase A shipped the DDG → Anthropic web_search swap and produced clean reader-facing notes ("Confirmed by Nature article published April 29-30, 2026 by Ibrahim, Hafner, and Rocher"), the operator asked the next planning question: dashboard is being rewritten — where should fact-check info live going forward, more practical, deeper, more honest? Plan `~/.claude/plans/ok-so-this-session-stateless-kahn.md` (follow-on plan section).
+
+**Investigation surfaced two things missed in Phase A.** First: Anthropic's web_search response carries structured citation data attached to each `text` block — `web_search_result_location` objects with `url`, `title`, and `cited_text` (verbatim ≤150-char source snippet, free of token cost). Phase A threw all of this away in `parseResponse`; only `claim/status/note` survived. Second, more importantly: Anthropic's docs state *"When displaying API outputs directly to end users, citations must be included to the original source."* Zeemish renders Claude's `note` text in the drawer to readers — without citations. Phase A closed the cutoff-confession bug; it left a compliance gap open.
+
+**Fix shipped in two phases bundled into one commit (no schema, no migration, fully back-compat).**
+
+**Phase F (per-claim citations + cross-reference hallucination defense):**
+
+- [agents/src/fact-checker.ts](agents/src/fact-checker.ts) — `parseResponse` deeper extension. Walks content blocks once, harvesting (a) concatenated text for JSON extract, (b) `searchUsed`/`searchAvailable` flags, (c) `searchQueries` array from `server_tool_use.input.query` blocks in order, (d) a `citationsByUrl` Map populated from every `web_search_result_location` citation attached to text blocks (each enriched with title + cited_text + the most recent search query as positional `searchQuery`). After parsing the claims JSON, for each claim's `sources` URL list (Claude-named), cross-reference: kept URLs = intersection of Claude's `sources` AND the citation map. URLs Claude named that aren't in the map are silently dropped — almost certainly hallucinations. Kept URLs are enriched with `{title, citedText, searchQuery}` from the citation metadata. Logs a console warn per dropped URL for forensic debugging.
+- [agents/src/fact-checker-prompt.ts](agents/src/fact-checker-prompt.ts) — JSON output shape extended with `sources: string[]` per claim. New SOURCES section in prompt: *"Use the EXACT URLs from your web_search results — do not paraphrase, shorten, or invent URLs. If you list a URL that wasn't in your search results, the agent will drop it (treated as a hallucination). Maximum 3 URLs per claim."*
+- [src/lib/made-by.ts](src/lib/made-by.ts) — extended `MadeFactClaim` with optional `sources?: MadeFactClaimSource[]`. New `MadeFactClaimSource` interface mirroring the agent's shape: `{url, title?, citedText?, searchQuery?}`.
+- [src/pages/api/daily/[date]/made.ts](src/pages/api/daily/[date]/made.ts) — no code change. The endpoint already does `JSON.parse(audit_results.notes)`; the new `sources` field rides for free.
+
+**Phase G (search-query peek + verbatim cited_text rendering, bundled with F):**
+
+- [src/interactive/made-drawer.ts](src/interactive/made-drawer.ts) — new `renderClaimSources()` helper. Per claim, after the existing note span, renders a `made-claim-sources` div containing: a muted "Searched: '...'" eyebrow (the claim's first non-empty searchQuery — most claims trigger one search; max_uses=8 caps it), then a `<ul>` of clickable source links (title or domain fallback), each with the verbatim cited_text snippet rendered as a quoted `<blockquote>` underneath. Caps at 3 sources per claim with "+N more" overflow indicator. All external links use `target="_blank" rel="noopener noreferrer"` matching the existing source-URL convention. Phase B sanitizer's `'training data'` trigger phrase dropped (false-positive risk now that fact-check notes can legitimately mention current AI/ML research mentioning training data); other 5 cutoff-confession phrases retained.
+- [src/styles/made.css](src/styles/made.css) — new `.made-claim-sources` block: 2px left border indent, muted italic eyebrow, teal source links (matches `Source: ↗` convention), italic blockquote with secondary indent + lighter border for cited_text. Mobile-friendly (no media-query gymnastics — flex column + word-break).
+
+**Bundled small fix:**
+
+- [agents/src/learner-prompt.ts:31](agents/src/learner-prompt.ts:31) — Learner's worked-example list still showed a DDG-shaped fact-check learning. Fixed the example to reflect web_search semantics so the next Learner run won't write learnings that reference a feature that no longer exists. One-line edit. Backtick-escape the `unavailable` token (template-literal context — same bug class as the 2026-04-27 `ca3bce8` structure-editor-prompt fix).
+
+**Discarded same session (operator confirmed dashboard is being rewritten):** the public dashboard "Fact-check web" copy fix at [src/pages/dashboard/index.astro:464](src/pages/dashboard/index.astro:464) — patching dashboard copy is wasted work given the rewrite. Reverted before commit.
+
+**Verifier extension at [agents/scripts/verify-fact-checker.mjs](agents/scripts/verify-fact-checker.mjs)** — 5 new fixture cases (10 total now, 10/10 pass):
+- (6) 2 citations + Claude names both → claim's sources array has 2 enriched entries with title + citedText + searchQuery populated
+- (7) Hallucinated URL drop — Claude names 3 URLs, agent sees only 2 in citations → 3rd is dropped
+- (8) Unnamed citation URL silently ignored — citation block has URL Claude didn't name → URL is NOT surfaced (would confuse readers; "if Claude consulted but didn't cite, that's not useful transparency")
+- (9) Multi-claim — citations spread across multiple text blocks → each claim gets the right citation by URL match in its `sources` field
+- (10) searchQuery captured per source from preceding `server_tool_use.input.query` (positional attribution heuristic)
+
+**Render-path verification in dev preview** — synthetic test of `renderClaimSources` against 6 cases (empty, undef, 1 source, 5-source overflow, titleless URL, XSS payload). All correct: empty input returns empty string (back-compat), titleless URL falls back to domain, overflow shows "+N more", XSS payload is properly escaped (`<script>` → `&lt;script&gt;`).
+
+**What stays unchanged (intentional).**
+- `audit_results` table shape — `notes` is a TEXT JSON column; new `sources` field rides as part of the JSON shape. No migration.
+- 23 existing pre-Phase-F audit rows have no `sources` field; `renderClaimSources` returns empty string when `sources` is undefined or empty. Drawer falls back gracefully.
+- Gate semantics, Director invocation signature, observer-warn logic, FactCheckResult interface — all untouched.
+- Permanence rule — going-forward only.
+
+**Anthropic ToS angle (called out for awareness).** The web_search docs note: *"If you are making modifications to API outputs, including by reprocessing and/or combining them with your own material before displaying them to end users, display citations as appropriate based on consultation with your legal team."* — The Phase F+G drawer now displays Claude's `note` text alongside the verbatim citations, satisfying the basic citation requirement. Operator should consult legal counsel if Zeemish ever adds further reprocessing of API outputs in user-facing surfaces.
+
+**Forward observation (extends the Phase A FOLLOWUPS observing entry).** Watch the next 5–10 cron pieces' drawers AND `audit_results.notes` for: per-claim `sources` field present with non-empty `url` array; `cited_text` is verbatim quote from the linked page (spot-check 2-3 per piece manually); no "[fact-checker] dropping unattested URL" console warns at higher than ~1 per 5 pieces (a baseline rate suggests Claude occasionally name-drops a URL it half-remembered); drawer renders without overflow on mobile at 375px.
+
+**Phases H + I deferred** — JSON-LD `ClaimReview` structured data per verified claim (Phase H) + per-claim `daily_audit_claims` table breakout (Phase I, structural depth matching `interactive_audit_results` precedent). Both in the plan; waiting on F+G validation against real cron pieces before shipping.
 
 ## FactChecker — Anthropic web_search replaces DuckDuckGo (2026-04-30, after Close-beat)
 
