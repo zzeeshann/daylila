@@ -2,6 +2,56 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (PM): Manual interactive-retry routes through alarm path; quiz/html decoupled in generate()
+
+**Context.** The morning's loop-counted parse-retry + assistant-prefill `{` work (entry below) shipped, but the operator's regenerate of the Voting Rights Act piece exposed two bugs the morning fix didn't address:
+
+1. **Click 1 (10:50:38 UTC) hit "3 parse-fails in a row"** — exactly the case Layer 1 was supposed to handle, but the message said "across all 3 rounds" (terminal exhaustion), not "retried successfully".
+2. **Click 2 (~10:51 UTC) committed the quiz at 10:52:12 UTC, but the HTML never landed** — and there was no observer event for the HTML path at all. No metered, no failure, nothing.
+
+Three diagnostics narrowed the root cause:
+
+- **Empirical SDK test against the real Anthropic API** ([scripts/prefill-test.mjs](../agents/scripts/prefill-test.mjs), since removed): the SDK does NOT echo the prefilled `{` in `response.content[0].text`. So `'{' + continuation` produces correct JSON. Layer 2 prefill is implementation-correct.
+- **Production-shape reproduction against the actual Voting Rights piece** ([scripts/repro-quiz-call.mjs](../agents/scripts/repro-quiz-call.mjs), since removed): 3 successive Claude calls all returned valid JSON; latency 25-29s each. So the model ISN'T flaking the way the production failure suggested.
+- **Cross-piece D1 audit:** every other piece since 2026-04-26 (the day HTML interactives launched) has both `quiz` and `html` rows. Voting Rights is the only exception — and the only one whose interactive went through the manual retry path instead of the auto-cron path.
+
+The structural difference between paths:
+
+| Path | Trigger shape | Wall-clock budget |
+|---|---|---|
+| Auto-cron post-publish | `this.schedule(1, 'generateInteractiveScheduled', ...)` from `triggerDailyPiece` | Full **15-minute alarm budget** |
+| Destructive regenerate | `this.schedule(1, 'generateInteractiveScheduled', ...)` from `regenerateInteractive` | Full **15-minute alarm budget** |
+| **Manual retry (Generate button)** | `ctx.waitUntil(director.generateInteractiveScheduled(...))` from HTTP handler | **HTTP request lifetime** (CF Workers subrequest budget) |
+
+The manual retry path ran the entire produce → audit → revise → publish chain inside the HTTP handler's worker context. A 3-round quiz auditor max-fail loop alone takes ~120 seconds (3 × ~30s/round + audit + commit). HTML adds another ~90+ seconds. Together that exceeds the subrequest budget; the worker terminates mid-flight, leaving partial Claude responses (which Layer 1 honestly counts as parse-fails — the SDK gives back truncated content) and skipping the HTML path entirely.
+
+**Decision.** Two structural fixes, both in this commit.
+
+- **Fix A — Manual retry routes through alarm path.** New thin Director method [`requestInteractiveGenerate(payload)`](../agents/src/director.ts) that calls `this.schedule(1, 'generateInteractiveScheduled', payload)` and returns immediately. Server endpoint [`/interactive-generate-trigger`](../agents/src/server.ts) now `await director.requestInteractiveGenerate(payload)` and returns a 202. The work fires inside a fresh alarm with full 15-minute budget, matching the auto-cron and destructive-regenerate paths. Returns `status: 'scheduled'` instead of `'started'`.
+
+- **Fix B — Quiz/html decoupled in `generate()`.** Each loop is now wrapped in try/catch. On catch, a stub result is built with the failure reason captured in a new `errorMessage: string | null` field on both [`QuizArtefactResult`](../agents/src/interactive-generator.ts) and [`HtmlArtefactResult`](../agents/src/interactive-generator.ts). HTML path runs whether or not quiz threw. Director's `generateInteractiveScheduled` checks `result.{quiz,html}.errorMessage` and emits per-artefact `logInteractiveGeneratorFailure` events with `(quiz)` / `(html)` suffixes on the title — operators see exactly which artefact failed instead of one ambiguous warn that hides the path that ran. The outer Director catch is preserved for catastrophic infra throws (DB read failure, missing piece, etc.).
+
+**What stayed unchanged.** Layer 1 loop-counted parse-retry, Layer 2 prefill, the 3-round budget, the `extractJson` fallback chain, all observer-event helpers, the destructive regenerate path, the auto-cron post-publish path. The morning's hardening was correct in design — these PM fixes address structural coupling between the manual retry path and the budget model that the morning's diagnosis missed.
+
+**Trade-offs.**
+
+- **Manual retry now returns 202 immediately instead of waiting on the full chain.** The operator sees "scheduled" and the work runs in the background. The admin UI's auto-reload after 120s (existing behaviour) still picks up the result. Observability is unchanged — same observer events fire, just from the alarm context.
+- **`generate()` no longer throws for loop-level failures.** Previously a 3-round parse-exhaustion in quiz aborted everything. Now it captures and continues. The behaviour change is observable as: pieces with transient quiz issues will now still get HTML (and vice versa). The trade-off is that a piece can be in a "quiz failed but html shipped" state, which the admin UI handles correctly (per-row state with retry button per type).
+- **Full 15-min budget on the manual retry path means an operator click could in principle run for up to 15 minutes if all 3 quiz rounds × 30s + 3 HTML rounds × 60s + audits stack up.** That's the worst case; typical is 60-180 seconds total. No CPU charge difference (alarm budget is wall-clock not CPU).
+
+**Files.**
+- [agents/src/director.ts](../agents/src/director.ts) — new `requestInteractiveGenerate` method; per-artefact failure event emission in `generateInteractiveScheduled`.
+- [agents/src/server.ts](../agents/src/server.ts) — `/interactive-generate-trigger` calls the new scheduler.
+- [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) — `errorMessage` field on both result interfaces (8 sites threaded); `generate()` wraps quiz + html loops in try/catch with stub-on-failure.
+
+**Verification.**
+- All 7 verifiers pass clean (`verify-parse-retry` 4/4, `verify-categoriser-floor` 10/10, `verify-interactive-voice` 10/10, `verify-splice` 4/4, `verify-normalize` 20/20, `verify-validator` 28/28, `verify-dedup` 13/13).
+- Agents-side `npx tsc --noEmit` — 26 pre-existing `server.ts` SubAgent errors (down 1 from baseline because the morning's `ctx.waitUntil(...).catch(...)` was removed). Touched files compile clean.
+- Site-side `pnpm build` clean.
+- Cross-piece D1 audit pre-fix confirmed every auto-cron piece has both quiz + html; only the manually-retried piece was missing html. The fix routes manual retry through the same path that's been working for auto-cron all along.
+
+**Forward.** Operator clicks **Generate HTML** on the Voting Rights piece (`/dashboard/admin/piece/2026-04-30/supreme-court-limits-key-provision-of-the-landmark-voting-/`). The trigger schedules an alarm; the alarm fires within ~1 second; HTML loop runs with full budget. Expected: HTML interactive ships, observer feed shows metered event, admin UI updates from "not generated" to "published ✓".
+
 ## 2026-04-30: Loop-counted parse-retry + assistant-prefill `{` for InteractiveGenerator
 
 **Context.** 2026-04-30 02:04 UTC, Voting Rights Act piece's quiz interactive failed with `parseAndValidate: Claude returned non-JSON output` — the second occurrence in 3 days of the same bug class (2026-04-27 Ben Sasse piece hit the HTML-path equivalent). Pre-fix: `parseAndValidate`/`parseAndValidateHtml` threw on the first non-JSON response; throw exited the produce → audit → revise loop on round 1, abandoning the entire generation, forcing operator manual retry. The 2026-04-27 FOLLOWUPS observing entry had named the fix in advance: *"if it recurs, escalate to `[open]` and harden `runHtmlLoop` to convert the throw into a counted failed-round"*. Recurrence inside the 7-cron window triggered the unblock.

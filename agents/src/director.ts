@@ -824,6 +824,36 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   }
 
   /**
+   * Schedule a fresh InteractiveGenerator run for a piece. Used by
+   * the manual retry endpoint at `/interactive-generate-trigger` to
+   * give the work a full 15-minute alarm budget — the same posture as
+   * the post-publish auto-trigger and the destructive regenerate path.
+   *
+   * Pre-2026-04-30: the manual retry endpoint called
+   * `generateInteractiveScheduled` directly via subAgent RPC from the
+   * HTTP handler's `ctx.waitUntil()`. That ran the entire produce →
+   * audit → revise → publish chain inside the HTTP-request worker
+   * context, which is bounded by Cloudflare Workers' subrequest
+   * wall-clock budget. The 2026-04-30 Voting Rights Act regenerate
+   * surfaced this: 3 rounds × ~30s/round = ~90s, well past budget,
+   * causing partial Claude responses to look like parse-fails AND
+   * cutting HTML off mid-flight after quiz commit. Auto-cron and
+   * destructive regenerate were unaffected because both already used
+   * `this.schedule()` for the alarm budget.
+   *
+   * This method just queues the alarm and returns — no work happens in
+   * the caller's context. Returns immediately.
+   */
+  async requestInteractiveGenerate(payload: {
+    pieceId: string;
+    date: string;
+    title: string;
+    filePath: string;
+  }): Promise<void> {
+    await this.schedule(1, 'generateInteractiveScheduled', payload);
+  }
+
+  /**
    * Alarm callback — runs the InteractiveGenerator on a just-published
    * piece. Scheduled by `triggerDailyPiece` after `publishing done`,
    * same posture as `categoriseScheduled` / `reflectOnPieceScheduled`.
@@ -887,6 +917,32 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             .logInteractiveGeneratorParseFail(date, title, 'html', pf.round, pieceId)
             .catch(() => { /* observer write failure never blocks */ });
         }
+      }
+      // 2026-04-30 PM — per-artefact failure events. generate() now
+      // catches loop throws so a quiz failure doesn't block HTML;
+      // the captured reason lands in result.{quiz,html}.errorMessage.
+      // Each populates a separate logInteractiveGeneratorFailure warn
+      // so the admin feed shows the per-type terminal state rather
+      // than a single ambiguous warn that hides whichever path ran.
+      if (result.quiz.errorMessage) {
+        await observer
+          .logInteractiveGeneratorFailure(
+            date,
+            `${title} (quiz)`,
+            result.quiz.errorMessage,
+            pieceId,
+          )
+          .catch(() => { /* observer write failure never blocks */ });
+      }
+      if (result.html?.errorMessage) {
+        await observer
+          .logInteractiveGeneratorFailure(
+            date,
+            `${title} (html)`,
+            result.html.errorMessage,
+            pieceId,
+          )
+          .catch(() => { /* observer write failure never blocks */ });
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';

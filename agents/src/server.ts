@@ -424,19 +424,22 @@ export default {
         const slug = pieceRow.headline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
         const filePath = `content/daily-pieces/${pieceRow.date}-${slug}.mdx`;
         const director = await getAgentByName<DirectorAgent>(env.DIRECTOR, 'default');
-        ctx.waitUntil(
-          director.generateInteractiveScheduled({
-            pieceId,
-            date: pieceRow.date,
-            title: pieceRow.headline,
-            filePath,
-          }).catch((err) => {
-            const message = err instanceof Error ? err.message : 'Unknown error';
-            console.error(`[interactive-generate-trigger] failed for piece ${pieceId}:`, message);
-          }),
-        );
+        // 2026-04-30 — schedule the alarm instead of running the full
+        // produce → audit → revise chain inline via ctx.waitUntil. The
+        // inline path runs inside the HTTP request worker context,
+        // which is bounded by Cloudflare Workers' subrequest wall-
+        // clock budget; 3-round produce + audit + revise + commit can
+        // take 2-3 minutes and gets cut mid-flight, looking like
+        // parse-fails or losing HTML after quiz commit. Auto-cron and
+        // destructive regenerate already use the alarm path.
+        await director.requestInteractiveGenerate({
+          pieceId,
+          date: pieceRow.date,
+          title: pieceRow.headline,
+          filePath,
+        });
         return new Response(JSON.stringify({
-          status: 'started',
+          status: 'scheduled',
           pieceId,
           date: pieceRow.date,
           title: pieceRow.headline,

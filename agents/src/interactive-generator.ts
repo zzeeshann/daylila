@@ -120,6 +120,13 @@ export interface QuizArtefactResult {
    *  emits one info-severity `logInteractiveGeneratorParseFail` event
    *  per entry. Empty array on the happy path. */
   parseFailures: Array<{ round: number }>;
+  /** Set when `runQuizLoop` threw and `generate()` caught it (rather
+   *  than letting the throw bubble out and abort the whole interactive
+   *  generation). Pre-2026-04-30 PM: a quiz throw exited generate()
+   *  before the HTML path ran, so a quiz parse-fail also lost HTML.
+   *  Now the throw is captured here, generate() continues to HTML, and
+   *  Director emits `logInteractiveGeneratorFailure` for the quiz. */
+  errorMessage: string | null;
   /** Aggregated token totals across every Claude call in this loop —
    *  produce + revise + audit. Cache fields land in observer events
    *  too; powers Phase 3.4 cost telemetry. See `shared/usage.ts`. */
@@ -159,6 +166,8 @@ export interface HtmlArtefactResult {
   /** Same shape as QuizArtefactResult.parseFailures (2026-04-30
    *  hardening). One entry per round that returned non-JSON output. */
   parseFailures: Array<{ round: number }>;
+  /** See QuizArtefactResult.errorMessage. */
+  errorMessage: string | null;
   /** Aggregated token totals — see QuizArtefactResult comment. */
   tokensIn: number;
   tokensOut: number;
@@ -362,15 +371,53 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     }
 
     // ── 3. Quiz path ─────────────────────────────────────────────
+    //
+    // 2026-04-30 PM — quiz path failures (3-round parse-fail
+    // exhaustion or infra throws) are caught here so the HTML path
+    // still runs. Pre-fix: a quiz throw exited generate() before
+    // HTML, losing HTML for any piece whose quiz hit a transient.
+    // The captured errorMessage propagates back to Director, which
+    // emits logInteractiveGeneratorFailure alongside the metered
+    // event so operators see the per-artefact terminal state.
+    const QUIZ_FAIL_STUB = (errorMessage: string): QuizArtefactResult => ({
+      ran: true,
+      skipped: false,
+      declined: false,
+      committed: false,
+      auditorMaxFailed: false,
+      qualityFlag: null,
+      interactiveId: null,
+      slug: null,
+      title: null,
+      concept: null,
+      questionCount: 0,
+      revisionCount: 0,
+      roundsUsed: 0,
+      voiceScore: null,
+      finalAudit: null,
+      parseFailures: [],
+      errorMessage,
+      tokensIn: 0,
+      tokensOut: 0,
+      cacheCreateTokens: 0,
+      cacheReadTokens: 0,
+      durationMs: 0,
+    });
+
     let quizResult: QuizArtefactResult;
     if (willRunQuiz && pieceContext) {
-      quizResult = await this.runQuizLoop(
-        pieceId,
-        pieceContext,
-        recent,
-        piece.headline,
-        piece.underlying_subject,
-      );
+      try {
+        quizResult = await this.runQuizLoop(
+          pieceId,
+          pieceContext,
+          recent,
+          piece.headline,
+          piece.underlying_subject,
+        );
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'unknown error';
+        quizResult = QUIZ_FAIL_STUB(reason);
+      }
     } else {
       // Skipped: piece already has a quiz row (or no context built).
       quizResult = {
@@ -390,6 +437,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         voiceScore: null,
         finalAudit: null,
         parseFailures: [],
+        errorMessage: null,
         tokensIn: 0,
         tokensOut: 0,
         cacheCreateTokens: 0,
@@ -399,9 +447,43 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     }
 
     // ── 4. HTML path (gated by flag) ─────────────────────────────
+    //
+    // Same try/catch posture as the quiz path so an HTML throw
+    // doesn't poison the metered observer write or hide quiz state.
+    const HTML_FAIL_STUB = (errorMessage: string): HtmlArtefactResult => ({
+      ran: true,
+      skipped: false,
+      declined: false,
+      committed: false,
+      validatorMaxFailed: false,
+      auditorMaxFailed: false,
+      qualityFlag: null,
+      interactiveId: null,
+      slug: null,
+      title: null,
+      concept: null,
+      htmlByteLength: 0,
+      revisionCount: 0,
+      roundsUsed: 0,
+      voiceScore: null,
+      finalAudit: null,
+      parseFailures: [],
+      errorMessage,
+      tokensIn: 0,
+      tokensOut: 0,
+      cacheCreateTokens: 0,
+      cacheReadTokens: 0,
+      durationMs: 0,
+    });
+
     let htmlResult: HtmlArtefactResult | null = null;
     if (willRunHtml && pieceContext) {
-      htmlResult = await this.runHtmlLoop(pieceId, pieceContext, recent);
+      try {
+        htmlResult = await this.runHtmlLoop(pieceId, pieceContext, recent);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : 'unknown error';
+        htmlResult = HTML_FAIL_STUB(reason);
+      }
     } else if (existingHtml) {
       // Skipped: piece already has an html row.
       htmlResult = {
@@ -422,6 +504,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         voiceScore: null,
         finalAudit: null,
         parseFailures: [],
+        errorMessage: null,
         tokensIn: 0,
         tokensOut: 0,
         cacheCreateTokens: 0,
@@ -597,6 +680,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         voiceScore: lastAudit?.voice.score ?? null,
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
         parseFailures,
+        errorMessage: null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
@@ -708,6 +792,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       voiceScore,
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
       parseFailures,
+      errorMessage: null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       cacheCreateTokens: cumulativeCacheCreate,
@@ -917,6 +1002,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         voiceScore: lastAudit?.voice.score ?? null,
         finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
         parseFailures,
+        errorMessage: null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
@@ -966,6 +1052,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         voiceScore: null,
         finalAudit: null,
         parseFailures,
+        errorMessage: null,
         tokensIn: cumulativeTokensIn,
         tokensOut: cumulativeTokensOut,
         cacheCreateTokens: cumulativeCacheCreate,
@@ -1092,6 +1179,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       voiceScore,
       finalAudit: lastAudit ? summariseAudit(lastAudit) : null,
       parseFailures,
+      errorMessage: null,
       tokensIn: cumulativeTokensIn,
       tokensOut: cumulativeTokensOut,
       cacheCreateTokens: cumulativeCacheCreate,
