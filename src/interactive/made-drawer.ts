@@ -507,6 +507,38 @@ function renderStringList(items: string[], emptyNote: string): string {
   return `<ul class="made-list">${items.map((it) => `<li>${escapeHtml(it)}</li>`).join('')}</ul>`;
 }
 
+/**
+ * Defense-in-depth: scrub any cutoff-confession phrasing that slips
+ * through the FactChecker prompt. The 2026-04-30 web_search rewrite
+ * forbids these phrases in the prompt itself; this filter catches
+ * regressions silently rather than embarrassing readers.
+ *
+ * Triggered case: J. Craig Venter piece (2026-04-30) rendered "appears
+ * to be speculative fiction set in 2026" verbatim on a real death the
+ * model didn't know about. See CLAUDE.md "FactChecker — Anthropic
+ * web_search replaces DuckDuckGo" for the full narrative.
+ *
+ * Match is case-insensitive on substring. If any phrase fires, the
+ * whole note is replaced — not patched in place — so the reader never
+ * sees fragments of the original confession.
+ */
+const CUTOFF_CONFESSION_PHRASES = [
+  'speculative fiction',
+  'knowledge cutoff',
+  'as of my',
+  'training data',
+  'is hypothetical',
+  'beyond my training',
+] as const;
+
+function sanitizeFactNote(note: string): string {
+  const lower = note.toLowerCase();
+  for (const phrase of CUTOFF_CONFESSION_PHRASES) {
+    if (lower.includes(phrase)) return 'Could not verify against current sources.';
+  }
+  return note;
+}
+
 function renderClaims(claims: MadeFactClaim[]): string {
   if (claims.length === 0) return `<p class="made-list-empty">No claims reviewed.</p>`;
   return `<ul class="made-list">${claims.map((c) => {
@@ -514,12 +546,13 @@ function renderClaims(claims: MadeFactClaim[]): string {
       : c.status === 'unverified' ? 'made-claim-unverified'
       : c.status === 'contested' || c.status === 'incorrect' ? 'made-claim-contested'
       : 'made-claim-unverified';
+    const safeNote = c.note ? sanitizeFactNote(c.note) : '';
     return `
       <li>
         <div class="made-claim">
           <span>${escapeHtml(c.claim)}</span>
           ${c.status ? `<span class="made-claim-status ${statusCls}">${escapeHtml(c.status)}</span>` : ''}
-          ${c.note ? `<span class="made-claim-note">${escapeHtml(c.note)}</span>` : ''}
+          ${safeNote ? `<span class="made-claim-note">${escapeHtml(safeNote)}</span>` : ''}
         </div>
       </li>
     `;
