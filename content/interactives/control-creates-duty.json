@@ -1,0 +1,71 @@
+{
+  "slug": "control-creates-duty",
+  "type": "quiz",
+  "title": "Control Creates Duty",
+  "concept": "Taking charge of a system that affects others transforms what you're expected to prevent — the moment you accept control, failures that would be blameless in a stranger become your responsibility to stop.",
+  "interactiveId": "bf7ce03b-a523-4bfc-9bd0-327430028807",
+  "sourcePieceId": "8347b741-20d1-44bf-9d85-f4868d215dd4",
+  "publishedAt": 1777560338320,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "You're walking past a pool. Someone is struggling in the water. You keep walking. A lifeguard on duty at the same pool does the same thing. Why does the law treat these differently?",
+        "options": [
+          "The lifeguard is trained and you're not, so they had the skills to help",
+          "The lifeguard agreed to be responsible when they took the job — you didn't",
+          "The lifeguard is being paid and you're doing this for free",
+          "The lifeguard could lose their job and you have nothing to lose"
+        ],
+        "correctIndex": 1,
+        "explanation": "Taking the job creates the duty. The lifeguard's role exists to prevent drownings at that pool — when they accepted it, they agreed to try. Training matters for doing the job well, not for whether the duty exists. Payment is about employment, not legal obligation. Job loss is a consequence, not the reason the duty exists."
+      },
+      {
+        "question": "A factory floor has twenty machines. The supervisor knows one has a broken safety guard and workers could get hurt. They plan to fix it during next month's maintenance shutdown. Someone gets injured this week. What makes this criminal instead of just a lawsuit?",
+        "options": [
+          "The supervisor was responsible for every machine in the building",
+          "The injury was serious enough to cause permanent harm",
+          "The supervisor knew about the danger and decided to wait even though someone could get hurt",
+          "The company has safety rules and the supervisor didn't follow them"
+        ],
+        "correctIndex": 2,
+        "explanation": "Knowing about a threat to people under your control and choosing to delay fixing it crosses into criminal territory. The key is awareness plus inaction on something you could have addressed. Being responsible for the whole floor matters, but it's not enough alone. Serious injury is required but doesn't create the case by itself. Breaking company rules is a firing offense, not usually a criminal charge."
+      },
+      {
+        "question": "Why does doing the same careless thing three times matter more than doing it once when prosecutors decide whether to file charges?",
+        "options": [
+          "The law requires multiple incidents before criminal charges can be filed",
+          "Juries feel more sympathy for a single mistake than for repeated ones",
+          "Doing it three times proves you knew what you were supposed to do and didn't care",
+          "Each incident adds up the harm until it crosses the threshold for criminal prosecution"
+        ],
+        "correctIndex": 2,
+        "explanation": "A pattern shows you understood the risk and ignored it anyway. Once could be an oversight. Three times looks like a choice. There's no magic number of incidents required by law. Jury sympathy is real but isn't the legal reason pattern matters — it matters because repetition proves you knew. Harm accumulation matters for damages in a lawsuit, not for proving criminal intent."
+      },
+      {
+        "question": "A prison has crumbling walls and old locks. The warden asks for budget to fix them. The state budget office denies the request. Prisoners escape through a broken wall. Who faces criminal charges?",
+        "options": [
+          "The warden, because keeping prisoners inside is their job",
+          "The budget office, because they decided not to fund the repair",
+          "Both, because they both knew the risk existed",
+          "Probably neither, because the warden asked for money and was told no"
+        ],
+        "correctIndex": 3,
+        "explanation": "This is the case where duty exists but the chain of blame breaks. The warden reported the problem and requested the fix. The budget office made a choice among many competing needs. Criminal charges require showing someone ignored a duty they had the power and resources to fulfill. When you document the risk and ask for help and get denied, prosecutors usually can't prove you chose to ignore something you could have fixed."
+      },
+      {
+        "question": "A building manager notices a gas leak in one apartment. They leave a voicemail for the tenant and put in a repair request. That night the apartment explodes. What determines whether this becomes a criminal case?",
+        "options": [
+          "Whether the explosion killed someone or just destroyed property",
+          "Whether the manager followed the standard procedure for reporting leaks",
+          "Whether a gas leak is the kind of immediate danger that requires evacuating the building right then",
+          "Whether the tenant received the voicemail before the explosion happened"
+        ],
+        "correctIndex": 2,
+        "explanation": "Some dangers demand immediate action — you don't file a ticket and go home. Gas leaks can kill a building full of people in minutes. If the risk is that severe and that immediate, the duty is to act now, not to follow normal procedures. Death versus property damage matters for how serious the case is, but doesn't determine whether the case exists. Following standard procedure protects you when standard procedure matches the risk level — it doesn't when the danger outpaces the process. Whether the tenant got the message might matter in a lawsuit, but the manager's duty to people in the building doesn't depend on whether one resident checked their voicemail."
+      }
+    ]
+  }
+}
