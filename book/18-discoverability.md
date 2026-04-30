@@ -6,7 +6,7 @@ A piece would land on the site at 02:00 UTC. The text was there. The audio worke
 
 Nobody else could find it. Not Google. Not Bing. Not Feedly. Not the AI training pipelines that scrape the open web for new content. None of them knew the site existed in any way that mattered.
 
-This is the chapter on what changed on April 25, 2026, and why each piece of the change does what it does.
+This is the chapter on what changed across two passes — April 25 and April 30, 2026 — and why each piece of the change does what it does.
 
 ## The shape of the problem
 
@@ -30,13 +30,13 @@ The first commit added a sitemap at `https://zeemish.io/sitemap.xml`. It's an XM
 
 The format is a standard. Every search engine knows how to read it. Submit the URL once to Google Search Console (a free tool), and Google starts crawling the listed pages on a schedule. New pages added later are picked up automatically — the sitemap is regenerated on every request, so it's always current.
 
-Zeemish's sitemap grows automatically with the library. At v1.3.0 ship time it listed 25 URLs; five days later, after twelve more daily pieces and a dozen more interactives landed, it lists about seventy. As the library grows, the sitemap grows with it. No human ever has to update it.
+Zeemish's sitemap grows automatically with the library. At v1.3.0 ship time it listed 25 URLs; five days later, after another fortnight of daily pieces and their companion interactives landed, the live sitemap reports 88. As the library grows, the sitemap grows with it. No human ever has to update it.
 
 Two choices in this commit are worth noting because they break from the obvious path.
 
 First: Astro (the framework Zeemish runs on) has an official sitemap plugin. Zeemish doesn't use it. The plugin only enumerates pages that are *prerendered* — built ahead of time into static HTML. Zeemish's library and category pages aren't prerendered; they're rendered fresh on each request because they need to query the database for the current category list. The plugin would have silently skipped them. Hand-rolling the sitemap in one file gave full control of what gets included.
 
-Second: a sitemap could split into multiple files when it gets very large (the format supports up to 50,000 URLs per file, with an "index" file pointing at them). Zeemish has 25 URLs today and would need to grow 2,000× to hit that limit. Single file, no index. When the time comes, splitting it is a small change.
+Second: a sitemap could split into multiple files when it gets very large (the format supports up to 50,000 URLs per file, with an "index" file pointing at them). Zeemish has well under 100 URLs today and would need to grow 500× to hit that limit. Single file, no index. When the time comes, splitting it is a small change.
 
 ## RSS: the push-style feed
 
@@ -120,15 +120,17 @@ Why bundle these together. Each was small. Each was discovered during the audit 
 
 ## Why autonomy matters here
 
-Every fix in this chapter, on both April 25 and April 30, applies to *every page Zeemish has ever published and every page it ever will publish.* That's the point.
+Every fix in this chapter applies to every page Zeemish ever publishes — automatically. That's the point.
 
-The pipeline that publishes a daily piece runs entirely on its own. Curator picks a story; Drafter writes the MDX; the auditors gate quality; Publisher commits to the repository; the site builds; the page goes live; Categoriser tags it; the interactive generator builds a companion quiz. No human edits the metadata. No human decides what the meta description should be. No human runs a script to update the sitemap.
+There are layers, and they apply at different scopes. The footer's `data-nosnippet` and the `og:image` dimensions and the `<meta name="description">` and the canonical URL: these live in the shared `BaseLayout`, so every single page on the site picks them up — homepage, daily pieces, interactives, library, dashboard, login, all of them. The Article and BreadcrumbList JSON-LD blocks are scoped to the daily-piece pages — they're things you say about an article, and they shouldn't be on a login form. The LearningResource JSON-LD lives on the interactive pages — same logic, different artefact. The sitemap and RSS feed are server-side endpoints that enumerate the database, so they automatically include every new daily piece and every new interactive without anyone updating a list.
 
-For SEO to work in this kind of system, the SEO has to be baked into the pipeline, not applied as a manual step after each publish. That's the design. The sitemap is a server-rendered endpoint that enumerates the database every time a search engine asks. The RSS feed is the same. The JSON-LD blocks self-emit when the layout sees an article. The breadcrumb generates from the URL structure. The footer's `data-nosnippet` is in the layout component every page uses. The `og:image` dimensions and alt are declared once.
+The pipeline that produces a piece runs entirely on its own. Curator picks a story; Drafter writes the MDX; the auditors gate quality; Publisher commits to the repository; the site builds; the page goes live; Categoriser tags it; the interactive generator builds a companion quiz and a companion HTML widget. No human edits the metadata. No human decides what the meta description should be. No human runs a script to update the sitemap.
 
-The only piece of SEO that depends on a single Claude call is the meta description itself — Drafter writes it as part of the MDX frontmatter. After April 30 the Drafter prompt names the rules: 140–160 characters, must differ from the title, must name the underlying concept, plain English. So even that piece is autonomous; the next cron firing applies the new rules without anyone touching anything.
+For SEO to work in this kind of system, the SEO has to be baked into the pipeline, not applied as a manual step after each publish. That's the design. The sitemap is a server-rendered endpoint that enumerates the database every time a search engine asks. The RSS feed is the same. The JSON-LD blocks self-emit when the layout sees an article or a learning resource. The breadcrumb generates from the URL structure. The footer's `data-nosnippet` is in the layout component every page uses. The `og:image` dimensions and alt are declared once.
 
-This is the thing the foundations layer enables. Once the standards are wired into the layout and the schema is wired into the layout and the prompt knows what good meta description looks like, every new piece arrives in the world with all of it already done. The platform never asks for a human in the loop. The human comes in, periodically, to read the search console and decide whether the autonomous output is doing its job.
+The only piece of SEO that depends on a single Claude call is the meta description itself — Drafter writes it as part of the MDX frontmatter. Since April 30 the Drafter prompt names the rules: 140–160 characters, must differ from the title, must name the underlying concept, plain English. So even that piece is autonomous; the next cron firing applies the new rules without anyone touching anything.
+
+This is the thing the foundations layer enables. Once the standards are wired into the layout, the schema is wired into the layout, and the prompt knows what a good meta description looks like, every new piece arrives in the world with the right SEO already attached. The platform never asks for a human in the loop. The human comes in, periodically, to read the search console and decide whether the autonomous output is doing its job.
 
 ## Why this matters more than it sounds
 
@@ -144,7 +146,7 @@ Doing the SEO foundations doesn't guarantee traffic. It guarantees *eligibility*
 
 What the foundations remove is the technical reason people aren't finding you. They don't manufacture demand. They make sure that when demand exists, the technology doesn't get in the way.
 
-Zeemish has been live for eight days. The first crawl will probably land within a week of submission. The first organic visitor will probably arrive shortly after. Whether that grows into something larger depends on what every chapter of this book is about — the writing, the audio, the learning loop, the discipline of publishing daily. SEO is necessary, not sufficient.
+Zeemish was eight days old when the foundations shipped, and the first crawl landed within a few days of submission. As of late April the site has 88 URLs in the index and a small but growing trickle of organic traffic. Whether that grows into something larger depends on what every chapter of this book is about — the writing, the audio, the learning loop, the discipline of publishing daily. SEO is necessary, not sufficient.
 
 ## If you remember one thing
 

@@ -107,7 +107,7 @@ wrangler secret put SCANNER_RSS_FEEDS_JSON
 ## D1 Database
 
 ### Run migrations
-There are 23 migrations (`0001_init.sql` … `0023_interactive_audit_results.sql`). Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
+There are 27 migrations (`0001_init.sql` … `0027_categoriser_fallback_category.sql`) defining 19 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
 Apply them (idempotent — skips any already recorded in `d1_migrations`):
 ```bash
 wrangler d1 migrations apply zeemish --remote
@@ -124,7 +124,7 @@ wrangler d1 execute zeemish --remote --command="SELECT * FROM observer_events OR
 ```
 
 ### Migration tracker hygiene
-Migrations are tracked in the `d1_migrations` table. As of 2026-04-21 the tracker is in sync (16 rows, 0001–0016). Keep it that way:
+Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
 
 - **Use `wrangler d1 migrations apply zeemish --remote`** for any new migration on a live DB — not `wrangler d1 execute --file=...` and not `wrangler d1 execute --command=...`. Only `migrations apply` writes to `d1_migrations`; the other paths run the SQL but leave the tracker blind, which is how we got into the 2026-04-20 mess.
 - **Pre-flight check** before applying:
@@ -150,7 +150,7 @@ Visit https://zeemish.io/dashboard/admin/ and use
 the trigger button (requires ADMIN_EMAIL login).
 
 ### Automatic
-The Director runs on an hourly cron, gated by `admin_settings.interval_hours` (see [`src/pages/dashboard/admin/settings.astro`](../src/pages/dashboard/admin/settings.astro)). At the default value 24, only the 02:00 UTC slot fires — preserving the "every morning" cadence. Admins can flip to 1/2/3/4/6/8/12 hours via the settings page without a redeploy; change propagates at the next hourly alarm. It scans news, picks the story whose underlying system best teaches the protocol, drafts, audits, and publishes. At the default cadence the piece is ready by ~04:00 UTC. Curator's default is to PICK; skip is rare and reserved for narrow conditions (single breaking event re-reported with no new angle, or pure product/spec announcements with no system to teach). When a skip does fire, the reason names the specific condition, not a category dismissal — see DECISIONS 2026-04-25 "Curator reframed around the Zeemish protocol".
+The Director runs on an hourly cron, gated by `admin_settings.interval_hours` (see [`src/pages/dashboard/admin/settings.astro`](../src/pages/dashboard/admin/settings.astro)). The schema default is 24 (one piece a day, 02:00 UTC); production is currently set to 12 (two pieces a day, 02:00 + 14:00 UTC). Admins can flip to 1/2/3/4/6/8/12/24 hours via the settings page without a redeploy; change propagates at the next hourly alarm. It scans news, picks the story whose underlying system best teaches the protocol, drafts, audits, and publishes. At the production 12h cadence each piece is ready ~2 hours after the slot fires. Curator's default is to PICK; skip is rare and reserved for narrow conditions (single breaking event re-reported with no new angle, or pure product/spec announcements with no system to teach). When a skip does fire, the reason names the specific condition, not a category dismissal — see DECISIONS 2026-04-25 "Curator reframed around the Zeemish protocol".
 
 ### Check Director status
 ```bash
@@ -161,7 +161,7 @@ curl "https://zeemish-agents.zzeeshann.workers.dev/status" \
 
 ### View daily pieces
 - Archive: https://zeemish.io/daily/
-- Single piece: https://zeemish.io/daily/YYYY-MM-DD/
+- Single piece: https://zeemish.io/daily/YYYY-MM-DD/{slug}/ (slug-inclusive URL since 2026-04-21 Phase 4)
 
 ## Interactives v3 — HTML interactive flag
 
@@ -337,7 +337,7 @@ operator makes the trigger decision explicitly. See
 - Pipeline monitor on `/dashboard/admin/` shows step-by-step progress
 - Public pipeline data: `curl /api/dashboard/pipeline` (no auth)
 - Single piece in D1 after completion: `wrangler d1 execute zeemish --remote --command="SELECT date, headline, voice_score FROM daily_pieces WHERE date = date('now')"`
-- Live URL: `/daily/YYYY-MM-DD/` should return 200 after the post-publish deploy completes (~30s)
+- Live URL: `/daily/YYYY-MM-DD/{slug}/` should return 200 after the post-publish deploy completes (~30s)
 
 ### Manual fallback (if the script misbehaves)
 #### 1. Remove today's MDX file(s) from git

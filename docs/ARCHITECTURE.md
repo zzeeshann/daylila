@@ -31,19 +31,19 @@ This applies to every agent. No exceptions. The past stays. The future gets bett
 
 ### Stage 3 — Reader Accounts & Progress (complete)
 - [x] Astro Cloudflare adapter (static pages + server-rendered API routes)
-- [x] D1 database: 19 tables, 23 migrations (see `docs/SCHEMA.md`)
+- [x] D1 database: 19 tables, 27 migrations (see `docs/SCHEMA.md`)
 - [x] Anonymous-first auth middleware (cookie on first API call)
 - [x] Progress API: save beat, mark complete, fetch progress
 - [x] Auth API: email upgrade, login, logout
 - [x] PBKDF2 password hashing via Web Crypto API
 - [x] Account page, login page
-- [x] Security headers (`public/_headers` — X-Frame, CSP, XSS, etc.)
+- [x] Security headers via `src/middleware.ts` (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). Server-rendered routes get all six headers; the prerendered HTML (homepage, daily, library) has a known gap because Cloudflare Workers Static Assets serves `.html` files directly without invoking the worker — see CLAUDE.md "Remaining minor items" for the full reasoning. The earlier `public/_headers` approach was deleted (Cloudflare Static Assets ignored the file silently); middleware is the actual surface where the security headers live now.
 - [x] Rate limiting on login (5 attempts per 15 min per IP)
 - [x] lesson-shell POSTs progress (fire-and-forget, offline-safe)
 
 ### Stage 4 — Agent Team (complete — 16 agents, all wired)
 - [x] Separate `agents/` Worker with Cloudflare Agents SDK (v0.11.1)
-- [x] DirectorAgent — pure orchestrator, zero LLM calls, hourly cron gated by `admin_settings.interval_hours` (default 24 → fires at 02:00 UTC only), manual trigger
+- [x] DirectorAgent — pure orchestrator, zero LLM calls, hourly cron gated by `admin_settings.interval_hours` (schema default 24 → fires at 02:00 UTC only; production currently set to 12 → fires at 02:00 + 14:00 UTC), manual trigger
 - [x] CuratorAgent — picks most teachable story, plans beats (restored from v10 deletion; owns its prompt file)
 - [x] DrafterAgent — writes MDX from brief (restored from v10 deletion; owns its prompt file)
 - [x] VoiceAuditorAgent — scores voice compliance 0-100, ≥85 to pass (owns its prompt file)
@@ -93,23 +93,27 @@ This applies to every agent. No exceptions. The past stays. The future gets bett
 - [ ] Deep-Zita v1 (library search, tool-use loop, session summary, reader profile, voice harness, category logging) — sequenced in design doc §7, not yet built.
 
 ### Daily Pieces System (complete)
-- [x] ScannerAgent (#14) — fetches Google News RSS across 6 categories
-- [x] Director daily mode — picks most teachable story, writes brief, runs pipeline
-- [x] Daily piece pages at /daily/ and /daily/YYYY-MM-DD/
+- [x] ScannerAgent (agent #1 in book/09 / #2 in AGENTS.md numbering) — fetches Google News RSS across 6 categories
+- [x] Director daily mode — runs the pipeline (Curator picks the story, Drafter writes; Director routes between them with zero LLM calls)
+- [x] Daily piece pages at /daily/ index and /daily/YYYY-MM-DD/{slug}/ for individual pieces (slug-inclusive URL since 2026-04-21 Phase 4)
 - [x] Home page redesign — today's piece prominent, library below
-- [x] D1 tables: daily_candidates, daily_pieces (migration 0006)
-- [x] Content collection: dailyPieces with date/newsSource/underlyingSubject schema
-- [x] Scheduled: Director on hourly cron gated by `admin_settings.interval_hours` (default 24 → fires at 02:00 UTC every day including weekends)
+- [x] D1 tables for daily pieces: `daily_candidates` + `daily_pieces` (migration 0006); `daily_piece_audio` (migration 0010); plus `interactives` + `interactive_engagement` + `interactive_audit_results` (migrations 0022, 0023) and `categories` + `piece_categories` (migration 0021) for post-publish agents
+- [x] Content collection: dailyPieces with date/newsSource/underlyingSubject/description/publishedAt/pieceId/sourceUrl schema; interactives collection (Zod discriminated union on `type`)
+- [x] Scheduled: Director on hourly cron gated by `admin_settings.interval_hours` (schema default 24 → fires at 02:00 UTC; production currently 12 → fires at 02:00 and 14:00 UTC every day including weekends)
 - [x] First daily piece published and live
 
-### Public discoverability surfaces (complete — 2026-04-25)
-- [x] `/sitemap.xml` — SSR endpoint at [src/pages/sitemap.xml.ts](../src/pages/sitemap.xml.ts). Enumerates homepage, /daily/, /library/, every published daily piece (with slug-inclusive URL), every interactive, every category page (D1-driven). Hand-rolled rather than `@astrojs/sitemap` because the integration only emits prerendered routes — `/library/` and `/library/<slug>/` are SSR. Fail-open on D1 error so static entries always render. Cache-Control: `public, max-age=3600`. Submit to Google Search Console once; never has to be touched again.
+### Public discoverability surfaces (foundations 2026-04-25 — `v1.3.0`; snippet fix + structured-data expansion 2026-04-30)
+- [x] `/sitemap.xml` — SSR endpoint at [src/pages/sitemap.xml.ts](../src/pages/sitemap.xml.ts). Enumerates homepage, /daily/, /library/, every published daily piece (with slug-inclusive URL), every interactive, every category page (D1-driven). Hand-rolled rather than `@astrojs/sitemap` because the integration only emits prerendered routes — `/library/` and `/library/<slug>/` are SSR. Fail-open on D1 error so static entries always render. Cache-Control: `public, max-age=3600`. Submitted to Google Search Console as a domain property on 2026-04-25 (31 pages discovered on first read; live count is 88 as of late April). Bing deferred by decision per FOLLOWUPS.
 - [x] `/rss.xml` — SSR endpoint at [src/pages/rss.xml.ts](../src/pages/rss.xml.ts). RSS 2.0 feed of every daily piece, newest first by `publishedAt` DESC. Per-item: title, canonical link, description (frontmatter), pubDate (`publishedAt` → RFC 1123), guid (`pieceId` with `isPermaLink="false"` so feed readers de-duplicate by stable UUID even if URL shape changes). Description-only for v1; full `<content:encoded>` deferred until reader demand surfaces. Hand-rolled — `@astrojs/rss`'s default guid is the link with `isPermaLink="true"` and isn't overridable without duplicating the element.
-- [x] `robots.txt` advertises the sitemap via `Sitemap: https://zeemish.io/sitemap.xml` directive at the bottom.
+- [x] `robots.txt` advertises the sitemap via `Sitemap: https://zeemish.io/sitemap.xml` directive at the bottom. Disallows `/dashboard/admin/`, `/api/`, `/auth/`, `/account/`.
 - [x] BaseLayout `<head>` carries `<link rel="alternate" type="application/rss+xml" title="Zeemish daily pieces" href="/rss.xml" />` so Feedly / Inoreader / NetNewsWire auto-discover the feed from any page.
-- [x] `/og-image.png` — 1200×630 PNG OG card for social platforms (Twitter / LinkedIn / Facebook / WhatsApp / iMessage / Slack — none render SVG OG, so the prior `og-image.svg` was effectively broken on every share). Generated via [scripts/generate-og-image.mjs](../scripts/generate-og-image.mjs) (one-off, run when design changes — not a build step). Sharp renders an inline SVG with system sans-serif fallback (Helvetica Neue on macOS). Same image for every page; per-piece dynamic OG (headline + tier rendered at the edge) is a future Worker route project.
-- [x] `<meta name="description">` always renders on every page via a single `metaDescription` constant in BaseLayout that also feeds `og:description` and `twitter:description`. Fallback is the brand description ("Educate yourself for humble decisions. Daily teaching, made by N agents."). Pre-fix, pages without an explicit description prop (login, auth/verify, dashboard/admin) had no description tag at all.
+- [x] `/og-image.png` — 1200×630 PNG OG card for social platforms (Twitter / LinkedIn / Facebook / WhatsApp / iMessage / Slack — none render SVG OG, so the prior `og-image.svg` was effectively broken on every share). Generated via [scripts/generate-og-image.mjs](../scripts/generate-og-image.mjs) (one-off, run when design changes — not a build step). `og:image:width="1200"`, `og:image:height="630"`, and `og:image:alt` are declared in the head (added 2026-04-30) so social platforms render previews without a HEAD round-trip on the PNG. Same image for every page; per-piece dynamic OG (headline + tier rendered at the edge) is a future Worker route project.
+- [x] `<meta name="description">` always renders on every page via a single `metaDescription` constant in BaseLayout that also feeds `og:description` and `twitter:description`. Fallback is the brand description. Pre-fix, pages without an explicit description prop (login, auth/verify, dashboard/admin) had no description tag at all. The homepage description was differentiated 2026-04-30 (~142 chars naming the news anchor + system-thinking framing) so it can no longer collapse to a duplicate of the footer text. The Drafter prompt (also 2026-04-30) names the SEO rules for the per-piece `description` frontmatter field — 140–160 chars, distinct from the title, names the underlying concept, plain English — so each new cron piece arrives with a SERP-shaped description.
+- [x] `<footer data-nosnippet>` — added 2026-04-30. Tells Google to skip the footer when picking SERP snippet text. Forces fallback to the meta description rather than the repeated footer tagline.
 - [x] JSON-LD Article schema on daily-piece pages via [src/layouts/BaseLayout.astro](../src/layouts/BaseLayout.astro). Self-gated by the new optional `article` prop (interactives share `ogType="article"` but opt out by not passing the prop). Article (not NewsArticle — Zeemish teaches, doesn't report) with headline, description, datePublished + dateModified (same per the permanence rule), image array, author + publisher (Organization Zeemish with logo as ImageObject + dimensions), mainEntityOfPage. When a piece has audio, an `AudioObject` lands in `associatedMedia` pointing at a representative beat — picker prefers legacy `audioSrc`, then the `"hook"` beat (standard opening across every current piece), then first iteration order. v1 emits one AudioObject per Article; per-beat array deferred. Defensive `\u003c` escape on the JSON-LD body protects against `</script>` injection. Validated post-deploy via schema.org validator (0 errors) and Google Rich Results Test (1 valid Article detected).
+- [x] JSON-LD BreadcrumbList on daily-piece pages — added 2026-04-30. Self-gates on the same `article` prop. Three-step breadcrumb: Home → Daily → {cleanHeadline}. Lets Google render the breadcrumb above the SERP snippet instead of the raw URL. Same `escapeForScript` injection-defense helper used by all three JSON-LD blocks in BaseLayout.
+- [x] JSON-LD LearningResource on interactive pages — added 2026-04-30. New `learningResource` prop on BaseLayout (parallel to `article`'s self-gating). `interactives/[slug].astro` passes `{ resourceType: quizEntry ? 'Quiz' : 'Interactive simulation' }`. Schema names the artefact, declares `isAccessibleForFree: true`, names the publisher Organization. Quiz-specific `acceptedAnswer` markup deferred — `LearningResource` is the right granularity for v1 across both quiz + html artefact types.
+- [x] Library index meta description dynamic — added 2026-04-30. Names the top 4 categories by `piece_count` (already sorted by `getCategories()`); falls back to a generic line on the empty-library state.
 
 ## What's NOT built (honest gaps)
 
