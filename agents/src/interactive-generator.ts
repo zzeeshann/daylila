@@ -703,7 +703,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     const qualityFlag: 'low' | null = passed ? null : 'low';
     const auditorMaxFailed = !passed;
 
-    const finalSlug = await this.resolveFreeSlug(lastQuiz.slug, 'quiz');
+    const finalSlug = await this.resolvePairSlug(pieceId, 'quiz', lastQuiz.slug);
     lastQuiz.slug = finalSlug;
 
     const publishedAt = Date.now();
@@ -820,6 +820,12 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
    * `daily_pieces.interactive_id` — that pointer stays on the quiz
    * row for back-compat with the 4.6 last-beat prompt; readers find
    * the HTML via `interactives WHERE source_piece_id = ?`.
+   *
+   * Slug pairing is symmetric (see `resolvePairSlug`): whichever
+   * artefact ships second inherits the first's slug, regardless of
+   * order. So this loop ALSO inherits a quiz's slug if the quiz row
+   * already exists, and `runQuizLoop` symmetrically inherits this
+   * loop's slug when html shipped first.
    */
   private async runHtmlLoop(
     pieceId: string,
@@ -1075,21 +1081,12 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
 
     // ── Slug coordination (Phase 2 sub-task 2.5) ────────────────
     //
-    // A piece's quiz + html share the slug — one URL per piece. Look
-    // up the existing quiz row for this piece (committed earlier in
-    // this same generate() call OR in a prior run). If found, use
-    // ITS slug verbatim. Otherwise resolve Claude's proposed slug
-    // through the type-scoped collision check.
-    const existingQuiz = await this.env.DB
-      .prepare(
-        `SELECT slug FROM interactives
-         WHERE source_piece_id = ? AND type = 'quiz' LIMIT 1`,
-      )
-      .bind(pieceId)
-      .first<{ slug: string }>();
-    const finalSlug = existingQuiz
-      ? existingQuiz.slug
-      : await this.resolveFreeSlug(lastHtml.slug, 'html');
+    // A piece's quiz + html share the slug — one URL per piece.
+    // Whichever artefact ships SECOND inherits the slug of the one
+    // already in D1; if no sibling exists, Claude's proposed slug
+    // resolves through the type-scoped collision check. Symmetric
+    // since 2026-04-30 PM (sperm-piece fix).
+    const finalSlug = await this.resolvePairSlug(pieceId, 'html', lastHtml.slug);
     lastHtml.slug = finalSlug;
 
     const publishedAt = Date.now();
@@ -1471,6 +1468,38 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ),
     );
     await this.env.DB.batch(batch);
+  }
+
+  /**
+   * Pair a quiz + html under one shared slug.
+   *
+   * Whichever artefact ships SECOND inherits the slug of the one that
+   * shipped FIRST. If no sibling exists yet, fall back to resolving
+   * Claude's proposed slug through the type-scoped collision check.
+   *
+   * Symmetric — quiz inherits from html and html inherits from quiz.
+   * Pre-2026-04-30, only the html→quiz direction was wired, which was
+   * fine while quiz always shipped first; once `c687601` decoupled the
+   * two loops (quiz failure no longer aborts html), html could ship
+   * first, and the missing quiz→html direction caused divergent slugs
+   * (sperm piece on 2026-04-30: detection-floor-as-resource-choice +
+   * detection-floors-and-invisible-presence on two URLs).
+   */
+  private async resolvePairSlug(
+    pieceId: string,
+    type: 'quiz' | 'html',
+    claudeProposed: string,
+  ): Promise<string> {
+    const siblingType = type === 'quiz' ? 'html' : 'quiz';
+    const sibling = await this.env.DB
+      .prepare(
+        `SELECT slug FROM interactives
+         WHERE source_piece_id = ? AND type = ? LIMIT 1`,
+      )
+      .bind(pieceId, siblingType)
+      .first<{ slug: string }>();
+    if (sibling?.slug) return sibling.slug;
+    return this.resolveFreeSlug(claudeProposed, type);
   }
 
   /**

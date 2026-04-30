@@ -13,6 +13,37 @@ Format per entry:
 
 ---
 
+## [resolved] 2026-04-30: Divergent quiz + html slugs for one piece (sperm-cell, two URLs)
+
+**Surfaced:** 2026-04-30 PM. Operator noticed the 2026-04-30 sperm-cell piece had its quiz at `/interactives/detection-floors-and-invisible-presence/` and its html at `/interactives/detection-floor-as-resource-choice/` — two URLs each rendering only half the bundle. Every prior dual-artefact piece shares one slug between quiz + html. Manual quiz retry after auto-cron parse-fails landed at a different Claude-proposed slug than the html that had already shipped.
+
+**Hypothesis confirmed:** asymmetric slug-inheritance. `runHtmlLoop` queries D1 for an existing quiz row and inherits its slug; `runQuizLoop` had no symmetric lookup. Latent until the morning's `c687601` decoupling fix (quiz failure no longer aborts html), which made it possible for html to ship first and quiz to retry later. Schema (migration 0026's `UNIQUE(slug, type)`) had already been made permissive; only the writer-side inheritance was missing.
+
+**Resolution:** Fix shipped 2026-04-30 PM (this session). Extracted `resolvePairSlug(pieceId, type, claudeProposed)` private helper in [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) (~line 1487). Both `runQuizLoop` (line 706) and `runHtmlLoop` (block at lines 1083-1092) now call it. Whichever artefact ships SECOND inherits the FIRST's slug regardless of order. New verifier `pnpm verify-pair-slug` (5 cases). Backfilled the sperm piece by renaming `detection-floor-as-resource-choice-html.json` → `detection-floors-and-invisible-presence-html.json` + slug field edit + queued D1 surgery (`UPDATE interactives SET slug = 'detection-floors-and-invisible-presence' WHERE id = '9f53032c-1d1a-46dd-973b-658cd3acfa67' AND type = 'html';`). See DECISIONS 2026-04-30 (PM, late) "Symmetric slug-pairing for quiz + html" and CLAUDE.md "Pair-slug bug fix (2026-04-30 PM)" for the full narrative.
+
+**Resolved:** code edit + backfill in this session.
+
+---
+
+## [observing] 2026-04-30: Pair-slug ordering — verify next 5 cron-or-manual interactive pairs land at one URL
+
+**Surfaced:** 2026-04-30 PM, same session as the resolved entry above. The fix is symmetric — verify it bites both directions.
+
+**Watch for** over the next 5 dual-artefact pairs (cron + any manual retries):
+- Every piece's quiz file (`<slug>.json`) and html file (`<slug>-html.json`) share the same base slug.
+- Both render at one `/interactives/<slug>/` URL with quiz card + HTML iframe inline.
+- Order independence: at least one of the next 5 pairs should ship html-before-quiz (since quiz parse-fails are still possible until Layer 1 + Layer 2 catch every flake), exercising the new direction.
+
+**Unblock condition:** all 5 pairs land at one URL. Mark `[resolved]` with cron-firing SHAs.
+
+**Escalation path:** if a piece still ships at two URLs:
+- (a) Check git log for the order of the two interactive commits — if the second one came AFTER the first by a meaningful gap (>1 min) and slugs still diverged, `resolvePairSlug` isn't being called; verify the call sites at line 706 + 1083 weren't reverted by a refactor.
+- (b) If both committed within seconds of each other (auto-cron path), check whether the html commit's D1 INSERT was visible to the quiz commit's SELECT — Cloudflare D1 is eventually consistent across DO replicas; if the quiz path runs in a fresh DO instance that hasn't seen the html INSERT, the SELECT returns null and the slug falls back to `resolveFreeSlug`. In that case, sequence the two loops in `generate()` to await the first commit before the second runs (already the case in the in-DO sequential `runQuizLoop` → `runHtmlLoop` flow; would only fail if the two loops were ever moved to parallel). Read the call site in `agents/src/interactive-generator.ts:generate` to confirm sequential.
+
+**Priority:** medium — observation gates confidence; doesn't block other work.
+
+---
+
 ## [observing] 2026-04-30: SEO snippet flip — confirm homepage SERP description switches off footer text
 
 **Surfaced:** 2026-04-30 evening, when an operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."* — the footer text, not a meaningful description. Fix shipped: homepage description differentiated to ~142 chars naming the news anchor and system-thinking framing; `<footer>` marked `data-nosnippet`; BreadcrumbList JSON-LD on daily pieces; LearningResource JSON-LD on interactives; og:image dimensions + alt; library index description dynamic by top-4 categories. See DECISIONS 2026-04-30 (evening) "SEO snippet fix + structured-data expansion" and CLAUDE.md section of the same name.

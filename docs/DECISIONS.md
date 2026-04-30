@@ -2,6 +2,48 @@
 
 Append-only. Never edit old entries.
 
+## 2026-04-30 (PM, late): Symmetric slug-pairing for quiz + html
+
+**Context.** The 2026-04-30 sperm-cell piece (`sourcePieceId 5d0918d4-9800-45b1-9e96-17b181a1c3fb`) shipped quiz + html on **two** different URLs:
+
+- `/interactives/detection-floor-as-resource-choice/` — html only (committed first by auto-cron at 14:07 UTC)
+- `/interactives/detection-floors-and-invisible-presence/` — quiz only (committed by manual retry 49 min later at 14:56 UTC)
+
+Every prior dual-artefact piece (`control-creates-duty`, `adding-requirements-through-practice`, `embedded-continuation`, etc.) shares one slug between the two artefacts and renders both inline at one URL via `bundleFromEntries`. The sperm piece broke that contract — readers landing on either URL saw only half the bundle, and the daily-piece embed link points to only one of them.
+
+**Root cause.** Slug-inheritance was **asymmetric**:
+- [interactive-generator.ts:1083-1092](../agents/src/interactive-generator.ts:1083) — `runHtmlLoop` queried `interactives WHERE source_piece_id = ? AND type = 'quiz'` and inherited the quiz's slug if found.
+- [interactive-generator.ts:706](../agents/src/interactive-generator.ts:706) — `runQuizLoop` had **no symmetric lookup**. It just called `resolveFreeSlug` on Claude's proposed slug.
+
+The asymmetry was invisible while quiz always shipped first — pre-`c687601`, a quiz parse-failure aborted the html loop, so html always saw a committed quiz row. The morning's `c687601` decoupling fix wrapped quiz/html in independent try/catch (a correct fix on its own terms), which surfaced the latent asymmetry: html could now ship while quiz kept parse-failing. When the operator manually retried quiz later, `runQuizLoop` accepted Claude's freshly-proposed slug verbatim. Migration 0026 had already relaxed the schema to `UNIQUE(slug, type)` so siblings CAN share a slug — only the writer-side inheritance was missing.
+
+**Decision.** Two-part fix:
+
+1. **Forward fix — symmetric `resolvePairSlug` helper.** Extract a private method that queries for the sibling artefact (whichever type isn't the one we're committing) and returns its slug if found, falling back to `resolveFreeSlug(claudeProposed, type)` otherwise. Both `runQuizLoop` (line 706) and `runHtmlLoop` (the inlined block at 1083-1092) now call it. Whichever artefact ships SECOND inherits the FIRST's slug regardless of order.
+2. **Backfill.** Renamed `content/interactives/detection-floor-as-resource-choice-html.json` → `detection-floors-and-invisible-presence-html.json` (matching the `<slug>-html.json` convention used by every other paired file), edited the JSON's `slug` field to match the quiz, and queued D1 surgery (`UPDATE interactives SET slug = 'detection-floors-and-invisible-presence' WHERE id = '9f53032c-1d1a-46dd-973b-658cd3acfa67' AND type = 'html';`). Schema-safe under migration 0026's composite unique. Title + concept + content unchanged — slug is identity/routing metadata under the carve-out, same precedent as the orphan-category D1 cleanup (2026-04-29).
+
+**Trade-offs considered.**
+- **Why not also tell Claude to inherit the sibling's slug in the produce-html / produce-quiz prompts?** Would save tokens (Claude doesn't waste effort proposing a slug that gets discarded), but it's a prompt change with broader blast radius and the resolver-side fix is sufficient. Forward-only.
+- **Why not bundle by `source_piece_id` in the route's `getStaticPaths` and let divergent slugs unify under the quiz's URL?** Treats the symptom; doesn't prevent file-system bifurcation (two `*.json` files at different slugs still build two pages); doesn't address SEO duplication. The slug-pairing fix is more correct and not significantly more complex.
+- **Why rename the html file (not the quiz)?** Quiz is the dominant artefact in `bundleFromEntries`'s `primary` resolution. Quiz's slug `detection-floors-and-invisible-presence` is also more abstract/durable as a URL. The HTML's `<slug>-html.json` filename convention then composes correctly.
+- **Permanence-rule check.** Slug is identity, not body content. Title, concept, HTML body, and quiz questions are all preserved unchanged. Same carve-out as `voiceScore` / `audioBeats` / `qualityFlag` frontmatter splices. Reader-visible URL changes (one URL retired, one URL gains the missing artefact); this is a healing edit, not content revision.
+
+**Files.**
+- [agents/src/interactive-generator.ts](../agents/src/interactive-generator.ts) — added `resolvePairSlug` (~line 1487), swapped two call sites (lines 706 + 1083), updated `runHtmlLoop` doc comment around line 822 to name the symmetric pairing.
+- [content/interactives/detection-floors-and-invisible-presence-html.json](../content/interactives/detection-floors-and-invisible-presence-html.json) — renamed from `…-floor-as-resource-choice-html.json`; `slug` field updated.
+- [agents/scripts/verify-pair-slug.mjs](../agents/scripts/verify-pair-slug.mjs) — new verifier, 5 cases (quiz-first, html-first, quiz-only, html-only, divergent-Claude-proposal-discarded). Runs as `pnpm verify-pair-slug`. Same convention as `verify-parse-retry` / `verify-categoriser-floor` / `verify-interactive-voice` — JS heuristic kept in sync with `interactive-generator.ts:resolvePairSlug` by hand.
+- [agents/package.json](../agents/package.json) — script entry.
+- D1 remote: `UPDATE interactives` (executed manually by operator; wrangler not authenticated in the implementation shell).
+
+**Verification.**
+- `pnpm verify-pair-slug` 5/5 pass.
+- `pnpm verify-parse-retry` 4/4, `pnpm verify-categoriser-floor` 10/10, `pnpm verify-interactive-voice` 10/10 still pass.
+- `pnpm build` site-side clean across all 23 daily pieces; interactive page count drops from 19 to 18 (sperm piece now paired).
+- Dev preview `/interactives/detection-floors-and-invisible-presence/` renders quiz card + HTML iframe inline; `/interactives/detection-floor-as-resource-choice/` 404s; daily-piece embed unchanged.
+- Agents typecheck baseline unchanged (26 pre-existing `server.ts` SubAgent errors; touched file compiles clean).
+
+**Forward.** New FOLLOWUPS `[observing]` entry tracks future quiz-first / html-first ordering. Surfaced via the existing `Interactive(s) shipped` observer event title — `(quiz)` and `(html)` suffixes already land per artefact (`c687601` work). No new instrumentation.
+
 ## 2026-04-30 (evening): SEO snippet fix + structured-data expansion
 
 **Context.** Operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."* — the footer text, not a meaningful description. Diagnosis: [src/pages/index.astro:35](../src/pages/index.astro:35) passed the literal tagline as the homepage description, AND [src/layouts/BaseLayout.astro:162](../src/layouts/BaseLayout.astro:162) renders the same string verbatim in the footer. Google deduplicates the meta description against on-page text and falls back to the most prominent stable content — the footer wins. The "Made by 16 agents" line in Google's cached snippet is from before commit `6779115` (2026-04-29 late-late evening drop of the "Made by N agents" footer line) — Google hadn't re-crawled yet, but the same problem persists either way.
