@@ -230,6 +230,30 @@ minute or two to see the result row. The fresh result fires its own
 shows two events: this regenerate (info severity, operator email
 attributed) and the metered result.
 
+**Generate vs Regenerate (per-piece admin page):** the per-piece admin
+at `/dashboard/admin/piece/<date>/<slug>/` shows two action types
+based on row state:
+- **Generate** (visible when row is missing) — fires
+  `/api/agents/interactive-retry?piece_id=X` → idempotent. Director's
+  `requestInteractiveGenerate` schedules `generateInteractiveScheduled`
+  on a 1s alarm and returns 202 immediately (full 15-min alarm budget
+  per CF DO semantics). Inside `generate()`, both quiz and html paths
+  run if both rows are missing — clicking "Generate quiz" when html
+  is also missing will run BOTH (skipping nothing).
+- **Regenerate** (visible when row exists) — fires
+  `/api/agents/interactive-regenerate?piece_id=X&type=quiz|html` →
+  destructive + type-scoped. Wipes the named artefact, then schedules
+  the same fresh `generate()` alarm. Same idempotent post-wipe behaviour
+  as Generate (runs whatever's missing).
+
+Both paths converge on `generateInteractiveScheduled` with full alarm
+budget. Pre-2026-04-30 PM, the manual retry ran inline via
+`ctx.waitUntil(...)` with the HTTP-handler subrequest budget — long
+runs (2-3 min for 3 audit rounds + commit) got cut off mid-flight.
+The alarm path matches auto-cron post-publish triggering and the
+destructive-regenerate path. See DECISIONS 2026-04-30 (PM) "Manual
+interactive-retry routes through alarm path".
+
 **Fallback path: curl.** Use only if the admin UI is unavailable.
 
 ```bash

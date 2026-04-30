@@ -300,35 +300,47 @@ try {
   htmlEnabled = flagRes?.value === 'true';
 } catch { /* leave false */ }
 
-// Latest InteractiveGenerator failure event for this piece (warn-severity,
-// title prefix `Interactive generation failed:`). Surfaced inline next
-// to the missing-row state so operators see the reason without scrolling
-// to Observer events. Reason is encoded both in the body string and in
-// the context JSON (`{date, reason}`) — we read the context for a clean
-// short string.
+// Latest InteractiveGenerator failure event for this piece, scoped per
+// artefact type. Director's `generateInteractiveScheduled` (post-2026-04-30
+// PM) emits per-artefact failures with title suffix `(quiz)` or `(html)`
+// when `result.{quiz,html}.errorMessage` populates. Pre-PM events have
+// no type suffix; we surface them on BOTH rows (best-effort) since we
+// can't tell which path failed. New events override the legacy fallback
+// because their created_at is more recent. Reason is encoded in the
+// context JSON (`{date, reason}`) — we read it for a clean short string.
 type LastFailure = { reason: string; created_at: number };
-let lastInteractiveFailure: LastFailure | null = null;
-if (pieceId) {
+async function fetchLastFailure(typeSuffix: 'quiz' | 'html'): Promise<LastFailure | null> {
+  if (!pieceId) return null;
   try {
+    // Match either: (a) the type-scoped suffix `... (quiz)` / `... (html)`
+    // (post-PM-fix) — title contains `(quiz)` / `(html)` literal — OR
+    // (b) the unsuffixed shape with no parenthesized type at the end
+    // (pre-PM-fix). The unsuffixed fallback applies to BOTH rows since
+    // we don't know which path it referred to.
     const failRes = await db
       .prepare(
-        `SELECT context, created_at FROM observer_events
+        `SELECT context, created_at, title FROM observer_events
          WHERE piece_id = ? AND severity = 'warn'
            AND title LIKE 'Interactive generation failed:%'
+           AND (title LIKE ? OR title NOT LIKE '% (quiz)' AND title NOT LIKE '% (html)')
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .bind(pieceId)
-      .first<{ context: string | null; created_at: number }>();
+      .bind(pieceId, `% (${typeSuffix})`)
+      .first<{ context: string | null; created_at: number; title: string }>();
     if (failRes?.context) {
       try {
         const parsed = JSON.parse(failRes.context) as { reason?: string };
         if (parsed.reason) {
-          lastInteractiveFailure = { reason: parsed.reason, created_at: failRes.created_at };
+          return { reason: parsed.reason, created_at: failRes.created_at };
         }
       } catch { /* malformed context — leave null */ }
     }
   } catch { /* leave null */ }
+  return null;
 }
+
+const lastQuizFailure = await fetchLastFailure('quiz');
+const lastHtmlFailure = await fetchLastFailure('html');
 
 type ZitaConversation = { user_id: string; msgs: ZitaMessage[] };
 const zitaConvos: ZitaConversation[] = (() => {
@@ -906,9 +918,9 @@ function publishedDisplay(): string {
               <>
                 <p class="text-sm text-zee-muted mb-3 italic">
                   No quiz for this piece. Generator either hasn't run, was declined as redundant, or failed.
-                  {lastInteractiveFailure && (
+                  {lastQuizFailure && (
                     <span class="block mt-2 not-italic text-zee-text">
-                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastInteractiveFailure.reason}</code>
+                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastQuizFailure.reason}</code>
                     </span>
                   )}
                 </p>
@@ -978,9 +990,9 @@ function publishedDisplay(): string {
                   {htmlEnabled
                     ? 'No HTML interactive for this piece. Generator either hasn\'t run for this type, was declined, validator-max-failed, or hit a parse error.'
                     : 'HTML interactives are off in admin settings. Quiz path is unaffected.'}
-                  {htmlEnabled && lastInteractiveFailure && (
+                  {htmlEnabled && lastHtmlFailure && (
                     <span class="block mt-2 not-italic text-zee-text">
-                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastInteractiveFailure.reason}</code>
+                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastHtmlFailure.reason}</code>
                     </span>
                   )}
                 </p>
