@@ -1,0 +1,71 @@
+{
+  "slug": "one-event-many-events",
+  "type": "quiz",
+  "title": "Parallel Learning Mechanisms",
+  "concept": "The brain uses two separate processes to form memories — one builds patterns through repeated exposure, the other captures single events in real time during the experience itself.",
+  "interactiveId": "4fff03be-4388-458f-97e8-ca61ba5a9393",
+  "sourcePieceId": "4151bae5-320c-437d-ad38-b2bb7d003b67",
+  "publishedAt": 1777661696027,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "You practice guitar scales for months — each session makes them smoother. You hear a stranger's unusual last name once and recall it days later. Why can both happen?",
+        "options": [
+          "Both rely on repetition, but attention to the name compressed weeks of practice into one moment",
+          "Practice strengthens the same connections each time; single events get locked in during the moment through a separate process",
+          "Skills require conscious effort until you hit a threshold; names get saved automatically if they're unusual enough",
+          "Both start identically and convert to permanent memory only if they're used again within 24 hours"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradual practice strengthens connections a little more each time until the movement runs automatically. A name you heard once can't rely on that — it needs to be there after one exposure. The brain solves both problems with separate mechanisms running in parallel."
+      },
+      {
+        "question": "A child touches a hot pan once, pulls back, and never touches a hot pan again. What happened in the seconds after contact?",
+        "options": [
+          "The pain signal marked the memory important, and it got saved permanently during sleep that night",
+          "Connections linking the sight, the heat, and the pain strengthened in real time while the child was still at the stove",
+          "The shock triggered immediate rehearsal — the child replayed the moment internally dozens of times in the next minute",
+          "The memory formed weakly at first and solidified over the next few days as the child avoided stoves"
+        ],
+        "correctIndex": 1,
+        "explanation": "The single-event process works during the event itself — connections strengthen in seconds while the experience is happening. It doesn't wait for sleep, rehearsal, or avoidance behaviour to build the memory."
+      },
+      {
+        "question": "After 500 tennis serves, the motion becomes automatic. What changed across those 500 tries?",
+        "options": [
+          "Each attempt strengthened the same set of connections a little more until the sequence fired on its own",
+          "Competing movements weakened each time you practiced, leaving only the correct motion",
+          "The brain built a single strong link between intention and result after enough repetitions crossed a threshold",
+          "Conscious control handed the motion to a separate automatic system once you stopped thinking about it"
+        ],
+        "correctIndex": 0,
+        "explanation": "Repetition strengthens the connections between the parts of the movement — a little more each time. Do it enough and firing one part automatically fires the next. There's no handoff to another system or single moment it clicks — just cumulative strengthening."
+      },
+      {
+        "question": "You remember a joke you heard once at a party. Why can't the gradual-strengthening process explain that?",
+        "options": [
+          "Jokes involve too many separate pieces — words, timing, context — to link together in one pass",
+          "That process needs the same event to happen multiple times to build a memory, and you heard the joke once",
+          "Spoken language moves too fast for slow connection-building to capture the sequence",
+          "The process only works when you're deliberately trying to memorize something"
+        ],
+        "correctIndex": 1,
+        "explanation": "Gradual strengthening requires repetition — fire two things together many times and the link grows stronger. A joke you heard once doesn't give you multiple exposures to the same words and delivery. If that were the only process, one-time memories couldn't form."
+      },
+      {
+        "question": "You run the same morning route daily for months versus remember a conversation you had once last week. Which process handles which?",
+        "options": [
+          "The route uses single-event capture because each run is a separate event; the conversation uses gradual strengthening because you thought about it afterward",
+          "Both use gradual strengthening, but the conversation had emotional weight so it strengthened faster",
+          "The route uses gradual strengthening because the pattern emerges over many runs; the conversation uses single-event capture because it happened once",
+          "Both start with single-event capture and switch to gradual strengthening if you use the memory again"
+        ],
+        "correctIndex": 2,
+        "explanation": "Running the same route repeatedly is how patterns emerge — each run strengthens the same spatial connections a little more. The conversation happened once, and the single-event process captured it during that moment. The two processes run in parallel for different kinds of learning."
+      }
+    ]
+  }
+}
