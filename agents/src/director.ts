@@ -452,26 +452,17 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       }
     }
 
-    // Splice `claimReviews` into frontmatter. Phase H (2026-04-30)
-    // shipped this as a flat string[] of verified claim text. Phase A
-    // (2026-05-01) widens each item to {claim, sources?: string[]} so
-    // the reader-facing aggregate Sources line on the daily piece can
-    // dedup URLs by domain. JSON-LD ClaimReview render in BaseLayout
-    // normalizes both shapes. Empty `sources: []` arrays are kept on
-    // purpose — preserves shape for pieces where Claude didn't emit
-    // URLs; reader rendering filters them at the dedup stage.
-    // Sanity cap at 20 to prevent any single piece dumping a giant
-    // frontmatter array if Drafter ever writes 50+ claims.
+    // Splice `claimReviews` into frontmatter (Phase H, 2026-04-30).
+    // Just the verified claim text strings — JSON-LD ClaimReview render
+    // in BaseLayout consumes them. Path A (2026-05-01) reverted Phase
+    // A's per-claim {claim, sources} object shape; the drawer reads
+    // citation URLs directly from audit_results.notes (where the agent's
+    // flat result.sources is persisted). Sanity cap at 20.
     if (lastFactResult && lastFactResult.claims.length > 0) {
       const verifiedClaims = lastFactResult.claims
         .filter((c) => c.status === 'verified')
-        .filter((c) => typeof c.claim === 'string' && c.claim.length > 0)
-        .map((c) => ({
-          claim: c.claim,
-          sources: (c.sources ?? [])
-            .map((s) => s.url)
-            .filter((u): u is string => typeof u === 'string' && u.length > 0),
-        }))
+        .map((c) => c.claim)
+        .filter((s): s is string => typeof s === 'string' && s.length > 0)
         .slice(0, 20);
       if (verifiedClaims.length > 0) {
         currentMdx = currentMdx.replace(
@@ -1706,6 +1697,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const now = Date.now();
     const draftId = `${taskId}-r${round}`;
     const factAuditId = crypto.randomUUID();
+    // Path A (2026-05-01): persist the full FactCheckResult object as
+    // notes JSON, not just the claims array. The drawer's
+    // /api/daily/[date]/made.ts endpoint reads `result.sources` (flat
+    // citation URL list) from this JSON to render the "Sources
+    // consulted" line under the Facts section. Pre-Path-A rows have a
+    // bare claims array; the API parser handles both shapes.
     try {
       await this.env.DB.batch([
         this.env.DB.prepare(
@@ -1716,25 +1713,20 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId),
         this.env.DB.prepare(
           'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts.claims), now, pieceId),
+        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts), now, pieceId),
       ]);
     } catch { /* audit logging shouldn't break the pipeline */ }
 
-    // Phase I: per-claim breakout into daily_audit_claims. Separate
-    // try/catch from the parent INSERT so a transient D1 failure here
-    // can't poison the parent audit row. If parent INSERT failed (above),
-    // we'd still attempt these — the FK is application-level so orphan
-    // rows are tolerated (same pattern as audit_results vs daily_pieces).
+    // Per-claim breakout into daily_audit_claims (migration 0028).
+    // Path A (2026-05-01) dropped per-claim source attribution, so the
+    // sources_json + search_query columns are now always NULL for new
+    // rows. Columns stay in the schema (additive nullable) for back-
+    // compat; an admin "claims explorer" view can still query by piece
+    // + round + status without the per-claim source attribution.
     if (Array.isArray(facts.claims) && facts.claims.length > 0) {
       try {
-        const stmts = facts.claims.map((claim, idx) => {
-          const sourcesJson = Array.isArray(claim.sources) && claim.sources.length > 0
-            ? JSON.stringify(claim.sources)
-            : null;
-          const searchQuery = Array.isArray(claim.sources)
-            ? claim.sources.find((s) => typeof s.searchQuery === 'string' && s.searchQuery.length > 0)?.searchQuery ?? null
-            : null;
-          return this.env.DB.prepare(
+        const stmts = facts.claims.map((claim, idx) =>
+          this.env.DB.prepare(
             `INSERT INTO daily_audit_claims
               (id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1747,16 +1739,15 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             claim.claim ?? '',
             claim.status ?? 'unverified',
             claim.note ?? null,
-            sourcesJson,
-            searchQuery,
+            null,
+            null,
             now,
-          );
-        });
+          ),
+        );
         await this.env.DB.batch(stmts);
       } catch {
         /* per-claim breakout failure is non-fatal; parent audit_results
-         * still holds the full JSON. Future replay possible from the
-         * JSON if needed. */
+         * still holds the full JSON. */
       }
     }
   }

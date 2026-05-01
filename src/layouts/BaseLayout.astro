@@ -25,19 +25,14 @@ interface Props {
     resourceType: string;
   };
   /** When set, emits one schema.org ClaimReview JSON-LD block per claim
-   *  (Phase H, 2026-04-30 after Phase F+G). Source data: Director's
-   *  claimReviews frontmatter splice from the final round's verified
-   *  fact-check claims. Empty array → no JSON-LD emitted. Per
-   *  Anthropic web_search docs: "When displaying API outputs directly
-   *  to end users, citations must be included to the original source."
-   *  ClaimReview is the machine-readable layer of that compliance
-   *  posture; the per-claim sources sub-section in the drawer is the
-   *  human-readable layer.
-   *
-   *  Phase A (2026-05-01) widened the per-item shape to a union of
-   *  legacy strings (Camp Mystic) and {claim, sources?} objects.
-   *  The iterator below normalizes both. */
-  claimReviews?: Array<string | { claim: string; sources?: string[] }>;
+   *  (Phase H, 2026-04-30). Source data: Director's claimReviews
+   *  frontmatter splice from the final round's verified fact-check
+   *  claims. Empty array → no JSON-LD emitted. Path A (2026-05-01)
+   *  reverted Phase A's per-item object union; this is back to a flat
+   *  string array of claim text. Source URLs are surfaced in the
+   *  drawer's Facts section via the agent's flat citation harvest, not
+   *  in the ClaimReview schema. */
+  claimReviews?: string[];
 }
 
 const { title, description, ogType = 'website', article, learningResource, claimReviews } = Astro.props;
@@ -154,8 +149,7 @@ if (article) {
 let claimReviewJsonLds: string[] = [];
 if (article && Array.isArray(claimReviews) && claimReviews.length > 0) {
   const isoPublished = new Date(article.publishedAt).toISOString();
-  for (const item of claimReviews) {
-    const claimText = typeof item === 'string' ? item : item?.claim;
+  for (const claimText of claimReviews) {
     if (typeof claimText !== 'string' || claimText.length === 0) continue;
     const schema = {
       '@context': 'https://schema.org',

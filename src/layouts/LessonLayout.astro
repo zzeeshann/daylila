@@ -46,15 +46,12 @@ interface Props {
    *  reference posture from Area 4). */
   interactiveBundle?: InteractiveBundle | null;
   /** Verified factual claims for ClaimReview JSON-LD render (Phase H,
-   *  2026-04-30 after Phase F+G). Threaded straight to BaseLayout's
-   *  `claimReviews` prop. Optional — pre-Phase-H pieces have no field;
-   *  no JSON-LD blocks emitted in that case.
-   *
-   *  Phase A (2026-05-01) widened each item to a union of legacy
-   *  string (Camp Mystic) and {claim, sources?} object. The aggregate
-   *  Sources line below the meta line consumes the object-shape
-   *  items' source URLs. */
-  claimReviews?: Array<string | { claim: string; sources?: string[] }>;
+   *  2026-04-30). Threaded straight to BaseLayout's `claimReviews`
+   *  prop. Optional — pre-Phase-H pieces have no field; no JSON-LD
+   *  blocks emitted in that case. Path A (2026-05-01) reverted to flat
+   *  string array — source URLs surface in the drawer's Facts section
+   *  via the agent's flat citation harvest, not in frontmatter. */
+  claimReviews?: string[];
 }
 
 const {
@@ -112,37 +109,6 @@ const quizEntry = interactiveBundle?.quizEntry ?? null;
 const htmlEntry = interactiveBundle?.htmlEntry ?? null;
 const quizContentJson = interactiveBundle?.quizContentJson ?? null;
 const interactiveSlug = primary?.data.slug ?? null;
-
-// Aggregate Sources line (Phase A, 2026-05-01). Walks the
-// claimReviews union, harvests URLs from object-shape items, dedups
-// by hostname (stripping `www.`), caps at 5 unique domains. Each
-// chip links to its first occurrence URL — preserves "this is the
-// page we cited" sense over a generic homepage. Pre-Phase-H pieces,
-// the legacy Camp Mystic piece (string-shape only), and Phase-A
-// pieces where Claude didn't emit URLs all collapse to an empty
-// list → no Sources line rendered.
-const sourceDomains: Array<{ host: string; url: string }> = [];
-if (Array.isArray(claimReviews)) {
-  const urls = claimReviews
-    .filter(
-      (item): item is { claim: string; sources?: string[] } =>
-        typeof item === 'object' && item !== null && 'claim' in item,
-    )
-    .flatMap((item) => item.sources ?? [])
-    .filter((u): u is string => typeof u === 'string' && u.length > 0);
-  const seen = new Set<string>();
-  for (const url of urls) {
-    try {
-      const host = new URL(url).hostname.replace(/^www\./, '');
-      if (seen.has(host)) continue;
-      seen.add(host);
-      sourceDomains.push({ host, url });
-      if (sourceDomains.length >= 5) break;
-    } catch {
-      /* malformed URL — skip */
-    }
-  }
-}
 ---
 
 <BaseLayout
@@ -186,25 +152,6 @@ if (Array.isArray(claimReviews)) {
       </>
     )}
   </p>
-
-  {sourceDomains.length > 0 && (
-    <p class="text-sm text-zee-muted mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span>Sources:</span>
-      {sourceDomains.map((d, i) => (
-        <>
-          {i > 0 && <span class="opacity-40" aria-hidden="true">·</span>}
-          <a
-            href={d.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
-          >
-            {d.host}
-          </a>
-        </>
-      ))}
-    </p>
-  )}
 
   {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
 

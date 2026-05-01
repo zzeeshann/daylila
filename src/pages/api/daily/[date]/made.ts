@@ -178,6 +178,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       const voice = group.find((g) => g.auditor === 'voice');
       const structure = group.find((g) => g.auditor === 'structure');
       const fact = group.find((g) => g.auditor === 'fact');
+      const factShape = parseFact(fact?.notes);
 
       return {
         round,
@@ -192,7 +193,10 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         },
         fact: {
           passed: !!fact?.passed,
-          claims: parseClaims(fact?.notes),
+          claims: factShape.claims,
+          ...(factShape.sources && factShape.sources.length > 0
+            ? { sources: factShape.sources }
+            : {}),
         },
       };
     });
@@ -482,36 +486,37 @@ function parseStringArray(notes: string | null | undefined): string[] {
   }
 }
 
-function parseClaims(notes: string | null | undefined): MadeFactClaim[] {
-  if (!notes) return [];
+/**
+ * Parse the `audit_results.notes` JSON for the fact-checker round into
+ * the drawer-shaped {claims, sources}.
+ *
+ * Two persisted shapes accepted:
+ *   - Pre-Path-A (≤ 2026-04-30): bare claims array (no top-level sources).
+ *     `JSON.stringify(facts.claims)` was persisted directly; sources lived
+ *     per-claim under Phase F.
+ *   - Path A (≥ 2026-05-01): full FactCheckResult object — `{passed, claims,
+ *     searchUsed, searchAvailable, sources}`. The flat `sources` URL list
+ *     drives the drawer's "Sources consulted" line.
+ */
+function parseFact(
+  notes: string | null | undefined,
+): { claims: MadeFactClaim[]; sources?: string[] } {
+  if (!notes) return { claims: [] };
   try {
     const parsed = JSON.parse(notes);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((c) => c && typeof c === 'object' && typeof c.claim === 'string')
-      .map((c: any) => {
-        const claim: MadeFactClaim = {
-          claim: c.claim,
-          status: typeof c.status === 'string' ? c.status : undefined,
-          note: typeof c.note === 'string' ? c.note : undefined,
-        };
-        // Phase F (2026-04-30): per-claim sources from web_search citations.
-        // Pre-Phase-F audit rows have no `sources` field; map to nothing.
-        // Each source should carry url + optional title/citedText/searchQuery.
-        if (Array.isArray(c.sources)) {
-          const sources = c.sources
-            .filter((s: any) => s && typeof s === 'object' && typeof s.url === 'string' && s.url.length > 0)
-            .map((s: any) => ({
-              url: s.url,
-              title: typeof s.title === 'string' ? s.title : undefined,
-              citedText: typeof s.citedText === 'string' ? s.citedText : undefined,
-              searchQuery: typeof s.searchQuery === 'string' ? s.searchQuery : undefined,
-            }));
-          if (sources.length > 0) claim.sources = sources;
-        }
-        return claim;
-      });
+    const rawClaims = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.claims) ? parsed.claims : []);
+    const claims = rawClaims
+      .filter((c: any) => c && typeof c === 'object' && typeof c.claim === 'string')
+      .map((c: any) => ({
+        claim: c.claim,
+        status: typeof c.status === 'string' ? c.status : undefined,
+        note: typeof c.note === 'string' ? c.note : undefined,
+      } as MadeFactClaim));
+    const sources = !Array.isArray(parsed) && Array.isArray(parsed?.sources)
+      ? parsed.sources.filter((s: any): s is string => typeof s === 'string' && s.length > 0)
+      : undefined;
+    return sources ? { claims, sources } : { claims };
   } catch {
-    return [];
+    return { claims: [] };
   }
 }

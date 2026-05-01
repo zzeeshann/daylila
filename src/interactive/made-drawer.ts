@@ -15,7 +15,7 @@
 
 import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { pipelineStepLabel } from '../lib/pipeline-steps';
-import type { MadeEnvelope, MadeFactClaim, MadeFactClaimSource } from '../lib/made-by';
+import type { MadeEnvelope, MadeFactClaim } from '../lib/made-by';
 
 /**
  * Voice-contract rules shown as a plain reference card. The drawer does
@@ -488,7 +488,7 @@ function renderRound(r: MadeEnvelope['rounds'][number], isLatest: boolean): stri
           <span class="made-gate-label">Facts</span>
           <span class="made-gate-verdict ${r.fact.passed ? 'made-gate-verdict-ok' : 'made-gate-verdict-mixed'}">${r.fact.passed ? 'Passing' : 'Mixed'}</span>
         </div>
-        ${renderClaims(r.fact.claims)}
+        ${renderClaims(r.fact.claims, r.fact.sources)}
       </div>
 
       <div class="made-gate">
@@ -545,85 +545,68 @@ function sanitizeFactNote(note: string): string {
 }
 
 /**
- * Render the per-claim sources sub-section (Phase F + G).
+ * Render the round-level "Sources consulted" line (Path A, 2026-05-01).
  *
- * Per Anthropic's web_search docs: when displaying API outputs to end
- * users, citations must be included to the original source. Each source
- * carries:
- *   - clickable link (title or domain), opens in new tab
- *   - searched-for query as muted eyebrow above the link group (one
- *     per claim, takes the first source's query — multiple queries per
- *     claim are rare with max_uses: 8)
- *   - verbatim cited_text snippet as a quoted blockquote under the link
+ * Replaces Phase F+G's per-claim source sub-section. Reads the flat
+ * `result.sources: string[]` Anthropic's web_search returned across the
+ * whole audit (harvested server-side from `web_search_result_location`
+ * citation metadata). Dedups by hostname (strips `www.`), caps at 5
+ * unique domains, renders one small line under the claims list:
  *
- * Caps at 3 sources (matches the prompt cap). Defensive: empty input
- * returns empty string so back-compat with pre-Phase-F audit rows holds.
+ *   Sources consulted: nytimes.com · reuters.com · bbc.com
+ *
+ * Each domain links to its first-occurrence URL. Empty input returns
+ * empty string — pre-Path-A audit rows have no top-level `sources`
+ * field, so the line gracefully omits.
  */
-const SOURCE_CAP = 3;
-
-function domainOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-function renderClaimSources(sources: MadeFactClaimSource[] | undefined): string {
+function renderFactSources(sources: string[] | undefined): string {
   if (!Array.isArray(sources) || sources.length === 0) return '';
-  const capped = sources.slice(0, SOURCE_CAP);
-  const overflow = sources.length - capped.length;
-
-  // Take the first non-empty searchQuery as the per-claim eyebrow
-  // (most claims trigger one search; multiple queries per claim are
-  // rare and the first is the most representative).
-  const firstQuery = capped.find((s) => s.searchQuery && s.searchQuery.length > 0)?.searchQuery;
-
-  const links = capped.map((s) => {
-    const label = s.title && s.title.trim().length > 0 ? s.title.trim() : domainOf(s.url);
-    const linkHtml = `<a class="made-claim-source-link" href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)} <span aria-hidden="true">↗</span></a>`;
-    const quoteHtml = s.citedText && s.citedText.trim().length > 0
-      ? `<blockquote class="made-claim-source-quote">${escapeHtml(s.citedText.trim())}</blockquote>`
-      : '';
-    return `<li class="made-claim-source-item">${linkHtml}${quoteHtml}</li>`;
-  }).join('');
-
-  const overflowNote = overflow > 0
-    ? `<li class="made-claim-source-overflow">+${overflow} more</li>`
-    : '';
-
-  const eyebrow = firstQuery
-    ? `<p class="made-claim-source-eyebrow">Searched: ${escapeHtml(`"${firstQuery}"`)}</p>`
-    : '';
-
-  return `
-    <div class="made-claim-sources">
-      ${eyebrow}
-      <ul class="made-claim-source-list">${links}${overflowNote}</ul>
-    </div>
-  `;
+  const seen = new Set<string>();
+  const domains: Array<{ host: string; url: string }> = [];
+  for (const url of sources) {
+    if (typeof url !== 'string' || url.length === 0) continue;
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, '');
+      if (seen.has(host)) continue;
+      seen.add(host);
+      domains.push({ host, url });
+      if (domains.length >= 5) break;
+    } catch {
+      /* malformed URL — skip */
+    }
+  }
+  if (domains.length === 0) return '';
+  const links = domains
+    .map(
+      (d, i) =>
+        `${i > 0 ? '<span class="made-fact-sources-sep" aria-hidden="true">·</span>' : ''}<a class="made-fact-sources-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.host)}</a>`,
+    )
+    .join('');
+  return `<p class="made-fact-sources"><span class="made-fact-sources-label">Sources consulted:</span>${links}</p>`;
 }
 
-function renderClaims(claims: MadeFactClaim[]): string {
-  if (claims.length === 0) return `<p class="made-list-empty">No claims reviewed.</p>`;
-  return `<ul class="made-list">${claims.map((c) => {
+function renderClaims(claims: MadeFactClaim[], sources: string[] | undefined): string {
+  const sourcesHtml = renderFactSources(sources);
+  if (claims.length === 0) {
+    return `<p class="made-list-empty">No claims reviewed.</p>${sourcesHtml}`;
+  }
+  const claimsHtml = `<ul class="made-list">${claims.map((c) => {
     const statusCls = c.status === 'verified' ? 'made-claim-verified'
       : c.status === 'unverified' ? 'made-claim-unverified'
       : c.status === 'contested' || c.status === 'incorrect' ? 'made-claim-contested'
       : 'made-claim-unverified';
     const safeNote = c.note ? sanitizeFactNote(c.note) : '';
-    const sourcesHtml = renderClaimSources(c.sources);
     return `
       <li>
         <div class="made-claim">
           <span>${escapeHtml(c.claim)}</span>
           ${c.status ? `<span class="made-claim-status ${statusCls}">${escapeHtml(c.status)}</span>` : ''}
           ${safeNote ? `<span class="made-claim-note">${escapeHtml(safeNote)}</span>` : ''}
-          ${sourcesHtml}
         </div>
       </li>
     `;
   }).join('')}</ul>`;
+  return `${claimsHtml}${sourcesHtml}`;
 }
 
 /**

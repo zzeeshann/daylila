@@ -149,6 +149,17 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 
 **Updated 2026-05-01 for Phase A (soft prompt nudge + aggregate Sources line):** the watch criteria now ALSO cover whether the prompt nudge bites (sources_json populating in `daily_audit_claims`) and the new aggregate Sources line on the rendered piece. The 2026-04-30 known-limitation (empty-sources field across all Camp Mystic claims) is the baseline we're trying to move off. See DECISIONS 2026-05-01 "FactChecker Phase A — soft prompt nudge for sources + aggregate Sources line".
 
+**Updated 2026-05-01 evening — Path A supersedes Phase A.** First post-deploy Phase A cron piece (Linux kernel CVE-2026-31431, `99b4187f`) showed 0/10 verified claims with URLs, identical to Camp Mystic baseline — the soft nudge did not bite. Diagnosis was a design mistake, not Claude behaviour: we were asking Claude to retype URLs Anthropic already auto-attaches as citation metadata in the response. Path A drops the Claude self-report entirely. Agent harvests citation URLs server-side into a flat `result.sources: string[]`; drawer Facts section ends with one "Sources consulted: domain1 · domain2 · …" line. Per-claim drawer sub-section (Phase F+G) deleted — was 0% populated in production. Page-level aggregate Sources line at the meta-line (morning's Phase A) reverted — sources belong with fact-check data, in the drawer. **The new criteria below subsume Phase A's criteria** (sources_json column now writes NULL by design; the citation harvest lives in audit_results.notes top-level `sources` field). See DECISIONS 2026-05-01 evening "FactChecker Path A — flat citation harvest, drawer-only Sources line".
+
+**Path A criteria (2026-05-01 evening onward):**
+- **Drawer Facts section** renders a "Sources consulted: domain1 · domain2 · …" line under the claims list with ≥2 distinct domains on every news-driven piece.
+- **D1 sanity:** `SELECT json_extract(notes, '$.sources') FROM audit_results WHERE piece_id = '<NEW>' AND auditor = 'fact'` returns a non-empty JSON array of URLs (the agent's flat citation harvest).
+- **Page header** has NO aggregate Sources line — only the existing date / time / subject / Source: NYT ↗ meta line. (Morning's Phase A LessonLayout addition correctly reverted.)
+- **No regression** on ClaimReview JSON-LD count (still one per verified claim from frontmatter).
+- **No Sources line** acceptable when `searchUsed=false` on a piece (Claude declined to search at all — rare on news pieces).
+- **Phase F+G drawer per-claim sub-section** confirmed deleted across all pieces (no `.made-claim-sources` nodes in any rendered drawer).
+- **Notes JSON shape:** post-Path-A audit rows persist the full `FactCheckResult` object (`{passed, claims, searchUsed, searchAvailable, sources}`). Pre-Path-A rows still have the bare `claims` array. The API endpoint's `parseFact` helper handles both — future admin tooling reading `audit_results.notes` should also handle both shapes.
+
 **What we want to see in the next 5–10 cron-generated daily pieces** (≈2026-05-01 02:00 UTC onward):
 
 - Every piece's `audit_results` row for the `fact` auditor has `searchUsed=true` (news-anchored claims should trigger searches; the only way to ship `searchUsed=false` is for Claude to judge every claim verifiable from training data alone, which should be rare on news-driven pieces).

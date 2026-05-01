@@ -2,6 +2,51 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-01 evening: FactChecker Path A — flat citation harvest, drawer-only Sources line
+
+**Context.** Phase A this morning (commit `ca36448`) tried a soft prompt nudge to coax Claude into populating per-claim `sources`. First post-deploy cron piece (Linux kernel CVE-2026-31431, `99b4187f`) at 14:00 UTC: 0/10 verified claims had URLs — same as Camp Mystic baseline. Operator's read on the data was correct: *"so for my understanding you are saying we generate the urls we do the work and the claude wont??? could you please be more clear"* → *"so that means it is our mistake, why are we even asking claude"*. They were right. The design was asking Claude to retype URLs Anthropic already provides in the response.
+
+**Decisions.**
+
+**Decision 1 — Diagnosis: design mistake, not Claude behaviour.** Anthropic's web_search response carries URLs in two parallel tracks:
+- (A) Citation metadata auto-attached to text blocks (always present when web_search fires; Anthropic's contract; not optional)
+- (B) Whatever JSON `sources` field we ask Claude to emit (Claude's choice)
+
+Phase F (2026-04-30) wired the design around track B and used track A only as a hallucination-defense layer (drop URLs Claude named that don't appear in track A). Inverted reality. Track A is the source of truth; track B is redundant retyping. Claude correctly noticed and skipped. The notes prove the consumption pattern: specific 2026-04-29 CVE detail in claim text + attributive prose ("Confirmed: CVE-2026-31431…", "according to multiple sources") = Claude is reading citation content, just not retyping URLs.
+
+**Decision 2 — Drop Phase F+G's per-claim self-report architecture entirely.** Three options considered:
+- (A) Stronger prompt nudge (worked before/after JSON example showing populated-sources output). Rejected — still fighting the model. A bigger nudge against a strong behaviour pattern is just a bigger hack.
+- (B) Server-side per-claim attribution via search-query / claim-text token overlap (Jaccard, TF-IDF, embedding match). Rejected by operator: *"all this matching things that is useless work, i dont want to do that extra work."*
+- (C) **Picked.** Drop per-claim attribution entirely. Harvest all citation URLs into a flat `result.sources: string[]` (deduped). Render one round-level "Sources consulted" line under the Facts section. No proximity matching, no Claude self-report, no fight.
+
+**Decision 3 — Sources line lives in the drawer's Facts section, not at the page header.** Operator caught my initial misplacement during plan review: *"just to make sure we are doing this: …render a flat 'Sources consulted' line under the Facts section of each piece."* Sources are fact-check transparency — they belong with the fact-check data, in the drawer, not as page chrome. Reverted morning's Phase A LessonLayout aggregate line + content schema union + frontmatter splice for Phase A's per-claim `{claim, sources}` shape. The drawer reads `result.sources` from `audit_results.notes` directly via the API endpoint; no frontmatter splice needed.
+
+**Decision 4 — Persist full FactCheckResult in `audit_results.notes`, not just the claims array.** Pre-Path-A: `JSON.stringify(facts.claims)` was persisted (just the array). Path A: `JSON.stringify(facts)` (full object including `sources`, `searchUsed`, `searchAvailable`). The drawer's API endpoint needs the flat sources field. Cost: trivial (~50-100 bytes of extra JSON per audit row). Back-compat: API endpoint's new `parseFact` helper handles both shapes — `Array.isArray(parsed) ? parsed : parsed.claims` — so 23 historical rows continue rendering correctly.
+
+**Decision 5 — Drop Phase F+G drawer per-claim sub-section.** Phase F+G shipped `renderClaimSources` (per-claim drawer sub-section showing clickable links + cited_text + searchQuery eyebrow) on 2026-04-30 with the design intent of letting readers click into each claim. In production: 0% populated across both Phase-F-shipped pieces (Camp Mystic 0/5, Linux 0/10). The transparency value was structural (the section existed) but content-empty. Removing it now is a net simplification with no transparency loss in the data we actually have. Future "Phase F+G v2" can resurrect the rendering if there's product motivation; the citation metadata still flows through the audit JSON, just not into the per-claim D1 columns.
+
+**Decision 6 — `daily_audit_claims.sources_json` + `.search_query` columns stay, write NULL.** Migration 0028 added these columns (Phase I); refactor stops writing per-claim source data into them. Migration to drop the columns is bigger blast radius (rebuild + index changes) than keeping them dormant. Additive nullable schema is fine to leave behind. If a future use case wants per-claim sources, the data path can be re-enabled by repopulating from `audit_results.notes` JSON.
+
+**Decision 7 — One-shot frontmatter fix on the Linux piece, not schema retain-union.** Today's Linux piece (the only post-Phase-A artefact) carried `claimReviews: [{claim, sources: []}, ...]` — would fail the reverted plain-string schema. Two options: (a) keep the schema union for back-compat and drop in a follow-up commit; (b) hand-edit the Linux piece's frontmatter to flatten back to `claimReviews: ["string", "string"]`. Picked (b) — clean schema is worth the 10-claim manual edit. Falls under the metadata-carve-out (frontmatter values aren't body content) per the permanence rule.
+
+**Trade-offs.**
+
+- **Lost: per-claim drawer transparency.** Phase F+G's design intent was per-claim drilldown; Path A delivers round-level transparency only. In practice we lose 0% of populated transparency (it was empty), but architecturally we lose the affordance.
+- **Gained: simplicity.** ~120 lines deleted, ~40 added. One source of truth for URLs (citation metadata, not Claude self-report). No hallucination-defense layer (citations are guaranteed authentic by Anthropic's pipeline). Claude isn't asked for one fewer thing → marginally cheaper tokens, less brittle output.
+- **Gained: guaranteed populated.** Every cron piece that fires web_search will have a populated `result.sources` (the citation metadata is always there when search fires; Anthropic's contract). Reader-facing Sources line should appear on every news-driven piece going forward.
+
+**What this enables.** Future "source diversity" health metrics (e.g. "Zeemish cited 47 unique domains across 60 pieces this month") can be derived by aggregating `audit_results.notes` JSON. A future per-claim ClaimReview JSON-LD with source citations could be re-introduced via the citation metadata if Google's IFCN policy ever rewards 2-week-old sites — same data path, just different consumer.
+
+**Risk notes.**
+
+- **Notes JSON shape migration.** The shape change (claims array → full result object) requires the API endpoint's `parseFact` to handle both. Tested locally with synthetic shapes; future admin tooling reading `audit_results.notes` should also handle both. Documented in CLAUDE.md.
+- **Linux piece frontmatter edit.** Falls under metadata-carve-out per the permanence rule. Body content untouched.
+- **Phase F+G drawer code path removed.** If a future product decision wants per-claim sources back in the drawer, code is recoverable from git history (commit `94d042f` for the Phase F+G shape, commit `cf01e54` for the parseClaims sources passthrough hotfix).
+
+**Verification.** `pnpm build` clean across 26 daily pieces. `pnpm verify-fact-checker` 8/8 (was 10; dropped 3 obsolete cases for cross-reference defense + per-claim self-report + per-claim searchQuery; rewrote case 6 to assert flat sources; added case 8 for production-shape "no sources field in Claude JSON"). Agents typecheck baseline 26 unchanged. Synthetic drawer render test passed. Mobile (375px) wraps cleanly. Graceful-omit on pre-Path-A rows confirmed.
+
+**Files touched.** `agents/src/fact-checker-prompt.ts`, `agents/src/fact-checker.ts`, `agents/src/director.ts`, `agents/scripts/verify-fact-checker.mjs`, `src/content.config.ts`, `src/layouts/BaseLayout.astro`, `src/layouts/LessonLayout.astro`, `src/lib/made-by.ts`, `src/pages/api/daily/[date]/made.ts`, `src/interactive/made-drawer.ts`, `src/styles/made.css`, `content/daily-pieces/2026-05-01-the-most-severe-linux-threat-to-surface-in-years-catches-the.mdx`. Plan: `~/.claude/plans/this-is-message-for-soft-deer.md`.
+
 ## 2026-05-01: FactChecker Phase A — soft prompt nudge for sources + aggregate Sources line
 
 **Context.** 2026-04-30 Phases F+G+H+I shipped per-claim citations + cited_text in the drawer + ClaimReview JSON-LD + per-claim audit table. The end-of-session note flagged a known limitation: the structured `sources` URL array on each claim was coming back **empty in production** on the only Phase-H piece (Camp Mystic). Claude was verifying via `web_search`, writing prose attribution into `note` ("Confirmed by Nature article published April 29-30, 2026 by Ibrahim, Hafner, and Rocher"), but skipping the structured field. Operator next-session prompt asked for two changes — a soft prompt nudge for sources AND a small reader-facing aggregate Sources line on each daily piece.

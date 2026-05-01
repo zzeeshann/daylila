@@ -45,28 +45,19 @@ export interface MadeFactClaim {
   claim: string;
   status?: string;
   note?: string;
-  /** Per-claim sources from FactChecker's web_search citations.
-   *  Populated 2026-04-30 (Phase F) onward; absent on the 23
-   *  pre-Phase-F audit rows — drawer renders gracefully without. */
-  sources?: MadeFactClaimSource[];
-}
-
-export interface MadeFactClaimSource {
-  url: string;
-  title?: string;
-  /** Verbatim ≤150-char snippet from the source page (Anthropic
-   *  web_search `cited_text`). Renders as a quoted blockquote under
-   *  the source link in the drawer. */
-  citedText?: string;
-  /** The text Claude searched for (`server_tool_use.input.query`)
-   *  before this URL surfaced. Renders as a muted "Searched: '…'"
-   *  eyebrow. */
-  searchQuery?: string;
 }
 
 export interface MadeFacts {
   passed: boolean;
   claims: MadeFactClaim[];
+  /** Flat dedup-by-URL list of every citation Anthropic web_search
+   *  returned during this round's fact-check audit. Drawer renders a
+   *  "Sources consulted" line under the claims list. Empty/absent on
+   *  pre-Path-A audit rows (the agent persisted only the claims
+   *  array before 2026-05-01); the drawer omits the line in that
+   *  case. Path A (2026-05-01) replaced Phase F's per-claim source
+   *  attribution with this flat round-level list. */
+  sources?: string[];
 }
 
 export interface MadeRound {
