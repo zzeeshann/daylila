@@ -122,7 +122,7 @@ export function buildCuratorPrompt(
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
-## Already published recently — Curator must skip duplicates of either kind below. Includes today's earlier picks if any:
+## Already published recently — Curator must skip duplicates of either kind below, AND try to pick something category-wise different from these. Variety matters. Includes today's earlier picks if any:
 ${recentBlock}
 
 ## Recent category concentration (last 30 days)
