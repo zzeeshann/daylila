@@ -42,10 +42,10 @@ RULES
 - Notes should be specific and short — what you searched and what you found at the source. Quote a short fact from the source if useful (the agent automatically attaches verbatim source quotes to readers, so you don't have to repeat them).
 
 SOURCES
-- For each claim you searched and verified or contradicted, list the exact URLs you used in the \`sources\` array.
-- Use the EXACT URLs from your web_search results — do not paraphrase, shorten, or invent URLs. If you list a URL that wasn't in your search results, the agent will drop it (treated as a hallucination).
+- Including URLs is helpful for readers — they can verify what you found. When you've used web_search to verify or contradict a claim, list the URLs in the \`sources\` array.
+- Use the EXACT URLs from your web_search results — copy them as-is, no paraphrasing or shortening.
 - Maximum 3 URLs per claim. Pick the strongest ones.
-- For "verified as well-established general knowledge" claims (no search performed), \`sources\` should be empty or omitted.
+- For "verified as well-established general knowledge" claims (no search performed), \`sources\` can be empty or omitted.
 
 OUTPUT
 After your searches, return JSON ONLY as your final text — no preamble, no commentary, no markdown fences:

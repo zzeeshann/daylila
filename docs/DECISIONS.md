@@ -2,6 +2,50 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-01: FactChecker Phase A — soft prompt nudge for sources + aggregate Sources line
+
+**Context.** 2026-04-30 Phases F+G+H+I shipped per-claim citations + cited_text in the drawer + ClaimReview JSON-LD + per-claim audit table. The end-of-session note flagged a known limitation: the structured `sources` URL array on each claim was coming back **empty in production** on the only Phase-H piece (Camp Mystic). Claude was verifying via `web_search`, writing prose attribution into `note` ("Confirmed by Nature article published April 29-30, 2026 by Ibrahim, Hafner, and Rocher"), but skipping the structured field. Operator next-session prompt asked for two changes — a soft prompt nudge for sources AND a small reader-facing aggregate Sources line on each daily piece.
+
+**Decisions.**
+
+**Decision 1 — Cause of empty `sources` field: prompt suppression, not SDK shape.** The SOURCES section in [agents/src/fact-checker-prompt.ts](agents/src/fact-checker-prompt.ts) carried the line *"If you list a URL that wasn't in your search results, the agent will drop it (treated as a hallucination)"* — defensive language explaining the parseResponse-side cross-reference. From Claude's POV at runtime, it reads as "URLs are risky to emit; missing them is the safe choice." Reframed positively as *"Including URLs is helpful for readers — they can verify what you found."* Same exact-URL requirement (no paraphrasing); same 3-URL cap; same general-knowledge exemption. The agent-side hallucination-defense in `parseResponse` (matching Claude's named URLs against `citationsByUrl` from web_search response blocks) is unchanged. ~5 lines of prompt edit.
+
+**Decision 2 — Splice shape: extend `claimReviews` to `Array<{claim, sources?}>`, not add a separate `factSources` field.** Two paths considered:
+- (A) Extend `claimReviews` from `string[]` to `Array<{claim, sources?: string[]}>`. Wider blast radius (schema widening + BaseLayout iterator normalization), preserves claim→source association cleanly. **Picked.**
+- (B) Keep `claimReviews: string[]` as-is, add a flat `factSources: string[]` field for the aggregate. Simpler, but loses the per-claim association. Rejected because the structured shape lets future per-claim ClaimReview citation rich-results land without another schema migration.
+
+**Decision 3 — Schema back-compat: union, not Camp Mystic frontmatter rewrite.** The single Phase-H piece (Camp Mystic) carries `claimReviews: ["string", "string"]` in frontmatter — would fail a strict object-shape schema. Two options:
+- (A) Manually rewrite Camp Mystic's frontmatter to the new shape (one-shot metadata-carve-out edit). Preserves a clean single schema. Rejected — extra surgery for one piece.
+- (B) Schema union: `z.union([z.string(), z.object({claim, sources?})])` per item. Legacy branch keeps Camp Mystic working untouched. BaseLayout JSON-LD iterator handles both. **Picked** — minimal blast radius, going-forward-only matches operator preference everywhere else.
+
+**Decision 4 — Aggregate line layout: below existing meta line, not as a third item inline.** The meta line is already `time · subject · Source: NYT ↗`. Adding `· Sources: nytimes.com · reuters.com · bbc.com` inline would crowd the line at multi-domain. New separate line below preserves readability and matches the visual hierarchy (date → meta → made-by trigger). Visual idiom mirrored: same `text-sm text-zee-muted flex flex-wrap items-center gap-x-2 gap-y-1`, same mid-dot opacity-40 separators, same link styling. Reads as same visual weight as the meta line — quietly transparent, not a CTA.
+
+**Decision 5 — Dedup by hostname, link to first occurrence URL, cap at 5.** Domain-level dedup matches reader intuition ("which outlets did the fact-check consult?"). First-occurrence URL preserves "this is the page we cited" semantics over a generic homepage redirect. Cap at 5 to prevent layout overflow on heavily-cited pieces; max practical claims per piece ≈ 8-10 × 3 URLs = 30 URLs, but unique domains rarely exceed 5 in news fact-checking.
+
+**Decision 6 — Empty `sources: []` arrays kept on the splice output.** Director's splice now emits `{claim, sources: []}` for verified claims that didn't trigger a search OR where Claude didn't emit URLs. Preserves shape consistency across all verified claims (one entry per claim, regardless of source emission). Reader rendering filters at the dedup stage — empty sources contribute no URLs to the aggregate, so the line silently omits when nothing useful is available. Trade-off: ClaimReview JSON-LD emits even for empty-sources claims (claim text alone is the rich-result payload, sources are not part of the schema.org shape we emit anyway).
+
+**Decision 7 — Out of scope: Drafter web_search, per-claim ClaimReview citations, domain filtering.** Each agent has one job — web_search lives with FactChecker. Per-claim ClaimReview citations would over-engineer for SERP signals Google's IFCN policy doesn't reward yet. Domain filtering / localization / source-ranking has no data motivating it.
+
+**Trade-offs.**
+
+- The prompt nudge is a soft lever — Claude may still skip the `sources` field for some claims even with positive framing. Forward observation across the next 3-5 cron pieces will tell whether a stronger nudge (worked before/after JSON example) is needed.
+- Schema union adds one branch of complexity to BaseLayout's iterator. Single line of normalization (`typeof item === 'string' ? item : item?.claim`) is the entire cost.
+- Aggregate Sources line shows domains (e.g. `nytimes.com`) not titles (e.g. `NYT — "Texas camp halts reopen"`). Domain is more compact but loses article specificity. Drawer keeps the full per-claim title + cited_text, so the trade-off is: meta-line aggregate = quick recognition; drawer = full context.
+- Empty `sources: []` arrays are present in stored frontmatter — slightly verbose YAML but correct shape. Could be filtered at splice time, but the cost of preserving shape for downstream consumers (future per-claim audit rendering, debugging, JSON-LD source emission) outweighs ~30 bytes of YAML per piece.
+
+**Risk notes.**
+
+- **Prompt nudge not biting on first cron pieces** — escalation path is documented (worked before/after JSON example in the SOURCES section). No production blockage; the system continues to ship pieces with empty-sources arrays gracefully (no Sources line rendered, no JSON-LD impact).
+- **Schema union failure** — if a future Phase B piece writes a third shape (e.g. adding `cited_text` to the object), the union needs another branch. Same forward-only pattern works.
+
+**What this enables.**
+
+A future per-claim ClaimReview JSON-LD citation block can read `item.sources` directly — no schema migration needed. Future "source diversity" health metrics (e.g. "Zeemish cited 47 unique domains across 60 pieces this month") can be derived from the new structured field.
+
+**Verification.** Site `pnpm build` clean across all 25 daily pieces (Camp Mystic legacy strings exercise the union's legacy branch). `pnpm verify-fact-checker` 10/10 (parseResponse logic untouched). Agents typecheck 26 pre-existing `server.ts` errors — matches baseline; touched files compile clean. Synthetic test on smell-maps piece (3 claims, 3 URLs across 2 distinct domains, 1 empty-sources): rendered `Sources: nature.com · sciencedaily.com` with correct dedup of duplicate nature.com URL, empty-sources claim correctly omitted, links target=_blank rel=noopener noreferrer; mobile (375px) wraps cleanly. 3 ClaimReview JSON-LD blocks emit from the object shape. Camp Mystic legacy: still emits 5 ClaimReview blocks via normalizer, no Sources line (legacy strings carry no URLs). Synthetic MDX edit reverted before commit.
+
+**Files touched.** `agents/src/fact-checker-prompt.ts`, `agents/src/director.ts`, `src/content.config.ts`, `src/layouts/BaseLayout.astro`, `src/layouts/LessonLayout.astro`. Plan: `~/.claude/plans/this-is-message-for-soft-deer.md`.
+
 ## 2026-04-30 (after Phase F+G): JSON-LD ClaimReview + per-claim audit table (Phase H + I)
 
 **Context.** After Phase F+G shipped per-claim citations in the drawer, operator's "go keep going" green-lit Phase H + I. Plus a critical mid-flight bug discovery: the made-by API endpoint's `parseClaims` was hand-mapping each claim to `{claim, status, note}` only, silently stripping the new `sources` field Phase F started writing. Phase F's data was reaching D1 but not the drawer. Hotfix shipped first (`cf01e54`), then H + I as one commit.

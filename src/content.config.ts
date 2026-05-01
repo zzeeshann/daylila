@@ -61,14 +61,30 @@ const dailyPieces = defineCollection({
     // link omits when absent.
     sourceUrl: z.string().url().optional(),
     // Verified factual claims for schema.org ClaimReview JSON-LD render
-    // (Phase H, 2026-04-30 after Phase F+G). Spliced by Director from
-    // the final round's verified-status claims. Sanity-capped at 20 in
-    // the splicer. Optional — pre-Phase-H pieces have no field; older
-    // audits without `sources` enrichment are still verifiable since
-    // ClaimReview only needs the claim text + piece URL + org +
-    // rating, not the per-claim source URLs (those live in
-    // audit_results.notes for the drawer's per-claim sources sub-section).
-    claimReviews: z.array(z.string()).optional(),
+    // (Phase H, 2026-04-30) + reader-facing aggregate Sources line
+    // below the meta line (Phase A, 2026-05-01). Spliced by Director
+    // from the final round's verified-status claims. Sanity-capped at
+    // 20 in the splicer. Optional — pre-Phase-H pieces have no field.
+    //
+    // Two shapes accepted via union:
+    //   - Phase H legacy `string` (the single 2026-04-30 Camp Mystic
+    //     piece) — claim text only, no source URLs.
+    //   - Phase A object `{claim, sources?}` (2026-05-01 onward) —
+    //     claim text plus the verified URLs Claude cited via
+    //     web_search. BaseLayout's JSON-LD iterator normalizes both
+    //     shapes; LessonLayout renders the Sources line only when at
+    //     least one object item carries a usable URL.
+    claimReviews: z
+      .array(
+        z.union([
+          z.string(),
+          z.object({
+            claim: z.string(),
+            sources: z.array(z.string()).optional(),
+          }),
+        ]),
+      )
+      .optional(),
   }),
 });
 

@@ -452,19 +452,26 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       }
     }
 
-    // Splice `claimReviews` into frontmatter (Phase H, 2026-04-30 after
-    // Phase F+G). Just the verified claim text strings — JSON-LD
-    // ClaimReview render in BaseLayout consumes them. The full sources
-    // (URLs, cited_text) stay in audit_results.notes for the drawer;
-    // ClaimReview only needs claimReviewed text, the piece URL, the
-    // org, and a rating. Empty array → no splice → no JSON-LD emitted.
+    // Splice `claimReviews` into frontmatter. Phase H (2026-04-30)
+    // shipped this as a flat string[] of verified claim text. Phase A
+    // (2026-05-01) widens each item to {claim, sources?: string[]} so
+    // the reader-facing aggregate Sources line on the daily piece can
+    // dedup URLs by domain. JSON-LD ClaimReview render in BaseLayout
+    // normalizes both shapes. Empty `sources: []` arrays are kept on
+    // purpose — preserves shape for pieces where Claude didn't emit
+    // URLs; reader rendering filters them at the dedup stage.
     // Sanity cap at 20 to prevent any single piece dumping a giant
     // frontmatter array if Drafter ever writes 50+ claims.
     if (lastFactResult && lastFactResult.claims.length > 0) {
       const verifiedClaims = lastFactResult.claims
         .filter((c) => c.status === 'verified')
-        .map((c) => c.claim)
-        .filter((s): s is string => typeof s === 'string' && s.length > 0)
+        .filter((c) => typeof c.claim === 'string' && c.claim.length > 0)
+        .map((c) => ({
+          claim: c.claim,
+          sources: (c.sources ?? [])
+            .map((s) => s.url)
+            .filter((u): u is string => typeof u === 'string' && u.length > 0),
+        }))
         .slice(0, 20);
       if (verifiedClaims.length > 0) {
         currentMdx = currentMdx.replace(

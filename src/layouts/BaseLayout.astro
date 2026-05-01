@@ -32,8 +32,12 @@ interface Props {
    *  to end users, citations must be included to the original source."
    *  ClaimReview is the machine-readable layer of that compliance
    *  posture; the per-claim sources sub-section in the drawer is the
-   *  human-readable layer. */
-  claimReviews?: string[];
+   *  human-readable layer.
+   *
+   *  Phase A (2026-05-01) widened the per-item shape to a union of
+   *  legacy strings (Camp Mystic) and {claim, sources?} objects.
+   *  The iterator below normalizes both. */
+  claimReviews?: Array<string | { claim: string; sources?: string[] }>;
 }
 
 const { title, description, ogType = 'website', article, learningResource, claimReviews } = Astro.props;
@@ -150,7 +154,8 @@ if (article) {
 let claimReviewJsonLds: string[] = [];
 if (article && Array.isArray(claimReviews) && claimReviews.length > 0) {
   const isoPublished = new Date(article.publishedAt).toISOString();
-  for (const claimText of claimReviews) {
+  for (const item of claimReviews) {
+    const claimText = typeof item === 'string' ? item : item?.claim;
     if (typeof claimText !== 'string' || claimText.length === 0) continue;
     const schema = {
       '@context': 'https://schema.org',
