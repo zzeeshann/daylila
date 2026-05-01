@@ -15,15 +15,65 @@ interface ScannerState {
   candidateCount: number;
 }
 
-// Google News RSS feeds — free, no API key needed
+// RSS feeds — free, no API key needed.
+//
+// 6 Google News topic feeds (TOP / TECHNOLOGY / SCIENCE / BUSINESS /
+// HEALTH / WORLD) supply the news anchor that the daily-piece concept
+// needs. These re-aggregate wire services and skew toward
+// breaking-news / crisis / policy framings.
+//
+// 11 direct breadth feeds (added 2026-05-01) widen the input to surface
+// stories in the underserved domains from Curator's TEACHABILITY breadth
+// taxonomy (Inner life / Meaning / Expression / Language / Science as
+// discovery / Body / How humans live together / Skills / Technology
+// beyond crisis / Time and place). Each is a verified RSS 2.0 feed
+// parseable by fetchFeed's existing regex (Atom-only sources like The
+// Conversation US were considered and dropped — adding Atom parsing was
+// out of scope).
+//
+// Per-feed cap and global cap tuned so direct feeds get budget — see
+// PER_FEED_CAP and GLOBAL_CAP below.
+//
+// See DECISIONS 2026-05-01 "Scanner default feeds widened from 6 Google
+// News topics to 17 feeds for breadth".
 const RSS_FEEDS: Record<string, string> = {
+  // Google News topic feeds (news anchor)
   TOP: 'https://news.google.com/rss?hl=en&gl=US&ceid=US:en',
   TECHNOLOGY: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en&gl=US&ceid=US:en',
   SCIENCE: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRFp0Y1RjU0FtVnVHZ0pWVXlnQVAB?hl=en&gl=US&ceid=US:en',
   BUSINESS: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?hl=en&gl=US&ceid=US:en',
   HEALTH: 'https://news.google.com/rss/topics/CAAqIQgKIhtDQkFTRGdvSUwyMHZNR3QwTlRFU0FtVnVLQUFQAQ?hl=en&gl=US&ceid=US:en',
   WORLD: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en&gl=US&ceid=US:en',
+  // Direct breadth feeds — domain labels surface as the candidate's
+  // `category` so Curator sees source-domain breadth without a schema
+  // change.
+  AEON: 'https://aeon.co/feed.rss',
+  QUANTA: 'https://www.quantamagazine.org/feed/',
+  JSTOR_DAILY: 'https://daily.jstor.org/feed/',
+  ATLAS_OBSCURA: 'https://www.atlasobscura.com/feeds/articles',
+  NAUTILUS: 'https://nautil.us/feed/',
+  PHYS_ORG: 'https://phys.org/rss-feed/',
+  LIVE_SCIENCE: 'https://www.livescience.com/feeds/all',
+  NEW_SCIENTIST: 'https://www.newscientist.com/feed/home/',
+  KNOWABLE: 'https://knowablemagazine.org/rss',
+  SMITHSONIAN: 'https://www.smithsonianmag.com/rss/articles/',
+  TECH_REVIEW: 'https://www.technologyreview.com/topnews.rss',
 };
+
+// Per-feed cap — bounds each feed's contribution so wire-service feeds
+// don't crowd out direct breadth feeds. Lowered from 15 to 6 on
+// 2026-05-01 alongside the feed-list expansion: 17 feeds × 6 = 102
+// candidates pre-dedup, dedup to ~80-90 unique, cap to GLOBAL_CAP
+// before D1 write. At the prior 50-row global cap with 15-per-feed,
+// the first 4 Google News feeds alone could fill the budget.
+const PER_FEED_CAP = 6;
+
+// Global cap on candidate count stored in D1 + passed to Curator.
+// Raised from 50 to 80 on 2026-05-01 to match the feed-count expansion
+// — keeps direct feeds proportionally represented while preserving
+// Google News news-anchor coverage. ~50KB total candidate-row text in
+// the Curator prompt; well within Sonnet's context budget.
+const GLOBAL_CAP = 80;
 
 /**
  * ScannerAgent — fetches news from Google News RSS daily.
@@ -75,7 +125,7 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
 
     // Store in D1
     const now = Date.now();
-    for (const candidate of allCandidates.slice(0, 50)) {
+    for (const candidate of allCandidates.slice(0, GLOBAL_CAP)) {
       try {
         await this.env.DB
           .prepare(
@@ -88,7 +138,7 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
     }
 
     this.setState({ lastScanned: now, candidateCount: allCandidates.length });
-    return allCandidates.slice(0, 50);
+    return allCandidates.slice(0, GLOBAL_CAP);
   }
 
   /** Get today's candidates from D1 */
@@ -134,7 +184,7 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
       }
     }
 
-    return items.slice(0, 15); // Max 15 per feed
+    return items.slice(0, PER_FEED_CAP);
   }
 
   private extractTag(xml: string, tag: string): string {

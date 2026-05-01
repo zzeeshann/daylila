@@ -2,6 +2,32 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-01 (Curator diversity, commit 2): Scanner default feeds widened from 6 Google News topics to 17 feeds for breadth
+
+**Context.** Commit 1 (the Curator prompt rewrite + recent category concentration block) widened the *interpretation* of "teachable." But Curator can only pick what Scanner surfaces. Investigation against prod D1 (last 7 days, 1650 candidates across all feeds) showed Google News topic feeds heavily favour wire-service breaking-news shapes — even when Phys.org / Live Science / Physics World items appear in the rejected pool, they sit in feeds dominated by crisis/policy/breaking-news framings. The structural input bias is real even if not the binding constraint.
+
+**Decisions.**
+
+1. **11 direct RSS feeds added alongside the existing 6 Google News topic feeds.** Final feed list of 17: TOP / TECHNOLOGY / SCIENCE / BUSINESS / HEALTH / WORLD (Google News, news anchor) + AEON / QUANTA / JSTOR_DAILY / ATLAS_OBSCURA / NAUTILUS / PHYS_ORG / LIVE_SCIENCE / NEW_SCIENTIST / KNOWABLE / SMITHSONIAN / TECH_REVIEW (direct, breadth). Each direct feed maps to one or more domains in the user's 10-domain breadth taxonomy: Aeon → Inner life / Meaning / Expression long-form. Quanta → Science (math / physics / CS / biology). JSTOR Daily → How humans live together / Language. Atlas Obscura → Time and place / Language. Nautilus → Science as ideas. Phys.org → Science not as crisis. Live Science → Body / Time and place. New Scientist → Science. Knowable → Body / Science. Smithsonian → How humans live together / Expression. MIT Technology Review (research feed) → Technology beyond crisis. Each URL HEAD-checked + body-fetched + verified to return ≥5 RSS 2.0 `<item>` elements parseable by Scanner's existing regex.
+
+2. **The Conversation US dropped — Atom format not RSS 2.0.** Scanner's `<item>` regex doesn't match Atom's `<entry>` tags. Adding Atom parsing was considered and dropped — out of scope for this session ("lightest possible intervention"). The 11 RSS feeds give strong breadth coverage; The Conversation can be added in a future session that adds Atom-parsing.
+
+3. **Per-feed cap lowered from 15 to 6 (`PER_FEED_CAP`).** With 17 feeds × 15 = 255 candidates pre-dedup, the existing 50-row global cap would only capture the first 4-5 feeds in iteration order — direct feeds at the bottom of the dict would never reach D1. Lowering the per-feed cap to 6 means 17 × 6 = 102 candidates pre-dedup, ~80 unique post-dedup. Wire-service feeds (TOP especially) are bounded at 6 so they can't crowd out direct feeds.
+
+4. **Global cap raised from 50 to 80 (`GLOBAL_CAP`).** Matches the feed-count expansion. ~50KB of candidate-row text in the Curator prompt; well within Sonnet's context budget. Curator's selection load grows but the per-candidate JSON shape is unchanged.
+
+5. **Direct-feed candidates carry their feed-name as `category`.** Already how Scanner works — `source: source || category` falls back to category when an RSS feed doesn't include a `<source>` tag (which Aeon, JSTOR Daily, Nautilus, Atlas Obscura don't). So direct-feed candidates show up in `daily_candidates.category` as "AEON", "QUANTA", "JSTOR_DAILY" etc. Curator sees this as the feed-name label inline in the candidate list. No schema change.
+
+6. **Trade-off acknowledged: direct feeds may have lower freshness than Google News.** Aeon publishes a few essays per week, not breaking news. On a slow direct-feed day, breadth pieces may be older. Curator's FRESHNESS criterion still gates this — a stale Aeon essay that Curator picks once isn't a permanent loss; subsequent runs see the next Aeon piece. The 7-cron-firing verification window (FOLLOWUPS `[observing] 2026-05-01: Curator + Scanner diversity intervention`) catches a degenerate freshness pattern.
+
+7. **`SCANNER_RSS_FEEDS_JSON` override path stays unchanged.** Operator can replace the entire feed list at runtime via env var, no redeploy. Malformed JSON falls back to the new defaults.
+
+**Files touched.** [agents/src/scanner.ts](agents/src/scanner.ts) — feed list expanded, `PER_FEED_CAP` + `GLOBAL_CAP` constants extracted, header comment documenting design choices.
+
+**Verified pre-deploy.** All 12 candidate URLs HEAD-checked (200) + body-fetched + counted `<item>` vs `<entry>` to confirm RSS 2.0 (11 of 12 RSS; The Conversation Atom-only, dropped). Aeon parsed live through Scanner's existing regex — extracted title / link / description / source-fallback-to-category cleanly. Agents typecheck baseline preserved (26 errors all in server.ts SubAgent typing). Site `pnpm build` clean.
+
+**Forward observation.** FOLLOWUPS `[observing] 2026-05-01: Curator + Scanner diversity intervention — verification window` covers both this commit and Commit 1 (Curator). At least 2 of next 7 cron picks should be sourced from a non-Google-News feed (`daily_candidates.category` IN ('AEON','QUANTA','JSTOR_DAILY','ATLAS_OBSCURA','NAUTILUS','PHYS_ORG','LIVE_SCIENCE','NEW_SCIENTIST','KNOWABLE','SMITHSONIAN','TECH_REVIEW')). Failure modes + escalation paths documented in the FOLLOWUPS entry.
+
 ## 2026-05-01 (Curator diversity, commit 1): Curator sees 10-domain breadth taxonomy + recent category concentration as soft preference
 
 **Context.** User flagged narrow conceptual range across 32 published pieces — top 5 of 18 categories holding 22 of 32. Three candidate causes proposed: (1) Curator has no recent-terrain memory; (2) Scanner input too narrow; (3) "most teachable" criterion doing too much work alone. Investigation against prod D1: cause #1 is half-implemented (Curator sees recent headlines + underlying_subject via `getRecentDailyPieces(30)` but NOT category concentration); cause #2 real but secondary (genuinely diverse stories like "Darkness can travel faster than light" sit in the rejected pool while Curator picks crisis stories); cause #3 is the binding constraint (the existing TEACHABILITY examples cluster around crisis/policy/system-failure framings, anchoring Claude to the same handful of categories). User followed up with a 10-domain breadth taxonomy (Inner life / Meaning and belief / Expression / Language and thought / Science not as crisis / Body and health / How humans live together / Skills and craft / Technology beyond crisis / Time and place) and the framing: *"the fix is in the prompt and the input list, not in pre-creating empty categories."*

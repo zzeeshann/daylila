@@ -38,11 +38,13 @@ Learner: runs off-pipeline on reader engagement data
 ## The 16 agents
 
 ### 1. ScannerAgent
-- **Role:** Fetches news from Google News RSS (6 categories), deduplicates, stores candidates in D1.
-- **Character:** Scanner cares about not missing things. The world is bigger than any one feed and any one day; a story passed over today is unteachable forever. Scanner pulls broadly without filtering — better to hand Curator 50 candidates that include some dead-on-arrival ones than 30 candidates that miss the one that mattered. Character failure looks like Scanner deciding stories aren't "interesting" — that judgment isn't its job. Pull wide, let downstream agents decide.
-- **Sources:** TOP, TECHNOLOGY, SCIENCE, BUSINESS, HEALTH, WORLD feeds
-- **Output:** 30–50 daily candidates in `daily_candidates` table
-- **No API key** — uses free Google News RSS
+- **Role:** Fetches news from RSS feeds (6 Google News topics + 11 direct breadth feeds as of 2026-05-01), deduplicates, stores candidates in D1.
+- **Character:** Scanner cares about not missing things. The world is bigger than any one feed and any one day; a story passed over today is unteachable forever. Scanner pulls broadly without filtering — better to hand Curator 80 candidates that include some dead-on-arrival ones than 30 candidates that miss the one that mattered. Character failure looks like Scanner deciding stories aren't "interesting" — that judgment isn't its job. Pull wide, let downstream agents decide.
+- **Sources:** Google News topic feeds — TOP, TECHNOLOGY, SCIENCE, BUSINESS, HEALTH, WORLD. Direct breadth feeds (added 2026-05-01) — AEON (philosophy / psychology / science / art long-form), QUANTA (math / physics / CS / biology), JSTOR_DAILY (humanities, history, language), ATLAS_OBSCURA (places, history, language curiosities), NAUTILUS (science as ideas), PHYS_ORG (research-driven science), LIVE_SCIENCE (biology / geology / anthropology / archaeology), NEW_SCIENTIST (physics / biology / mathematics), KNOWABLE (Annual Reviews explainers), SMITHSONIAN (history / science / arts), TECH_REVIEW (technology substance, not gadget feed). All verified RSS 2.0 — Atom-only sources like The Conversation US dropped (parser doesn't yet handle Atom).
+- **Output:** Up to 80 daily candidates in `daily_candidates` table.
+- **Caps:** `PER_FEED_CAP = 6` (lowered from 15 on 2026-05-01) bounds each feed's contribution so wire-service feeds don't crowd out direct feeds. `GLOBAL_CAP = 80` (raised from 50 on 2026-05-01) is the total stored. 17 feeds × 6 = 102 pre-dedup, dedup to ~80-90 unique, cap to GLOBAL_CAP.
+- **No API key** — all feeds free RSS.
+- **Override:** `SCANNER_RSS_FEEDS_JSON` env var (JSON `Record<string, string>` of category-to-URL) replaces the default feed list at runtime — operator's escape hatch, no redeploy needed. Malformed JSON silently falls back to defaults.
 - **Method:** `scan(pieceId)` — Director passes the run-scoped UUID pre-allocated at the top of `triggerDailyPiece`; Scanner stamps it onto every candidate row at INSERT time so the admin per-piece deep-dive can filter cleanly at multi-per-day cadence.
 - **File:** `agents/src/scanner.ts`
 
