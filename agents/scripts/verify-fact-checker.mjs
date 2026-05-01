@@ -1,29 +1,22 @@
 #!/usr/bin/env node
-// Regression test for the FactChecker response parser.
+// Regression test for FactChecker's response parser.
 //
-// Background. Pre-2026-04-30, FactChecker ran two Claude calls + DDG IA
-// per claim. DDG IA only resolved Wikipedia-style topics, so ~95% of
-// news claims fell back to Claude's training-data verdict. The Venter
-// piece exposed the cost when the drawer rendered "this appears to be
-// speculative fiction set in 2026" on a real death.
+// Stubs Anthropic web_search response shapes and asserts the parsed
+// FactCheckResult — claims, search flags, and the flat `sources` URL
+// list harvested server-side.
 //
-// 2026-04-30 (Phases A → I) replaced DDG with Anthropic's
-// `web_search_20250305` server tool. Phase F+G added per-claim
-// citations + cited_text + searchQuery via Claude self-reporting URLs
-// in a `sources` field with cross-reference defense against
-// hallucinations.
+// Two URL tracks Anthropic returns when web_search runs:
+//   1. `web_search_tool_result.content[].url` — every search hit Claude
+//      saw. Always populated when web_search succeeds. Primary harvest.
+//   2. `text.citations[]` with `web_search_result_location` blocks —
+//      attach only to text blocks where Claude explicitly references a
+//      result. Paraphrased summary notes (the dominant production
+//      pattern) get no citations. Secondary harvest, redundant but
+//      harmless under Set dedup.
 //
-// Path A (2026-05-01) dropped Phase F+G's per-claim self-report
-// architecture. Claude is no longer asked for URLs at all. The agent
-// harvests citation URLs server-side from the
-// `web_search_result_location` blocks Anthropic auto-attaches to text
-// blocks, dedups, and exposes a flat `result.sources: string[]`. The
-// drawer renders one "Sources consulted" line under the Facts section
-// from that flat list.
-//
-// This verifier exercises the simplified response-parsing path
-// without standing up Anthropic — it stubs the response shape and
-// asserts the parsed FactCheckResult.
+// parseResponse walks both. Test 9 covers the "search hits, no
+// citations attached" Lebanon-shape that broke after Path A's first
+// ship and motivated Path A.1.
 //
 // Inlined `parseFactCheckerResponse` stays in sync with
 // agents/src/fact-checker.ts:parseResponse by hand. Same convention

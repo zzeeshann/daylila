@@ -303,7 +303,7 @@ wrangler deploy
 - `agents/src/drafter-prompt.ts` — Drafter's system prompt + prompt builder
 - `agents/src/voice-auditor-prompt.ts` — VoiceAuditor's system prompt builder (interpolates VOICE_CONTRACT)
 - `agents/src/structure-editor-prompt.ts` — StructureEditor's system prompt
-- `agents/src/fact-checker-prompt.ts` — FactChecker's two-pass system prompts
+- `agents/src/fact-checker-prompt.ts` — FactChecker's single-pass system prompt (Anthropic web_search server tool)
 - `agents/src/integrator-prompt.ts` — Integrator's system prompt builder (interpolates VOICE_CONTRACT)
 - `agents/src/learner-prompt.ts` — Learner's analyse-and-learn system prompt
 - `agents/src/shared/voice-contract.ts` — voice contract as string constant

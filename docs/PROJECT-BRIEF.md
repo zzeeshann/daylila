@@ -42,7 +42,7 @@ One piece per day. 1000-1500 words. 3-6 beats:
 | Curator | Picks the most teachable candidate, plans beats + hook + teaching angle |
 | Drafter | Writes MDX from the brief (voice contract + recent learnings loaded); also reflects on each piece after publish |
 | Voice Auditor | Scores voice compliance 0-100, must be ≥85 to pass |
-| Fact Checker | Verifies claims using Claude with the Anthropic `web_search_20250305` server tool; per-claim citations + cited_text surface in the drawer |
+| Fact Checker | Verifies claims using Claude with the Anthropic `web_search_20250305` server tool; the drawer's Facts section ends with a "Sources consulted" line listing the unique domains searched |
 | Structure Editor | Reviews hook, beats, pacing, close |
 | Integrator | Merges feedback from auditors, revises the draft, up to 3 rounds |
 | Publisher | Commits MDX to GitHub — piece goes live within two minutes via GitHub Actions |
