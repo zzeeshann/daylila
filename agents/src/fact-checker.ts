@@ -138,7 +138,23 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
           | { type?: string; error_code?: string }
           | unknown[]
           | undefined;
-        if (inner && !Array.isArray(inner)) {
+        if (Array.isArray(inner)) {
+          // Harvest URLs from search hits. Per Anthropic's web_search
+          // docs, every successful search returns a content[] array of
+          // `web_search_result` items with {url, title, page_age,
+          // encrypted_content}. This is the always-populated track —
+          // text-block citations only attach when Claude explicitly
+          // references a result, which paraphrased summary notes
+          // don't trigger. Walking the search hits directly gives a
+          // guaranteed-populated source list (subject to web_search
+          // actually returning results).
+          for (const result of inner) {
+            const r = result as { type?: string; url?: string };
+            if (r.type === 'web_search_result' && typeof r.url === 'string' && r.url.length > 0) {
+              sources.add(r.url);
+            }
+          }
+        } else if (inner && !Array.isArray(inner)) {
           const errBlock = inner as { type?: string; error_code?: string };
           if (errBlock.type === 'web_search_tool_result_error' && errBlock.error_code === 'unavailable') {
             searchAvailable = false;

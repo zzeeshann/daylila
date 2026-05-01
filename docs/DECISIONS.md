@@ -2,6 +2,41 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-01 night: FactChecker Path A.1 — correct the URL harvest source (search hits, not just citations)
+
+**Context.** Path A this evening (commit `270d431`) shipped server-side URL harvest from Anthropic's web_search response. First post-deploy cron piece (Lebanon ceasefire, `6e55caab`): `audit_results.notes.sources = []` across all 3 audit rounds despite `searchUsed=1, searchAvailable=1` and ~16 verified claims with highly specific citation-style notes (*"France reported 52 violations by December 2"*, *"UNIFIL documented thousands of Israeli airspace violations"* — facts not in training data). The diagnosis pattern was the same as Phase A's failure: I designed parseResponse around an assumption about Anthropic's response shape without verifying. User reminder: *"thats why I always tell you dont assume always check"*.
+
+**Decisions.**
+
+**Decision 1 — Verify Anthropic docs before designing further.** WebFetched Anthropic's web_search documentation (https://platform.claude.com/docs/en/docs/build-with-claude/tool-use/web-search-tool). The response example clearly shows two URL tracks:
+- `web_search_tool_result.content[]` — every search hit Claude saw, each with `url`, `title`, `page_age`, `encrypted_content`. **Always populated when web_search returns results successfully.**
+- `text.citations[]` with `web_search_result_location` blocks — only attach to text blocks where Claude explicitly references a search result. The docs example shows the *"I'll search…"* and *"Based on the search results…"* text blocks have NO citations; only the final factual claim *"Claude Shannon was born on April 30…"* has citations. Anthropic's note *"Citations are always enabled for web search"* refers to the FEATURE being enabled — NOT to citations attaching to every text block.
+
+**Decision 2 — Fix: harvest from BOTH tracks, citations becomes a redundant secondary.** The right harvest source is `web_search_tool_result.content[].url` — every search hit. Walking it gives a guaranteed-populated source list whenever web_search fires successfully. The citations harvest stays in place as a redundant secondary path (Set-based dedup means no harm; could yield URLs from chained searches that return citation-only references). ~10 lines added to parseResponse + the verifier mirror function.
+
+**Decision 3 — Reader framing: "Sources consulted" is honest for the search-hit harvest.** Trade-off: harvesting from `web_search_tool_result` captures EVERY search hit, including ones Claude saw but didn't ultimately rely on. So if Claude searches and 5 results come back but it only references 2, all 5 land in `result.sources`. The drawer caps at 5 unique domains so reader-facing surface stays tight. The framing *"Sources consulted during fact-checking"* is accurate — Claude saw these pages, they were part of its consulted material. Not "Claude relied on each one" but a strict superset. Compliance check: Anthropic ToS requires *"citations must be included to the original source when displaying API outputs"*. We exceed that bar — surfacing every consulted source, not just the explicitly cited subset.
+
+**Decision 4 — Update the verifier with a Lebanon-shape regression case.** Added case 9 to `verify-fact-checker.mjs`: web_search returns 3 hits, Claude paraphrases content into prose notes WITHOUT attaching citations to any text block, expected `result.sources` populates from search hits alone. This is the exact production scenario that broke after Path A's first ship — now caught by a synthetic test.
+
+**Decision 5 — Update memory `feedback_verify_platform_docs.md` to apply broadly.** The rule was originally scoped to Cloudflare/Agents SDK runtime limits (2026-04-19 audio pipeline diagnosis). Extended to cover Anthropic API/SDK response-shape assumptions: any time a fix encodes assumptions about how a paid third-party API behaves, verify against primary docs first.
+
+**Trade-offs.**
+
+- **Lost: precision.** The search-hit harvest can include URLs Claude searched but didn't use. Trade is worth it: guaranteed populated > precision-empty.
+- **Gained: guaranteed populated.** Per Anthropic's docs, every successful web_search returns a `web_search_tool_result.content[]` array with URL data. The Sources line will populate on every news-driven cron piece going forward.
+- **Citations stay as redundant track.** No code path removed; the existing citation harvest still runs for the rare case where it adds URLs (chained search refs, citation-bearing text blocks). Set dedups.
+
+**Risk notes.**
+
+- **Search noise in the audit JSON.** `audit_results.notes.sources` will now carry every search hit, not a curated subset. `audit_results` is admin-facing only; the drawer caps at 5 unique domains for reader display, so visible surface stays clean.
+- **No regression on existing data.** Pre-Path-A.1 audit rows with `sources: []` continue to gracefully omit the drawer Sources line.
+
+**What this verifies.** Going forward, any FactChecker design change that depends on Anthropic's response shape requires WebFetch'ing the docs OR inspecting a real production response BEFORE shipping the parser code. Two failures in one session against the same wrong assumption is the signal.
+
+**Verification.** `pnpm verify-fact-checker` 9/9 (was 8; added Lebanon-shape case + updated cases 2, 4, 5 names to reflect search-hit harvest). `pnpm build` clean across 27 daily pieces. Agents typecheck 26 pre-existing `server.ts` errors (matches baseline). End-to-end live verification pending operator-triggered cron piece post-deploy.
+
+**Files touched.** `agents/src/fact-checker.ts`, `agents/scripts/verify-fact-checker.mjs`. Plan: `~/.claude/plans/this-is-message-for-soft-deer.md` (extended in-place).
+
 ## 2026-05-01 evening: FactChecker Path A — flat citation harvest, drawer-only Sources line
 
 **Context.** Phase A this morning (commit `ca36448`) tried a soft prompt nudge to coax Claude into populating per-claim `sources`. First post-deploy cron piece (Linux kernel CVE-2026-31431, `99b4187f`) at 14:00 UTC: 0/10 verified claims had URLs — same as Camp Mystic baseline. Operator's read on the data was correct: *"so for my understanding you are saying we generate the urls we do the work and the claude wont??? could you please be more clear"* → *"so that means it is our mistake, why are we even asking claude"*. They were right. The design was asking Claude to retype URLs Anthropic already provides in the response.

@@ -74,7 +74,15 @@ function parseFactCheckerResponse(content) {
       searchUsed = true;
     } else if (block.type === 'web_search_tool_result') {
       const inner = block.content;
-      if (inner && !Array.isArray(inner)) {
+      if (Array.isArray(inner)) {
+        // Harvest URLs from search hits — guaranteed populated when
+        // web_search succeeds. Mirrors the agent's parseResponse.
+        for (const result of inner) {
+          if (result.type === 'web_search_result' && typeof result.url === 'string' && result.url.length > 0) {
+            sources.add(result.url);
+          }
+        }
+      } else if (inner && !Array.isArray(inner)) {
         if (inner.type === 'web_search_tool_result_error' && inner.error_code === 'unavailable') {
           searchAvailable = false;
         }
@@ -179,12 +187,12 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
     },
   ];
   const got = parseFactCheckerResponse(content);
-  check('2. searched + verified — searchUsed flips true, claim verified', {
+  check('2. searched + verified — searchUsed flips true, claim verified, search-hit URLs harvested', {
     passed: true,
     claims: [{ claim: 'J. Craig Venter died this week', status: 'verified', note: 'Confirmed via NYT obituary published 2026-04-30.' }],
     searchUsed: true,
     searchAvailable: true,
-    sources: [],
+    sources: ['https://nytimes.com/example'],
   }, got);
 }
 
@@ -239,12 +247,12 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
     },
   ];
   const got = parseFactCheckerResponse(content);
-  check('4. contradicted claim — incorrect → passed=false', {
+  check('4. contradicted claim — incorrect → passed=false, search-hit URL harvested', {
     passed: false,
     claims: [{ claim: 'fuel prices spiked 50% last month', status: 'incorrect', note: 'Search found ~5%, not 50%.' }],
     searchUsed: true,
     searchAvailable: true,
-    sources: [],
+    sources: ['https://example.com'],
   }, got);
 }
 
@@ -273,7 +281,7 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
     },
   ];
   const got = parseFactCheckerResponse(content);
-  check('5. multi-block interleaved — JSON extracts from concat text', {
+  check('5. multi-block interleaved — JSON extracts from concat text, both search hits harvested', {
     passed: true,
     claims: [
       { claim: 'foo', status: 'verified', note: 'Confirmed.' },
@@ -281,7 +289,7 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
     ],
     searchUsed: true,
     searchAvailable: true,
-    sources: [],
+    sources: ['https://x', 'https://y'],
   }, got);
 }
 
@@ -384,8 +392,8 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
 }
 
 // 8. Production-shape regression: Claude returns NO sources field on any
-//    claim (Path A behaviour — prompt no longer asks). result.sources
-//    populated entirely from citation metadata.
+//    claim AND citations attach to text blocks. result.sources populated
+//    via the union of both tracks (search hits + citations), deduped.
 {
   const content = [
     { type: 'server_tool_use', id: 'srv_08', name: 'web_search', input: { query: 'CVE-2026-31431 Linux' } },
@@ -412,12 +420,50 @@ console.log('verify-fact-checker — parseResponse shape (Path A)');
     },
   ];
   const got = parseFactCheckerResponse(content);
-  check('8. no sources field in Claude JSON → result.sources from citations alone', {
+  check('8. no sources field in Claude JSON, citations present → both tracks deduped', {
     passed: true,
     claims: [{ claim: 'CVE-2026-31431 disclosed April 29', status: 'verified', note: 'Confirmed via NVD + The Register.' }],
     searchUsed: true,
     searchAvailable: true,
     sources: ['https://nvd.nist.gov/c', 'https://theregister.com/r'],
+  }, got);
+}
+
+// 9. The Lebanon-piece production scenario: web_search fires, search
+//    hits come back, Claude paraphrases the content into prose notes
+//    WITHOUT attaching citations to its text blocks. Citation-only
+//    harvest would yield empty; search-hit harvest gets every URL.
+//    This is the case that broke after the first Path A ship.
+{
+  const content = [
+    { type: 'server_tool_use', id: 'srv_09', name: 'web_search', input: { query: 'ceasefire Lebanon Hezbollah November 2024' } },
+    {
+      type: 'web_search_tool_result',
+      tool_use_id: 'srv_09',
+      content: [
+        { type: 'web_search_result', url: 'https://bbc.com/news/article-a', title: 'BBC News', page_age: '2024-11-27' },
+        { type: 'web_search_result', url: 'https://reuters.com/world/article-b', title: 'Reuters', page_age: '2024-11-28' },
+        { type: 'web_search_result', url: 'https://nytimes.com/2024/11/27/article-c', title: 'NYT', page_age: '2024-11-27' },
+      ],
+    },
+    // Claude paraphrases without explicit citation refs — the dominant
+    // pattern in production. No `citations` array on any text block.
+    {
+      type: 'text',
+      text: 'Verified via multiple sources. Confirmed - ceasefire signed November 27, 2024.',
+    },
+    {
+      type: 'text',
+      text: '{"passed": true, "claims": [{"claim": "Israel and Hezbollah signed a ceasefire November 27, 2024", "status": "verified", "note": "Confirmed via BBC, Reuters, and NYT reporting."}]}',
+    },
+  ];
+  const got = parseFactCheckerResponse(content);
+  check('9. Lebanon-shape: paraphrased notes, no citations → result.sources from search hits alone', {
+    passed: true,
+    claims: [{ claim: 'Israel and Hezbollah signed a ceasefire November 27, 2024', status: 'verified', note: 'Confirmed via BBC, Reuters, and NYT reporting.' }],
+    searchUsed: true,
+    searchAvailable: true,
+    sources: ['https://bbc.com/news/article-a', 'https://reuters.com/world/article-b', 'https://nytimes.com/2024/11/27/article-c'],
   }, got);
 }
 
