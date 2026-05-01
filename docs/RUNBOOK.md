@@ -107,7 +107,7 @@ wrangler secret put SCANNER_RSS_FEEDS_JSON
 ## D1 Database
 
 ### Run migrations
-There are 27 migrations (`0001_init.sql` … `0027_categoriser_fallback_category.sql`) defining 19 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
+There are 28 migrations (`0001_init.sql` … `0028_daily_audit_claims.sql`) defining 20 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
 Apply them (idempotent — skips any already recorded in `d1_migrations`):
 ```bash
 wrangler d1 migrations apply zeemish --remote

@@ -37,7 +37,7 @@ One piece per day. 1000-1500 words. 3-6 beats:
 
 | Agent | Job |
 |-------|-----|
-| Scanner | Fetches news RSS, deduplicates, stores ~50 candidates per run |
+| Scanner | Fetches 17 RSS feeds (Google News topics + direct breadth feeds), deduplicates, stores up to 80 candidates per run |
 | Director | Pure orchestrator — routes work between agents, zero LLM calls |
 | Curator | Picks the most teachable candidate, plans beats + hook + teaching angle |
 | Drafter | Writes MDX from the brief (voice contract + recent learnings loaded); also reflects on each piece after publish |
@@ -59,7 +59,7 @@ Quality gates: nothing publishes unless Voice Auditor, Fact Checker, AND Structu
 ## The stack
 
 - **Frontend:** Astro + MDX + Tailwind CSS + Web Components + TypeScript strict
-- **Backend:** Cloudflare Workers + D1 (SQLite, 19 tables) + R2 (audio + assets)
+- **Backend:** Cloudflare Workers + D1 (SQLite, 20 tables) + R2 (audio + assets)
 - **Agents:** Cloudflare Agents SDK — each agent is a Durable Object; post-publish work runs on DO alarms
 - **AI:** Anthropic Claude Sonnet 4.5 (single model across the pipeline)
 - **Audio:** ElevenLabs (Frederick Surrey, one locked voice)

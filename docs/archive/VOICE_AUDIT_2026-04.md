@@ -1,3 +1,5 @@
+> **Archived 2026-05-01:** the audit drove the 2026-04-26 refinement (Action 1). Voice contract + Drafter prompt updated; pieces continue to score ≥85. See `docs/DECISIONS.md` for the follow-on record.
+
 # Voice contract audit — 2026-04
 
 **What:** A close read of `content/voice-contract.md` against the last five published pieces, looking for systematic drift.

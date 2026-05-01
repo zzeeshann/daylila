@@ -15,7 +15,7 @@ The agent team is a separate Cloudflare Worker (`agents/`) using the Cloudflare 
 5. **Each agent exposes one primary method.** `scan()`, `curate()`, `draft()`, `audit()`, `check()`, `revise()`, `publish()`, `learn()`.
 6. **Typed I/O at every boundary.** No `any`, no JSON blobs between agents.
 7. **Every agent reports to Observer.** Standard event shape for the admin dashboard.
-8. **Each agent has a character.** Below each agent's **Role** description sits a **Character** paragraph — what the agent fundamentally cares about, what character failure looks like (distinct from technical failure), and how it should approach its work. Read together with Role. Added in the 2026-04-26 refinement Action 4 (see [docs/REFINEMENT_PLAN_2026-04.md](REFINEMENT_PLAN_2026-04.md)). Whether agent system prompts should *inject* character text at runtime is a deferred question — for now Character lives only in this doc.
+8. **Each agent has a character.** Below each agent's **Role** description sits a **Character** paragraph — what the agent fundamentally cares about, what character failure looks like (distinct from technical failure), and how it should approach its work. Read together with Role. Added in the 2026-04-26 refinement Action 4 (see [docs/archive/REFINEMENT_PLAN_2026-04.md](archive/REFINEMENT_PLAN_2026-04.md)). Whether agent system prompts should *inject* character text at runtime is a deferred question — for now Character lives only in this doc.
 
 ## Hard rule for all agents
 

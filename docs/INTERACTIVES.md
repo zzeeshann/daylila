@@ -2,7 +2,7 @@
 
 How interactives work in Zeemish v2. The reference document for anyone — agent, operator, or future Claude session — who needs to know what an interactive is, what it must do, what it must not do, and how the system handles one that falls short.
 
-This is the spec; it doesn't change session-to-session. Implementation status lives in [`INTERACTIVES_STATUS.md`](INTERACTIVES_STATUS.md). The phase plan lives in [`INTERACTIVES_PLAN.md`](INTERACTIVES_PLAN.md).
+This is the spec; it doesn't change session-to-session. Implementation status lives in [`INTERACTIVES_STATUS.md`](INTERACTIVES_STATUS.md). The phase plan lives in [`INTERACTIVES_PLAN.md`](archive/INTERACTIVES_PLAN.md).
 
 ---
 
@@ -43,7 +43,7 @@ What's different between quiz and HTML:
 
 ## Rough-marker UX rule
 
-When an HTML interactive fails the audit on round 3, it ships anyway. The newspaper-never-skips rule from [`CLAUDE.md`](../CLAUDE.md) applies: better one flagged interactive than none. The flag is recorded in the database (column name + tier vocabulary resolved in Phase 1; see [`INTERACTIVES_PLAN.md`](INTERACTIVES_PLAN.md)).
+When an HTML interactive fails the audit on round 3, it ships anyway. The newspaper-never-skips rule from [`CLAUDE.md`](../CLAUDE.md) applies: better one flagged interactive than none. The flag is recorded in the database (column name + tier vocabulary resolved in Phase 1; see [`INTERACTIVES_PLAN.md`](archive/INTERACTIVES_PLAN.md)).
 
 The reader-facing surface for the flag is **the "How this was made" drawer only.** The interactive itself sits inline on the page with no above-iframe banner, no "Rough" tier word, no warning chrome.
 
@@ -639,7 +639,7 @@ When the system disagrees with a human about whether a generated interactive is 
 
 ## Cross-references
 
-- [`INTERACTIVES_PLAN.md`](INTERACTIVES_PLAN.md) — phase plan (don't re-litigate the architectural decisions documented there).
+- [`INTERACTIVES_PLAN.md`](archive/INTERACTIVES_PLAN.md) — phase plan (don't re-litigate the architectural decisions documented there).
 - [`INTERACTIVES_STATUS.md`](INTERACTIVES_STATUS.md) — live "where are we" doc.
 - [`SESSION_PROTOCOL.md`](SESSION_PROTOCOL.md) — how the work runs across sessions.
 - [`AGENTS.md`](AGENTS.md) — Generator (#15) and Auditor (#16) responsibilities.

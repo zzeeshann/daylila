@@ -1,3 +1,5 @@
+> **Archived 2026-05-01:** all six Part-1 actions + the Part 2 architecture-flexibility documentation shipped on 2026-04-26. See `docs/DECISIONS.md` for the full record.
+
 # Zeemish refinement plan — 2026-04
 
 **Source brief:** `~/Downloads/ZEEMISH_REFINEMENT_BRIEF.md` (2026-04-26 hand-off, kept outside the repo)

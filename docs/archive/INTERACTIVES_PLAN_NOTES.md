@@ -1,3 +1,5 @@
+> **Archived 2026-05-01:** companion notes to the closed Interactives v3 plan. See `docs/DECISIONS.md` for the full record.
+
 # Interactives v3 — Plan vs Repo Notes
 
 Append-only log of places where `docs/INTERACTIVES_PLAN.md` was wrong and the repo was right. Used during implementation when a phase encounters an architectural assumption in the plan that doesn't match the actual code. Format: date, phase, what the plan said, what the repo does, why we went with the repo.

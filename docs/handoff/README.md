@@ -1,3 +1,5 @@
+> **Frozen pre-launch handoff (2026-04-16).** This was the original brief Zishan wrote for Claude Code before any code existed. Numbers and roster sizes here ("thirteen specialised agents") reflect the pre-launch design, not current state. Current state lives in [`/CLAUDE.md`](../../CLAUDE.md), [`/docs/ARCHITECTURE.md`](../ARCHITECTURE.md), and [`/docs/AGENTS.md`](../AGENTS.md).
+
 # ZEEMISH v2 — Handoff to Claude Code
 
 **Read this first. Then read the architecture doc. Then begin work.**

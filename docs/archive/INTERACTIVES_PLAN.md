@@ -1,3 +1,5 @@
+> **Archived 2026-05-01:** Interactives v3 shipped on 2026-04-26 — all 5 phases tagged on origin (`interactives-v3.0-complete` through `interactives-v3.4-complete`, project tag `interactives-v3-complete`). See `docs/DECISIONS.md` for the full record.
+
 # Zeemish — Interactives v3
 
 Master plan for adding HTML interactives — explorable widgets generated per piece — alongside the quizzes that shipped in Area 4.

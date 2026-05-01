@@ -125,7 +125,7 @@ Sample end-of-session report:
 >
 > Next session starts at phase 2.4: hand-write the reference HTML interactive for a recent piece, save to `docs/examples/interactive-reference.html`. Plan says I write it, you review on prod, then we flip the flag.
 >
-> Plan-vs-repo: none today. `INTERACTIVES_PLAN_NOTES.md` still empty.
+> Plan-vs-repo: none today. `archive/INTERACTIVES_PLAN_NOTES.md` still empty.
 
 ## When something goes wrong mid-session
 
