@@ -36,11 +36,11 @@ Each arrow is a handoff. Each box is a role. Observer is logging everything thro
 
 **02:00:00 UTC.** Cloudflare's scheduler wakes Director. Director is a Durable Object — small program that lives on Cloudflare and can be "woken up" on a schedule.
 
-**02:00:03.** Director calls Scanner. Scanner fetches six RSS feeds in parallel: Reuters, AP, BBC, Axios, others. It takes about three seconds.
+**02:00:03.** Director calls Scanner. Scanner fetches seventeen RSS feeds in parallel — six Google News topic feeds (TOP / TECHNOLOGY / SCIENCE / BUSINESS / HEALTH / WORLD) for the news anchor, plus eleven direct breadth feeds (Aeon, Quanta, JSTOR Daily, Atlas Obscura, Nautilus, Phys.org, Live Science, New Scientist, Knowable, Smithsonian, MIT Technology Review) for long-form, science, humanities and language stories the wire services don't surface. Takes about five seconds.
 
-**02:00:10.** Scanner has 64 stories. It deduplicates — some stories appeared in multiple feeds. Down to 50 unique candidates. Scanner writes all 50 to the `daily_candidates` table. Returns control to Director.
+**02:00:10.** Scanner has roughly 100 candidate items, capped at six per feed. It deduplicates — some stories appeared in multiple feeds. Down to about 80 unique candidates. Scanner writes the result to the `daily_candidates` table. Returns control to Director.
 
-**02:00:12.** Director calls Curator. Curator reads all 50 candidate rows from `daily_candidates`, plus the last 30 days of published pieces (for a basic sense of what has recently been covered). Sends this plus a prompt to Claude:
+**02:00:12.** Director calls Curator. Curator reads all the candidate rows from `daily_candidates`, plus the last 30 days of published pieces and the last 30 days of category counts (so it can steer away from concepts the library just covered and prefer thinner categories when the news allows). Sends this plus a prompt to Claude:
 
 > *You are Zeemish's Curator. Pick the most teachable story from these 50 candidates — the one where there's a real underlying system worth explaining, not just a headline. Write a brief: what the story is, what the underlying system is, what angle the piece should take, what beats it should have.*
 

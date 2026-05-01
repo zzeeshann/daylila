@@ -93,7 +93,7 @@ This applies to every agent. No exceptions. The past stays. The future gets bett
 - [ ] Deep-Zita v1 (library search, tool-use loop, session summary, reader profile, voice harness, category logging) — sequenced in design doc §7, not yet built.
 
 ### Daily Pieces System (complete)
-- [x] ScannerAgent (agent #1 in book/09 / #2 in AGENTS.md numbering) — fetches Google News RSS across 6 categories
+- [x] ScannerAgent (agent #1 in book/09 / #2 in AGENTS.md numbering) — fetches RSS across 17 feeds (6 Google News topic feeds + 11 direct breadth feeds added 2026-05-01); per-feed cap 6, global cap 80
 - [x] Director daily mode — runs the pipeline (Curator picks the story, Drafter writes; Director routes between them with zero LLM calls)
 - [x] Daily piece pages at /daily/ index and /daily/YYYY-MM-DD/{slug}/ for individual pieces (slug-inclusive URL since 2026-04-21 Phase 4)
 - [x] Home page redesign — today's piece prominent, library below
