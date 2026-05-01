@@ -1,0 +1,58 @@
+---
+title: "Why you can't just remove one amino acid"
+date: "2026-05-01"
+newsSource: "Science"
+underlyingSubject: "How biological systems operate under constraint and what happens when you try to simplify a fundamental design"
+estimatedTime: 6
+beatCount: 5
+description: "Researchers engineered bacteria to survive without isoleucine in their protein-making machinery. The attempt reveals why complex systems resist simplification and how dependencies make 'just remove it' fail."
+voiceScore: 95
+publishedAt: 1777604894736
+pieceId: "c6cc7d96-9ad5-4622-9666-912fbf9df3f1"
+sourceUrl: "https://news.google.com/rss/articles/CBMiqgFBVV95cUxQdjlQMlJsQ0RBOU5JaTFieXU1cFRiSUV5RmVOZ3JmdUU3SzdKOGt6OHZnUERsVlRDLUYwRkR1cmVqRkRvRTdkVVBDTzU0aURVMUJsSzNSMHVfbG1XU0hQemxlWkRoaWkwREQyZGpvNzBscFlubXlFZmJnMzBKdmoySDVLSTFRSEFHNi02bFJGeTk3eDFYSnFOSENQUzA5VUdGNUkyMm1yU01hQQ?oc=5"
+claimReviews: ["Life runs on twenty amino acids","Researchers engineered bacteria to make proteins without isoleucine in ribosomes","Ribosomal proteins contain 382 isoleucine residues","Each isoleucine replaced with valine or leucine","The bacteria survived","The bacteria grew slower","Most ribosomes still functioned","The simplified ribosomes worked worse","The final strain carries 21 isoleucine-free ribosomal proteins out of 52","Natural selection did not revert the changes over 450 generations","Ribosomes are made of dozens of proteins plus RNA","Isoleucine has a branched side chain","Valine's side chain is shorter than isoleucine","Leucine's branch point sits one carbon further out"]
+---
+
+## hook
+
+Life runs on twenty amino acids. Every protein in every cell is built from combinations of those twenty chemical building blocks. Researchers asked: what if we could get by with nineteen?
+
+They picked isoleucine and tried to engineer bacteria that could make proteins without it — specifically, the ribosomes, the cellular machines that assemble all other proteins. Strip isoleucine from every ribosomal protein. Force the organism to use substitutes everywhere isoleucine once appeared.
+
+The bacteria survived. But what happened reveals why complex systems resist simplification — and why "just remove it" fails more often than it works.
+
+## what-they-did
+
+Ribosomes are the cell's protein factories. They're made of dozens of proteins plus RNA. In the bacteria they studied, those ribosomal proteins contain 382 isoleucine residues — 382 positions where the amino acid sequence calls for isoleucine.
+
+The team's plan: edit the genes for every ribosomal protein. Replace each isoleucine with a chemically similar substitute — usually valine or leucine, which have branching structures like isoleucine but slightly different sizes and properties.
+
+Then see if the bacteria survive. If the edited ribosomes can still make proteins, the organism should live. If isoleucine is truly essential to ribosome function, the bacteria die.
+
+They expected complications. But they expected it would work.
+
+## why-it-resisted
+
+Each substitution changes how the protein folds. Isoleucine has a branched side chain that packs into protein cores in specific ways. Valine's side chain is shorter. Leucine's branch point sits one carbon further out. Swap them and the protein might fold differently, bind less tightly to RNA, or lose stability.
+
+The researchers tested the substitutions. Most ribosomes still functioned. But not perfectly. The bacteria grew slower. Translation — the process of reading genetic instructions and building proteins — became less accurate. The simplified ribosomes worked, but they worked worse.
+
+This is the dependency problem. Isoleucine wasn't just "one amino acid in some proteins." It was threaded through the machinery that makes every other protein in the cell. The ribosome tolerates the substitutions because biological systems have slack. But the slack has limits.
+
+You can edit 382 positions and the system still runs. That doesn't mean those 382 positions were arbitrary. Each one was contributing to efficiency, accuracy, or stability in ways that only show up under load.
+
+## what-this-reveals
+
+The more connected a system, the harder it is to remove components without degrading performance. And the connections aren't always visible until you try.
+
+Legacy code in software is hard to refactor because functions you think are isolated turn out to have callers scattered across the codebase. Supply chains resist simplification because the middleman you thought was unnecessary was absorbing volatility between supplier and customer. Regulations that look redundant often exist because they prevent rare failures you've never seen.
+
+Evolution — biological or organisational — doesn't leave obvious waste lying around. What looks like redundancy is usually load distribution. The system runs fine without a piece because other pieces pick up the slack. But "runs fine" and "runs optimally" are different states.
+
+This is why "just simplify it" fails in systems under selection pressure. The robustness that makes them work under normal conditions is exactly what makes them hard to redesign. You discover what was load-bearing when you try to remove it.
+
+## close
+
+The bacteria survived without isoleucine in their ribosomes. The genetic code can run on nineteen amino acids in that context. But the simplified organism grew slower and made more mistakes.
+
+Complex systems resist simplification not because they're poorly designed. They resist because every part is load-bearing in ways you don't see until it's gone.
