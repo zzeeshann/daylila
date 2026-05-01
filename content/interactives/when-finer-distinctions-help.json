@@ -1,0 +1,71 @@
+{
+  "slug": "when-finer-distinctions-help",
+  "type": "quiz",
+  "title": "When Finer Distinctions Help",
+  "concept": "When people or things grouped under one label differ in ways that change what you expect or what works, splitting the group improves decisions—at the cost of added complexity and distinctions that may not matter.",
+  "interactiveId": "93b74a64-c8d3-4e63-bdc8-b7ada226da87",
+  "sourcePieceId": "086ad49c-c549-4931-9a26-244f319ac3df",
+  "publishedAt": 1777607613278,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What makes it worth dividing one group into smaller ones?",
+        "options": [
+          "You notice the people in the group aren't all identical",
+          "The subgroups need different approaches or face different outcomes",
+          "New tools let you measure more things than you could before",
+          "People in the group say the label doesn't fit them"
+        ],
+        "correctIndex": 1,
+        "explanation": "The test: does knowing which subgroup someone belongs to change what you do or what happens to them? If yes, the split helps. If no, you've added work without improving decisions. Noticing differences isn't enough—the differences have to matter for action or prediction."
+      },
+      {
+        "question": "A company hires software engineers. Some build user interfaces, some optimize databases, some design system architecture. When does splitting 'engineer' into specialties help?",
+        "options": [
+          "When each specialty uses different tools and languages",
+          "When knowing the specialty changes who you assign to which project",
+          "When the company grows large enough to have multiple teams",
+          "When engineers with different specialties earn different salaries"
+        ],
+        "correctIndex": 1,
+        "explanation": "The split helps when it changes assignment decisions—matching the right person to the right task improves outcomes. Different tools or pay grades are signals the split might matter, but the bar is: does knowing the specialty change what you do?"
+      },
+      {
+        "question": "What do you lose by creating more subgroups?",
+        "options": [
+          "You confuse people who were already in the original group",
+          "You add complexity and risk making distinctions that don't improve decisions",
+          "You make it harder to compare new findings to older studies",
+          "You reduce the total number of people who fit the label"
+        ],
+        "correctIndex": 1,
+        "explanation": "More groups mean more to track, more to explain, more places where you guess wrong about which subgroup someone belongs to. You also risk over-splitting—creating subgroups so narrow they fragment knowledge without improving what you can predict or do."
+      },
+      {
+        "question": "A school splits 'struggling reader' into three groups: kids who can't decode words, kids who decode fine but don't comprehend, kids who lack vocabulary. What does this buy?",
+        "options": [
+          "Teachers can prove they understand what causes reading problems",
+          "Each group gets the help that fixes their specific bottleneck",
+          "Parents understand their child's problem better than before",
+          "The school meets requirements for individualized learning plans"
+        ],
+        "correctIndex": 1,
+        "explanation": "The split works because each subgroup needs a different fix—phonics drills for decoding, comprehension strategy for the second, vocabulary building for the third. Knowing the subgroup changes the intervention, which changes outcomes. Understanding causes or meeting compliance goals might follow, but they're not why the split helps."
+      },
+      {
+        "question": "When does keeping one broad group make more sense than splitting it?",
+        "options": [
+          "When the problem is rare and splitting creates groups too small to study",
+          "When subgroups share enough that pooling them teaches more than separating them",
+          "When the tools to measure differences are expensive",
+          "When people prefer simple labels over complicated ones"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sometimes what subgroups share matters more than what divides them—if they respond to overlapping fixes or fail for overlapping reasons, pooling them reveals patterns you'd miss in tiny separate groups. Small sample size or expensive tools are constraints, not reasons—the question is whether shared signal outweighs individual variation."
+      }
+    ]
+  }
+}
