@@ -243,7 +243,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       );
     }
 
-    const curatorResult = await curator.curate(candidatesForCurator, recentPieces);
+    const recentCategoryCounts = await this.getRecentCategoryCounts(30);
+    const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts);
 
     if (curatorResult.skip) {
       await this.logStep(today, pieceId,'skipped', 'done', { reason: curatorResult.reason });
@@ -1667,6 +1668,36 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         headline: r.headline,
         underlyingSubject: r.underlying_subject,
       }));
+    } catch { return []; }
+  }
+
+  /** Recent category concentration surfaced to Curator as a soft-preference
+   *  signal. Mirrors getRecentDailyPieces in shape — fail-quiet on D1 errors,
+   *  date-windowed not lifetime, sorted DESC by count. The hidden
+   *  `patterns-yet-to-cluster` fallback (migration 0027) is excluded — its
+   *  presence in the list would mislead Curator about real concentration.
+   *  See DECISIONS 2026-05-01 "Curator sees recent category concentration as
+   *  soft preference". */
+  private async getRecentCategoryCounts(
+    days: number,
+  ): Promise<Array<{ name: string; count: number }>> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const result = await this.env.DB
+        .prepare(
+          `SELECT c.name AS name, COUNT(DISTINCT pc.piece_id) AS count
+             FROM categories c
+             INNER JOIN piece_categories pc ON c.id = pc.category_id
+             INNER JOIN daily_pieces dp ON pc.piece_id = dp.id
+            WHERE dp.date >= ?
+              AND c.slug != 'patterns-yet-to-cluster'
+            GROUP BY c.id
+            ORDER BY count DESC, c.name ASC`,
+        )
+        .bind(since.toISOString().slice(0, 10))
+        .all<{ name: string; count: number }>();
+      return result.results.map((r) => ({ name: r.name, count: Number(r.count) }));
     } catch { return []; }
   }
 

@@ -13,6 +13,34 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-01: Curator + Scanner diversity intervention — verification window
+
+- **Surfaced:** 2026-05-01 user brief flagged narrow conceptual range across 32 pieces (top 5 of 18 categories holding 22 of 32; 18-Apr / 20-Apr Hormuz near-duplicate). Investigation against prod D1 surfaced TWO real causes: (1) Curator's TEACHABILITY interpretation skewed toward crisis/policy/system-failure framings despite genuinely diverse stories sitting in the rejected pool ("Darkness can travel faster than light", "Scorpion exoskeletons fortified with metal", "Spooky feelings caused by boiler sounds"), (2) Scanner pulls only 6 Google News topic feeds, structurally biasing the candidate pool toward wire-service breaking-news shapes. Two commits this session: Curator prompt rewrite around 10-domain breadth taxonomy + new RECENT CATEGORY CONCENTRATION block (commit 1), Scanner direct feeds extending the input pool (commit 2).
+- **What we're watching:** Next 7 cron firings (≈2026-05-04 14:00 UTC, with 2 firings/day at `interval_hours=12`). Two signals to track:
+  1. **Category breadth:** at least 3 of 7 pieces should land in a category currently holding ≤2 recent pieces, OR open a brand-new category (Categoriser-side novel propose at ≥75 confidence per migration 0027 + categoriser-prompt.ts).
+  2. **Source breadth:** at least 2 of 7 pieces should be sourced from a non-Google-News feed — the candidate's `category` label in `daily_candidates` should be one of the new domain feeds (AEON, QUANTA, JSTOR_DAILY, NAUTILUS, etc., once commit 2 ships).
+- **Healthy mid-band:** 2-4 thin-category picks AND 2-4 non-Google-News-source picks per 7 firings. That's the system drifting toward breadth without over-rotating.
+- **Failure mode A — soft preference not biting (0-1/7 thin-category):** Curator's interpretation is still anchored to crisis framings. Escalation: list the 5 thinnest categories explicitly in the prompt (concrete pull) instead of relying on the descriptive count block alone.
+- **Failure mode B — Scanner cap pinching (0-1/7 non-Google-News-source):** Per-feed cap added in commit 2 isn't preserving budget for new feeds. Escalation: lower per-feed cap on TOP / TECHNOLOGY / SCIENCE / BUSINESS Google News feeds OR raise per-feed cap on direct feeds.
+- **Failure mode C — over-rotation (5+/7 thin-category):** Curator skipping strong news events because the override language ("unless the news event genuinely demands the fuller category") isn't reading. Escalation: tighten override language with explicit examples; lower the soft-preference threshold from 3+ to 4+ pieces.
+- **Diagnostic queries:** `SELECT date, headline, underlying_subject FROM daily_pieces WHERE date >= date('now', '-7 days') ORDER BY published_at DESC` for the picks; `SELECT c.name, COUNT(DISTINCT pc.piece_id) FROM categories c JOIN piece_categories pc ON c.id = pc.category_id JOIN daily_pieces dp ON pc.piece_id = dp.id WHERE dp.date >= date('now', '-7 days') GROUP BY c.id` for thin-category counts; `SELECT date, category, headline FROM daily_candidates WHERE selected = 1 AND date >= date('now', '-7 days')` for source-domain attribution.
+- **Unblock:** by 2026-05-08 — either the system has bent toward breadth (mid-band signal) and we close as `[resolved]` against this session's commits, or one of the failure modes hit and we ship the named escalation.
+- **Priority:** medium (signals system health, not a blocker; current cadence is healthy and pieces ship regardless of breadth verdict).
+
+## [observing] 2026-05-01: Library "32 pieces · 32 subjects" label may overstate diversity
+
+- **Surfaced:** 2026-05-01 user brief: *"the '32 pieces · 32 subjects' library label is overstating diversity — several 'subjects' are paraphrases of each other."* Spot-checked: the library label likely renders `dailyPieces.length` for both numbers; the "subjects" count is misleading at best (every piece has a unique `underlying_subject` string, but several are conceptual paraphrases).
+- **Hypothesis:** Render site is in `src/pages/library/index.astro` or a related Astro component. The honest replacement is `getCategories().length` (count of distinct library categories, currently 24) or `new Set(pieces.map(p => p.underlying_subject)).size` (still likely matches piece count but at least labels truthfully).
+- **Investigation hints:** Grep `src/pages/library/` for "subjects" string render. Check if the count is computed inline or pulled from `src/lib/categories.ts:getCategories()`. The fix is one or two line changes in the .astro template.
+- **Priority:** low (cosmetic / honesty hygiene, not a system bug). Defer until the post-Curator-fix verification window completes — the "subjects" count will mean different things if the breadth intervention bites.
+
+## [wontfix] 2026-05-01: Don't pre-create empty categories
+
+- **Surfaced:** 2026-05-01 plan briefly considered seeding the `categories` table with the 10 domains from the breadth taxonomy (Inner life / Meaning and belief / etc.) as empty rows so Curator + Categoriser see them. User explicit: *"the fix is in the prompt and the input list, not in pre-creating empty categories."*
+- **Won't fix:** Empty categories with `piece_count=0` would clutter the library chip bar at `/library/`. Categoriser already creates novel categories at confidence ≥75 organically when Curator picks a piece that doesn't fit existing taxonomy (per migration 0027 + categoriser-prompt.ts; Knowledge Formation was created this way for the golden-orb piece on 2026-04-29). The breadth fix is in the input (Scanner feeds, commit 2 of the 2026-05-01 intervention) and the interpretation (Curator prompt, commit 1). Categories grow when pieces land in them. Future sessions tempted to "help" by pre-seeding the table should re-read this entry first and the user's 2026-05-01 message.
+
+---
+
 ## [open] 2026-04-30 (last): Centralise contracts — single source of truth across agents
 
 **Surfaced:** 2026-04-30 (last). After shipping the Close-beat loosening (4 prompt edits across `content/voice-contract.md`, `agents/src/shared/voice-contract.ts`, `agents/src/drafter-prompt.ts`, `agents/src/structure-editor-prompt.ts`), the operator asked: *why is the voice contract duplicated in 4 places? What was the original reason? Is this pattern repeated elsewhere? What would a clean version look like?* This entry is the investigation. Two parallel Explore agents mapped the duplication landscape and surveyed the build-pipeline constraints that shaped the current pattern. No code change shipped from this investigation; the operator wants to read first, decide later.

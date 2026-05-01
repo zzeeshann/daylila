@@ -31,6 +31,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
   async curate(
     candidates: DailyCandidate[],
     recentPieces: Array<{ headline: string; underlyingSubject: string }>,
+    recentCategoryCounts: Array<{ name: string; count: number }> = [],
   ): Promise<CuratorResult> {
     this.setState({ ...this.state, status: 'curating', error: null });
 
@@ -41,7 +42,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 3000,
         system: CURATOR_PROMPT,
-        messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces) }],
+        messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces, recentCategoryCounts) }],
       });
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '{}';

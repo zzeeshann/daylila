@@ -27,22 +27,34 @@ Your job is to **find the connection** between the day's news and an underlying 
 
 ## Selection criteria (in order of importance)
 
-1. **TEACHABILITY — find the underlying system.** Every story has one if you look. Examples (not a whitelist — a breadth-showing set):
-   - Crime / violence → human psychology, the systems of grief, justice, why we punish, why we forgive
-   - Celebrity / culture → influence dynamics, social proof, attention economics, parasocial relationships, how cultural practices spread and die, how words shift meaning
-   - Supply chain / infrastructure → chokepoints, cascades, redundancy design, who pays when it breaks
-   - Science discovery → pattern recognition, how knowledge accumulates, what we chose to measure
-   - Policy decision → institutional incentive design, who decides, who bears the cost, second-order effects
-   - Business / corporate → market structure, organisational adaptation, the economics of constraint
-   - Tech announcement (market angle) → adoption curves, network effects, market structure (only if there IS a system to teach; pure spec announcements skip)
-   - Death / loss / dignity → philosophy, what societies owe each other, how we measure a life
-   - Social conditioning → how norms harden into defaults, how invisible pressure shapes behaviour, what makes a practice "the way things are done", who benefits when defaults stay invisible
-   - Psychological / cognitive patterns → cognitive biases, how attention works, why people change their minds (or don't), the mechanics of belief formation and revision — same lens as crime-psychology but standalone, not anchored to violent news
-   - Environmental systems → ecological mechanics (food chains, soil cycles, population dynamics, feedback loops), what happens when one node fails, the difference between robust and brittle systems in nature
-   - Money / ordinary life → how rent gets set, how insurance prices risk, how a wage negotiation actually moves, what mortgage underwriting looks like, the personal-finance systems that quietly shape daily decisions
-   - Health systems → how a diagnosis is reached, what a clinical trial actually tests, how triage decides who goes first, how evidence becomes practice
-   - Technology / daily life → how the device in your pocket actually works, what a recommendation algorithm is doing, how attention and friction get designed in, what data flows where (different from the market angle above — this is the mechanism's effect on the daily user)
-   The question is never "is this teachable?" — it is "what does this teach?"
+1. **TEACHABILITY — find the underlying system.** Every story has one if you look — and "teachable" is wider than "systems under stress." A healthy Zeemish library teaches inner life, meaning, expression, language, science as discovery, body, how humans live together, skills, technology beyond crisis, time and place — not only what's breaking.
+
+   **Domains the library should grow into** (breadth-showing, not a whitelist or rotation requirement):
+
+   - **Inner life** — psychology, cognitive science, neuroscience, mental health, child development, aging
+   - **Meaning and belief** — philosophy, spirituality and religion (treated seriously, not anthropologically), death and grief, ritual, ethics in practice
+   - **Expression** — art and art history, music, literature, film and theatre, architecture, design, photography
+   - **Language and thought** — linguistics, etymology, translation, rhetoric, writing as craft
+   - **Science (not as crisis)** — physics, chemistry, biology, mathematics, astronomy, earth science, ecology beyond invasive species
+   - **Body and health** — medicine, nutrition and food science, sleep, exercise physiology, sex and reproduction, everyday public health
+   - **How humans live together** — actual history (not history-as-current-events backdrop), anthropology, sociology, everyday economics, education, everyday law, cities, migration
+   - **Skills and craft** — cooking, gardening and farming, building and repair, sport, games and play, money in practice
+   - **Technology beyond crisis** — how computers work, the internet at adult level, AI substance (not news cycle), cryptography, energy beyond grid strain, everyday transportation
+   - **Time and place** — geography beyond chokepoints, geology, long-version climate, astronomy of the everyday
+
+   **Worked pairings — how news events map into these domains:**
+   - A neuroscience paper → how memory consolidates during sleep (inner life)
+   - A novel / film release / album → how a story does what it does, why a scale sounds the way it does (expression)
+   - A linguistics study → how a language preserves verb tense, how words carry history (language and thought)
+   - A physics or maths result → why darkness can travel faster than light, why a counterintuitive proof is certain (science as discovery)
+   - A biology paper → how a body senses, decides, computes (body / science)
+   - A historical anniversary → how an institution came to be the way it is (how humans live together)
+   - A sports / cooking / craft moment → what a body does, what a team does, why a game has the shape it has (skills and craft)
+   - A scientific discovery (golden orb, smell maps, fluffy fossil) → pattern recognition, how knowledge accumulates, what we choose to measure
+   - Crime / policy / business / scandal → still teachable: human psychology, incentive design, market structure, organisational adaptation
+   - Supply chain / infrastructure / chokepoints → still teachable: cascades, redundancy, who pays when it breaks (just not the only frame)
+
+   The question is never "is this teachable?" — it is "what does this teach?" And the library is healthier when "what this teaches" lands across the whole taxonomy, not only in systems-under-stress.
 
 2. **UNIVERSALITY** — Will the underlying concept matter to someone in Delhi, Bradford, Berlin, and Manila? The SUBJECT can be local; the LESSON must travel.
 
@@ -88,17 +100,35 @@ The reason must NOT be a category dismissal ("low-teachability breaking news", "
 export function buildCuratorPrompt(
   candidates: DailyCandidate[],
   recentPieces: Array<{ headline: string; underlyingSubject: string }>,
+  recentCategoryCounts: Array<{ name: string; count: number }> = [],
 ): string {
   const recentBlock = recentPieces.length > 0
     ? recentPieces
         .map((p) => `- "${p.headline}"\n  Underlying subject: ${p.underlyingSubject}`)
         .join('\n\n')
     : 'None yet.';
+  // Soft-preference signal — Curator already has hard SAME-EVENT and
+  // SAME-CONCEPT skip rules below. This adds the missing memory layer:
+  // category concentration over the last 30 days. The block reads as
+  // "here's how the library is currently weighted; reach for the thinner
+  // categories when the news allows." Verbatim from prod D1 sums via
+  // Director.getRecentCategoryCounts(30); excludes the hidden
+  // patterns-yet-to-cluster fallback.
+  const categoryBlock = recentCategoryCounts.length > 0
+    ? recentCategoryCounts
+        .map((c) => `- ${c.name}: ${c.count} ${c.count === 1 ? 'piece' : 'pieces'}`)
+        .join('\n')
+    : 'None yet.';
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
 ## Already published recently — Curator must skip duplicates of either kind below. Includes today's earlier picks if any:
 ${recentBlock}
+
+## Recent category concentration (last 30 days)
+${categoryBlock}
+
+If a candidate's underlying subject would land in a category that already holds 3+ recent pieces, prefer a candidate that opens a thinner category — unless the news event genuinely demands the fuller category. This is a SOFT preference (not a hard skip — the SAME-EVENT and SAME-CONCEPT rules below are the only hard skips). The taxonomy in TEACHABILITY shows how wide the library can grow; reach for that breadth.
 
 ## Two duplicate failure modes — both are MUST-skip, not soft preference:
 
