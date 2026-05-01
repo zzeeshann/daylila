@@ -1,0 +1,71 @@
+{
+  "slug": "removing-redundancy-creates-fragility",
+  "type": "quiz",
+  "title": "Removing Redundancy Creates Fragility",
+  "concept": "When a system survives because multiple parts can do the same job, cutting the extras makes it faster or cheaper but breaks it the moment something unexpected happens.",
+  "interactiveId": "60a503b2-cff9-4a69-8636-c810639c05d3",
+  "sourcePieceId": "afdfb4e4-aa19-4cbc-9192-7ac66bc94d78",
+  "publishedAt": 1777600559335,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A car engine has two oxygen sensors — one before the catalytic converter, one after. Both measure the same thing. A mechanic says you only need one. What stops working when the remaining sensor fails?",
+        "options": [
+          "Nothing — the engine management system averages readings so one sensor is enough",
+          "Fuel efficiency drops slightly but the car still runs",
+          "The whole fuel-air mixture goes wrong and the engine misfails or stalls",
+          "Only the emissions system — the engine itself uses different sensors"
+        ],
+        "correctIndex": 2,
+        "explanation": "Two sensors weren't measuring the same thing — they were checking each other. When one fails, the system detects the mismatch and switches to safe mode. Remove one and a failure means bad data with no cross-check. The engine believes whatever the broken sensor reports and adjusts fuel delivery accordingly until something breaks."
+      },
+      {
+        "question": "A data center runs four independent power feeds from different substations. Electricity costs push the operator to drop to three feeds because peak load never exceeds what three can supply. Why were four there?",
+        "options": [
+          "Building codes required it regardless of actual need",
+          "The designer overestimated future growth that never happened",
+          "A substation going down during a heatwave when load is highest — the fourth feed keeps things alive when one fails at the worst possible moment",
+          "Four feeds balance voltage more evenly across the building"
+        ],
+        "correctIndex": 2,
+        "explanation": "Peak load and normal failure don't happen together in the planning model — but they do in reality. Four feeds mean losing one during a demand spike still leaves enough capacity. Three feeds work perfectly until the day high demand and an outage coincide. Codes and voltage matter but the redundancy exists to cover the scenario where bad things stack."
+      },
+      {
+        "question": "A manufacturing line has three quality checks that each catch different types of defects. The third check finds problems in only 2% of units so the plant removes it. When do defective products reach customers?",
+        "options": [
+          "Never — if the first two checks caught 98% of defects the system was already good enough",
+          "Immediately — removing any inspection step breaks quality control",
+          "When a supplier changes a material in a way the first two checks don't test for — the rare thing the third check caught starts getting through",
+          "Only during the first month until workers learn to spot issues the missing check used to catch"
+        ],
+        "correctIndex": 2,
+        "explanation": "Rare failures stay rare until conditions shift. The third check caught a specific failure mode that the first two miss. Removing it works fine until that failure mode becomes common — a material change, a new machine, a process drift. The check wasn't redundant; it covered a different risk."
+      },
+      {
+        "question": "A building's fire suppression system has sprinklers and a secondary foam system. Insurance is cheaper with both, but the foam system costs money to maintain and sprinklers handle most fires. When does removing the foam system matter?",
+        "options": [
+          "During electrical fires — water makes them worse and foam doesn't",
+          "Never if the sprinklers are properly maintained",
+          "Only in storage areas with flammable liquids where sprinklers can't reach",
+          "When sprinkler pipes freeze or get damaged and can't deliver water — the foam system keeps working through different plumbing"
+        ],
+        "correctIndex": 3,
+        "explanation": "Layered systems survive failure in one layer. Sprinklers and foam don't just fight fire differently — they fail differently. A burst pipe, a frozen line, or a pressure problem disables sprinklers but leaves foam intact. Electrical fires and flammable liquids matter but the structural reason for keeping both is that they don't break together."
+      },
+      {
+        "question": "When does cutting redundancy make sense?",
+        "options": [
+          "When failure is cheap enough that replacing things costs less than keeping spares running",
+          "When you can predict every failure mode the system will face",
+          "When the redundant parts almost never get used",
+          "When competitors already removed theirs and matching their cost structure is necessary for survival"
+        ],
+        "correctIndex": 0,
+        "explanation": "You remove redundancy when the cost of occasional failure is lower than the cost of continuous insurance. Prediction is never perfect. Low usage means redundancy is working, not wasted. Competitive pressure might force the choice but doesn't make it smart. The trade works when breaking something and fixing it or living without it is genuinely cheaper than the buffer you're carrying."
+      }
+    ]
+  }
+}
