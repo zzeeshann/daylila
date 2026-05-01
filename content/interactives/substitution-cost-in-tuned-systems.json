@@ -1,0 +1,71 @@
+{
+  "slug": "substitution-cost-in-tuned-systems",
+  "type": "quiz",
+  "title": "Substitution Cost in Tuned Systems",
+  "concept": "When a component appears in many places across a system and each instance is shaped to fit its local context, swapping it for a similar component creates small losses at every location—the system runs but performs worse because the replacement doesn't match the tuning.",
+  "interactiveId": "5af3b27d-6cfc-497c-84d5-65d7e42f6db1",
+  "sourcePieceId": "c6cc7d96-9ad5-4622-9666-912fbf9df3f1",
+  "publishedAt": 1777605104968,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A factory uses the same fastener design in fifty places. You replace it with a nearly-identical fastener that fits every hole. The factory runs but several assembly lines slow down. What causes the slowdown?",
+        "options": [
+          "The new fastener is lower quality than the original",
+          "Workers need training on how to install the new fastener",
+          "Each of the fifty locations was built around the old fastener's exact grip and torque—the new one fits but creates small losses at every point",
+          "The factory needs time to adjust to the change"
+        ],
+        "correctIndex": 2,
+        "explanation": "Each of the fifty locations worked with the old fastener's exact properties. The new fastener fits but mismatches at every point—those small losses compound across all fifty locations."
+      },
+      {
+        "question": "You swap a standard component for a cheaper version in a machine with twelve subsystems. Ten subsystems now use more power than before. Why?",
+        "options": [
+          "The cheaper component wastes energy through heat loss",
+          "Each subsystem had adjusted—motor speeds, timing sequences, pressure settings—to the old component's exact behavior, and the new component's small differences break those adjustments",
+          "The cheaper component requires more maintenance, which drains power during servicing",
+          "Cheaper components always sacrifice energy efficiency"
+        ],
+        "correctIndex": 1,
+        "explanation": "Each subsystem tuned its operation to the old component's specific behavior. The new component meets basic requirements but behaves slightly differently—those differences break ten tuned processes, forcing them to work harder."
+      },
+      {
+        "question": "A building uses the same light fixture in forty rooms. You replace all forty with a newer model that meets the same brightness specs. Eight rooms now need brighter task lamps. What happened?",
+        "options": [
+          "The new fixtures produce less actual light than the specs claim",
+          "Each room's layout—desk positions, wall colors, window angles—was arranged around the old fixture's specific light spread and color temperature, and the new fixture's different pattern leaves gaps",
+          "The new fixtures take time to warm up to full brightness",
+          "People resist change and perceive the new fixtures as dimmer even when they're not"
+        ],
+        "correctIndex": 1,
+        "explanation": "Each room's layout worked with the old fixture's specific light spread and color. The new fixture meets specs but distributes light differently—eight rooms now have gaps where the old pattern covered but the new one doesn't."
+      },
+      {
+        "question": "A standard part fails in a six-year-old machine. You install an updated version the manufacturer now ships. The machine runs but develops vibration problems in three connected assemblies. What's the mechanism?",
+        "options": [
+          "The updated part has manufacturing defects the original didn't have",
+          "Three assemblies had drifted during six years of operation—wear patterns, clearances, bearing seats—to match the old part's exact behavior, and the updated part no longer fits that drift",
+          "The machine needs recalibration after any part replacement",
+          "Updated parts always require break-in time before they settle"
+        ],
+        "correctIndex": 1,
+        "explanation": "Three assemblies drifted during six years of use to match the old part's exact behavior. The updated part works for new machines but doesn't match the drift—vibration appears where clearances and wear patterns no longer align."
+      },
+      {
+        "question": "When can you safely replace a component that appears in many places across a system?",
+        "options": [
+          "When the replacement meets the same technical specifications as the original",
+          "When functional tests confirm the system still operates with the replacement installed",
+          "When you verify nothing depends on properties the replacement changes, or you accept re-tuning every location that does",
+          "When the replacement is higher quality than the original component"
+        ],
+        "correctIndex": 2,
+        "explanation": "Safe replacement requires verifying no location relied on changed properties, or re-tuning every location that did. Systems pass functional tests while performing worse because locations were tuned to the original's exact behavior."
+      }
+    ]
+  }
+}
