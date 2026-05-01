@@ -1,0 +1,71 @@
+{
+  "slug": "boundary-enforcer-position",
+  "type": "quiz",
+  "title": "Boundary Enforcer Position",
+  "concept": "When a component sits below other parts of a system and decides what those parts can do, breaking it doesn't just damage one thing — it removes every restriction the component was holding in place.",
+  "interactiveId": "00c66ee8-bdfb-4c0d-bade-52696b07cd2a",
+  "sourcePieceId": "99b4187f-7a66-4a1b-be9c-5d406017c1f2",
+  "publishedAt": 1777595010430,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A building has 30 floors. Each floor has locked doors that only open for people with the right keycard. All the keycards get checked by a single computer in the basement that decides who gets through which doors. You find a way to trick that basement computer into thinking your keycard opens every door. Why does this one trick give you access to all 30 floors, even though the floors don't connect to each other?",
+        "options": [
+          "Because keycards work by connecting to nearby readers, so tricking one spreads to the others",
+          "Because the basement computer sits below all the doors and enforces the rules for every single one — fool it and every lock it controls stops working",
+          "Because the basement is where the building's main power comes from, so controlling it controls everything",
+          "Because higher floors are less secure than lower floors in most buildings"
+        ],
+        "correctIndex": 1,
+        "explanation": "The basement computer is the gatekeeper. Every door on every floor asks it 'Should I open for this card?' When you trick the gatekeeper, you break every check it was supposed to perform. The doors themselves haven't changed, but the thing deciding whether they open has stopped working. Position matters: sit below the decisions, control all of them."
+      },
+      {
+        "question": "A factory runs 50 different machines. Each machine has its own controls, but they all depend on a shared monitoring system that watches for dangerous conditions and shuts machines down before they overheat or break something. An engineer finds a bug in the monitoring system — it sometimes fails to detect when a machine is running too hot. Why does this single flaw endanger all 50 machines?",
+        "options": [
+          "Because the monitoring system enforces safety boundaries for every machine — when it fails to stop one, the protection for all of them is broken",
+          "Because overheating spreads through the factory floor, making nearby machines hotter",
+          "Because machines that share a monitoring system share physical components",
+          "Because factory equipment is designed with tight tolerances that require constant supervision"
+        ],
+        "correctIndex": 0,
+        "explanation": "The monitoring system is what stands between each machine and damage. It watches, decides, and acts. A bug means it stops deciding correctly — Machine 12 might overheat today, Machine 33 tomorrow, Machine 7 next week. The flaw doesn't care which machine triggers it. The enforcer sits below all of them, so when it breaks, every machine loses protection."
+      },
+      {
+        "question": "A hospital's prescription system has doctors writing orders, pharmacists filling them, and a verification layer between the two that checks every order for dangerous drug interactions. You discover the verification layer sometimes approves combinations it should block. Why is this more dangerous than a bug in the doctor's interface that occasionally displays a patient's name in the wrong font?",
+        "options": [
+          "Because drug interaction bugs are harder for humans to notice than display bugs",
+          "Because the verification layer sits between intent and action — it's supposed to catch dangerous combinations before they reach patients, so breaking it means dangerous orders get through",
+          "Because prescription systems handle life-or-death decisions that require extra care",
+          "Because font bugs affect visual presentation, not medical data"
+        ],
+        "correctIndex": 1,
+        "explanation": "The verification layer's job is blocking harm. The doctor writes, the layer checks, the pharmacist fills. A font bug is annoying but harmless — the right patient still gets the right medicine. A verification bug means the layer that's supposed to say 'no' sometimes says 'yes' instead. When the thing protecting patients stops working, patients get hurt."
+      },
+      {
+        "question": "A company's network has 200 employee computers. Each computer runs different software and handles different work. All of them connect to a central authentication system that checks login credentials and decides what files each person can access. An attacker breaks into the authentication system. Why can this one break compromise data on all 200 computers, even though those computers don't share files or talk to each other?",
+        "options": [
+          "Because the authentication system sits below every computer and enforces who sees what — controlling it means controlling every access decision it makes",
+          "Because networks are designed so that one compromised machine can reach others",
+          "Because authentication systems store copies of sensitive data from all connected computers",
+          "Because 200 computers create more attack surface than a single computer"
+        ],
+        "correctIndex": 0,
+        "explanation": "Authentication is the gatekeeper for all 200 computers. When Employee 47 tries to open a file, the authentication system checks whether Employee 47 should see that file. Break the authentication system and you can pretend to be Employee 1, then Employee 2, then Employee 3. The computers themselves are fine. The thing deciding who gets in is broken."
+      },
+      {
+        "question": "Two bugs get discovered on the same day. Bug A crashes a photo editing app when you use a specific filter. Bug B tricks the part of the operating system that decides which programs can read files on the hard drive. Both bugs affect the same number of users. Why does Bug B get an emergency patch while Bug A gets scheduled for next month's update?",
+        "options": [
+          "Because operating system bugs are always more serious than app bugs",
+          "Because Bug B sits in the layer that enforces file access rules for every program — breaking it means every program can ignore the rules, while Bug A only affects one app's behavior",
+          "Because users care more about file access than photo editing",
+          "Because operating systems are harder to patch, so teams prioritize them to avoid delays"
+        ],
+        "correctIndex": 1,
+        "explanation": "Bug A breaks one feature in one app. Bug B breaks the enforcer that keeps every app from reading files it shouldn't touch. The photo editor asked for permission and the system said yes or no. Bug B means the system says yes when it should say no — for the photo editor, for the web browser, for every program on the machine. Position determines blast radius."
+      }
+    ]
+  }
+}
