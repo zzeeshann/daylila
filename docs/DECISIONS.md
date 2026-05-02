@@ -2,6 +2,45 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-02 (post-rebuild): Site-wide visual consistency rules
+
+After the Account rebuild shipped, three polish passes landed back-to-back. Each codified a rule that had been drifting; recording them here so they don't get re-litigated.
+
+**1. Affordance glyphs (`↗ → ☆ ★ ←`).** Every interactive element on reader-facing surfaces gets a glyph that signals "this does something" at rest, not just on hover.
+
+- External links (`target=_blank`): trailing `↗` in `aria-hidden` span.
+- Internal forward navigation: trailing `→`.
+- Toggleable state (currently only Save): leading `☆` (off) / `★` (on). Replaces the earlier `Saved ✓` text.
+- Disclosures: existing icons (chevron, info, X, ?) — unchanged.
+- Action buttons (Unsave, Log out): always-visible `underline underline-offset-2` instead of hover-only underline. The button label itself + the underline carry the affordance — no glyph forced.
+
+**Deliberately not changed:** top nav (`Daily / Library / Account`), breadcrumbs (lesson page, library category page), inline category links inside flowing prose (Account "Subjects" line is the one exception — bold-teal there because it's a named link in a sentence, not a list-row navigation), category chips (chip styling is the at-rest affordance), form-submit pill buttons (solid-fill shape is the affordance). Adding glyphs to nav-bar items or filter chips would clutter without clarifying.
+
+**Commit:** `5770a1f`. Includes a swap of the homepage hero SVG arrow → text `→` so the most visible CTA on the site matches the rule applied everywhere else.
+
+**2. Section dividers on Account.** Account renders 7+ conditional sections; without dividers it read as one long scroll. Wrapped sections in `<div class="divide-y divide-zee-border/60">`, normalized each section's spacing to `py-10`, tightened header `pb-10 → pb-2`. `divide-y` only renders borders between actually-rendered siblings, which handles the conditional sections cleanly.
+
+**Token reuse:** `border-zee-border/60` already used by `daily/index.astro` day-rows, library piece-row dividers, library filter input. No new colours, no new opacities. Other surfaces (Daily, Library, Homepage) already have rhythm via eyebrow labels + internal dividers — only Account had the gap.
+
+**Commit:** `f89e86c`.
+
+**3. Colour-token rule (the four palette tokens — gold, muted, teal, ink).**
+
+- **Gold** (`text-zee-gold`) — page-identity eyebrows + per-piece `underlyingSubject` pills on library piece rows. Sparingly. Never used for within-page section labels.
+  - Page-identity eyebrows: piece-page long date, homepage TODAY, Account MEMBER SINCE, login eyebrow, 404 eyebrow.
+  - underlyingSubject pill is a different concept from `categories.name` — gold reinforces "this piece is about X" (the per-piece schema field), distinct from chip-styled category filters.
+- **Muted** (`text-zee-muted`) — section labels (CONTINUE READING / SAVED / RECENTLY READ / RECENT / THIS WEEK / month labels), dates, captions, secondary metadata.
+- **Teal** (`text-zee-primary`) — every link, every hover state, AND every affordance glyph at rest (not just on hover). The "at rest" rule is the bit that drifted: list-item arrows (Recently read / Saved / library piece rows / homepage recent) had inherited `text-zee-muted` from their muted-text parents until this pass.
+- **Ink** (`text-zee-text`) — headlines, body content, list-item titles.
+
+**Inline-prose category links** are bold-teal, not bold-ink (Account "Subjects you've been reading" paragraph). The bold weight gives mid-sentence emphasis; the teal colour keeps them legible as nav links.
+
+**`made-drawer.ts` quirk:** the "How this was made" drawer uses raw hex (`#1A6B62` for teal, ~8x in `made.css`), not Tailwind. Added a single `.made-glyph-teal` class so external `↗` glyphs inside the drawer match the site teal token.
+
+**Commit:** `3086668`.
+
+**Why these stay this session.** All three are visual-vocabulary rules that benefit from being applied *together* in a coherent commit (otherwise the audit re-runs every time someone adds a new link or section). Future contributors can reference this entry rather than re-deriving the rules.
+
 ## 2026-05-02: Account rebuilt as private practice record; new `user_piece_reads` table
 
 **Context.** `/account/` was a stub: *"Member since · 1 piece completed · 0 in progress · Browse library · Log out"*. The "1 piece completed" count was effectively binary because `lesson-shell.ts:38` hardcodes `lesson_number = 0` for every daily piece, and `progress`'s PK is `(user_id, course_slug, lesson_number)` — so all daily reads collapse to one row per user, with `completed_at` overwritten on every new completion. `engagement` is per-piece-per-day aggregate, not per-user. The page couldn't honestly answer the reader's job-to-be-done — *"where was I, what have I read, what should I come back to?"*
