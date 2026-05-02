@@ -4,6 +4,8 @@ export const prerender = false;
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getUser } from '../lib/db';
 import { formatDate } from '../lib/format';
+import { getCollection } from 'astro:content';
+import { deriveSlug, pieceUrl } from '../lib/slug';
 
 const db = Astro.locals.runtime.env.DB;
 const userId = Astro.locals.userId;
@@ -11,11 +13,96 @@ const user = await getUser(db, userId);
 
 const hasEmail = !!user?.email;
 
-// Member-since date for signed-in readers. user.created_at is epoch ms.
 let memberSince = '';
 if (hasEmail && user?.created_at) {
   const iso = new Date(user.created_at).toISOString().slice(0, 10);
   memberSince = formatDate(iso);
+}
+
+// ── Resume: most recent in-progress read ──────────────────────────
+interface ResumeRow {
+  piece_id: string;
+  current_beat: string | null;
+  started_at: number;
+  last_seen_at: number;
+}
+
+let resumeRow: ResumeRow | null = null;
+try {
+  resumeRow = await db
+    .prepare(
+      `SELECT piece_id, current_beat, started_at, last_seen_at
+       FROM user_piece_reads
+       WHERE user_id = ? AND completed_at IS NULL
+       ORDER BY last_seen_at DESC
+       LIMIT 1`,
+    )
+    .bind(userId)
+    .first<ResumeRow>();
+} catch { /* table may not exist in dev */ }
+
+// ── Streak: distinct days of activity in last 14 days ─────────────
+const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+let streakDays = 0;
+try {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(DISTINCT date(last_seen_at / 1000, 'unixepoch')) AS n
+       FROM user_piece_reads
+       WHERE user_id = ? AND last_seen_at >= ?`,
+    )
+    .bind(userId, fourteenDaysAgo)
+    .first<{ n: number }>();
+  streakDays = row?.n ?? 0;
+} catch { /* fall through to 0 */ }
+
+// ── Build a piece_id → entry map for the rows we'll render ────────
+const piecesNeeded = new Set<string>();
+if (resumeRow) piecesNeeded.add(resumeRow.piece_id);
+
+const allPieces = await getCollection('dailyPieces');
+const pieceMap = new Map<string, (typeof allPieces)[number]>();
+for (const entry of allPieces) {
+  if (piecesNeeded.has(entry.data.pieceId)) {
+    pieceMap.set(entry.data.pieceId, entry);
+  }
+}
+
+// Resolve the resume card data; null if entry missing (orphan piece_id).
+let resume: {
+  headline: string;
+  url: string;
+  startedDisplay: string;
+  beatLabel: string | null;
+} | null = null;
+if (resumeRow) {
+  const entry = pieceMap.get(resumeRow.piece_id);
+  if (entry) {
+    const slug = deriveSlug(entry.id);
+    const baseUrl = pieceUrl(entry.data.date, slug);
+    const url = resumeRow.current_beat ? `${baseUrl}#${resumeRow.current_beat}` : baseUrl;
+    const startedIso = new Date(resumeRow.started_at).toISOString().slice(0, 10);
+    const startedDisplay = formatDate(startedIso);
+    const beatLabel = resumeRow.current_beat
+      ? humanise(entry.data.beatTitles?.[resumeRow.current_beat] ?? resumeRow.current_beat)
+      : null;
+    resume = {
+      headline: entry.data.title,
+      url,
+      startedDisplay,
+      beatLabel,
+    };
+  }
+}
+
+function humanise(s: string): string {
+  // If it already contains spaces or capitals, treat as already-human.
+  if (/[A-Z\s]/.test(s)) return s;
+  return s
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(' ');
 }
 ---
 
@@ -29,6 +116,44 @@ if (hasEmail && user?.created_at) {
     )}
     <h1 class="text-3xl md:text-4xl font-bold leading-tight tracking-tight">Account</h1>
   </header>
+
+  {resume ? (
+    <section class="mb-10">
+      <p class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
+        Continue reading
+      </p>
+      <a href={resume.url} class="block p-5 rounded-xl border border-zee-border hover:border-zee-primary/40 transition-colors no-underline">
+        <h2 class="text-xl md:text-2xl font-bold text-zee-text leading-snug mb-2">
+          {resume.headline}
+        </h2>
+        <p class="text-sm text-zee-muted mb-4">
+          {resume.beatLabel && <>On: <span class="text-zee-text">{resume.beatLabel}</span> · </>}
+          Started {resume.startedDisplay}
+        </p>
+        <span class="text-sm text-zee-primary font-medium">Continue <span aria-hidden="true">→</span></span>
+      </a>
+      {streakDays >= 2 && (
+        <p class="mt-3 text-sm text-zee-muted">
+          You've read {streakDays} of the last 14 days.
+        </p>
+      )}
+    </section>
+  ) : (
+    <section class="mb-10">
+      <p class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
+        Today's piece
+      </p>
+      <a href="/daily/" class="block p-5 rounded-xl border border-zee-border hover:border-zee-primary/40 transition-colors no-underline">
+        <p class="text-base text-zee-text mb-1">Read today's piece</p>
+        <span class="text-sm text-zee-primary font-medium">Go to Daily <span aria-hidden="true">→</span></span>
+      </a>
+      {streakDays >= 2 && (
+        <p class="mt-3 text-sm text-zee-muted">
+          You've read {streakDays} of the last 14 days.
+        </p>
+      )}
+    </section>
+  )}
 
   <section class="pb-10 text-zee-text">
     {hasEmail ? (

@@ -135,7 +135,7 @@ export default function rehypeBeats() {
       beats.push({
         type: 'element',
         tagName: 'lesson-beat',
-        properties: { name },
+        properties: { name, id: name },
         children: beatChildren,
       });
     }
