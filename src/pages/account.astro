@@ -89,6 +89,23 @@ try {
   streakDays = row?.n ?? 0;
 } catch { /* fall through to 0 */ }
 
+// ── Saved pieces ──────────────────────────────────────────────────
+interface SavedRow { piece_id: string; created_at: number }
+let savedRows: SavedRow[] = [];
+try {
+  const result = await db
+    .prepare(
+      `SELECT piece_id, created_at
+       FROM saved_pieces
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT 20`,
+    )
+    .bind(userId)
+    .all<SavedRow>();
+  savedRows = result.results ?? [];
+} catch { /* fall through */ }
+
 // ── Subjects: top categories among the user's completed pieces ────
 interface SubjectRow { slug: string; name: string; n: number }
 let subjects: SubjectRow[] = [];
@@ -181,6 +198,7 @@ try {
 const piecesNeeded = new Set<string>();
 if (resumeRow) piecesNeeded.add(resumeRow.piece_id);
 for (const r of recentRows) piecesNeeded.add(r.piece_id);
+for (const s of savedRows) piecesNeeded.add(s.piece_id);
 
 const datesNeeded = new Set<string>();
 for (const z of zitaRows) {
@@ -238,6 +256,20 @@ for (const r of recentRows) {
     url: pieceUrl(entry.data.date, deriveSlug(entry.id)),
     subject: entry.data.underlyingSubject ?? null,
     dateDisplay: formatShortDate(r.completed_at),
+  });
+}
+
+// Resolve the Saved list.
+const saved: { piece_id: string; headline: string; url: string; subject: string | null; dateDisplay: string }[] = [];
+for (const s of savedRows) {
+  const entry = pieceMap.get(s.piece_id);
+  if (!entry) continue;
+  saved.push({
+    piece_id: s.piece_id,
+    headline: entry.data.title,
+    url: pieceUrl(entry.data.date, deriveSlug(entry.id)),
+    subject: entry.data.underlyingSubject ?? null,
+    dateDisplay: formatShortDate(s.created_at),
   });
 }
 
@@ -340,6 +372,35 @@ function humanise(s: string): string {
     </section>
   )}
 
+  {saved.length > 0 && (
+    <section class="mb-10">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
+        Saved
+      </h2>
+      <ul class="space-y-4">
+        {saved.map((s) => (
+          <li>
+            <p class="text-xs text-zee-muted mb-1">{s.dateDisplay}</p>
+            <a href={s.url} class="text-base text-zee-text hover:text-zee-primary transition-colors leading-snug">
+              {s.headline}
+            </a>
+            {s.subject && (
+              <p class="text-xs text-zee-muted mt-1">{s.subject}</p>
+            )}
+            <button
+              type="button"
+              data-account-unsave
+              data-piece-id={s.piece_id}
+              class="mt-2 text-xs text-zee-muted hover:text-zee-text transition-colors underline-offset-2 hover:underline"
+            >
+              Unsave
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
   {totalCompleted >= 3 && subjects.length >= 2 && (
     <section class="mb-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
@@ -434,5 +495,26 @@ function humanise(s: string): string {
   logoutBtn?.addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';
+  });
+
+  // Unsave handler — removes the row + the list item, no toast.
+  document.querySelectorAll<HTMLButtonElement>('[data-account-unsave]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const pieceId = btn.dataset.pieceId;
+      if (!pieceId) return;
+      btn.disabled = true;
+      try {
+        const r = await fetch('/api/saved/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ piece_id: pieceId }),
+        });
+        if (!r.ok) throw new Error('unsave-failed');
+        const li = btn.closest('li');
+        if (li instanceof HTMLLIElement) li.remove();
+      } catch {
+        btn.disabled = false;
+      }
+    });
   });
 </script>
