@@ -49,3 +49,14 @@ export function formatUtcLongDateFromIso(dateStr: string): string {
   const ms = Date.UTC(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
   return formatUtcLongDate(ms);
 }
+
+/** Format Unix-ms timestamp as "Fri 1 May" (UTC, weekday + day + short month). */
+export function formatShortDate(unixMs: number): string {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  const d = new Date(unixMs);
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
