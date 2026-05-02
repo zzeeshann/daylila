@@ -356,7 +356,7 @@ function humanise(s: string): string {
           <li>
             <p class="text-xs text-zee-muted mb-1">{r.dateDisplay}</p>
             <a href={r.url} class="text-base text-zee-text hover:text-zee-primary transition-colors leading-snug">
-              {r.headline}
+              {r.headline} <span class="text-zee-muted" aria-hidden="true">→</span>
             </a>
             {r.subject && (
               <p class="text-xs text-zee-muted mt-1">{r.subject}</p>
@@ -382,7 +382,7 @@ function humanise(s: string): string {
           <li>
             <p class="text-xs text-zee-muted mb-1">{s.dateDisplay}</p>
             <a href={s.url} class="text-base text-zee-text hover:text-zee-primary transition-colors leading-snug">
-              {s.headline}
+              {s.headline} <span class="text-zee-muted" aria-hidden="true">→</span>
             </a>
             {s.subject && (
               <p class="text-xs text-zee-muted mt-1">{s.subject}</p>
@@ -391,7 +391,7 @@ function humanise(s: string): string {
               type="button"
               data-account-unsave
               data-piece-id={s.piece_id}
-              class="mt-2 text-xs text-zee-muted hover:text-zee-text transition-colors underline-offset-2 hover:underline"
+              class="mt-2 text-xs text-zee-muted hover:text-zee-text transition-colors underline underline-offset-2"
             >
               Unsave
             </button>
@@ -433,7 +433,7 @@ function humanise(s: string): string {
           <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span class="text-xs text-zee-muted">{formatShortDate(q.created_at)}</span>
             <a href={`/interactives/${q.slug}/`} class="text-base text-zee-text hover:text-zee-primary transition-colors">
-              {q.title}
+              {q.title} <span class="text-zee-muted" aria-hidden="true">→</span>
             </a>
             {q.total > 0 && (
               <span class="text-sm text-zee-muted">{q.score ?? 0} of {q.total}</span>
@@ -453,7 +453,7 @@ function humanise(s: string): string {
         {zitaConversations.map((z) => (
           <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <a href={z.url} class="text-base text-zee-text hover:text-zee-primary transition-colors">
-              {z.headline}
+              {z.headline} <span class="text-zee-muted" aria-hidden="true">→</span>
             </a>
             <span class="text-sm text-zee-muted">
               {z.messages} {z.messages === 1 ? 'message' : 'messages'} · {z.lastDisplay}
@@ -470,7 +470,7 @@ function humanise(s: string): string {
         <p class="text-sm text-zee-muted">Signed in as <span class="text-zee-text">{user!.email}</span>.</p>
         <button
           id="logout-btn"
-          class="mt-3 text-sm text-zee-muted hover:text-zee-text transition-colors underline-offset-2 hover:underline"
+          class="mt-3 text-sm text-zee-muted hover:text-zee-text transition-colors underline underline-offset-2"
         >
           Log out
         </button>

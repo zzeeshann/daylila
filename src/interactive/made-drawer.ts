@@ -262,7 +262,7 @@ class MadeDrawer extends HTMLElement {
             ${STRUCTURE_RULES.map((r) => `<li class="made-rule">${escapeHtml(r)}</li>`).join('')}
           </ul>
           <p class="made-rules-footer">
-            Full contract: <a href="https://github.com/zzeeshann/zeemish-v2/blob/main/content/voice-contract.md" target="_blank" rel="noopener">voice-contract.md</a>
+            Full contract: <a href="https://github.com/zzeeshann/zeemish-v2/blob/main/content/voice-contract.md" target="_blank" rel="noopener">voice-contract.md <span aria-hidden="true">↗</span></a>
           </p>
         </div>
       </section>
@@ -355,7 +355,7 @@ class MadeDrawer extends HTMLElement {
           <p class="made-commit">
             ${published ? `Published ${escapeHtml(published)} as ` : 'Published as '}
             ${env.piece.filePath ? `<code>${escapeHtml(env.piece.filePath)}</code>` : ''}
-            ${env.piece.commitUrl ? ` <a href="${env.piece.commitUrl}" target="_blank" rel="noopener">View commit on GitHub →</a>` : ''}
+            ${env.piece.commitUrl ? ` <a href="${env.piece.commitUrl}" target="_blank" rel="noopener">View commit on GitHub <span aria-hidden="true">↗</span></a>` : ''}
           </p>
         </section>
       `);
@@ -579,7 +579,7 @@ function renderFactSources(sources: string[] | undefined): string {
   const links = domains
     .map(
       (d, i) =>
-        `${i > 0 ? '<span class="made-fact-sources-sep" aria-hidden="true">·</span>' : ''}<a class="made-fact-sources-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.host)}</a>`,
+        `${i > 0 ? '<span class="made-fact-sources-sep" aria-hidden="true">·</span>' : ''}<a class="made-fact-sources-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(d.host)} <span aria-hidden="true">↗</span></a>`,
     )
     .join('');
   return `<p class="made-fact-sources"><span class="made-fact-sources-label">Sources consulted:</span>${links}</p>`;
@@ -740,7 +740,7 @@ function renderInteractiveSection(
 
 function renderCandidate(c: MadeEnvelope['candidates']['alsoConsidered'][number]): string {
   const title = c.url
-    ? `<a href="${c.url}" target="_blank" rel="noopener">${escapeHtml(c.headline)}</a>`
+    ? `<a href="${c.url}" target="_blank" rel="noopener">${escapeHtml(c.headline)} <span aria-hidden="true">↗</span></a>`
     : escapeHtml(c.headline);
   const meta: string[] = [];
   if (c.source) meta.push(escapeHtml(c.source));

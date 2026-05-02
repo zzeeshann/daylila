@@ -58,12 +58,9 @@ if (todaysPiece) {
               </>
             )}
           </div>
-          <div class="mt-7 inline-flex items-center gap-2 text-sm font-medium text-zee-primary group-hover:gap-3 transition-all">
-            Read today's piece
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
+          <p class="mt-7 text-sm font-medium text-zee-primary">
+            Read today's piece <span aria-hidden="true">→</span>
+          </p>
         </a>
       </section>
 
@@ -77,11 +74,8 @@ if (todaysPiece) {
       <p class="text-lg md:text-xl text-zee-muted max-w-2xl leading-relaxed mb-8">
         Today's news, explained. The machinery behind the headlines.
       </p>
-      <a href="/library/" class="inline-flex items-center gap-2 text-sm font-medium text-zee-primary hover:gap-3 transition-all">
-        Browse the library
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+      <a href="/library/" class="inline-block text-sm font-medium text-zee-primary hover:underline underline-offset-2">
+        Browse the library <span aria-hidden="true">→</span>
       </a>
     </section>
   )}
@@ -102,7 +96,7 @@ if (todaysPiece) {
             >
               <div class="flex-1 min-w-0">
                 <p class="font-medium text-base leading-snug group-hover:text-zee-primary transition-colors">
-                  {piece.data.title}
+                  {piece.data.title} <span class="text-zee-muted font-normal" aria-hidden="true">→</span>
                 </p>
                 {piece.data.underlyingSubject && (
                   <p class="text-xs text-zee-muted mt-1">{piece.data.underlyingSubject}</p>

@@ -131,7 +131,7 @@ const readingMin =
                   rel="noopener"
                   class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'} hover:text-zee-primary hover:underline break-words`}
                 >
-                  {displayHeadline(c.headline, c.source)}
+                  {displayHeadline(c.headline, c.source)} <span aria-hidden="true">↗</span>
                 </a>
               ) : (
                 <span class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'}`}>{displayHeadline(c.headline, c.source)}</span>

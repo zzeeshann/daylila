@@ -162,7 +162,7 @@ const interactiveSlug = primary?.data.slug ?? null;
           aria-pressed="false"
           class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
         >
-          Save
+          <span aria-hidden="true" data-save-glyph>☆</span> <span data-save-label>Save</span>
         </button>
       </>
     )}
@@ -308,10 +308,13 @@ const interactiveSlug = primary?.data.slug ?? null;
     const pieceId = btn.dataset.pieceId;
     if (!pieceId) return;
 
+    const glyph = btn.querySelector('[data-save-glyph]');
+    const label = btn.querySelector('[data-save-label]');
     const setLabel = (saved) => {
       btn.dataset.saved = saved ? 'true' : 'false';
       btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
-      btn.textContent = saved ? 'Saved ✓' : 'Save';
+      if (glyph) glyph.textContent = saved ? '★' : '☆';
+      if (label) label.textContent = saved ? 'Saved' : 'Save';
     };
 
     fetch(`/api/saved/toggle?piece_id=${encodeURIComponent(pieceId)}`)
