@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**20 tables across 28 migrations.**
+**21 tables across 29 migrations.**
 
 ## Reader-side tables
 
@@ -65,6 +65,28 @@ Conversation history for the Zita learning guide.
 | piece_id | TEXT | `daily_pieces.id` (UUID) this conversation is about. Added migration 0014 (cadence Phase 1) so Phase 6's Zita re-scoping can target a specific piece when multiple share a date. Nullable at schema level; backfilled from `piece_date → daily_pieces.date → daily_pieces.id` for the 92 migration-0013 rows. Indexed via `idx_zita_piece_id`. `piece_date` stays alongside for now — Phase 6 will deprecate the date-scoped SELECT in favour of piece_id. |
 
 Migrations: `0001_init.sql` (initial), `0013_zita_messages_piece_date.sql` (added `piece_date`), `0014_piece_id_fks.sql` (added `piece_id`).
+
+### user_piece_reads
+Per-user-per-piece reading record. Foundation for the /account/ rebuild's Resume → Recently read → Subjects sections (2026-05-02). Closes the gap left by `progress` (PK `(user_id, course_slug, lesson_number)` with `lesson_number=0` hardcoded for daily, so all daily reads collapse to one row per user) and `engagement` (per-piece-per-day aggregate, not per-user).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| user_id | TEXT NOT NULL | `users.id`. Anonymous + signed-in both write here — middleware always populates `Astro.locals.userId`. |
+| piece_id | TEXT NOT NULL | `daily_pieces.id` (UUID). Non-enforced FK, consistent with the rest of this codebase's join columns. |
+| started_at | INTEGER NOT NULL | Unix ms. First time the user was tracked on the piece. Preserved across upserts so /account/ Resume's "Started {date}" stays anchored. |
+| last_seen_at | INTEGER NOT NULL | Unix ms. Most recent event of any kind (view / beat / complete). Streak math reads `DISTINCT(date(last_seen_at))` over a 14-day window; Resume sorts in-progress rows by this DESC. |
+| current_beat | TEXT | Name of the most recent `<lesson-beat>` crossed (set by lesson-shell's per-beat IntersectionObserver firing `event='beat'`). NULL when never advanced past the first beat or when cleared on `complete`. Lets Resume deep-link to `/daily/{date}/{slug}/#{current_beat}` — `<lesson-beat>` carries `id={name}` since the same session, so the anchor resolves. |
+| completed_at | INTEGER | Unix ms. Footer reached. NULL while in-progress. |
+
+PK: **(user_id, piece_id)**. Indexes: `idx_upr_user_seen` on `(user_id, last_seen_at DESC)` (Resume + streak), `idx_upr_user_completed` on `(user_id, completed_at DESC)` (Recently-read).
+
+Writers: `src/pages/api/reads/track.ts` upserts on three event types — `'view'` (started_at + last_seen_at, defensive ON CONFLICT preserving started_at), `'beat'` (current_beat + last_seen_at), `'complete'` (completed_at + last_seen_at, current_beat cleared). Lesson-shell fires all three: view on `connectedCallback`, beat per per-beat ≥0.5 IntersectionObserver, complete on the existing finish-state sentinel observer.
+
+Reader: `src/pages/account.astro` for Resume + Recently read + Subjects + streak.
+
+Anonymous → signed-in continuity: `mergeProgress` (`src/lib/db.ts:109`) was extended in the same commit to merge `user_piece_reads` alongside `progress`. Both auth paths (password login + magic-link verify) now use the helper — magic-link verify was refactored from inline duplicated SQL.
+
+Migration: `0029_user_piece_reads.sql`
 
 ## Agent-side tables
 
@@ -335,7 +357,7 @@ Per-round per-dimension audit output for interactives. Closes the deferred FOLLO
 
 Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — composite, leftmost-prefix friendly so a single `interactive_id` lookup also benefits. Migration: `0023_interactive_audit_results.sql`.
 
-## Migrations summary (28 migrations, 20 tables)
+## Migrations summary (29 migrations, 21 tables)
 - `0001_init.sql` — users, progress, submissions, zita_messages
 - `0002_observer_events.sql` — agent_tasks (later dropped), observer_events
 - `0003_engagement_learnings.sql` — engagement, learnings
@@ -364,3 +386,4 @@ Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — comp
 - `0026_interactives_unique_slug_type.sql` — Interactives v3 Phase 2 sub-task 2.5. Relaxed `interactives.slug UNIQUE` → composite `UNIQUE(slug, type)`. A piece's quiz + html share the slug (one URL per piece — `/interactives/<slug>/` renders both teaching modalities); the original `UNIQUE(slug)` from 0022 forced HTML to suffix to `<slug>-2`, splitting siblings across URLs. SQLite has no DROP CONSTRAINT, so this is a table rebuild (same pattern 0015 used for `daily_piece_audio`'s PK change). Snapshot `interactives_backup_20260426` held for 7-day rollback (drop queued for 2026-05-04 in FOLLOWUPS). All 8 prod rows preserved via explicit INSERT...SELECT; 3 named indexes recreated; the auto-created `sqlite_autoindex_interactives_1` from the original UNIQUE-on-slug is replaced by a same-named auto-index from the new composite UNIQUE. The Generator's `resolveFreeSlug` becomes type-aware in the same commit (only checks collisions within the artefact type); the HTML path looks up the existing quiz row's slug for the piece and uses it verbatim, falling back to Claude's own slug only when the quiz path declined or hasn't run yet.
 - `0027_categoriser_fallback_category.sql` — Categoriser zero-assignment fix (2026-04-29). Seeds the reserved `Patterns Yet to Cluster` category row with `slug='patterns-yet-to-cluster'`, `locked=1`, `piece_count=0`, deterministic id `'fallback-patterns-yet-to-cluster'`, idempotent under re-apply via `INSERT OR IGNORE` on the unique slug. Used as the last-resort fallback when Categoriser's two attempts (initial + retry) both return empty/all-sub-floor on a piece. Hidden from reader-facing surfaces via slug filter (library `getCategories`, per-category route, drawer "Filed under" section, Categoriser context list passed to Claude). Single literal duplicated across `agents/src/categoriser-prompt.ts:CATEGORISER_FALLBACK_SLUG`, `src/lib/categories.ts:FALLBACK_SLUG`, and `src/pages/api/daily/[date]/made.ts` — see DECISIONS 2026-04-29 "Categoriser zero-assignment fix" for the full layered defense.
 - `0028_daily_audit_claims.sql` — Phase I of the 2026-04-30 fact-check transparency rewrite. Created `daily_audit_claims(id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)` + indexes on `(piece_id, round)` and `status`. Per-claim breakout of `audit_results.notes` JSON for daily-piece fact-check rows, mirroring the `interactive_audit_results` precedent (migration 0023). Writer site is Director's `saveAuditResults` (best-effort try/catch separate from the parent INSERT — transient D1 failure on per-claim breakout can't poison parent audit). Additive, rollback = DROP TABLE. **Path A.1 (2026-05-01 evening) deprecated `sources_json` + `search_query`** — the per-claim Claude-self-reported sources design was removed; both columns now write NULL on every new row, and pre-Path-A.1 rows similarly carry NULL. Columns stay in the schema (additive nullable; dropping would require a table rebuild not worth the blast radius). The round-level URL list is now sourced from `audit_results.notes` JSON's top-level `sources` array (the agent's flat citation harvest from `web_search_tool_result.content[]`). The drawer's API endpoint reads from there and renders a single round-level "Sources consulted" line under the Facts section — Phase F+G's per-claim drawer sub-section was removed in Path A. No admin UI consumes the per-claim table yet; future "claims explorer" admin can still query by piece + round + status without per-claim source attribution.
+- `0029_user_piece_reads.sql` — Account rebuild foundation (2026-05-02). Created `user_piece_reads(user_id, piece_id, started_at, last_seen_at, current_beat, completed_at)` with PK `(user_id, piece_id)` + indexes on `(user_id, last_seen_at DESC)` and `(user_id, completed_at DESC)`. New per-user-per-piece reading record — closes the gap left by `progress` (collapses all daily reads to one row per user via hardcoded `lesson_number=0` in lesson-shell) and `engagement` (per-piece-per-day aggregate, not per-user). Forward-only; no backfill. Writer is `src/pages/api/reads/track.ts` invoked by lesson-shell on view / per-beat / complete. `mergeProgress` extended in the same commit to merge this table alongside `progress` so anonymous reads carry through magic-link sign-in. Additive, rollback = DROP TABLE. See DECISIONS 2026-05-02 "Account rebuilt as private practice record".

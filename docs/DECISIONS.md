@@ -2,6 +2,44 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-02: Account rebuilt as private practice record; new `user_piece_reads` table
+
+**Context.** `/account/` was a stub: *"Member since · 1 piece completed · 0 in progress · Browse library · Log out"*. The "1 piece completed" count was effectively binary because `lesson-shell.ts:38` hardcodes `lesson_number = 0` for every daily piece, and `progress`'s PK is `(user_id, course_slug, lesson_number)` — so all daily reads collapse to one row per user, with `completed_at` overwritten on every new completion. `engagement` is per-piece-per-day aggregate, not per-user. The page couldn't honestly answer the reader's job-to-be-done — *"where was I, what have I read, what should I come back to?"*
+
+**Decision.**
+
+`/account/` reframes as a private practice record: Resume → Recently read → Subjects → Quizzes → Zita conversations → identity. Anonymous-first (cookie-bound `user_id` is always populated by middleware). Signed-in just adds an email line + drops the sync prompt. No login wall.
+
+Phase 2 ships `saved_pieces` in the same session.
+
+**Why fold a new write surface into Phase 1.** The brief explicitly anticipated the foundation gap: *"If Resume needs a new write path, surface that finding and we'll decide whether to fold it into Phase 1 or defer."* Three options were on the table — A: ship presentation-only on existing data (only Quizzes + Zita render, the rest hidden permanently), B: add a new `user_piece_reads` table + lesson-shell wiring, C: rebuild `progress`'s PK. B was picked: schema-additive (non-destructive), decoupled from the legacy `progress` table (no risk to breathing-tools-era data or existing writers), and it lets the page properly land for everyone within ~1–2 weeks of normal reading. Launch state is empty for everyone — sections fill in as data arrives.
+
+**Settled choices (per the brief).**
+
+1. **Resume is the hero.** Most prominent slot. Falls through to *"Today's piece →"* card if nothing in progress.
+2. **Streak shown as a quiet observation, only when honest.** ≥2 of last 14 days. Below threshold, line is hidden.
+3. **Saved pieces ships in this session as Phase 2** — `saved_pieces` table + Save link on every piece + Saved section on Account.
+4. **No avatar, no profile photo.**
+5. **Subjects shown as observation, not flattery.** *"You've read 7 pieces in Resource Constraints, and 4 in Information Asymmetry."* Hidden when < 3 completions OR < 2 distinct categories.
+6. **Quizzes section conditional** — hidden when zero completed `interactive_engagement` rows.
+7. **Zita conversations conditional** — hidden when zero `zita_messages` rows.
+8. **Save link placement: meta-line text-link** under the piece header (`· Save` / `· Saved ✓`), after the source link. The original brief assumed a top-right header button rhythm; verification showed there is no such rhythm today (share button is in the footer, audio is its own block component below MadeBy). Inline meta-line link matches the existing source-link style — top of page, lightweight, no new pattern invented.
+9. **Skip optional `/account/saved/` dedicated page in v1.** Cap-at-20 + "see all in library →" link is enough.
+10. **Beat-by-beat tracking IS in scope.** Resume without `current_beat` degrades to "restart from top," which isn't really resume.
+11. **Zita writer fix lands this session.** `chat.ts:220` was inserting `piece_id` as NULL since migration 0014; the value was already in scope as `scopedPieceId` (used for observer events). Two-line fix per INSERT removes the multi-per-day ambiguity in the account section query.
+
+**Investigation findings that shaped the implementation.**
+
+- `mergeProgress` (`src/lib/db.ts:109`) had two callers: password login (`src/pages/api/auth/login.ts:48`) used the helper; magic-link verify (`src/pages/auth/verify.astro:62-71`) duplicated the same SQL inline. Refactored verify.astro to call the helper, so extending `mergeProgress` to merge `user_piece_reads` covers both paths in one place.
+- `<lesson-beat>` carried `name="hook"` but no `id` — URL fragment anchors didn't work. `rehype-beats.ts` now emits `id={name}` alongside `name`. Build-time only; existing MDX content is untouched.
+- `daily_pieces` has no `slug` column — slug derives from MDX filename. Account uses filtered `getCollection('dailyPieces')`, scoped to the ~10–20 piece_ids actually rendered. Same pattern Library + Daily use.
+- `categories.ts` `FALLBACK_SLUG` (`patterns-yet-to-cluster`, locked) is hidden from every reader-facing surface; constant exported so the Subjects query applies the same filter.
+- Local D1 migrations tracker is 21 migrations behind the actual schema — pre-existing dev-DB sync issue, not caused by this work. Applied 0029 to local via `wrangler d1 execute --file` and to remote via `wrangler d1 migrations apply`.
+
+**Files touched.** `migrations/0029_user_piece_reads.sql` (new), `src/pages/api/reads/track.ts` (new), `src/interactive/lesson-shell.ts` (per-beat IntersectionObserver + view/complete tracking), `src/lib/db.ts` (mergeProgress extended), `src/pages/auth/verify.astro` (refactored to call mergeProgress), `src/lib/rehype-beats.ts` (id attribute), `src/lib/format.ts` (`formatShortDate`), `src/lib/categories.ts` (export FALLBACK_SLUG), `src/pages/account.astro` (full body rewrite), `src/pages/api/zita/chat.ts` (piece_id writer fix). Plus Phase 2 files: `migrations/0030_saved_pieces.sql`, `src/pages/api/saved/toggle.ts`, save link in `src/layouts/LessonLayout.astro`, Saved section in `src/pages/account.astro`. Rollback tag `pre-account-rebuild` on origin at SHA `ea0786a`.
+
+**Out of scope (deliberately).** No new D1 tables in Phase 1 except `user_piece_reads`. Phase 2 adds `saved_pieces`. No others. No new agents, no new dependencies, no content rewrites of existing pieces, no `/daily/`, `/library/`, or admin changes. Account-only this session.
+
 ## 2026-05-02: Daily rebuilt as a run-block timeline; public Dashboard removed from nav
 
 **Context.** Public nav read **Daily · Library · Dashboard · Account**. Two structural problems:
