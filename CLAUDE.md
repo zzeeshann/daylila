@@ -43,7 +43,7 @@ An autonomous multi-agent publishing system. 16 AI agents scan the news, decide 
 
 ### Stack
 - Frontend: Astro + MDX + TypeScript strict + Tailwind + Web Components
-- Backend: Cloudflare Workers (Astro adapter) + D1 (21 tables) + R2 (audio)
+- Backend: Cloudflare Workers (Astro adapter) + D1 (22 tables) + R2 (audio)
 - Agents: Cloudflare Agents SDK v0.11.1
 - AI: Anthropic Claude Sonnet 4.5
 - Audio: ElevenLabs (Frederick Surrey voice)
@@ -75,9 +75,9 @@ Pipeline: Scanner → Curator → Drafter → [Voice, Structure, Fact] → Integ
 - **Public dashboard removed 2026-05-02.** `/dashboard/` redirects 301 → `/daily/`. Reader-facing transparency lives on every piece's *How this was made* drawer (per-piece pipeline timeline, audit rounds, candidates, learnings). Daily itself surfaces the candidate sets Scanner pulled for each run.
 - **Admin** (`/dashboard/admin/`) — ADMIN_EMAIL only. Pipeline controls, observer events with acknowledge, engagement data, agent tasks. Per-piece deep-dive at `/dashboard/admin/piece/[date]/[slug]/` with full timeline + audit rounds + scanner candidates + Zita conversations + observer events. Operator entry: footer "Admin →" link in `BaseLayout.astro` (gated on `ADMIN_EMAIL`, only visible on SSR pages).
 
-### Database (D1 — 21 tables, 29 migrations)
+### Database (D1 — 22 tables, 30 migrations)
 See `docs/SCHEMA.md` for the canonical schema (always source-of-truth for table + migration counts).
-- Reader: users, progress, submissions, zita_messages, user_piece_reads, magic_tokens
+- Reader: users, progress, submissions, zita_messages, user_piece_reads, saved_pieces, magic_tokens
 - Agent: observer_events, engagement, learnings, audit_results, pipeline_log
 - Daily: daily_candidates, daily_pieces (+ `has_audio` + `interactive_id` cols), daily_piece_audio (per-beat MP3 rows), admin_settings
 - Categoriser: categories, piece_categories

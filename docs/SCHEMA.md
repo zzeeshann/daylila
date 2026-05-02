@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**21 tables across 29 migrations.**
+**22 tables across 30 migrations.**
 
 ## Reader-side tables
 
@@ -87,6 +87,25 @@ Reader: `src/pages/account.astro` for Resume + Recently read + Subjects + streak
 Anonymous → signed-in continuity: `mergeProgress` (`src/lib/db.ts:109`) was extended in the same commit to merge `user_piece_reads` alongside `progress`. Both auth paths (password login + magic-link verify) now use the helper — magic-link verify was refactored from inline duplicated SQL.
 
 Migration: `0029_user_piece_reads.sql`
+
+### saved_pieces
+Per-user "save this piece" record. Phase 2 of the /account/ rebuild (2026-05-02). Powers the meta-line `· Save` / `· Saved ✓` toggle on every piece page (`src/layouts/LessonLayout.astro`) and the Saved section on `/account/`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| user_id | TEXT NOT NULL | `users.id`. Anonymous + signed-in both write here. |
+| piece_id | TEXT NOT NULL | `daily_pieces.id` (UUID). Non-enforced FK. |
+| created_at | INTEGER NOT NULL | Unix ms. Powers the Account "Saved" sort (newest first) and the per-row "Date saved" display. |
+
+PK: **(user_id, piece_id)** — composite, idempotent toggle. Index: `idx_saved_pieces_user (user_id, created_at DESC)`.
+
+Writers: `src/pages/api/saved/toggle.ts` — POST toggles (existence check then DELETE / INSERT, returns `{ saved: boolean }` with the new state); GET returns the current state without mutation (used by the prerendered piece page on hydration to set the initial Save/Saved label).
+
+Reader: `src/pages/account.astro` (Saved section, cap-at-20) and the same toggle endpoint (current-state query + Unsave inline button).
+
+Anonymous → signed-in continuity: `mergeProgress` (`src/lib/db.ts:109`) extended in the same Phase 2 commit to merge this table alongside `progress` + `user_piece_reads`.
+
+Migration: `0030_saved_pieces.sql`
 
 ## Agent-side tables
 
@@ -357,7 +376,7 @@ Per-round per-dimension audit output for interactives. Closes the deferred FOLLO
 
 Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — composite, leftmost-prefix friendly so a single `interactive_id` lookup also benefits. Migration: `0023_interactive_audit_results.sql`.
 
-## Migrations summary (29 migrations, 21 tables)
+## Migrations summary (30 migrations, 22 tables)
 - `0001_init.sql` — users, progress, submissions, zita_messages
 - `0002_observer_events.sql` — agent_tasks (later dropped), observer_events
 - `0003_engagement_learnings.sql` — engagement, learnings
@@ -387,3 +406,4 @@ Indexes: `idx_int_audit_interactive_round` on `(interactive_id, round)` — comp
 - `0027_categoriser_fallback_category.sql` — Categoriser zero-assignment fix (2026-04-29). Seeds the reserved `Patterns Yet to Cluster` category row with `slug='patterns-yet-to-cluster'`, `locked=1`, `piece_count=0`, deterministic id `'fallback-patterns-yet-to-cluster'`, idempotent under re-apply via `INSERT OR IGNORE` on the unique slug. Used as the last-resort fallback when Categoriser's two attempts (initial + retry) both return empty/all-sub-floor on a piece. Hidden from reader-facing surfaces via slug filter (library `getCategories`, per-category route, drawer "Filed under" section, Categoriser context list passed to Claude). Single literal duplicated across `agents/src/categoriser-prompt.ts:CATEGORISER_FALLBACK_SLUG`, `src/lib/categories.ts:FALLBACK_SLUG`, and `src/pages/api/daily/[date]/made.ts` — see DECISIONS 2026-04-29 "Categoriser zero-assignment fix" for the full layered defense.
 - `0028_daily_audit_claims.sql` — Phase I of the 2026-04-30 fact-check transparency rewrite. Created `daily_audit_claims(id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)` + indexes on `(piece_id, round)` and `status`. Per-claim breakout of `audit_results.notes` JSON for daily-piece fact-check rows, mirroring the `interactive_audit_results` precedent (migration 0023). Writer site is Director's `saveAuditResults` (best-effort try/catch separate from the parent INSERT — transient D1 failure on per-claim breakout can't poison parent audit). Additive, rollback = DROP TABLE. **Path A.1 (2026-05-01 evening) deprecated `sources_json` + `search_query`** — the per-claim Claude-self-reported sources design was removed; both columns now write NULL on every new row, and pre-Path-A.1 rows similarly carry NULL. Columns stay in the schema (additive nullable; dropping would require a table rebuild not worth the blast radius). The round-level URL list is now sourced from `audit_results.notes` JSON's top-level `sources` array (the agent's flat citation harvest from `web_search_tool_result.content[]`). The drawer's API endpoint reads from there and renders a single round-level "Sources consulted" line under the Facts section — Phase F+G's per-claim drawer sub-section was removed in Path A. No admin UI consumes the per-claim table yet; future "claims explorer" admin can still query by piece + round + status without per-claim source attribution.
 - `0029_user_piece_reads.sql` — Account rebuild foundation (2026-05-02). Created `user_piece_reads(user_id, piece_id, started_at, last_seen_at, current_beat, completed_at)` with PK `(user_id, piece_id)` + indexes on `(user_id, last_seen_at DESC)` and `(user_id, completed_at DESC)`. New per-user-per-piece reading record — closes the gap left by `progress` (collapses all daily reads to one row per user via hardcoded `lesson_number=0` in lesson-shell) and `engagement` (per-piece-per-day aggregate, not per-user). Forward-only; no backfill. Writer is `src/pages/api/reads/track.ts` invoked by lesson-shell on view / per-beat / complete. `mergeProgress` extended in the same commit to merge this table alongside `progress` so anonymous reads carry through magic-link sign-in. Additive, rollback = DROP TABLE. See DECISIONS 2026-05-02 "Account rebuilt as private practice record".
+- `0030_saved_pieces.sql` — Account rebuild Phase 2 (2026-05-02). Created `saved_pieces(user_id, piece_id, created_at)` with composite PK `(user_id, piece_id)` for idempotent toggles + `idx_saved_pieces_user(user_id, created_at DESC)` for the Account "newest first" list query. Writer is `src/pages/api/saved/toggle.ts` (GET returns current state for piece-page hydration; POST toggles). `mergeProgress` extended again to merge this table alongside `progress` and `user_piece_reads`. Empty at migration time. Additive, rollback = DROP TABLE.
