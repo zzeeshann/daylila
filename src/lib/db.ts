@@ -104,12 +104,13 @@ export async function completeLesson(
 
 /**
  * Merge anonymous-user state into an authenticated user on sign-in.
- * Carries `progress` (legacy lessons) and `user_piece_reads` (daily-piece
- * reading record, since 0029) — the target user's existing rows always
- * win via INSERT OR IGNORE on the composite PK.
+ * Carries `progress` (legacy lessons), `user_piece_reads` (daily-piece
+ * reading record since 0029), and `saved_pieces` (since 0030) — the
+ * target user's existing rows always win via INSERT OR IGNORE on the
+ * composite PKs.
  *
  * Both auth paths (password login + magic-link verify) call this so a
- * reader's anonymous history follows them into their account.
+ * reader's anonymous history + saves follow them into their account.
  */
 export async function mergeProgress(
   db: D1Database,
@@ -129,6 +130,13 @@ export async function mergeProgress(
         `INSERT OR IGNORE INTO user_piece_reads (user_id, piece_id, started_at, last_seen_at, current_beat, completed_at)
          SELECT ?, piece_id, started_at, last_seen_at, current_beat, completed_at
          FROM user_piece_reads WHERE user_id = ?`,
+      )
+      .bind(toUserId, fromUserId),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO saved_pieces (user_id, piece_id, created_at)
+         SELECT ?, piece_id, created_at
+         FROM saved_pieces WHERE user_id = ?`,
       )
       .bind(toUserId, fromUserId),
   ]);
