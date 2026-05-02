@@ -6,6 +6,7 @@ import { getUser } from '../lib/db';
 import { formatDate, formatShortDate } from '../lib/format';
 import { getCollection } from 'astro:content';
 import { deriveSlug, pieceUrl } from '../lib/slug';
+import { FALLBACK_SLUG } from '../lib/categories';
 
 const db = Astro.locals.runtime.env.DB;
 const userId = Astro.locals.userId;
@@ -87,6 +88,28 @@ try {
     .first<{ n: number }>();
   streakDays = row?.n ?? 0;
 } catch { /* fall through to 0 */ }
+
+// ── Subjects: top categories among the user's completed pieces ────
+interface SubjectRow { slug: string; name: string; n: number }
+let subjects: SubjectRow[] = [];
+try {
+  const result = await db
+    .prepare(
+      `SELECT c.slug, c.name, COUNT(*) AS n
+       FROM user_piece_reads upr
+       JOIN piece_categories pc ON pc.piece_id = upr.piece_id
+       JOIN categories c ON c.id = pc.category_id
+       WHERE upr.user_id = ? AND upr.completed_at IS NOT NULL AND c.slug != ?
+       GROUP BY c.id
+       ORDER BY n DESC
+       LIMIT 5`,
+    )
+    .bind(userId, FALLBACK_SLUG)
+    .all<SubjectRow>();
+  subjects = result.results ?? [];
+} catch { /* fall through */ }
+
+const totalCompleted = recentTotal; // alias for the threshold check below
 
 // ── Build a piece_id → entry map for the rows we'll render ────────
 const piecesNeeded = new Set<string>();
@@ -225,6 +248,22 @@ function humanise(s: string): string {
           See all in library <span aria-hidden="true">→</span>
         </a>
       )}
+    </section>
+  )}
+
+  {totalCompleted >= 3 && subjects.length >= 2 && (
+    <section class="mb-10">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
+        Subjects you've been reading
+      </h2>
+      <p class="text-base text-zee-text leading-relaxed" set:html={
+        "You've read " + subjects.map((s, i) => {
+          const sep = i === 0 ? '' : i === subjects.length - 1 ? ', and ' : ', ';
+          const count = `${s.n} ${s.n === 1 ? 'piece' : 'pieces'} in `;
+          const safeName = s.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          return `${sep}${count}<a href="/library/${s.slug}/" class="font-bold text-zee-text hover:text-zee-primary transition-colors underline-offset-2 hover:underline">${safeName}</a>`;
+        }).join('') + '.'
+      } />
     </section>
   )}
 

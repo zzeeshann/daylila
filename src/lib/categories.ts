@@ -23,7 +23,7 @@ export interface Category {
  *  section. A piece landing here is an operator review signal, not
  *  a reader-browseable category. Keep in sync with
  *  agents/src/categoriser-prompt.ts CATEGORISER_FALLBACK_SLUG. */
-const FALLBACK_SLUG = 'patterns-yet-to-cluster';
+export const FALLBACK_SLUG = 'patterns-yet-to-cluster';
 
 /**
  * Every category that has at least one piece assigned, sorted by
