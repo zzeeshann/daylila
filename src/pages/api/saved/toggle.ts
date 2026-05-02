@@ -3,6 +3,26 @@ import type { APIRoute } from 'astro';
 export const prerender = false;
 
 /**
+ * GET /api/saved/toggle?piece_id=… returns { saved: boolean } for the
+ * current user without mutating. Used by piece pages on hydration to
+ * set the initial Save/Saved label since the HTML is prerendered and
+ * can't bake per-user state.
+ */
+export const GET: APIRoute = async ({ locals, url }) => {
+  const db = locals.runtime.env.DB;
+  const userId = locals.userId;
+  const piece_id = url.searchParams.get('piece_id');
+  if (!piece_id) {
+    return new Response(JSON.stringify({ error: 'Missing piece_id' }), { status: 400 });
+  }
+  const row = await db
+    .prepare('SELECT 1 FROM saved_pieces WHERE user_id = ? AND piece_id = ?')
+    .bind(userId, piece_id)
+    .first();
+  return new Response(JSON.stringify({ saved: !!row }), { status: 200 });
+};
+
+/**
  * Toggle a saved-piece row for the current user. POST { piece_id }.
  * Returns { saved: boolean } reflecting the new state.
  *

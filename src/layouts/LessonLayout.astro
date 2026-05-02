@@ -151,6 +151,21 @@ const interactiveSlug = primary?.data.slug ?? null;
         </a>
       </>
     )}
+    {pieceId && (
+      <>
+        <span class="opacity-40" aria-hidden="true">·</span>
+        <button
+          type="button"
+          data-save-toggle
+          data-piece-id={pieceId}
+          data-saved="false"
+          aria-pressed="false"
+          class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
+        >
+          Save
+        </button>
+      </>
+    )}
   </p>
 
   {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
@@ -281,4 +296,45 @@ const interactiveSlug = primary?.data.slug ?? null;
       navigator.clipboard.writeText(url).then(showToast).catch(() => {});
     }
   });
+</script>
+
+<script is:inline>
+  // Save-toggle handler. Piece pages are prerendered, so the SSR HTML
+  // can't carry per-user state — fetch the initial saved status on
+  // hydration, then handle toggle clicks.
+  (() => {
+    const btn = document.querySelector('[data-save-toggle]');
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const pieceId = btn.dataset.pieceId;
+    if (!pieceId) return;
+
+    const setLabel = (saved) => {
+      btn.dataset.saved = saved ? 'true' : 'false';
+      btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
+      btn.textContent = saved ? 'Saved ✓' : 'Save';
+    };
+
+    fetch(`/api/saved/toggle?piece_id=${encodeURIComponent(pieceId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((j) => { if (j && typeof j.saved === 'boolean') setLabel(j.saved); })
+      .catch(() => {});
+
+    btn.addEventListener('click', async () => {
+      const wasSaved = btn.dataset.saved === 'true';
+      // Optimistic flip — re-flips on error.
+      setLabel(!wasSaved);
+      try {
+        const r = await fetch('/api/saved/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ piece_id: pieceId }),
+        });
+        if (!r.ok) throw new Error('toggle-failed');
+        const j = await r.json();
+        if (typeof j.saved === 'boolean') setLabel(j.saved);
+      } catch {
+        setLabel(wasSaved);
+      }
+    });
+  })();
 </script>
