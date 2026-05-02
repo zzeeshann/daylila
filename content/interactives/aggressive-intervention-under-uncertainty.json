@@ -1,0 +1,71 @@
+{
+  "slug": "aggressive-intervention-under-uncertainty",
+  "type": "quiz",
+  "title": "Aggressive Intervention Under Uncertainty",
+  "concept": "When early attempts fail and the problem remains unclear, a system moves to more aggressive steps — not because they're guaranteed to work, but because they narrow the search by removing ambiguity.",
+  "interactiveId": "b8e467d7-6025-4daf-bd2b-1e7e4008d656",
+  "sourcePieceId": "b77e8406-a000-46ef-8989-dde9bb48a8b4",
+  "publishedAt": 1777730961330,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A printer jams. You clear the paper path. It jams again. You replace the drum. Jams stop. What did replacing the drum achieve?",
+        "options": [
+          "It fixed the broken drum that caused the jams",
+          "It removed one big source of uncertainty — either jams stop or the drum wasn't the cause, and now you know",
+          "It let you avoid expensive diagnostics on the other parts",
+          "It showed the earlier fix needed more time to work"
+        ],
+        "correctIndex": 1,
+        "explanation": "Replacing the drum forces an answer. If jams stop, something about the drum contributed. If jams continue, the drum is ruled out and you move to the next possibility. You don't know which internal drum part failed — you just removed the whole source of ambiguity."
+      },
+      {
+        "question": "A building's heating fails in winter. Maintenance checks the thermostat first, then the boiler, then replaces the whole furnace. Why does replacement come after smaller checks?",
+        "options": [
+          "Because thermostats and boilers fail more often than furnaces",
+          "Because a new furnace is always more reliable than fixing an old one",
+          "Because checking cheap, common causes first resolves most problems without bigger steps — if those fail and the signal stays unclear, replacement ends the guessing",
+          "Because maintenance lacks the training to repair furnaces"
+        ],
+        "correctIndex": 2,
+        "explanation": "Most heating failures come from thermostats or boilers. Checking those first fixes most cases cheaply. If those checks fail and the problem persists, diagnosing every furnace component costs more than a new furnace. Replacement trades money for certainty — the heating works or the search continues, but the unclear furnace is gone."
+      },
+      {
+        "question": "A machine produces defective parts. Engineers install better sensors to catch defects faster. Defects continue. The factory buys a new machine. Why didn't better sensors prevent the replacement?",
+        "options": [
+          "Because the sensors failed to work correctly",
+          "Because sensors show the defect happening — they don't show which part inside the machine causes it, and finding that cause costs more than replacement",
+          "Because new machines never produce defects",
+          "Because engineers couldn't interpret the sensor readings"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sensors improve visibility but not resolution. You see the defect faster — you still don't know if it's the motor, the alignment, the feed mechanism, or something else. If checking every internal part costs more than a new machine, replacement cuts through the uncertainty."
+      },
+      {
+        "question": "A phone crashes daily. You update the software, reset settings, swap the battery — crashes continue. You replace the phone. Crashes stop. What does this tell you about the original phone?",
+        "options": [
+          "The battery was defective from the start",
+          "One of the earlier fixes worked but took days to show results",
+          "Something in the phone caused crashes, but you never figured out which part — replacement fixed it without knowing the cause",
+          "Phone problems always require full replacement to resolve"
+        ],
+        "correctIndex": 2,
+        "explanation": "Replacement ended the crashes without pinpointing the source. You know the problem is gone — you don't know if the cause was the processor, memory, charging circuit, or some interaction between parts. The phone traded precision for resolution. Crashes stopped, but the specific cause remains unknown."
+      },
+      {
+        "question": "A sink drains slowly. Plumbers try drain cleaner, then snake the line, then replace the pipe under the sink. The old pipe looks fine when removed. Why replace a pipe that wasn't visibly broken?",
+        "options": [
+          "Because plumbers make more money replacing parts",
+          "Because the pipe had hidden damage the plumbers couldn't see",
+          "Because when the common fixes fail and you can't see inside the pipe without cutting it open, replacement is cheaper than more diagnostics — even if the pipe turns out fine",
+          "Because drain cleaner always damages pipes over time"
+        ],
+        "correctIndex": 2,
+        "explanation": "When cleaner and snaking fail and the blockage persists, seeing inside the pipe requires cutting it open or scoping it — which costs as much as replacement. Swapping the pipe removes one possibility. If draining improves, something about the pipe contributed. If it stays slow, the pipe is ruled out and you check further down the line."
+      }
+    ]
+  }
+}
