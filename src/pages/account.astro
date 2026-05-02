@@ -153,16 +153,50 @@ const quizTotalSum = quizzes.reduce((acc, q) => acc + q.total, 0);
 const quizPct = quizTotalSum > 0 ? Math.round((quizScoreSum / quizTotalSum) * 100) : 0;
 const recentQuizzes = quizzes.slice(0, 5);
 
+// ── Zita conversations: grouped by piece_id (or piece_date for older
+//    rows with null piece_id, until those age out post-Step-10). ───
+interface ZitaRow {
+  piece_id: string | null;
+  piece_date: string | null;
+  messages: number;
+  last_at: number;
+}
+let zitaRows: ZitaRow[] = [];
+try {
+  const result = await db
+    .prepare(
+      `SELECT piece_id, piece_date, COUNT(*) AS messages, MAX(created_at) AS last_at
+       FROM zita_messages
+       WHERE user_id = ? AND role = 'user'
+       GROUP BY COALESCE(piece_id, piece_date)
+       ORDER BY last_at DESC
+       LIMIT 5`,
+    )
+    .bind(userId)
+    .all<ZitaRow>();
+  zitaRows = result.results ?? [];
+} catch { /* fall through */ }
+
 // ── Build a piece_id → entry map for the rows we'll render ────────
 const piecesNeeded = new Set<string>();
 if (resumeRow) piecesNeeded.add(resumeRow.piece_id);
 for (const r of recentRows) piecesNeeded.add(r.piece_id);
 
+const datesNeeded = new Set<string>();
+for (const z of zitaRows) {
+  if (z.piece_id) piecesNeeded.add(z.piece_id);
+  else if (z.piece_date) datesNeeded.add(z.piece_date);
+}
+
 const allPieces = await getCollection('dailyPieces');
 const pieceMap = new Map<string, (typeof allPieces)[number]>();
+const dateMap = new Map<string, (typeof allPieces)[number]>();
 for (const entry of allPieces) {
   if (piecesNeeded.has(entry.data.pieceId)) {
     pieceMap.set(entry.data.pieceId, entry);
+  }
+  if (datesNeeded.has(entry.data.date) && !dateMap.has(entry.data.date)) {
+    dateMap.set(entry.data.date, entry);
   }
 }
 
@@ -204,6 +238,19 @@ for (const r of recentRows) {
     url: pieceUrl(entry.data.date, deriveSlug(entry.id)),
     subject: entry.data.underlyingSubject ?? null,
     dateDisplay: formatShortDate(r.completed_at),
+  });
+}
+
+// Resolve Zita conversations into renderable rows.
+const zitaConversations: { headline: string; url: string; messages: number; lastDisplay: string }[] = [];
+for (const z of zitaRows) {
+  const entry = z.piece_id ? pieceMap.get(z.piece_id) : z.piece_date ? dateMap.get(z.piece_date) : null;
+  if (!entry) continue;
+  zitaConversations.push({
+    headline: entry.data.title,
+    url: pieceUrl(entry.data.date, deriveSlug(entry.id)),
+    messages: z.messages,
+    lastDisplay: formatShortDate(z.last_at),
   });
 }
 
@@ -330,6 +377,26 @@ function humanise(s: string): string {
             {q.total > 0 && (
               <span class="text-sm text-zee-muted">{q.score ?? 0} of {q.total}</span>
             )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {zitaConversations.length > 0 && (
+    <section class="mb-10">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
+        Your questions
+      </h2>
+      <ul class="space-y-3">
+        {zitaConversations.map((z) => (
+          <li class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <a href={z.url} class="text-base text-zee-text hover:text-zee-primary transition-colors">
+              {z.headline}
+            </a>
+            <span class="text-sm text-zee-muted">
+              {z.messages} {z.messages === 1 ? 'message' : 'messages'} · {z.lastDisplay}
+            </span>
           </li>
         ))}
       </ul>
