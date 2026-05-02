@@ -754,6 +754,12 @@ made-drawer[data-open] .made-panel {
   margin-bottom: 0;
 }
 
+/* --- Affordance glyphs (↗ on external links inside the drawer) ---- */
+
+.made-glyph-teal {
+  color: #1A6B62;
+}
+
 /* --- Lock body scroll when drawer is open -------------------------- */
 
 body.made-locked {
