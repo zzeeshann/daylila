@@ -1,0 +1,71 @@
+{
+  "slug": "dual-optimization-constraint",
+  "type": "quiz",
+  "title": "Dual Optimization Constraint",
+  "concept": "When a system must perform well on two different measures simultaneously, improving one pulls design capacity away from the other — you can balance them at a point, but pushing both to their maximum is structurally impossible.",
+  "interactiveId": "e522f1e5-d5e9-4c11-b42b-1e98496b68c9",
+  "sourcePieceId": "62ae4989-cea9-4abc-8696-f554cd78ad95",
+  "publishedAt": 1777687547919,
+  "voiceScore": 88,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A warehouse must move packages quickly and also prevent damage during handling. Why does maximizing speed make damage prevention harder?",
+        "options": [
+          "Workers who move faster have less time to check each package for fragility and adjust handling",
+          "Faster conveyor belts require more expensive equipment that budgets can't afford",
+          "Damaged packages get replaced quickly enough that customers don't notice",
+          "Most packages are already designed to survive rough handling"
+        ],
+        "correctIndex": 0,
+        "explanation": "Speed means fewer seconds per package. Damage prevention means pausing to assess weight distribution, read fragile labels, adjust grip. Each goal demands opposite use of the same resource: worker attention per package. Maximize speed, and damage rises."
+      },
+      {
+        "question": "A news website optimizes for user engagement (keeping readers clicking) and also for factual accuracy (every claim sourced and verified). What structural tension appears?",
+        "options": [
+          "Readers prefer short articles but accuracy requires long explanations",
+          "Engagement pulls toward emotionally charged headlines; accuracy pulls toward precise, often duller framing",
+          "Fact-checkers cost too much money to employ full-time",
+          "Most readers don't care about accuracy as long as the story is interesting"
+        ],
+        "correctIndex": 1,
+        "explanation": "High engagement comes from headlines and framing that trigger emotional response — curiosity, outrage, surprise. Accuracy often requires hedging, context, and less dramatic language. Both goals compete for the same words in the same headline space."
+      },
+      {
+        "question": "A software search function must return results instantly and also rank them by relevance to what the user actually meant. Why does instant response make relevance ranking harder?",
+        "options": [
+          "Users type queries too quickly for the system to parse intent",
+          "Relevance ranking requires analyzing user intent and context, which takes processing time that delays the response",
+          "Most users don't know what they're searching for until they see results",
+          "Instant results require more server capacity than most companies can afford"
+        ],
+        "correctIndex": 1,
+        "explanation": "Instant means returning results before the user finishes typing. Relevance means interpreting what they meant, not just matching keywords — analyzing past behavior, disambiguating terms, weighing context. That analysis costs milliseconds. Speed and depth pull processing time in opposite directions."
+      },
+      {
+        "question": "A hiring process optimizes for finding the best candidate and also for filling the position quickly. What happens when they push fully toward speed?",
+        "options": [
+          "The best candidates are usually available immediately because they're unemployed",
+          "Evaluating fit thoroughly requires multiple interviews, reference checks, and trial tasks — all of which add weeks to the timeline",
+          "Fast hiring allows the company to try multiple candidates and replace whoever doesn't work out",
+          "Job candidates prefer quick decisions over thorough evaluation"
+        ],
+        "correctIndex": 1,
+        "explanation": "Finding the best fit means testing skills under real conditions, checking references deeply, observing how candidates solve actual problems. Each step adds days or weeks. Speed means cutting those steps and deciding on thinner evidence. The goals compete for calendar time."
+      },
+      {
+        "question": "A text message notification system must alert users immediately when something important happens and also avoid interrupting them unnecessarily. Why does maximizing immediacy make avoiding interruption harder?",
+        "options": [
+          "Users turn off notifications entirely when they get too many alerts",
+          "Immediate alerts mean sending notifications before the system can analyze whether the event is truly important enough to interrupt the user right now",
+          "Important events rarely happen at convenient times for users",
+          "Most users prefer to check updates manually rather than receive alerts"
+        ],
+        "correctIndex": 1,
+        "explanation": "Immediacy means triggering the alert the instant the event occurs. Avoiding unnecessary interruption means pausing to evaluate — is this urgent? Is the user in a context where interrupting helps or harms? That evaluation takes seconds, which delays the alert. Speed and selectivity pull in opposite directions."
+      }
+    ]
+  }
+}
