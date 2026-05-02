@@ -84,7 +84,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Job:** Take the auditors' feedback and fix the piece.
 
-**What it does:** If any of the three auditors failed, Integrator reads their feedback, rewrites the piece to address the issues, and sends the result back through the auditors. This can happen up to three times. If it still fails after three rounds, the piece escalates to a human (in practice, an observer event and a visible marker on the dashboard).
+**What it does:** If any of the three auditors failed, Integrator reads their feedback, rewrites the piece to address the issues, and sends the result back through the auditors. This can happen up to three times. If it still fails after three rounds, the piece escalates to a human (in practice, an observer event the operator sees in the admin control room, plus a visible "Rough" tier marker on the published piece itself).
 
 **Claude call?** Yes. Depending on how bad the draft was, one to three calls.
 
@@ -191,11 +191,11 @@ The four dimensions:
 
 **Job:** Log every pipeline event.
 
-**What it does:** Every time any other agent does anything notable — started, finished, escalated, failed — it sends an event to Observer. Observer writes the event to the `observer_events` table. The dashboard reads from this table to show what's happening now and what went wrong recently.
+**What it does:** Every time any other agent does anything notable — started, finished, escalated, failed — it sends an event to Observer. Observer writes the event to the `observer_events` table. The admin control room reads from this table to show what's happening now and what went wrong recently. Every piece's "How this was made" drawer reads from it too, scoped to that piece.
 
 **Claude call?** No. Just logging.
 
-**Why this matters:** Without Observer, nothing on the dashboard works. The transparency promise of Zeemish — that every piece has a "how this was made" drawer — depends on Observer having logged the relevant events at the time they happened.
+**Why this matters:** Without Observer, the transparency promise of Zeemish — that every piece has a "how this was made" drawer — has nothing to read from. The drawer depends on Observer having logged the relevant events at the time they happened.
 
 ## Plus one more thing
 

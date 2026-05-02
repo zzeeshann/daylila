@@ -60,7 +60,7 @@ It is not a blog with strong opinions. Zeemish tries to explain systems, not adv
 
 It is not a chat assistant. There is a Socratic helper called Zita embedded in each piece, but Zita's job is to ask questions, not to give answers. Zita is there to prompt thinking, not to replace it.
 
-It is not a product trying to go viral. The dashboard, the audit gates, the slow daily rhythm — all of these are designed for a reader who wants to understand the world, not for a growth funnel.
+It is not a product trying to go viral. The visible audit history on every piece, the audit gates, the slow daily rhythm — all of these are designed for a reader who wants to understand the world, not for a growth funnel.
 
 ## The protocol
 

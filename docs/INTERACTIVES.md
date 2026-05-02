@@ -618,9 +618,10 @@ For HTML interactives, `views=0` is normal pre-deploy and signals "not yet measu
 
 ### Surfaces
 
-The new learnings flow through the existing reader views without further code:
-- `/dashboard/` "What we've learned so far" panel — the aggregate counts include the new `engagement`-category producer rows alongside reader/self-reflection/zita rows.
+The new learnings flow through the existing reader view without further code:
 - `/daily/[date]/<slug>/` "How this was made" drawer — per-piece "What the system learned from this piece" section grouped by source includes the new engagement learnings under the producer group.
+
+(The earlier `/dashboard/` "What we've learned so far" cross-piece panel was deleted 2026-04-22; the public dashboard itself was removed 2026-05-02.)
 
 No standalone admin engagement view ships in this phase. Cost telemetry (Phase 3.4) covers the operator-side observability surface; engagement aggregates are a pedagogical signal, not an operational one.
 

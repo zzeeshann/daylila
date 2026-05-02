@@ -6,7 +6,7 @@ Zeemish is an autonomous learning platform that turns today's real-world news in
 
 **The Zeemish Protocol: "Educate myself for humble decisions."**
 
-Every morning, a team of 16 AI agents scans the news, picks the most teachable story, writes a 10-minute piece explaining the underlying system (not just the headline), audits it for voice, accuracy, and structure, narrates it beat-by-beat as audio, categorises it into the growing library taxonomy, generates a standalone companion quiz that teaches the same underlying concept, and publishes it all — autonomously. The human (Zishan) sets direction, watches the dashboard, and intervenes only when needed.
+A team of 16 AI agents scans the news on a configurable cron (default 24h, currently running 12h), picks the most teachable story, writes a 10-minute piece explaining the underlying system (not just the headline), audits it for voice, accuracy, and structure, narrates it beat-by-beat as audio, categorises it into the growing library taxonomy, generates a standalone companion quiz that teaches the same underlying concept, and publishes it all — autonomously. The human (Zishan) sets direction, watches the admin control room, and intervenes only when needed.
 
 The news is the hook. The teaching is the substance. "Here's what happened" is CNN. "Here's why it happened and how the underlying thing works" is Zeemish.
 
@@ -52,7 +52,7 @@ One piece per day. 1000-1500 words. 3-6 beats:
 | Categoriser | Assigns 1-3 library categories post-publish, biased toward reusing the existing taxonomy |
 | Interactive Generator | Produces the companion quiz post-publish — teaches the underlying concept without naming the source piece |
 | Interactive Auditor | Judges the quiz across voice, structure, essence, and factual dimensions; gates each revision round |
-| Observer | Logs every pipeline event to D1 — powers the public dashboard and admin surfaces |
+| Observer | Logs every pipeline event to D1 — powers the admin control room and the per-piece "How this was made" drawer |
 
 Quality gates: nothing publishes unless Voice Auditor, Fact Checker, AND Structure Editor all approve. Up to 3 revision rounds; pieces that max-fail ship with a low-quality marker (readers see a "Rough" tier tag) rather than skipping the day — a newspaper never skips a day. Self-improvement: the four signal sources above feed tomorrow's Drafter prompt via the learnings database, so the system's writing improves over time.
 
@@ -68,10 +68,10 @@ Quality gates: nothing publishes unless Voice Auditor, Fact Checker, AND Structu
 
 ## Site structure
 
-- **Daily** (`/daily/<date>/<slug>/`) — today's piece, prominent on the homepage hero
+- **Daily** (`/daily/`) — editorial timeline. Today's runs at the top (each = the published piece + the candidate set Scanner pulled for that run, picked candidate marked), then the previous 6 days as collapsible day-rows. Per-piece pages at `/daily/<date>/<slug>/`.
 - **Library** (`/library/`) — all published pieces, newest first, filterable by category and title
 - **Interactives** (`/interactives/<slug>/`) — standalone companion quizzes, one per piece
-- **Dashboard** (`/dashboard/`) — public factory floor; anyone can watch the pipeline run. Admin surfaces at `/dashboard/admin/` (ADMIN_EMAIL gated) for manual triggers, engagement data, and per-piece deep-dives
+- **Admin** (`/dashboard/admin/`) — ADMIN_EMAIL gated control room: manual triggers, engagement data, observer events, per-piece deep-dives. Reachable via a footer "Admin →" link gated on the same email check, only visible on SSR pages where session is resolvable. Public `/dashboard/` removed 2026-05-02; `/dashboard/` 301-redirects to `/daily/`. Reader-facing transparency lives on every piece's "How this was made" drawer.
 - **Account** (`/account/`) — user progress, settings, login
 
 Every piece carries a "How this was made" drawer at the bottom — full pipeline timeline, audit rounds, rejected candidates, and the specific learnings this piece fed back into the system. Transparency is the brand.

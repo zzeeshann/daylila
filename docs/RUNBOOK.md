@@ -491,7 +491,7 @@ POST /api/dashboard/observer  # Acknowledge event { eventId }
 GET  /api/dashboard/pipeline  # Live pipeline state (admin poll + reset-today.sh monitor)
 ```
 
-No public JSON API — public dashboard + library pages query D1 directly via Astro frontmatter (see `/dashboard/` and `/library/` source). The prior `recent.ts` / `stats.ts` / `memory.ts` / `analytics.ts` / `today.ts` endpoints were created early but superseded by direct queries; removed in the 2026-04-22 dead-endpoint audit.
+No public JSON API — `/daily/` and `/library/` query D1 directly via Astro frontmatter on each SSR render. The prior `recent.ts` / `stats.ts` / `memory.ts` / `analytics.ts` / `today.ts` endpoints were created early but superseded by direct queries; removed in the 2026-04-22 dead-endpoint audit. Public `/dashboard/` was removed 2026-05-02 and now 301-redirects to `/daily/`.
 
 Admin Astro pages (also ADMIN_EMAIL-gated): `/dashboard/admin/`, `/dashboard/admin/piece/[date]/[slug]/`, `/dashboard/admin/zita/`, `/dashboard/admin/settings/`.
 

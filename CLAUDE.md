@@ -20,7 +20,7 @@ An autonomous multi-agent publishing system. 16 AI agents scan the news, decide 
 
 ## Current state
 
-**LAUNCHED 2026-04-18 at https://zeemish.io.** Tag: `v1.0.0`; latest milestone `v1.6.0` (2026-04-25, Curator/Categoriser tightening). Old breathing-tools site at zeemish.io retired (custom-domain binding moved from `zeemish-site` worker to `zeemish-v2` worker via Cloudflare dashboard). New site live with daily piece, audio, engagement tracking, public + admin dashboard, security headers on auth-touching surfaces. Workers.dev URL still active as fallback. The exact git commit at launch is what `v1.0.0` points at — use it as the reference if anyone asks "what shipped on day one".
+**LAUNCHED 2026-04-18 at https://zeemish.io.** Tag: `v1.0.0`; latest milestone `v1.6.0` (2026-04-25, Curator/Categoriser tightening). Old breathing-tools site at zeemish.io retired (custom-domain binding moved from `zeemish-site` worker to `zeemish-v2` worker via Cloudflare dashboard). New site live with daily piece, audio, engagement tracking, admin control room, security headers on auth-touching surfaces. Workers.dev URL still active as fallback. The exact git commit at launch is what `v1.0.0` points at — use it as the reference if anyone asks "what shipped on day one".
 
 ## What was built
 
@@ -83,8 +83,8 @@ See `docs/SCHEMA.md` for the canonical schema (always source-of-truth for table 
 
 ### Key directories
 ```
-src/pages/              Routes (index, daily, library, dashboard, account, login, API)
-src/pages/api/dashboard/ Dashboard API (today, recent, stats, analytics, observer)
+src/pages/              Routes (index, daily, library, dashboard/admin, account, login, API). Public /dashboard/ is a redirect-only page → /daily/.
+src/pages/api/dashboard/ Admin API (observer, pipeline, admin/settings). The early today/recent/stats/analytics/memory endpoints were removed in the 2026-04-22 dead-endpoint audit.
 src/interactive/        Web Components (lesson-shell, lesson-beat, audio-player, zita-chat, made-drawer, quiz-card, interactive-frame)
 src/lib/                Auth, DB helpers, rate limiting, formatting (formatDate, formatTime, audit-tier, categories, interactives)
 src/styles/             global.css (Tailwind) + beats.css + zita.css + made.css + quiz.css + lesson-finish.css (standalone, not Tailwind-processed)
@@ -104,7 +104,7 @@ docs/handoff/           Frozen pre-launch specs
 - CSRF: origin header check (strict URL parsing)
 - Rate limiting: login (5/15min), Zita (20/15min), upgrade (5/15min)
 - Agents: ADMIN_SECRET bearer token, CORS restricted to allowed origins + preflight
-- Dashboard: public view (no auth), admin view (ADMIN_EMAIL gated)
+- Dashboard: admin view only (ADMIN_EMAIL gated). Public `/dashboard/` was removed 2026-05-02; it 301-redirects to `/daily/`.
 - Input validation: JSON try-catch, message length limits
 - CSP header, X-Frame-Options DENY
 
@@ -141,7 +141,7 @@ docs/handoff/           Frozen pre-launch specs
 - Zita chat panel uses white background — feels off-brand vs the cream `zee-bg` used elsewhere; rebrand needed
 - OG image is one static PNG for every page (1200×630, generated via `scripts/generate-og-image.mjs`); per-piece dynamic OG (headline + tier rendered to PNG at the edge) is a future Worker route project
 - No skip-to-content link for keyboard users; full WCAG audit deferred
-- **Security headers on prerendered HTML (`/`, `/daily/*`, `/library`) — known gap.** Despite `_routes.json` `include: ["/*"]` + `run_worker_first = true` + middleware `Cache-Control: no-store` on HTML, Cloudflare Workers Static Assets serves prerendered `.html` files directly without invoking the worker. Server-rendered routes (`/dashboard/`, `/api/*`, `/audio/*`, `/account`, `/login`) DO get all 6 headers. The static reading pages have no auth, no cross-origin fetches, no third-party scripts beyond Google Fonts (preconnect only). Practical residual risk = clickjacking (low). Two future paths: (a) Cloudflare Transform Rule injecting headers at the edge, (b) `prerender = false` on those pages (~15-50ms perf hit). See `docs/DECISIONS.md` 2026-04-18 "Ship as-is despite header gap" for the full reasoning.
+- **Security headers on prerendered HTML (`/`, `/daily/[date]/[slug]/`) — known gap.** Despite `_routes.json` `include: ["/*"]` + `run_worker_first = true` + middleware `Cache-Control: no-store` on HTML, Cloudflare Workers Static Assets serves prerendered `.html` files directly without invoking the worker. Server-rendered routes (`/daily/`, `/library/`, `/library/[slug]/`, `/dashboard/`, `/api/*`, `/audio/*`, `/account`, `/login`) DO get all 6 headers. (`/daily/` joined the SSR side on 2026-05-02 with the rebuild — index needs D1 access; `/library/` was already SSR.) The remaining static pages have no auth, no cross-origin fetches, no third-party scripts beyond Google Fonts (preconnect only). Practical residual risk = clickjacking (low). Two future paths: (a) Cloudflare Transform Rule injecting headers at the edge, (b) `prerender = false` on those pages (~15-50ms perf hit). See `docs/DECISIONS.md` 2026-04-18 "Ship as-is despite header gap" for the full reasoning.
 - **Cloudflare Workers Static Assets (read this before touching cache or headers):** Three caching/routing layers interact and you have to defeat all of them to get headers on prerendered HTML — adapter `_routes.json` (overridden by `scripts/post-build.sh`), `run_worker_first` in wrangler.toml, and the CDN edge cache. Even so, prerendered HTML in production is still served without the worker for filesystem-resolvable paths; the gap is documented and accepted. Don't relitigate.
 - DNS `R2 listens.zeemish.io` and `Worker api.zeemish.io → zeemish-api` are leftover from the OLD breathing-tools site. Different subdomains, not in the way of launch. Retire when convenient.
 - Cache-purge needed on every Cloudflare deploy to evict CDN-cached prerendered HTML — until the header-gap above is closed

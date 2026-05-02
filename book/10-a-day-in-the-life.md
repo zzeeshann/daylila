@@ -30,7 +30,7 @@ flowchart TD
     O --> R[Writes self-reflection<br/>learnings]
 ```
 
-Each arrow is a handoff. Each box is a role. Observer is logging everything throughout, to the side, so the dashboard can show what happened later.
+Each arrow is a handoff. Each box is a role. Observer is logging everything throughout, to the side, so the admin control room and the per-piece "How this was made" drawer can show what happened later.
 
 ## Minute by minute
 
@@ -64,7 +64,7 @@ Drafter sends everything to Claude with an instruction: *write the piece.*
 
 **02:01:15.** All three return. Voice Auditor scored 92. Fact Checker found seven claims and verified them against the live web through Claude's web_search tool — the user message carries today's date, so Claude searches before assigning a verdict on any current-event claim. Six came back verified with source attributions in the notes ("CNN published coverage on…", "FAA's safety bulletin lists…"), one came back unverified because nothing solid surfaced and the prompt forbids inventing certainty. None incorrect. Structure Editor passed — six beats, hook on one screen, close on one sentence.
 
-All three pass. No revision needed. This piece was a "one-round" piece, which the dashboard will eventually show as `1 round` in its recent runs list.
+All three pass. No revision needed. This piece was a "one-round" piece, which the admin control room shows as `1 round` in its recent runs list.
 
 **02:01:17.** Director calls Publisher. Publisher writes the MDX file to `content/daily-pieces/2026-04-19-airline-industry-faces-a-shakeup-as-jet-fuel-hits-hard.mdx`, then commits it to GitHub with the message:
 
