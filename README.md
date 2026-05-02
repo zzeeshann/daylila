@@ -14,7 +14,7 @@ Every morning, a pipeline of 16 agents scans the news, picks the most teachable 
 
 You see the result the next morning — a daily teaching piece anchored in today's news, in plain English, with audio narration. A growing library of past pieces. No login needed to read.
 
-The whole pipeline runs in public. Watch it on the [factory-floor dashboard](https://zeemish.io/dashboard/). Every published piece has a "How this was made" drawer at the bottom showing which agents touched it and what each round of audit said. Transparency is the brand.
+The whole pipeline runs in public. Visit [/daily/](https://zeemish.io/daily/) to see today's pieces and the candidate news stories Scanner pulled for each run. Every published piece has a "How this was made" drawer at the bottom showing which agents touched it and what each round of audit said. Transparency is the brand.
 
 ## What it actually is
 
@@ -38,7 +38,7 @@ Astro + MDX + Tailwind + TypeScript strict, on Cloudflare Workers. Two workers: 
 
 Largely built with Claude (Anthropic's assistant) as a development partner over a few weeks. The trade-offs and the *why* behind each non-obvious decision are captured in [docs/DECISIONS.md](docs/DECISIONS.md) — append-only, dated entries. Known bugs and work queued for future sessions live in [docs/FOLLOWUPS.md](docs/FOLLOWUPS.md) — also append-only. The current-state document is [CLAUDE.md](CLAUDE.md) — read that first if you want to understand the system end-to-end.
 
-Honest software: the README tells you what it is, the dashboard shows you how it runs, the decision log explains why each piece is the way it is, the followups log shows what's still wrong and waiting to be fixed. No seams hidden.
+Honest software: the README tells you what it is, /daily/ shows the candidate set behind each piece, every piece's "How this was made" drawer shows the per-piece pipeline, the decision log explains why each piece is the way it is, the followups log shows what's still wrong and waiting to be fixed. No seams hidden.
 
 ## Repo map
 

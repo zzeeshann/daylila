@@ -2,7 +2,7 @@
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
-**Currently working on (2026-05-01):** Curator + Scanner diversity intervention — three commits shipped. Curator's TEACHABILITY interpretation was anchored to crisis/policy/system-failure framings, and Scanner pulled only 6 Google News topic feeds, structurally biasing the candidate pool. Curator prompt rewritten around a 10-domain breadth taxonomy with a recent-category-concentration block and an inline variety instruction; Scanner widened from 6 → 17 RSS feeds (per-feed cap 6, global cap 80) bringing in direct breadth feeds (Aeon, Quanta, JSTOR Daily, Atlas Obscura, Nautilus, Phys.org, Live Science, New Scientist, Knowable, Smithsonian, Tech Review). FOLLOWUPS opened a 7-cron verification window with named escalation paths per failure mode. Architecture rule: "the fix is in the prompt and the input list, not in pre-creating empty categories."
+**Currently working on (2026-05-02):** Daily rebuilt as a run-block timeline; public Dashboard removed. `/daily/` now SSR — today's runs render full-sized at top (newest first), then a `THIS WEEK` section of six native `<details>` day-rows scrolling back 7 days. Each run-block = one piece (hero card) + the candidate set Scanner pulled for that run, collapsed under "Scanner pulled N stories for this run →"; expanded list shows headline + source + UTC time per row, with the picked candidate marked by a teal `PICKED` pill + left-border accent. `/dashboard/` 301-redirects to `/daily/`; admin entry relocated to a footer-conditional "Admin →" link in `BaseLayout.astro` (cookie parsed inline so it works on SSR pages outside middleware's auth allowlist). Rollback tag: `pre-daily-rebuild` at SHA `4ca6392`. Page works unchanged at `interval_hours=24` and `interval_hours=12`. New component: `src/components/RunBlock.astro` (hero + compact size variants). New helpers: `formatUtcTime`, `formatUtcLongDate`, `formatUtcLongDateFromIso` in `src/lib/format.ts`.
 
 **Full chronology:** `docs/DECISIONS.md` is the append-only log of every dated session entry — Path A.1, Path A, Phase A/F+G/H+I, Close-beat loosening, web_search swap, Pair-slug, InteractiveGenerator retry, Area 5/4/3/2 work, Curator reframe, Categoriser zero-fix, all of it. **Open / observing items:** `docs/FOLLOWUPS.md`. **Archived plans (closed projects):** `docs/archive/` (Interactives v3 plan + notes, 2026-04 refinement plan, 2026-04 voice audit).
 
@@ -31,7 +31,7 @@ An autonomous multi-agent publishing system. 16 AI agents scan the news, decide 
 5. **Self-Improvement:** Engagement tracking, LearnerAgent, learnings database (Drafter reads from at runtime; Learner + Drafter self-reflection write into post-publish)
 6. **Zita:** Socratic learning guide in every piece
 7. **Daily Pieces:** ScannerAgent, Director daily mode, news-driven teaching on hourly cron gated by `admin_settings.interval_hours` (default 24 → fires at 02:00 UTC once per day; admin-configurable)
-8. **Dashboard:** Public factory floor (/dashboard/) + admin control room (/dashboard/admin/)
+8. **Dashboard:** Admin control room only (/dashboard/admin/). Public dashboard removed 2026-05-02 — its transparency role lives on every piece's *How this was made* drawer; aggregate operator-shaped metrics belong in admin. Public visitors to `/dashboard/` redirect 301 → `/daily/`. Operator entry: footer "Admin →" link gated on `ADMIN_EMAIL`.
 
 ## Architecture
 
@@ -70,8 +70,8 @@ Pipeline: Scanner → Curator → Drafter → [Voice, Structure, Fact] → Integ
 16. **InteractiveAuditorAgent** — single Claude call judges quizzes across voice / structure-pedagogy / essence-not-reference / factual dimensions. Called internally by InteractiveGenerator each round.
 
 ### Dashboard
-- **Public** (`/dashboard/`) — anyone can visit. Shows pipeline status, quality scores, agent team, library stats, recent pieces. Transparency is the brand.
-- **Admin** (`/dashboard/admin/`) — ADMIN_EMAIL only. Pipeline controls, observer events with acknowledge, engagement data, agent tasks. Per-piece deep-dive at `/dashboard/admin/piece/[date]/[slug]/` with full timeline + audit rounds + scanner candidates + Zita conversations + observer events.
+- **Public dashboard removed 2026-05-02.** `/dashboard/` redirects 301 → `/daily/`. Reader-facing transparency lives on every piece's *How this was made* drawer (per-piece pipeline timeline, audit rounds, candidates, learnings). Daily itself surfaces the candidate sets Scanner pulled for each run.
+- **Admin** (`/dashboard/admin/`) — ADMIN_EMAIL only. Pipeline controls, observer events with acknowledge, engagement data, agent tasks. Per-piece deep-dive at `/dashboard/admin/piece/[date]/[slug]/` with full timeline + audit rounds + scanner candidates + Zita conversations + observer events. Operator entry: footer "Admin →" link in `BaseLayout.astro` (gated on `ADMIN_EMAIL`, only visible on SSR pages).
 
 ### Database (D1 — 20 tables, 28 migrations)
 See `docs/SCHEMA.md` for the canonical schema (always source-of-truth for table + migration counts).
@@ -113,7 +113,7 @@ docs/handoff/           Frozen pre-launch specs
 **Agents worker:** ANTHROPIC_API_KEY, GITHUB_TOKEN, ELEVENLABS_API_KEY, ADMIN_SECRET
 
 ### Site navigation
-**Daily · Library · Dashboard · Account**
+**Daily · Library · Account** (Dashboard removed from public nav 2026-05-02; admin reachable via footer link gated on `ADMIN_EMAIL` or directly at `/dashboard/admin/`).
 
 ## Documentation index
 - `docs/PROJECT-BRIEF.md` — current-state project brief; paste-able into Claude project-level descriptions

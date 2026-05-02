@@ -1,6 +1,8 @@
 ---
 import '../styles/global.css';
 import { AGENT_COUNT } from '../lib/constants';
+import { getUser } from '../lib/db';
+import { parseSessionCookie } from '../lib/auth';
 
 interface Props {
   title: string;
@@ -48,6 +50,35 @@ const metaDescription =
 
 const siteOrigin = Astro.site ?? Astro.url;
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
+
+// Footer admin link — visible only to ADMIN_EMAIL.
+//
+// Cookie is parsed inline rather than reading `Astro.locals.userId`,
+// because middleware only sets `userId` for routes in its serverRoutes
+// allowlist (`/api/`, `/account`, `/login`, `/dashboard`, `/auth/`).
+// That excludes prerendered pages (correct — no D1 access at build
+// time) and SSR pages outside the allowlist (e.g. `/daily/` after
+// the 2026-05-02 rebuild). Doing the auth lookup here means the link
+// gates correctly wherever BaseLayout is rendered server-side, with
+// graceful no-op on prerendered pages where runtime.env is absent.
+let isAdmin = false;
+try {
+  const env = (Astro.locals as any).runtime?.env as Record<string, any> | undefined;
+  // Bail before touching `Astro.request.headers` on prerendered pages
+  // (Astro logs a build-time warning for that access on pages that
+  // run at build time). If runtime.env is absent we're prerendering,
+  // and there's no DB to consult anyway.
+  if (env?.DB && env?.ADMIN_EMAIL) {
+    const cookieHeader = Astro.request.headers.get('cookie');
+    const userId = parseSessionCookie(cookieHeader);
+    if (userId) {
+      const user = await getUser(env.DB, userId);
+      isAdmin = !!user?.email && user.email === env.ADMIN_EMAIL;
+    }
+  }
+} catch {
+  isAdmin = false;
+}
 const ogImageUrl = new URL('/og-image.png', siteOrigin).toString();
 
 // Defend against `</script>` injection if a future title or
@@ -272,7 +303,6 @@ if (learningResource) {
       <nav class="flex items-center gap-2 sm:gap-4">
         <a href="/daily/" class="text-xs sm:text-sm text-zee-muted hover:text-zee-primary transition-colors">Daily</a>
         <a href="/library/" class="text-xs sm:text-sm text-zee-muted hover:text-zee-primary transition-colors">Library</a>
-        <a href="/dashboard/" class="text-xs sm:text-sm text-zee-muted hover:text-zee-primary transition-colors">Dashboard</a>
         <a href="/account/" class="text-xs sm:text-sm text-zee-muted hover:text-zee-primary transition-colors">Account</a>
       </nav>
     </header>
@@ -288,6 +318,11 @@ if (learningResource) {
       <p class="text-xs text-zee-muted/70 text-center">
         &copy; 2026 Zeemish
       </p>
+      {isAdmin && (
+        <p class="text-xs text-zee-muted/60 text-center mt-3">
+          <a href="/dashboard/admin/" class="hover:text-zee-primary transition-colors">Admin →</a>
+        </p>
+      )}
     </footer>
   </body>
 </html>

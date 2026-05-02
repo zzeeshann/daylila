@@ -1,0 +1,149 @@
+---
+/**
+ * RunBlock — a single Scanner→Curator→Publisher run rendered as one block:
+ * the published piece up top (hero card) and the candidate set Scanner
+ * pulled for that run inside a collapsed <details>. Picked candidate is
+ * pinned first with a teal "PICKED" pill and a left-border accent.
+ *
+ * Two sizes:
+ *   - "hero"    — used in TODAY. Headline as <h2>, fuller spacing.
+ *   - "compact" — used inside expanded day-rows in THIS WEEK. <h3>, tighter.
+ *
+ * No JavaScript — native <details> handles disclosure.
+ *
+ * The "PICKED" pill uses the CategoryChips active style trimmed down
+ * (smaller padding, smaller text). The picked row gets a left-border
+ * accent in zee-primary so it reads at a glance even with the pill out
+ * of the eyeline.
+ */
+import { formatTime, formatUtcTime } from '../lib/format';
+
+export interface RunPiece {
+  pieceId: string;
+  date: string;            // YYYY-MM-DD
+  slug: string;
+  headline: string;
+  description: string;
+  beatCount: number;
+  readingMinutes: number | null;
+  estimatedTime: string;   // from MDX frontmatter, "8 min"-ish
+  publishedAt: number;     // Unix ms
+  newsSource?: string;
+  sourceUrl?: string;
+}
+
+export interface RunCandidate {
+  id: string;
+  headline: string;
+  source: string;
+  url: string | null;
+  createdAt: number;       // Unix ms
+  selected: boolean;
+}
+
+interface Props {
+  piece: RunPiece;
+  candidates: RunCandidate[];
+  size: 'hero' | 'compact';
+}
+
+const { piece, candidates, size } = Astro.props;
+
+const isHero = size === 'hero';
+
+// Picked first, then newest createdAt.
+const orderedCandidates = [...candidates].sort((a, b) => {
+  if (a.selected !== b.selected) return a.selected ? -1 : 1;
+  return b.createdAt - a.createdAt;
+});
+
+const candidateCount = candidates.length;
+
+const pieceUrl = `/daily/${piece.date}/${piece.slug}/`;
+const readingMin =
+  piece.readingMinutes ??
+  (Number(String(piece.estimatedTime ?? '').replace(/[^0-9]/g, '')) || null);
+---
+
+<article class={isHero ? 'mb-10' : 'mb-6'}>
+  <a
+    href={pieceUrl}
+    class={`block ${isHero ? 'p-6' : 'p-4'} rounded-xl border border-zee-border hover:border-zee-primary/30 hover:shadow-sm transition-all group`}
+  >
+    {isHero ? (
+      <h2 class="text-2xl md:text-3xl font-bold leading-tight group-hover:text-zee-primary transition-colors">
+        {piece.headline}
+      </h2>
+    ) : (
+      <h3 class="text-lg font-bold leading-snug group-hover:text-zee-primary transition-colors">
+        {piece.headline}
+      </h3>
+    )}
+    {piece.description && (
+      <p class={`text-zee-muted ${isHero ? 'text-base mt-2' : 'text-sm mt-1.5'}`}>{piece.description}</p>
+    )}
+    <p class={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zee-muted ${isHero ? 'mt-4' : 'mt-3'}`}>
+      <span>{piece.beatCount} beats</span>
+      <span aria-hidden="true">·</span>
+      <span>{readingMin ? formatTime(readingMin) : formatTime(piece.estimatedTime)}</span>
+      <span aria-hidden="true">·</span>
+      <span>Published {formatUtcTime(piece.publishedAt)}</span>
+    </p>
+    <p class={`text-sm font-medium text-zee-primary ${isHero ? 'mt-4' : 'mt-3'} group-hover:underline`}>
+      Read piece →
+    </p>
+  </a>
+
+  {candidateCount > 0 && (
+    <details class={`run-block-candidates ${isHero ? 'mt-3' : 'mt-2'}`}>
+      <summary class={`text-sm text-zee-muted hover:text-zee-primary cursor-pointer select-none px-2 py-1.5 inline-flex items-center gap-1.5`}>
+        <span class="run-block-chevron" aria-hidden="true">▸</span>
+        Scanner pulled {candidateCount} {candidateCount === 1 ? 'story' : 'stories'} for this run
+      </summary>
+      <ul class={`mt-2 ${isHero ? 'space-y-1' : 'space-y-0.5'}`}>
+        {orderedCandidates.map((c) => (
+          <li class={`flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-3 ${c.selected ? 'border-l-2 border-zee-primary pl-3' : 'border-l-2 border-transparent pl-3'} py-1.5`}>
+            <span class="flex items-baseline flex-wrap gap-2 min-w-0">
+              {c.selected && (
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-zee-primary text-white uppercase shrink-0">
+                  Picked
+                </span>
+              )}
+              {c.url ? (
+                <a
+                  href={c.url}
+                  target="_blank"
+                  rel="noopener"
+                  class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'} hover:text-zee-primary hover:underline break-words`}
+                >
+                  {c.headline}
+                </a>
+              ) : (
+                <span class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'}`}>{c.headline}</span>
+              )}
+            </span>
+            <span class="text-xs text-zee-muted shrink-0 sm:text-right whitespace-nowrap">
+              {c.source} · {formatUtcTime(c.createdAt)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )}
+</article>
+
+<style>
+  .run-block-candidates > summary {
+    list-style: none;
+  }
+  .run-block-candidates > summary::-webkit-details-marker {
+    display: none;
+  }
+  .run-block-candidates > summary > .run-block-chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+  .run-block-candidates[open] > summary > .run-block-chevron {
+    transform: rotate(90deg);
+  }
+</style>

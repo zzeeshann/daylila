@@ -57,7 +57,7 @@ This applies to every agent. No exceptions. The past stays. The future gets bett
 - [x] LearnerAgent — watches engagement + writes learnings for future pieces; uses shared `extractJson` parser (merged from EngagementAnalyst + Reviser; owns its prompt file)
 - [x] Full pipeline: Scanner → Curator → Drafter → 3 parallel auditors → Integrator (if any gate fails) → Publisher (text commit) → Audio Producer → Audio Auditor → Publisher.publishAudio (metadata-only second commit splicing audioBeats). Text commit is atomic — newspaper-never-skips — audio retries asynchronously via admin dashboard button on failure.
 - [x] Auth on trigger endpoint (ADMIN_SECRET bearer token)
-- [x] Dashboard: `/dashboard/` (public factory floor) + `/dashboard/admin/` (ADMIN_EMAIL gated)
+- [x] Dashboard: `/dashboard/admin/` (ADMIN_EMAIL gated). Public `/dashboard/` removed 2026-05-02 — its transparency role moved to per-piece *How this was made* drawers + Daily's run-block timeline showing the candidate set behind each run. `/dashboard/` now 301-redirects to `/daily/`. Operator entry: footer "Admin →" link in `BaseLayout.astro` (gated on `ADMIN_EMAIL`, only visible on SSR pages where session is resolvable).
 - [x] Audit results persisted to D1 `audit_results` table (migration 0008 fixed the orphaned FK that had silently blocked all writes — see DECISIONS.md)
 - [x] R2 bucket `zeemish-audio` for audio storage (agents worker writes per-beat MP3s at `audio/daily/{date}/{beat}.mp3`)
 - [x] Optional `SCANNER_RSS_FEEDS_JSON` env override lets ops change Scanner's feed list without a redeploy

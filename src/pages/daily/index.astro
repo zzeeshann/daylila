@@ -1,45 +1,261 @@
 ---
-import { getCollection } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { formatTime, formatDate } from '../../lib/format';
-import { deriveSlug, pieceUrl } from '../../lib/slug';
+export const prerender = false;
 
-const pieces = await getCollection('dailyPieces');
-// Every published piece shows here. Tier surfacing happens on the piece
-// page. See docs/DECISIONS.md 2026-04-17 "Soften quality surfacing".
-// publishedAt DESC tiebreaker for multi-per-day cadence.
-const sorted = [...pieces].sort((a, b) => {
-  if (a.data.date !== b.data.date) return b.data.date.localeCompare(a.data.date);
-  return b.data.publishedAt - a.data.publishedAt;
-});
+/**
+ * /daily/ — today's editorial timeline.
+ *
+ * TODAY shows full-sized RunBlocks for runs that published today (UTC),
+ * newest first. Each RunBlock = one piece + the candidate set Scanner
+ * pulled for that run.
+ *
+ * THIS WEEK shows the previous 6 days as <details> day-rows; expanded
+ * each row reveals compact RunBlocks for that day. Beyond 7 days,
+ * readers cross to /library/ via the footer link.
+ *
+ * Data:
+ *   daily_pieces  ←→  daily_candidates  (joined on c.piece_id = p.id)
+ *   Content collection used to recover the URL slug + description +
+ *   sourceUrl + estimatedTime for each piece (D1 doesn't store these).
+ *   Pieces with no matching collection entry are filtered out — that
+ *   covers orphan piece_ids from runs Scanner started but never
+ *   published, which shouldn't appear on the public Daily page.
+ */
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import RunBlock from '../../components/RunBlock.astro';
+import type { RunPiece, RunCandidate } from '../../components/RunBlock.astro';
+import { getCollection } from 'astro:content';
+import { deriveSlug } from '../../lib/slug';
+import { formatUtcLongDateFromIso } from '../../lib/format';
+
+const db = Astro.locals.runtime.env.DB;
+
+const todayUtc = new Date().toISOString().slice(0, 10);
+const sevenDaysAgoUtc = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+
+interface PieceRow {
+  piece_id: string;
+  date: string;
+  headline: string;
+  beat_count: number | null;
+  reading_minutes: number | null;
+  published_at: number;
+  candidate_id: string | null;
+  candidate_headline: string | null;
+  source: string | null;
+  url: string | null;
+  candidate_created_at: number | null;
+  selected: number | null;
+}
+
+const rows = (await db
+  .prepare(
+    `SELECT
+       p.id AS piece_id,
+       p.date,
+       p.headline,
+       p.beat_count,
+       p.reading_minutes,
+       p.published_at,
+       c.id AS candidate_id,
+       c.headline AS candidate_headline,
+       c.source,
+       c.url,
+       c.created_at AS candidate_created_at,
+       c.selected
+     FROM daily_pieces p
+     LEFT JOIN daily_candidates c ON c.piece_id = p.id
+     WHERE p.date >= ?
+     ORDER BY p.published_at DESC, c.selected DESC, c.created_at DESC`,
+  )
+  .bind(sevenDaysAgoUtc)
+  .all<PieceRow>()).results;
+
+// Group by piece_id → { piece, candidates[] }
+type Bucket = {
+  d1: {
+    piece_id: string;
+    date: string;
+    headline: string;
+    beat_count: number | null;
+    reading_minutes: number | null;
+    published_at: number;
+  };
+  candidates: RunCandidate[];
+};
+
+const buckets = new Map<string, Bucket>();
+for (const r of rows) {
+  let b = buckets.get(r.piece_id);
+  if (!b) {
+    b = {
+      d1: {
+        piece_id: r.piece_id,
+        date: r.date,
+        headline: r.headline,
+        beat_count: r.beat_count,
+        reading_minutes: r.reading_minutes,
+        published_at: r.published_at,
+      },
+      candidates: [],
+    };
+    buckets.set(r.piece_id, b);
+  }
+  if (r.candidate_id && r.candidate_headline) {
+    b.candidates.push({
+      id: r.candidate_id,
+      headline: r.candidate_headline,
+      source: r.source ?? '',
+      url: r.url,
+      createdAt: r.candidate_created_at ?? r.published_at,
+      selected: r.selected === 1,
+    });
+  }
+}
+
+// JOIN with content collection for slug/description/estimatedTime.
+const collection = await getCollection('dailyPieces');
+const collectionByPieceId = new Map<string, (typeof collection)[number]>();
+for (const entry of collection) {
+  if (entry.data.pieceId) collectionByPieceId.set(entry.data.pieceId, entry);
+}
+
+type Run = { piece: RunPiece; candidates: RunCandidate[] };
+
+const runs: Run[] = [];
+for (const b of buckets.values()) {
+  const entry = collectionByPieceId.get(b.d1.piece_id);
+  if (!entry) continue; // orphan piece_id — skip
+  runs.push({
+    piece: {
+      pieceId: b.d1.piece_id,
+      date: b.d1.date,
+      slug: deriveSlug(entry.id),
+      headline: b.d1.headline || entry.data.title,
+      description: entry.data.description,
+      beatCount: b.d1.beat_count ?? entry.data.beatCount,
+      readingMinutes: b.d1.reading_minutes,
+      estimatedTime: entry.data.estimatedTime,
+      publishedAt: b.d1.published_at || entry.data.publishedAt,
+      newsSource: entry.data.newsSource,
+      sourceUrl: entry.data.sourceUrl,
+    },
+    candidates: b.candidates,
+  });
+}
+
+// Sort newest run first by publishedAt.
+runs.sort((a, b) => b.piece.publishedAt - a.piece.publishedAt);
+
+const todayRuns = runs.filter((r) => r.piece.date === todayUtc);
+const olderRuns = runs.filter((r) => r.piece.date !== todayUtc);
+
+// Group olderRuns by date, newest day first.
+const olderByDate = new Map<string, Run[]>();
+for (const r of olderRuns) {
+  const arr = olderByDate.get(r.piece.date) ?? [];
+  arr.push(r);
+  olderByDate.set(r.piece.date, arr);
+}
+const olderDays = [...olderByDate.entries()].sort(([a], [b]) => b.localeCompare(a));
+
+const todayLabel = formatUtcLongDateFromIso(todayUtc);
 ---
 
-<BaseLayout title="Daily — Zeemish" description="Today's news, explained.">
-  <h1 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">Daily Pieces</h1>
-  <p class="text-lg text-zee-muted mb-10">Today's news, explained.</p>
+<BaseLayout
+  title="Daily — Zeemish"
+  description="Today's pieces and the news they came from. The candidate set Scanner pulled for each run, with the picked story marked."
+>
+  <h1 class="text-3xl md:text-4xl font-bold mb-3 leading-tight">Daily</h1>
+  <p class="text-lg text-zee-muted mb-10">
+    Today's pieces and the news they came from.
+  </p>
 
-  {sorted.length === 0 ? (
-    <p class="text-zee-muted italic">No daily pieces yet. The first one is coming soon.</p>
-  ) : (
-    <div class="space-y-4">
-      {sorted.map((piece) => (
-        <a
-          href={pieceUrl(piece.data.date, deriveSlug(piece.id))}
-          class="block p-5 rounded-xl border border-zee-border hover:border-zee-primary/30 hover:shadow-sm transition-all group"
-        >
-          <div class="flex items-baseline justify-between mb-1">
-            <span class="text-xs text-zee-muted">{formatDate(piece.data.date)}</span>
-            <span class="text-xs text-zee-muted">{formatTime(piece.data.estimatedTime)}</span>
-          </div>
-          <h2 class="text-lg font-bold group-hover:text-zee-primary transition-colors">
-            {piece.data.title}
-          </h2>
-          <p class="text-sm text-zee-muted mt-1">{piece.data.description}</p>
-          {piece.data.newsSource && (
-            <span class="text-xs text-zee-muted mt-2 inline-block">Source: {piece.data.newsSource}</span>
-          )}
-        </a>
-      ))}
-    </div>
+  <section aria-labelledby="daily-today-label" class="mb-12">
+    <p
+      id="daily-today-label"
+      class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4"
+    >
+      Today · {todayLabel}
+    </p>
+    {todayRuns.length === 0 ? (
+      <p class="text-zee-muted italic py-8">
+        Today's first piece will appear here when it publishes.
+      </p>
+    ) : (
+      todayRuns.map((r) => (
+        <RunBlock piece={r.piece} candidates={r.candidates} size="hero" />
+      ))
+    )}
+  </section>
+
+  {olderDays.length > 0 && (
+    <section aria-labelledby="daily-week-label" class="mb-10">
+      <p
+        id="daily-week-label"
+        class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4"
+      >
+        This week
+      </p>
+      <ul class="space-y-2">
+        {olderDays.map(([date, dayRuns]) => {
+          const dayLabel = formatUtcLongDateFromIso(date);
+          const totalCandidates = dayRuns.reduce((s, r) => s + r.candidates.length, 0);
+          const headlineSummary = dayRuns
+            .map((r) => r.piece.headline)
+            .join(' · ');
+          return (
+            <li>
+              <details class="day-row border-b border-zee-border/60">
+                <summary class="cursor-pointer select-none py-3 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-4">
+                  <span class="flex items-baseline gap-3 min-w-0">
+                    <span class="day-row-chevron text-zee-muted shrink-0" aria-hidden="true">▸</span>
+                    <span class="flex flex-col min-w-0">
+                      <span class="text-sm font-medium text-zee-text">{dayLabel}</span>
+                      <span class="text-sm text-zee-muted truncate">{headlineSummary}</span>
+                    </span>
+                  </span>
+                  <span class="text-xs text-zee-muted shrink-0 pl-7 sm:pl-0">
+                    {totalCandidates} {totalCandidates === 1 ? 'candidate' : 'candidates'}
+                  </span>
+                </summary>
+                <div class="pl-7 pb-4 pt-2">
+                  {dayRuns.map((r) => (
+                    <RunBlock piece={r.piece} candidates={r.candidates} size="compact" />
+                  ))}
+                </div>
+              </details>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   )}
+
+  <p class="text-center mt-16 mb-4">
+    <a
+      href="/library/"
+      class="text-sm text-zee-muted hover:text-zee-primary transition-colors"
+    >
+      Browse the full library →
+    </a>
+  </p>
 </BaseLayout>
+
+<style>
+  .day-row > summary {
+    list-style: none;
+  }
+  .day-row > summary::-webkit-details-marker {
+    display: none;
+  }
+  .day-row > summary > span > .day-row-chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+  .day-row[open] > summary > span > .day-row-chevron {
+    transform: rotate(90deg);
+  }
+</style>

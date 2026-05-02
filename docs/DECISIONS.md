@@ -2,6 +2,41 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-02: Daily rebuilt as a run-block timeline; public Dashboard removed from nav
+
+**Context.** Public nav read **Daily · Library · Dashboard · Account**. Two structural problems:
+
+1. **Dashboard duplicated transparency that already lives elsewhere.** The factory-floor view (pipeline status, audit scores, agent team, recent pieces) re-aggregated information that already exists per-piece in the *How this was made* drawer. The aggregate-form questions ("tier mix this week", "average rounds to clear gates") are operator-shaped, not reader-shaped. Admin already exists for operator work.
+2. **Daily was Library-with-a-different-header.** A flat reverse-chronological list of published pieces, sorted by date. No real reason to land there as a reader.
+
+**Decision.**
+
+The page that earns the "Daily" name is the editorial timeline run by run, not the published-pieces archive. The reader's job-to-be-done on `/daily/`: *"What did Zeemish teach today, and what was it choosing from?"* Daily becomes a sequence of run-blocks; each run-block = one piece (hero card) + the candidate set Scanner pulled for that run (collapsed `<details>`, expand for the full list with the picked candidate marked). Latest run on top. Today's runs full-sized, then a `THIS WEEK` section of six day-rows (each a `<details>`) scrolling back 7 days. Beyond that, link to `/library/`. Public Dashboard removed from nav; `/dashboard/` 301-redirects to `/daily/`. Admin entry relocated to a footer-conditional "Admin →" link gated on `ADMIN_EMAIL`.
+
+**Why a run, not a day, is the structural unit.** At `interval_hours=12` (live cadence overnight) two pipelines fire per day — there's no single "today's piece" any more. A run-block reflects one Scanner→Curator→Publisher pass exactly. Days are visual groupings of run-blocks, not the unit of meaning. The page works unchanged at `interval_hours=24` (one block today) and `interval_hours=12` (two blocks today), and the design extends to higher cadences without code change.
+
+**Settled choices (per the brief).**
+
+1. No cross-run candidate dedupe — the same wire story persisting across runs is signal, not noise.
+2. Candidate list collapsed by default per run-block; click expands. The reader came for the piece; candidates are second-tier.
+3. Per-candidate row is minimal: headline (links to source, `target=_blank rel=noopener`), source, time pulled in UTC. Picked candidate gets a teal `PICKED` pill + left-border accent in `zee-primary`.
+4. All times shown in UTC with the label ("14:43 UTC"). No locale conversion — explicit beats guessing.
+5. SSR per page load. No live push, no polling. The page is fresh enough.
+6. Native `<details>` for both candidate-list disclosure and day-row disclosure. No JavaScript needed for expand/collapse.
+7. `/daily/` flipped from prerendered to `prerender = false` (D1 access required). Side benefit: closes the security-headers gap on this page (middleware now runs on every request to it).
+
+**Investigation findings that shaped the implementation.**
+
+- `daily_pieces` has no `slug` column — slug lives only in MDX filename. JOIN content collection by `data.pieceId === d1.id` to recover slug + description + sourceUrl + estimatedTime. `pieceId` already in the content schema as required (carved out under the permanence rule).
+- `daily_pieces.id` is the piece_id (PK). No `source_story` URL column in D1 — sourceUrl is in MDX frontmatter only. For pre-2026-04-22 historical rows the `selected` flag was unreliable; today's 7-day window (2026-04-25 → 2026-05-02) is entirely post-fix, so `PICKED` works on every visible row without URL-fallback derivation.
+- Director pre-allocates `pieceId` at `agents/src/director.ts:152` *before* any pipeline work; Scanner writes it on every candidate row regardless of whether the run publishes. So orphan `piece_id` values exist for Scanner-skipped + Curator-declined runs. The page filters to runs with a matching content-collection entry, which naturally hides orphans.
+- Per-run candidate count is now ~80 post-2026-05-01 diversity intervention (Scanner global cap raised from 50 to 80, per-feed cap dropped from 15 to 6, feeds widened 6→17). The brief's "~50" is pre-intervention; the layout doesn't care either way.
+- `BaseLayout.astro`'s admin footer link parses the `zee-session` cookie inline rather than reading `Astro.locals.userId`, because middleware only sets `userId` for routes in its `serverRoutes` allowlist (`/api/`, `/account`, `/login`, `/dashboard`, `/auth/`). `/daily/` and `/library/` are SSR but outside that allowlist; doing the auth lookup in BaseLayout means the link gates correctly wherever BaseLayout renders server-side, with graceful no-op on prerendered pages where `runtime.env` is absent.
+
+**Files touched.** `src/layouts/BaseLayout.astro` (nav line removed, footer admin link added with inline cookie parse), `src/pages/daily/index.astro` (full SSR rewrite), `src/pages/dashboard/index.astro` (replaced body with `Astro.redirect('/daily/', 301)`), `src/components/RunBlock.astro` (new component, hero + compact variants), `src/lib/format.ts` (`formatUtcTime`, `formatUtcLongDate`, `formatUtcLongDateFromIso`), `CLAUDE.md`, `README.md`, `docs/ARCHITECTURE.md`. Rollback tag `pre-daily-rebuild` exists on origin at SHA `4ca6392`.
+
+**Out of scope (deliberately).** No new D1 tables, no new agents, no new dependencies, no new content collections. No content rewrites of existing pieces. No route renames. No touching `/daily/[date]/[slug].astro`. Account, Library, admin all wait — Daily-only this session.
+
 ## 2026-05-01 (Curator diversity, commit 2): Scanner default feeds widened from 6 Google News topics to 17 feeds for breadth
 
 **Context.** Commit 1 (the Curator prompt rewrite + recent category concentration block) widened the *interpretation* of "teachable." But Curator can only pick what Scanner surfaces. Investigation against prod D1 (last 7 days, 1650 candidates across all feeds) showed Google News topic feeds heavily favour wire-service breaking-news shapes — even when Phys.org / Live Science / Physics World items appear in the rejected pool, they sit in feeds dominated by crisis/policy/breaking-news framings. The structural input bias is real even if not the binding constraint.
