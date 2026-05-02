@@ -217,11 +217,11 @@ ${lesson_context ? `\nWhat the reader has been learning:\n${lesson_context}` : '
     const now = Date.now();
     await db.batch([
       db.prepare(
-        'INSERT INTO zita_messages (id, user_id, course_slug, lesson_number, piece_date, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      ).bind(crypto.randomUUID(), userId, course_slug, lesson_number, piece_date ?? null, 'user', storedUserMessage, now),
+        'INSERT INTO zita_messages (id, user_id, course_slug, lesson_number, piece_date, piece_id, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(crypto.randomUUID(), userId, course_slug, lesson_number, piece_date ?? null, scopedPieceId, 'user', storedUserMessage, now),
       db.prepare(
-        'INSERT INTO zita_messages (id, user_id, course_slug, lesson_number, piece_date, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      ).bind(crypto.randomUUID(), userId, course_slug, lesson_number, piece_date ?? null, 'assistant', storedReply, now + 1),
+        'INSERT INTO zita_messages (id, user_id, course_slug, lesson_number, piece_date, piece_id, role, content, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).bind(crypto.randomUUID(), userId, course_slug, lesson_number, piece_date ?? null, scopedPieceId, 'assistant', storedReply, now + 1),
     ]);
 
     return new Response(JSON.stringify({ reply }), {
