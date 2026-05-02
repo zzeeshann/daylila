@@ -299,7 +299,7 @@ function humanise(s: string): string {
 
 <BaseLayout title="Account — Zeemish">
 
-  <header class="pt-6 pb-10">
+  <header class="pt-6 pb-2">
     {memberSince && (
       <p class="text-xs font-semibold uppercase tracking-widest text-zee-gold mb-2">
         Member since {memberSince}
@@ -308,8 +308,10 @@ function humanise(s: string): string {
     <h1 class="text-3xl md:text-4xl font-bold leading-tight tracking-tight">Account</h1>
   </header>
 
+  <div class="divide-y divide-zee-border/60">
+
   {resume ? (
-    <section class="mb-10">
+    <section class="py-10">
       <p class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
         Continue reading
       </p>
@@ -330,7 +332,7 @@ function humanise(s: string): string {
       )}
     </section>
   ) : (
-    <section class="mb-10">
+    <section class="py-10">
       <p class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
         Today's piece
       </p>
@@ -347,7 +349,7 @@ function humanise(s: string): string {
   )}
 
   {recent.length > 0 && (
-    <section class="mb-10">
+    <section class="py-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
         Recently read
       </h2>
@@ -373,7 +375,7 @@ function humanise(s: string): string {
   )}
 
   {saved.length > 0 && (
-    <section class="mb-10">
+    <section class="py-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
         Saved
       </h2>
@@ -402,7 +404,7 @@ function humanise(s: string): string {
   )}
 
   {totalCompleted >= 3 && subjects.length >= 2 && (
-    <section class="mb-10">
+    <section class="py-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
         Subjects you've been reading
       </h2>
@@ -418,7 +420,7 @@ function humanise(s: string): string {
   )}
 
   {quizCount > 0 && (
-    <section class="mb-10">
+    <section class="py-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
         Quizzes you've taken
       </h2>
@@ -445,7 +447,7 @@ function humanise(s: string): string {
   )}
 
   {zitaConversations.length > 0 && (
-    <section class="mb-10">
+    <section class="py-10">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">
         Your questions
       </h2>
@@ -464,7 +466,7 @@ function humanise(s: string): string {
     </section>
   )}
 
-  <section class="pb-10 text-zee-text">
+  <section class="py-10 text-zee-text">
     {hasEmail ? (
       <>
         <p class="text-sm text-zee-muted">Signed in as <span class="text-zee-text">{user!.email}</span>.</p>
@@ -487,6 +489,8 @@ function humanise(s: string): string {
       </>
     )}
   </section>
+
+  </div>
 
 </BaseLayout>
 
