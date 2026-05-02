@@ -1,0 +1,71 @@
+{
+  "slug": "what-resists-decay-shapes-what-you-see",
+  "type": "quiz",
+  "title": "Selection by Durability",
+  "concept": "When only certain kinds of evidence survive while others disappear, the record you inherit is shaped by what lasts—not by what mattered, happened most, or tells the whole story.",
+  "interactiveId": "d141b776-efe0-42b2-b775-4c6fc5b3f758",
+  "sourcePieceId": "13ba1f76-4494-464f-80e9-59e716541419",
+  "publishedAt": 1777761905274,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a collection built from what survives longest give you a skewed view of what actually existed?",
+        "options": [
+          "Because things that last longest are always the rarest, so you end up with an unrepresentative sample",
+          "Because survival selects for durability, not for importance or frequency—what you see reflects what didn't decay, not what was common",
+          "Because older items have had more time to break down, leaving only the newest ones in the record",
+          "Because durable items don't change, so you lose all information about how things evolved"
+        ],
+        "correctIndex": 1,
+        "explanation": "What makes it into your collection is chosen by whether it could last, not by how often it appeared or how central it was. A tiny durable piece from 5% of an object can dominate the record if the other 95% rots away. The first option gets it backward—durable things are overrepresented, not rare in the record."
+      },
+      {
+        "question": "When a special location preserves materials that normally disappear, what does that tell you about all the usual locations?",
+        "options": [
+          "That the usual locations are older, so their fragile materials have already hardened into stone",
+          "That fragile materials didn't exist at usual locations—conditions there were genuinely different",
+          "That usual locations are missing entire categories of things that were present but couldn't survive ordinary conditions",
+          "That usual locations weren't studied as carefully, so fragile materials were overlooked during collection"
+        ],
+        "correctIndex": 2,
+        "explanation": "If fragile materials show up when preservation conditions allow it, the implication is they were present elsewhere too—you just never saw them because normal conditions destroy them. The second option mistakes absence of evidence for evidence of absence."
+      },
+      {
+        "question": "A researcher finds eight species at a typical location and fifteen species at a rare location where decay stopped quickly. Why does the fifteen include things the eight missed?",
+        "options": [
+          "Because the rare location had greater diversity—more species genuinely lived there",
+          "Because the rare location is older, so evolution had produced more species by that point",
+          "Because rapid sealing captured organisms without durable parts that left no trace at the typical location",
+          "Because the rare location was excavated more recently with better tools"
+        ],
+        "correctIndex": 2,
+        "explanation": "The difference isn't what lived there—it's what the preservation window could capture. Organisms with no hard structures that vanished at the typical site show up at the rare one because sealing happened before they decayed. The first option assumes the count reflects reality rather than the survival filter."
+      },
+      {
+        "question": "If you're reconstructing what lived during a time period using only locations that preserve shells, what category gets systematically left out?",
+        "options": [
+          "Small organisms, because they're harder to spot in rock layers",
+          "Anything that lived without a shell or skeleton",
+          "Predators, because they're rare in any population and less likely to be captured",
+          "Organisms from fast-moving water, where shells break apart before burial"
+        ],
+        "correctIndex": 1,
+        "explanation": "The filter is straightforward: no hard structures, no trace under ordinary conditions. Size, behaviour, and environment matter for other reasons, but the core bias is that organisms without hard parts vanish from the record entirely unless preservation is unusually good. The first option confuses detection difficulty with preservation impossibility."
+      },
+      {
+        "question": "Why does learning how an organism moved or what it ate require preservation beyond just bones or shells?",
+        "options": [
+          "Because movement and diet leave no physical marks anywhere on the body",
+          "Because the marks where muscles attached and the remains of stomach contents are structures that decay under normal conditions",
+          "Because bones and shells only harden after death, so they can't capture anything about behaviour",
+          "Because DNA that stores behavioural information only survives in tissues that decay"
+        ],
+        "correctIndex": 1,
+        "explanation": "Movement shows up in the marks where muscles attached to bone, and diet shows up as preserved stomach material—but both require tissues that normally decay to survive long enough. Hard parts alone tell you the organism existed; preserved soft structures tell you how it lived. The first option is too absolute—hard parts do carry some information about behaviour, just far less."
+      }
+    ]
+  }
+}
