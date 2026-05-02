@@ -59,6 +59,21 @@ const orderedCandidates = [...candidates].sort((a, b) => {
 
 const candidateCount = candidates.length;
 
+// Google News RSS appends " - {source}" (occasionally em-dash) to the
+// headline string. We render `source` as a separate metadata field, so
+// the suffix duplicates and adds clutter. Strip it at render time only;
+// don't mutate stored candidate data.
+function displayHeadline(headline: string, source: string): string {
+  if (!source || !source.trim()) return headline;
+  for (const sep of [' - ', ' — ', ' – ']) {
+    const suffix = sep + source;
+    if (headline.endsWith(suffix)) {
+      return headline.slice(0, headline.length - suffix.length).trimEnd();
+    }
+  }
+  return headline;
+}
+
 const pieceUrl = `/daily/${piece.date}/${piece.slug}/`;
 const readingMin =
   piece.readingMinutes ??
@@ -102,7 +117,7 @@ const readingMin =
       </summary>
       <ul class={`mt-2 ${isHero ? 'space-y-1' : 'space-y-0.5'}`}>
         {orderedCandidates.map((c) => (
-          <li class={`flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1 sm:gap-3 ${c.selected ? 'border-l-2 border-zee-primary pl-3' : 'border-l-2 border-transparent pl-3'} py-1.5`}>
+          <li class={`flex flex-col gap-1 ${c.selected ? 'border-l-2 border-zee-primary pl-3' : 'border-l-2 border-transparent pl-3'} py-1.5`}>
             <span class="flex items-baseline flex-wrap gap-2 min-w-0">
               {c.selected && (
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide bg-zee-primary text-white uppercase shrink-0">
@@ -116,15 +131,13 @@ const readingMin =
                   rel="noopener"
                   class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'} hover:text-zee-primary hover:underline break-words`}
                 >
-                  {c.headline}
+                  {displayHeadline(c.headline, c.source)}
                 </a>
               ) : (
-                <span class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'}`}>{c.headline}</span>
+                <span class={`text-sm ${c.selected ? 'font-medium text-zee-text' : 'text-zee-text/80'}`}>{displayHeadline(c.headline, c.source)}</span>
               )}
             </span>
-            <span class="text-xs text-zee-muted shrink-0 sm:text-right whitespace-nowrap">
-              {c.source}
-            </span>
+            <span class="text-sm text-zee-muted">{c.source}</span>
           </li>
         ))}
       </ul>
