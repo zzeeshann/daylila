@@ -21,7 +21,9 @@
 class LessonShell extends HTMLElement {
   private finishObserver: IntersectionObserver | null = null;
   private interactiveObserver: IntersectionObserver | null = null;
+  private beatsObserver: IntersectionObserver | null = null;
   private audioFirstPlayHandler: EventListener | null = null;
+  private observedBeats = new Set<string>();
 
   /**
    * Extract content info from URL: /daily/{date}/{slug}/.
@@ -46,6 +48,8 @@ class LessonShell extends HTMLElement {
   connectedCallback() {
     // Engagement: view (fires once per page load).
     this.trackEngagement('view');
+    // Per-user-per-piece read record: view event.
+    this.trackRead('view');
 
     // Audio first-play forwards to engagement; audio-player owns the
     // firstplay debounce so we just listen.
@@ -62,6 +66,11 @@ class LessonShell extends HTMLElement {
     // data-interactive-slug="…">) crosses ≥0.5 viewport, fire
     // `interactive_offered` once per session per slug.
     this.observeInteractive();
+
+    // Per-beat observer — fires `beat` to /api/reads/track when each
+    // <lesson-beat name="…"> crosses ≥0.5 viewport. Powers Resume's
+    // current_beat anchor.
+    this.observeBeats();
   }
 
   disconnectedCallback() {
@@ -73,6 +82,9 @@ class LessonShell extends HTMLElement {
     this.finishObserver = null;
     this.interactiveObserver?.disconnect();
     this.interactiveObserver = null;
+    this.beatsObserver?.disconnect();
+    this.beatsObserver = null;
+    this.observedBeats.clear();
   }
 
   private observeFinish() {
@@ -92,6 +104,7 @@ class LessonShell extends HTMLElement {
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
           sessionStorage.setItem(dedupKey, '1');
           this.trackEngagement('complete');
+          this.trackRead('complete');
           if (info) {
             fetch('/api/progress/complete', {
               method: 'POST',
@@ -107,6 +120,28 @@ class LessonShell extends HTMLElement {
       }
     }, { threshold: [0.6] });
     this.finishObserver.observe(sentinel);
+  }
+
+  private observeBeats() {
+    const info = this.lessonInfo;
+    if (!info?.piece_id) return;
+
+    const beats = document.querySelectorAll('lesson-beat[name]');
+    if (beats.length === 0) return;
+
+    this.beatsObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
+        const target = entry.target;
+        if (!(target instanceof HTMLElement)) continue;
+        const name = target.getAttribute('name');
+        if (!name || this.observedBeats.has(name)) continue;
+        this.observedBeats.add(name);
+        this.trackRead('beat', name);
+      }
+    }, { threshold: [0.5] });
+
+    beats.forEach((beat) => this.beatsObserver?.observe(beat));
   }
 
   private observeInteractive() {
@@ -155,6 +190,23 @@ class LessonShell extends HTMLElement {
         piece_id: info.piece_id,
         event_type: eventType,
       }),
+    }).catch(() => {});
+  }
+
+  /**
+   * Fire-and-forget per-user-per-piece read tracking. Skipped when
+   * piece_id isn't present on this page (legacy bundles or non-daily
+   * content) — the user_piece_reads PK requires it.
+   */
+  private trackRead(event: 'view' | 'beat' | 'complete', beat?: string) {
+    const info = this.lessonInfo;
+    if (!info?.piece_id) return;
+
+    fetch('/api/reads/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ piece_id: info.piece_id, event, beat }),
+      keepalive: event === 'complete',
     }).catch(() => {});
   }
 }

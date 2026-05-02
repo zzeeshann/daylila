@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { sessionCookie, generateId } from '../../lib/auth';
-import { createUser, getUserByEmail } from '../../lib/db';
+import { createUser, getUserByEmail, mergeProgress } from '../../lib/db';
 
 const db = Astro.locals.runtime.env.DB;
 const url = new URL(Astro.request.url);
@@ -58,16 +58,9 @@ if (token) {
         .run();
     }
 
-    // Merge anonymous progress if logging in as a different user
+    // Merge anonymous progress + reads if logging in as a different user
     if (anonymousId && anonymousId !== userId) {
-      await db
-        .prepare(
-          `INSERT OR IGNORE INTO progress (user_id, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at)
-           SELECT ?, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at
-           FROM progress WHERE user_id = ?`,
-        )
-        .bind(userId, anonymousId)
-        .run();
+      await mergeProgress(db, anonymousId, userId);
     }
 
     // Set session cookie

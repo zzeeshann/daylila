@@ -103,21 +103,33 @@ export async function completeLesson(
 }
 
 /**
- * Merge progress from anonymous user into authenticated user.
- * Used when an anonymous user logs in with email — their progress transfers.
+ * Merge anonymous-user state into an authenticated user on sign-in.
+ * Carries `progress` (legacy lessons) and `user_piece_reads` (daily-piece
+ * reading record, since 0029) — the target user's existing rows always
+ * win via INSERT OR IGNORE on the composite PK.
+ *
+ * Both auth paths (password login + magic-link verify) call this so a
+ * reader's anonymous history follows them into their account.
  */
 export async function mergeProgress(
   db: D1Database,
   fromUserId: string,
   toUserId: string,
 ): Promise<void> {
-  // Only merge where the target user doesn't already have progress
-  await db
-    .prepare(
-      `INSERT OR IGNORE INTO progress (user_id, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at)
-       SELECT ?, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at
-       FROM progress WHERE user_id = ?`,
-    )
-    .bind(toUserId, fromUserId)
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO progress (user_id, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at)
+         SELECT ?, course_slug, lesson_number, current_beat, completed_at, created_at, updated_at
+         FROM progress WHERE user_id = ?`,
+      )
+      .bind(toUserId, fromUserId),
+    db
+      .prepare(
+        `INSERT OR IGNORE INTO user_piece_reads (user_id, piece_id, started_at, last_seen_at, current_beat, completed_at)
+         SELECT ?, piece_id, started_at, last_seen_at, current_beat, completed_at
+         FROM user_piece_reads WHERE user_id = ?`,
+      )
+      .bind(toUserId, fromUserId),
+  ]);
 }
