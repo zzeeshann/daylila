@@ -28,8 +28,8 @@ Every task in the programme has at least one book chapter that touches its subje
 
 | Task | Likely affected chapter(s) | What to update |
 |------|---------------------------|----------------|
-| 01 — Rule Inventory | Chapter on agents and how they receive instructions | Note that rules are being consolidated into `.md` contracts; voice contract is the model. |
-| 02 — Rule Extraction | Same chapter, plus any chapter that references a specific rule | When a contract gets extracted, update the chapter that names that rule to reference the contract file. |
+| 01 — Rule Inventory ✓ | Chapter on agents and how they receive instructions | Note that rules are being consolidated into `.md` contracts; voice contract is the model. |
+| 02 — Rule Extraction ✓ (closed 2026-05-10) | Same chapter, plus any chapter that references a specific rule | When a contract gets extracted, update the chapter that names that rule to reference the contract file. **Status:** all eight clusters extracted (voice 2026-05-03, beats 2026-05-04, interactive 2026-05-05, audit-thresholds 2026-05-06, fact-check 2026-05-07, curator 2026-05-08, audio 2026-05-09, categoriser 2026-05-10). Phase 1 of Foundation Fix complete with this row. |
 | 03 — Curator Fix | Chapter on the Curator (or on selection/judgment) | Now records pick reasoning and rejection reasons. Explain why this matters for transparency and future learning. |
 | 04 — Learner Loop | Chapter on the self-improvement loop | The loop is now closed. Explain in plain English what "closed" means: learnings get marked when applied, validated when subsequent pieces score well. |
 | 05 — Audio Audit | Chapter on audio narration | Audio audit verdicts now persist properly; metadata complete. Brief mention. |

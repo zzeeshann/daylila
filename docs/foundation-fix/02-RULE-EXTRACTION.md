@@ -155,3 +155,9 @@ After each session, update a checklist at the bottom of `docs/RULE-INVENTORY.md`
 ```
 
 When all clusters are extracted and the checklist is complete, Phase 1 is done and we move to Phase 2.
+
+---
+
+## Status — closed 2026-05-10
+
+All eight rule clusters have been extracted. Phase 1 of the Foundation Fix programme is complete. See `docs/DECISIONS.md` 2026-05-10 entry for the closing summary and `docs/RULE-INVENTORY.md` Extraction progress checklist (8 / 8) for the per-cluster pointers. Next: Phase 2 (`docs/foundation-fix/03-CURATOR-FIX.md` and onward).

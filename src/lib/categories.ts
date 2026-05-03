@@ -9,6 +9,19 @@
  * Mirrors the shape of src/lib/learnings.ts.
  */
 
+import { FALLBACK_SLUG } from './categoriser-thresholds';
+
+/** Reserved Categoriser fallback category slug (seeded by migration
+ *  0027). Hidden from every reader-facing surface — the chip bar, the
+ *  filtered library route, the per-piece "Filed under" drawer
+ *  section. A piece landing here is an operator review signal, not
+ *  a reader-browseable category. Canonical at
+ *  `src/lib/categoriser-thresholds.ts`; agents-side mirror at
+ *  `agents/src/shared/categoriser-thresholds.ts`. Re-exported here
+ *  for back-compat with existing call-sites (e.g.
+ *  `src/pages/account.astro`). */
+export { FALLBACK_SLUG } from './categoriser-thresholds';
+
 export interface Category {
   id: string;
   slug: string;
@@ -16,14 +29,6 @@ export interface Category {
   description: string | null;
   pieceCount: number;
 }
-
-/** Reserved Categoriser fallback category slug (seeded by migration
- *  0027). Hidden from every reader-facing surface — the chip bar, the
- *  filtered library route, the per-piece "Filed under" drawer
- *  section. A piece landing here is an operator review signal, not
- *  a reader-browseable category. Keep in sync with
- *  agents/src/categoriser-prompt.ts CATEGORISER_FALLBACK_SLUG. */
-export const FALLBACK_SLUG = 'patterns-yet-to-cluster';
 
 /**
  * Every category that has at least one piece assigned, sorted by

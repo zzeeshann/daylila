@@ -17,6 +17,7 @@ import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
 import { MAX_AUDIT_ROUNDS as MAX_REVISIONS } from './shared/audit-thresholds';
 import { CURATOR_RECENT_WINDOW_DAYS } from './shared/curator-thresholds';
 import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thresholds';
+import { CATEGORISER_FALLBACK_SLUG } from './shared/categoriser-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
@@ -1677,10 +1678,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   /** Recent category concentration surfaced to Curator as a soft-preference
    *  signal. Mirrors getRecentDailyPieces in shape — fail-quiet on D1 errors,
    *  date-windowed not lifetime, sorted DESC by count. The hidden
-   *  `patterns-yet-to-cluster` fallback (migration 0027) is excluded — its
-   *  presence in the list would mislead Curator about real concentration.
-   *  See DECISIONS 2026-05-01 "Curator sees recent category concentration as
-   *  soft preference". */
+   *  fallback category (migration 0027) is excluded via
+   *  `CATEGORISER_FALLBACK_SLUG` — its presence in the list would mislead
+   *  Curator about real concentration. See DECISIONS 2026-05-01 "Curator
+   *  sees recent category concentration as soft preference"; canonical slug
+   *  in `agents/src/shared/categoriser-thresholds.ts`. */
   private async getRecentCategoryCounts(
     days: number,
   ): Promise<Array<{ name: string; count: number }>> {
@@ -1694,11 +1696,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
              INNER JOIN piece_categories pc ON c.id = pc.category_id
              INNER JOIN daily_pieces dp ON pc.piece_id = dp.id
             WHERE dp.date >= ?
-              AND c.slug != 'patterns-yet-to-cluster'
+              AND c.slug != ?
             GROUP BY c.id
             ORDER BY count DESC, c.name ASC`,
         )
-        .bind(since.toISOString().slice(0, 10))
+        .bind(since.toISOString().slice(0, 10), CATEGORISER_FALLBACK_SLUG)
         .all<{ name: string; count: number }>();
       return result.results.map((r) => ({ name: r.name, count: Number(r.count) }));
     } catch { return []; }

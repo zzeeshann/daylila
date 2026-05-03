@@ -77,6 +77,11 @@ const SOURCES = [
     path: '../../content/audio-contract.md',
     label: 'content/audio-contract.md',
   },
+  {
+    name: 'CATEGORISER_CONTRACT',
+    path: '../../content/categoriser-contract.md',
+    label: 'content/categoriser-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');
