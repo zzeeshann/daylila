@@ -22,7 +22,7 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Cloudflare.** The company that runs Zeemish's code. A global network of data centres that runs small programs (Workers) close to users. See chapter 3.
 
-**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference, the beat contract markdown) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. New contracts are added by appending to its SOURCES list; the beat contract joined the codegen on 2026-05-04 as the second extracted cluster. See chapter 6.
+**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference, the beat contract markdown, the interactive contract markdown) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. New contracts are added by appending to its SOURCES list; the beat contract joined on 2026-05-04 and the interactive contract on 2026-05-05 as the second and third extracted clusters. See chapter 6.
 
 **Commit.** A saved snapshot of a change in Git, with a message explaining what changed.
 
@@ -45,6 +45,8 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 **Hallucination.** When a language model confidently produces text that is factually incorrect. Inherent to how LLMs work, not a bug that will be fixed.
 
 **HTTP / HTTPS.** The protocol browsers use to talk to websites. HTTPS is the encrypted version, used everywhere today.
+
+**Interactive contract.** The versioned document that defines how Zeemish quizzes and HTML interactives are *shaped*: the essence-not-reference rule, the six hard prohibitions (no proper nouns, dates, quoted phrases, "according to" phrasing, piece-specific numbers, recognisable industry labels), the Plain English split rule with its 13-word jargon translation list, the quiz shape (3–5 questions, 4 options, plausible wrong answers, 1–2 sentence explanations), the eight HTML interactive shape rules (one clear surface, teaching label, mobile-respectable, manipulation embodies the mechanism, etc.), the validator constraints, and the title / concept / slug rules. Lives at `content/interactive-contract.md`. Read at runtime by the Interactive Generator (both quiz and HTML paths) and the Interactive Auditor (both paths). Companion to the voice contract and the beat contract: voice governs how Zeemish *sounds*, beat governs how *daily pieces* are shaped, interactive governs how the post-publish artefacts are shaped.
 
 **Knowledge cutoff.** The date after which a language model has no information. If something happened after the cutoff, the model doesn't know, though it may confidently produce text that sounds like it does.
 

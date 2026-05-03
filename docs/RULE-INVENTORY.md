@@ -176,29 +176,29 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Essence-not-reference (six prohibitions for interactives)
 
 - **What it says:** interactive HTML and quiz copy must not name proper nouns / specific dates / quoted phrases / "according to" phrasing / piece-specific numbers / industry labels recognisable as the piece's industry.
-- **Where defined:** `agents/src/interactive-generator-prompt.ts:432-441` (numbered 1–6 list); `agents/src/interactive-auditor-prompt.ts:288-294` (paraphrased bullet list, explicitly noted as "same six rules as the quiz path").
+- **Where defined:** **RESOLVED 2026-05-05 (Foundation Fix Task 02 — interactive cluster extraction).** Canonical at `content/interactive-contract.md` ("Hard prohibitions" section, six numbered rules); codegenned into `INTERACTIVE_CONTRACT` in `agents/src/shared/generated/contracts.ts`; injected via `${INTERACTIVE_CONTRACT}` at `interactive-generator-prompt.ts` (both quiz and HTML system prompts) and `interactive-auditor-prompt.ts` (both quiz and HTML auditor prompts). The auditor prompts retain inline audit-context paraphrases of the six rules in their Essence dimension's "REFERENCE LEAK" sub-list (intentional Tier-2 audit-context paraphrase per beats Q6) — the lead-in references the contract as the canonical source. The quiz generator retains a 7th quiz-specific anti-pattern inline ("'Which of the following best describes what happened in…'") — quizzes have stems, HTML doesn't, so it's path-specific not cluster-wide. `docs/INTERACTIVES.md` mirrors the list for spec-doc readability with a "since 2026-05-05" pointer.
 - **Type:** rubric
 - **Used by:** Interactive Generator (writer), Interactive Auditor (gate).
-- **Duplicated:** yes, 2 surfaces. The auditor's wording is a paraphrase rather than verbatim copy — drift risk is "rules disagree slightly" not "exact-text drift".
-- **Notes:** Tier 1 row 7 of the FOLLOWUPS map. VERIFIED (with the paraphrase caveat noted).
+- **Duplicated:** RESOLVED. Single source in `content/interactive-contract.md`; one auto-generated mirror in `contracts.ts`; intentional audit-context paraphrases in the auditor prompts; intentional spec-doc mirror in INTERACTIVES.md.
+- **Notes:** Tier 1 row 7 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: Plain-English split for quizzes
 
 - **What it says:** the precise concept name belongs in `title` and `concept` only; questions, options, and explanations use everyday words a curious 14-year-old reads cleanly on first pass. Translation list of common offending concept-jargon (asymmetry, coordination, mitigation, throughput, allocation, displacement, propagation, restraint, structural, mechanism, aggregate, threshold, trade-off).
-- **Where defined:** `agents/src/interactive-generator-prompt.ts:126` ("Plain English for quizzes — the split rule" subsection); `agents/src/interactive-auditor-prompt.ts:51` ("Plain English split rule" + "14-year-old test"); `book/09-the-sixteen-roles.md:159-175` (narrative phrasing); `agents/scripts/verify-interactive-voice.mjs` (JS heuristic mirroring the flag list).
+- **Where defined:** **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md` ("Plain English split rule" section with the 13-word translation list + 14-year-old test as scoring anchor + hedge-phrase ban). Codegenned into `INTERACTIVE_CONTRACT`; injected at the same four prompt sites as the essence rule. `agents/scripts/verify-interactive-voice.mjs` JS heuristic now mirrors the contract (header comment updated 2026-05-05; same hand-sync convention as `verify-categoriser-floor.mjs`). `book/09-the-sixteen-roles.md` paragraph still carries the narrative phrasing — kept as narrative, with a "since 2026-05-05 the rule lives in the contract" pointer added in the same commit. `docs/INTERACTIVES.md:428` similarly mirrors the prose for spec-doc readability with a contract pointer.
 - **Type:** rubric
-- **Used by:** Interactive Generator, Interactive Auditor, public book chapter, regression verifier.
-- **Duplicated:** yes, 4 surfaces (3 paraphrased + 1 JS heuristic). Generator gives writer permission; auditor gives auditor a checklist; book gives reader narrative — intentionally different framings of the same underlying rule. Verifier mirrors the flag list "by hand" per its own header.
-- **Notes:** Tier 2 row 1 of the FOLLOWUPS map. VERIFIED. The 14-year-old test (Tier 2 row 2) is folded into this rule on the auditor side at `:51`.
+- **Used by:** Interactive Generator, Interactive Auditor, public book chapter, regression verifier, INTERACTIVES spec doc.
+- **Duplicated:** RESOLVED. Single source + auto-mirror + intentional verifier hand-sync (per documented convention) + intentional book narrative + intentional spec-doc mirror.
+- **Notes:** Tier 2 row 1 of the FOLLOWUPS map. RESOLVED. The 14-year-old test (Tier 2 row 2) is folded into this rule.
 
 ### Rule: Manipulation embodies the mechanism (HTML essence)
 
 - **What it says:** the mechanism of change in an HTML interactive must mirror the mechanism of the underlying concept (slider's effect compresses when capacity is reduced, etc.).
-- **Where defined:** `agents/src/interactive-generator-prompt.ts:463`; `agents/src/interactive-auditor-prompt.ts:273`.
+- **Where defined:** **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md` ("HTML interactive shape" section, the eighth rule). Codegenned into `INTERACTIVE_CONTRACT`; injected at `interactive-generator-prompt.ts` HTML path and `interactive-auditor-prompt.ts` HTML auditor. The HTML auditor's Essence dimension retains an inline audit-context paraphrase ("Per the interactive contract, manipulation embodies the mechanism…") because the auditor needs the rule named at scoring time. `docs/INTERACTIVES.md:462` mirrors the prose for spec-doc readability with a contract pointer.
 - **Type:** rubric
-- **Used by:** Interactive Generator (HTML path), Interactive Auditor (HTML path).
-- **Duplicated:** yes, 2 surfaces. Values agree (paraphrased).
-- **Notes:** Tier 2 row 3 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Interactive Generator (HTML path), Interactive Auditor (HTML path), INTERACTIVES spec doc.
+- **Duplicated:** RESOLVED. Single source + auto-mirror + intentional audit-context paraphrase + intentional spec-doc mirror.
+- **Notes:** Tier 2 row 3 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: HTML interactive validator — eight rule IDs
 
@@ -532,9 +532,9 @@ Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates
 7. **No JSX tags / kebab-case headings** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`.
 8. **MDX frontmatter required fields** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. `structure-editor-prompt.ts:26` keeps the comma-separated field list inline as an audit-context paraphrase (intentional Tier-2 split per Q6.b).
 9. **Voice score ≥85 pass threshold** — `voice-auditor-prompt.ts` + `voice-auditor.ts` + `audit-tier.ts` (literal `85` in 3 sites) + `interactive-auditor-prompt.ts` (named constant). Agree.
-10. **Essence-not-reference (six prohibitions)** — `interactive-generator-prompt.ts` (numbered list) + `interactive-auditor-prompt.ts` (paraphrased bullets). Agree (paraphrase drift risk).
-11. **Plain-English split for quizzes / 14-year-old test** — `interactive-generator-prompt.ts` + `interactive-auditor-prompt.ts` + `book/09-the-sixteen-roles.md` + `verify-interactive-voice.mjs` (4 surfaces, intentionally different framings). Agree.
-12. **Manipulation embodies the mechanism** — `interactive-generator-prompt.ts` + `interactive-auditor-prompt.ts` (2 surfaces, paraphrased). Agree.
+10. **Essence-not-reference (six prohibitions)** — **RESOLVED 2026-05-05 (Foundation Fix Task 02 — interactive cluster extraction).** Canonical at `content/interactive-contract.md`; `INTERACTIVE_CONTRACT` injected at the four interactive prompt sites. Auditor prompts retain audit-context paraphrases of the six rules; quiz path retains a 7th quiz-specific anti-pattern inline. INTERACTIVES.md spec doc carries an intentional spec-doc mirror with a contract pointer.
+11. **Plain-English split for quizzes / 14-year-old test** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md`. `verify-interactive-voice.mjs` JS heuristic now hand-syncs with the contract (header pointer updated). Book chapter 09 + INTERACTIVES.md retain narrative / spec-doc mirrors with contract pointers.
+12. **Manipulation embodies the mechanism** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md` (eighth HTML interactive shape rule). HTML auditor retains audit-context paraphrase. INTERACTIVES.md spec mirror updated.
 13. **Cutoff-confession phrase blacklist** — `fact-checker-prompt.ts` (rule) + `made-drawer.ts` (defense filter) (2 surfaces, different roles). Agree.
 14. **Categoriser fallback slug** — `agents/src/categoriser-prompt.ts` (named const) + `src/lib/categories.ts` (named const, separate worker) + literal SQL in `director.ts` and `made.ts` + migration data (5 surfaces). Agree. Cross-worker drift risk.
 15. **`ALLOWED_INTERVAL_HOURS`** — `agents/src/shared/admin-settings.ts` + `src/lib/cadence.ts` (2 surfaces, separate worker packages). Agree. Cross-worker drift risk.
@@ -610,7 +610,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 - [x] **voice** — canonical `content/voice-contract.md`; codegenned into `agents/src/shared/generated/contracts.ts` via `agents/scripts/codegen-contracts.mjs` (2026-05-03, Foundation Fix Task 02 Phase A, branch `foundation-fix-02-extraction`).
 - [x] **interactive-html-reference** — canonical `docs/examples/interactive-reference.html`; codegenned alongside the voice contract in the same module (2026-05-03).
 - [x] **beats** — canonical `content/beat-contract.md`; codegenned alongside voice + html reference (2026-05-04, Foundation Fix Task 02 second extraction session, branch `foundation-fix-02-extraction-beats`). Read by Drafter, Structure Editor, Integrator. Voice-contract section 3 ("Lesson structure rules") removed in the same commit — beat-contract.md is now the single source.
-- [ ] quiz — Quiz / interactive shape cluster (essence prohibitions, plain-English split, 4-dimension audit, max rounds).
+- [x] **interactive (quiz + HTML)** — canonical `content/interactive-contract.md`; codegenned alongside voice + beats + html reference (2026-05-05, Foundation Fix Task 02 third extraction session, branch `foundation-fix-02-extraction-quiz`). Read by InteractiveGenerator (both quiz and HTML paths) and InteractiveAuditor (both paths). Carries: essence-not-reference rule, six hard prohibitions, Plain English split rule + 13-word jargon translation list + 14-year-old test + hedge-phrase ban, quiz shape (3–5 questions etc), eight HTML interactive shape rules including manipulation-embodies-the-mechanism, validator constraints in plain English, title / concept / slug rules. Quiz path retains one inline path-specific anti-pattern ("'Which of the following best describes what happened in…'" — quizzes have stems, HTML doesn't). Auditor prompts retain audit-context paraphrases of the six prohibitions and the plain-English flag list (Tier-2 audit-context per beats Q6). `verify-interactive-voice.mjs` continues to mirror the jargon flag list and hedge regexes by hand (header comment updated to name the contract as canonical source).
 - [ ] audit-thresholds — daily piece max revisions + quality flag + audit-tier 85/70 cluster.
 - [ ] fact-check — Verdict taxonomy + search-first + cutoff-confession blacklist + max_uses=8.
 - [ ] curator — 5-criteria selection + 10-domain breadth + recent-category soft skip + SAME-EVENT/CONCEPT hard skips + skip-output shape.

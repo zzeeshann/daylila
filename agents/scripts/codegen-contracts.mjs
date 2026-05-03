@@ -52,6 +52,11 @@ const SOURCES = [
     path: '../../content/beat-contract.md',
     label: 'content/beat-contract.md',
   },
+  {
+    name: 'INTERACTIVE_CONTRACT',
+    path: '../../content/interactive-contract.md',
+    label: 'content/interactive-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

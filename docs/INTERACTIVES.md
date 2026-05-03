@@ -425,7 +425,7 @@ What does NOT fail voice:
 - Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off) **inside the `title` and `concept` line**. These are concept vocabulary, not tribe words, and the title/concept fields are exempt from the Plain English split rule below.
 - Numbers and units displayed on axes or as readouts. They're data, not voice.
 
-**Plain English split rule (2026-04-29).** The voice contract's *"Plain English. No jargon without immediate translation"* line is enforced harder for interactives via a split. The precise concept name lives in `title` and `concept` only. Every quiz question stem / option / explanation, and every HTML caption / status message / tooltip, uses everyday words a curious 14-year-old reads cleanly first time. Concept-jargon translations the auditor expects: *asymmetry → imbalance / one side has more · coordination agreement → deal · mutual restraint → holding back · throughput → flow · allocation → who gets what · displacement → being pushed aside · propagation → spreading · structural → built into the system · mechanism → how it works · aggregate → total · threshold → tipping point · trade-off → giving up X to get Y*. The list isn't exhaustive — apply the 14-year-old test to anything that reads academic. Slider labels, axis units, and short imperatives stay exempt.
+**Plain English split rule (2026-04-29).** The voice contract's *"Plain English. No jargon without immediate translation"* line is enforced harder for interactives via a split. The precise concept name lives in `title` and `concept` only. Every quiz question stem / option / explanation, and every HTML caption / status message / tooltip, uses everyday words a curious 14-year-old reads cleanly first time. Concept-jargon translations the auditor expects: *asymmetry → imbalance / one side has more · coordination agreement → deal · mutual restraint → holding back · throughput → flow · allocation → who gets what · displacement → being pushed aside · propagation → spreading · structural → built into the system · mechanism → how it works · aggregate → total · threshold → tipping point · trade-off → giving up X to get Y*. The list isn't exhaustive — apply the 14-year-old test to anything that reads academic. Slider labels, axis units, and short imperatives stay exempt. Since 2026-05-05 this rule and its translation list live in `content/interactive-contract.md`; the prose above is mirrored from the contract for spec-doc readability and is hand-synced when the contract changes.
 
 Worked before/after: *"Why does asymmetry in outside options destabilize coordination agreements?"* fails (forces a re-read); *"Why do deals fall apart when one side has more options to walk away?"* passes. See [DECISIONS 2026-04-29 "Plain English layer for interactive prompts"](DECISIONS.md) for the trade-off log.
 
@@ -459,7 +459,7 @@ Score 100 if you'd ship it untouched. Score 75 for minor polish. Below 75 for st
 
 The question to answer: *Does manipulating this interactive teach the underlying concept of the piece, or is it decorative?*
 
-The mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches **chokepoints**, the slider's effect should compress when you reduce capacity in the right place — that's the concept made tactile. If the piece teaches **adverse selection**, toggling a parameter should make the pool worse in the way adverse selection makes pools worse. The reader's hand on the control should feel the shape of the idea.
+Per the *manipulation embodies the mechanism* rule in `content/interactive-contract.md` (extracted 2026-05-05; the contract is the canonical source): the mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches **chokepoints**, the slider's effect should compress when you reduce capacity in the right place — that's the concept made tactile. If the piece teaches **adverse selection**, toggling a parameter should make the pool worse in the way adverse selection makes pools worse. The reader's hand on the control should feel the shape of the idea.
 
 What passes essence:
 - The manipulation embodies the mechanism. Moving the slider changes outputs in a way that reflects how the real concept works.
@@ -474,7 +474,7 @@ What fails essence — DECORATIVE:
 - The "model" behind the manipulation is arbitrary — moving the slider produces numbers, but those numbers don't reflect the concept. The reader gains no transferable understanding.
 
 What fails essence — REFERENCE LEAK:
-The same six concrete-detail-leak rules as the quiz Auditor apply to HTML interactives:
+The same six concrete-detail-leak rules as the quiz Auditor apply to HTML interactives. Since 2026-05-05 these are the canonical six prohibitions in `content/interactive-contract.md`; the list below mirrors the contract for spec-doc readability and is hand-synced.
 - Proper nouns from the piece appear in the interactive (company names, people, cities, countries, agencies, product names, event names).
 - Specific dates, years, or timeframes from the piece appear in the interactive.
 - Sentences or phrases from the piece are quoted or lightly paraphrased in the interactive.
