@@ -40,11 +40,13 @@ The prompt's TEACHABILITY section was rewritten on 2026-05-01 around a ten-domai
 
 A small soft-preference signal sits below the recent-pieces block: a count of how many pieces each library category has received over the last thirty days. If a candidate would land in a category that already holds three or more recent pieces, Curator should prefer one that opens a thinner category — unless the news genuinely demands the fuller category. It is a soft preference, not a skip rule. The hard skips are still SAME-EVENT and SAME-CONCEPT.
 
+**Where the rule lives.** Since 2026-05-08, the five selection criteria, the ten-domain breadth taxonomy, the recent-category soft preference, the SAME-EVENT and SAME-CONCEPT hard skips with their worked examples, and the skip output shape all live in a single contract file (`content/curator-contract.md`). Curator reads it at runtime via prompt injection, the same shape as the voice and beat contracts. The thirty-day window for the recent-pieces and category-concentration data is exported as a single named constant in the agents-side code so the contract and the database queries that feed it never drift. The Zeemish protocol opener stays inline in the Curator prompt itself — that opener is voice-contract.md's canonical home, and Curator lifts it as framing for picking, not as a rule to enforce.
+
 ## 4. Drafter
 
 **Job:** Write the piece.
 
-**What it does:** Takes the brief from Curator. Loads the voice contract (the rules for how Zeemish writes). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly — so since 2026-04-30 the Drafter prompt names the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English). Chapter 18 covers why that field has its own contract.
+**What it does:** Takes the brief from Curator. Loads the voice contract (how Zeemish sounds) and the beat contract (how Zeemish pieces are shaped: 1000–1500 words across 5–6 beats, opening with a hook that creates a question, closing in one to four sentences that just sit, frontmatter fields, the SEO meta-description rules). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly. Since 2026-05-04 the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English) live in the beat contract alongside the rest of the piece-shape rules. Chapter 18 covers why that field has its own contract.
 
 **Claude call?** Yes. The biggest one in the pipeline — producing 1,000 to 1,500 words of polished prose takes the most model work.
 
@@ -60,6 +62,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Why a separate agent?** Because the thing writing the piece is not the best thing to judge the piece. Separation of concerns. A different Claude call, with a different prompt focused only on voice, produces more reliable quality control than asking the same call to self-check.
 
+**Where the 85 lives.** Since 2026-05-06, the threshold itself sits in the audit contract (`content/audit-contract.md`) — the same place that explains why 85, why three rounds, and why a piece that fails three rounds still ships with a Rough tier label instead of disappearing. The auditor reads the number from a single shared constant; both the Voice Auditor's pass gate and the reader-facing tier display use the same value, so a future tweak to the bar moves both surfaces in one commit.
+
 ## 6. Fact Checker
 
 **Job:** Check that the claims in the piece are correct.
@@ -70,13 +74,17 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Pass condition:** No claim is flagged `incorrect`. Unverified claims are allowed (an honest "couldn't verify against current sources" is the right answer when search returns nothing).
 
+**Where the rule lives.** Since 2026-05-07, the four parts of the Fact Checker's job — the verdict taxonomy (`verified` / `unverified` / `incorrect`), the search-first rule for current-event claims, the ban on confessing the model's training cutoff to readers, and the eight-search budget — all live in a single contract file (`content/fact-check-contract.md`). The agent reads it at runtime; the rule body sits in one place, in plain English, alongside the *why* (why "unverified" is never the same statement as "incorrect," why the cutoff-confession ban exists, what the eight-search budget is for). The drawer's render-time defense filter — the safety net that catches any cutoff-confession phrase that slips through the prompt — reads its phrase list from the same contract source via a small TypeScript constant on the site worker side. One source for a rule applied in two different runtime contexts.
+
 ## 7. Structure Editor
 
 **Job:** Check the shape of the piece.
 
-**What it does:** Reads the draft. Checks that the hook is one screen, the close is one sentence, there are 3–6 beats, the piece has frontmatter, the word count is in range, the flow makes sense. Flags specific structural issues.
+**What it does:** Reads the draft. Audits it against the beat contract — the same file the Drafter writes from. Checks that the hook is one screen, the close lands without summarising, there are 3–6 beats, the piece has frontmatter, the word count is in range, the flow makes sense. Flags specific structural issues.
 
 **Claude call?** Yes. Another judgment call, focused on shape rather than voice or facts.
+
+**Why it audits against the same contract the writer reads:** the Foundation Fix work in May 2026 pulled the beat rules out of the agent prompts and into a single `content/beat-contract.md` file. The Drafter loads it. The Structure Editor loads it. The Integrator loads it when revising. Auditing against the same source the writer reads is the only way to keep them aligned over time — when a rule changes, it changes in one place, and three agents see the new rule together.
 
 **What it doesn't check yet:** the "Watch" beat. The format spec says every piece should have a Watch beat — what to look for next — but Structure Editor doesn't currently gate on it. On the followups list.
 
@@ -88,7 +96,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Claude call?** Yes. Depending on how bad the draft was, one to three calls.
 
-**Why three rounds:** arbitrary but practical. Most fixable pieces fix in one or two rounds. Anything needing more than three rounds probably has a deeper problem that a human should see.
+**Why three rounds:** arbitrary but practical. Most fixable pieces fix in one or two rounds. Anything needing more than three rounds probably has a deeper problem that a human should see. Since 2026-05-06 this rule lives in the audit contract (`content/audit-contract.md`); the daily-piece loop and the post-publish interactive loop share one constant so the "matches the daily-piece pattern" claim from the interactive code's docstring is now an import, not a comment.
 
 ## 9. Publisher
 
@@ -108,6 +116,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Why beat by beat:** A single long audio file is clumsier than per-beat clips. Per-beat audio can be navigated — listeners can skip to a specific beat. Also, per-beat clips let the audio pipeline resume from where it stopped if something breaks. Chapter 13 goes into the technical story.
 
+**Where the rule lives.** Since 2026-05-09, the six audio constants — voice, model, output format, the 20,000-character per-piece cap, the 3-attempt retry count, and the per-call 2-beat budget — sit in a single contract file (`content/audio-contract.md`) alongside the *why* of each. The producer reads the values from a small shared module of named constants. No Claude prompt injects the contract because the producer makes no Claude calls; the contract is canonical narrative for the humans who read the system. Chapter 13 covers the technical story behind the per-call budget — the Cloudflare Durable Object's 30-second wall-clock ceiling that drove the chunked-call shape.
+
 ## 11. Audio Auditor
 
 **Job:** Check that the audio files are real and sized correctly.
@@ -117,6 +127,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 **Claude call?** No. Just R2 metadata checks.
 
 **What it doesn't do:** Listen to the audio to verify it sounds right. That would require a speech-to-text pass, which is on the followups list.
+
+**Where the cap lives.** The auditor's 20,000-character defense-in-depth check reads the same single source the producer reads — the `AUDIO_CHAR_CAP` constant in the audio contract's runtime module. Before the 2026-05-09 extraction the auditor carried its own copy of the number; the duplication is closed now, so a future tweak to the budget moves both the producer's gate and the auditor's check in one commit.
 
 ## 12. Learner
 
@@ -148,6 +160,8 @@ The effect compounds. Early pieces create the taxonomy because the list is short
 
 **Why post-publish and not inline:** Categorisation doesn't gate publishing. A piece going live takes its categorisation as the next step; readers get it on `/daily/<date>/<slug>/` immediately, and the category appears a few seconds later. The category is metadata that adds a *browsing* surface — the library's chip bar — not a *correctness* surface. Running it off-pipeline, same shape as Learner and Drafter's self-reflection, keeps the publishing path short and fast while preserving the every-piece-must-have-one rule.
 
+**Where the rule lives.** Since 2026-05-10, the four numeric/string anchors — 1–3 assignments per piece, the 75-confidence ideal-reuse floor, the 60-confidence stretch-reuse floor, and the reserved `patterns-yet-to-cluster` slug — plus the rule prose around them (the reuse bias, the tiered decision, the empty-array prohibition, the single-retry recovery, the last-resort fallback path, the at-most-one-new-category-per-run discipline) all live in a single contract file (`content/categoriser-contract.md`). Categoriser reads it at runtime via prompt injection, the same shape as the voice, beat, interactive, fact-check, and curator contracts. The constants flow through a small shared module of named values on the agents side; the site worker carries only the fallback slug as an asymmetric mirror, since the site enforces just the fallback-slug filter at render time (the chip bar at `/library/` excludes it, the per-piece "Filed under" drawer excludes it, the account subjects observation excludes it) — the floors and the cap are agents-only rules, enforced before the row reaches the database. Migration 0027's seed row carries the slug as data, frozen at deploy time and treated as a deliberate non-change. With this entry, all eight rule clusters in the system have been pulled into canonical contracts — Phase 1 of the Foundation Fix is complete.
+
 ## 14. Interactive Generator
 
 **Job:** Produce a standalone quiz that teaches the same underlying concept as the piece — without ever naming the piece.
@@ -158,7 +172,7 @@ The effect compounds. Early pieces create the taxonomy because the list is short
 
 **Why "essence not reference":** If the quiz quizzed readers on the specific story (*what was the defendant's bet size?*, *which month did Schedule III reclassify?*), it would test memory of today's news, not understanding of the underlying pattern. The point of a quiz is to check whether a reader can recognise the concept somewhere else. So the quiz asks about the underlying shape — chokepoints, information asymmetry, cascades, legitimacy — not about the specific news event that made today's piece teachable. A stranger landing on the quiz's URL without having read the source piece should still find it useful.
 
-**Why "Plain English" gets a second pass for quizzes (2026-04-29):** The voice contract has always said *"Plain English. No jargon without immediate translation."* For daily pieces that works — a 1,500-word piece has room to introduce a precise term and define it in the next sentence. A 4-option question on a single screen doesn't have that scaffolding budget. So the rule splits: the precise concept name lives in the quiz's `title` and `concept` line — that's where words like *asymmetry* and *chokepoint* are correct register. Every question stem, every option, every explanation uses everyday words a curious 14-year-old reads cleanly the first time. *"Why does asymmetry in outside options destabilize coordination agreements?"* — contract-compliant on the letter, but a teenager has to re-read twice. The same idea, rewritten: *"Why do deals fall apart when one side has more options to walk away?"* The quiz Generator now embeds the voice contract directly (it didn't before — that was the gap) plus a translation list of common concept-jargon to plain language. The Auditor enforces the same split. HTML interactive captions and tooltips follow the same rule; slider labels and axis units stay terse.
+**Why "Plain English" gets a second pass for quizzes (2026-04-29):** The voice contract has always said *"Plain English. No jargon without immediate translation."* For daily pieces that works — a 1,500-word piece has room to introduce a precise term and define it in the next sentence. A 4-option question on a single screen doesn't have that scaffolding budget. So the rule splits: the precise concept name lives in the quiz's `title` and `concept` line — that's where words like *asymmetry* and *chokepoint* are correct register. Every question stem, every option, every explanation uses everyday words a curious 14-year-old reads cleanly the first time. *"Why does asymmetry in outside options destabilize coordination agreements?"* — contract-compliant on the letter, but a teenager has to re-read twice. The same idea, rewritten: *"Why do deals fall apart when one side has more options to walk away?"* The quiz Generator now embeds the voice contract directly (it didn't before — that was the gap) plus a translation list of common concept-jargon to plain language. The Auditor enforces the same split. HTML interactive captions and tooltips follow the same rule; slider labels and axis units stay terse. Since 2026-05-05 the rule lives in `content/interactive-contract.md` alongside the rest of the quiz/interactive shape rules (essence-not-reference, the six prohibitions, the HTML structural rules); the Generator and Auditor read it from one source.
 
 **What happens if it can't pass:** Three rounds exhausted without a clean pass, the quiz ships anyway with a `quality_flag='low'` marker. The "How this was made" drawer for the source piece names the rubric the auditor flagged ("essence-not-reference", "structure & pedagogy", and so on); admin UI marks the artefact FLAGGED LOW with a retry button. Better to ship a refined-but-imperfect artefact than a 404. Earlier copy on the drawer had borrowed the daily-piece "Rough" tier label and produced a contradiction the first time it surfaced — voice 88 (Polished tier, ≥85) sitting next to "Shipped as Rough" on the same line; replaced same-day with vocabulary that doesn't conflate two different rubrics.
 

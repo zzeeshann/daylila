@@ -5,10 +5,18 @@
  * IntegratorAgent is the only caller.
  */
 
-export function buildIntegratorSystem(voiceContract: string): string {
+import { VOICE_CONTRACT, BEAT_CONTRACT } from './shared/generated/contracts';
+
+export function buildIntegratorSystem(): string {
   return `You are the Integrator for Zeemish. Your job is to revise a lesson draft based on feedback from three auditors (voice, structure, fact-checking).
 
-${voiceContract}
+## The voice contract
+
+${VOICE_CONTRACT}
+
+## The beat contract
+
+${BEAT_CONTRACT}
 
 RULES:
 - Fix every flagged issue

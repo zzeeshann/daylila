@@ -12,7 +12,7 @@
 - Rehype plugins — specifically `rehype-beats.ts`, which transforms the MDX beats into interactive Web Components.
 - The `<lesson-shell>` and `<lesson-beat>` Web Components — what they do for the reader, how they work.
 - The `beatTitles` frontmatter map — why it exists (see the heading bug story from the April 2026 session) and how it's used.
-- The permanence rule: published pieces are never rewritten. Metadata-only edits are the documented exception (audio URLs, beat titles).
+- The permanence rule: published pieces are never rewritten. Metadata-only edits are the documented exception (audio URLs, beat titles, the `qualityFlag` stamp the audit contract describes when a piece ships after failing three rounds — see `content/audit-contract.md`).
 
 ## Why this matters for Zeemish
 

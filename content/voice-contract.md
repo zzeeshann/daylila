@@ -28,16 +28,6 @@ This document is the single source of truth for how Zeemish sounds. Every agent 
 
 6. **Trust the reader.** Don't over-explain. Don't hedge everything. Make your claim, support it, move on.
 
-## Lesson structure rules
-
-Total length across all beats: **1000–1500 words.**
-Target **5–6 beats per piece.** 7+ beats is the padding zone — if a piece needs a seventh, the principle has already landed and you're restating it. Cut, don't add.
-
-- **Hook:** One screen of text. Open with the observation that creates the question; let the question follow. Never summarise the situation before asking. No "In this lesson, we'll learn about..." — ever.
-- **Teaching:** One idea per beat. Open each beat with a specific observation — a fact, a moment, a number. The principle follows from it. Never start with a definition or a generalisation. Start from the reader's own experience, build outward.
-- **Practice:** Only when there's something concrete to do. Don't bolt on an exercise to fill space.
-- **Close:** One to four sentences. Length is whatever makes it land — not a target. No summary. No call to action. No congratulations. Lands like the last line of a short story — it just sits there.
-
 ## The editor's test
 
 Read it aloud. If it sounds like:

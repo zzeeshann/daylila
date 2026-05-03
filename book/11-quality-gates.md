@@ -10,7 +10,7 @@
 - The three gates in detail: Voice Auditor, Fact Checker, Structure Editor.
 - What each one checks, what its pass/fail thresholds are, and why those thresholds.
 - The Integrator pattern: take the feedback, revise, resubmit. Up to three rounds.
-- Tier labels on published pieces — Polished (≥85), Solid (70–84), Rough (<70) — and why all of them ship.
+- Tier labels on published pieces — Polished (≥85), Solid (70–84), Rough (<70) — and why all of them ship. Since 2026-05-06, the threshold values and the ship-anyway rule live in the audit contract (`content/audit-contract.md`) — pulled out of the code-side docstrings so the rules and their reasoning sit together in one place.
 - What happens when a gate consistently fails on a topic: the piece is not forced through. It escalates to a human.
 
 ## Why this matters for Zeemish

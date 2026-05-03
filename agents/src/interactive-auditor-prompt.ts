@@ -15,12 +15,15 @@
  * calls. Cost ~4× cheaper, latency ~4× lower.
  */
 
-import { VOICE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_CONTRACT, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 
-/** Threshold below which the voice dimension fails. Mirrors
- *  VoiceAuditor's 85/100 gate on daily pieces. Used by both quiz
- *  and HTML auditor paths. */
-export const INTERACTIVE_VOICE_MIN_SCORE = 85;
+/** Threshold below which the voice dimension fails. Aliased from
+ *  `VOICE_PASS_THRESHOLD` — the audit contract names the same 85/100
+ *  bar for both daily pieces and interactive artefacts. The local
+ *  alias documents the value-share at the import point and reads
+ *  cleanly in the per-dimension scoring lines below. */
+export const INTERACTIVE_VOICE_MIN_SCORE = VOICE_PASS_THRESHOLD;
 
 /** HTML interactive structure dimension threshold. Lower than voice
  *  because structure/essence/factual on HTML are scored (not binary
@@ -39,18 +42,27 @@ You are shown:
 - The generated quiz (title, concept, questions with options + correctIndex + explanations).
 - The source piece's headline, underlying subject, and body excerpt (for essence-reference checks).
 
+# The contracts you audit against
+
+The Zeemish voice contract governs how the quiz sounds; the interactive contract governs how the quiz is shaped (essence-not-reference, Plain English split, quiz shape, title / concept / slug rules). Both apply.
+
+## Voice contract
+
+${VOICE_CONTRACT}
+
+## Interactive contract
+
+${INTERACTIVE_CONTRACT}
+
 # The four dimensions
 
 ## 1. Voice (0–100 score, passes at ≥${INTERACTIVE_VOICE_MIN_SCORE})
 
-The Zeemish voice contract applies to interactives the same way it applies to daily pieces:
+Audit the quiz against the voice contract above, plus the Plain English split rule from the interactive contract:
 
-${VOICE_CONTRACT}
-
-Extra rules for quizzes:
-- **Plain English split rule.** The precise concept name is correct in \`title\` and \`concept\`; questions, options, and explanations use everyday words. Flag concept-jargon when it appears inside a stem, an option, or an explanation — words like *asymmetry, coordination, mitigation, throughput, allocation, displacement, propagation, restraint, structural, mechanism, aggregate, threshold, trade-off* should be translated into plain language inside the question body (e.g., *asymmetry → imbalance / one side has more*; *coordination agreement → deal*; *mutual restraint → holding back*). The list isn't exhaustive — apply the test below to anything that reads academic.
+- **Plain English split rule.** Per the contract, the precise concept name is correct in \`title\` and \`concept\`; questions, options, and explanations use everyday words. Flag concept-jargon (per the contract's translation list — *asymmetry, coordination, mitigation, throughput, allocation, displacement, propagation, restraint, structural, mechanism, aggregate, threshold, trade-off*) when it appears inside a stem, an option, or an explanation. The list isn't exhaustive — apply the 14-year-old test to anything that reads academic.
 - **The 14-year-old test as the scoring anchor.** Score 100 if a curious 14-year-old reads each stem cleanly on first read. Score 85 if minor polish. Score below 85 if vocabulary forces re-reads — *"Why does asymmetry in outside options destabilize coordination agreements?"* fails the test; *"Why do deals fall apart when one side has more options to walk away?"* passes.
-- Explanations should be declarative, not hedged ("Because X causes Y" not "It could be argued that X might potentially cause Y").
+- Explanations should be declarative, not hedged. Hedge phrases banned by the contract: *"could be argued that"*, *"might potentially"*, *"arguably"*, *"it is suggested that"*, *"it could be that"*. Write *"Because X causes Y"* not *"It could be argued that X might potentially cause Y"*.
 - No flattery or meta-commentary ("Great thinking!", "This is a tough one!").
 - The \`concept\` line is part of the quiz too — it must be a non-empty, voice-compliant sentence naming the underlying principle. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice. Cite it as a violation if it's empty or off-voice. Concept-jargon is allowed and correct here — that's the precise term doing its job.
 
@@ -69,13 +81,13 @@ Score 100 if you'd leave it untouched. Score 85 if minor polish. Score below 85 
 
 A stranger reading the quiz without having read the piece must find it useful. Testing the SAME UNDERLYING CONCEPT as the piece is the GOAL of the quiz — a quiz on legislative procedure teaches legislative procedure, a quiz on chokepoints teaches chokepoints. What the quiz must avoid is leaking concrete piece-specific details that would give a reader of the piece an unfair pattern-match advantage.
 
-Check against the piece's body excerpt. Fail ONLY if one or more of these concrete detail-leaks appears:
-- Any proper noun from the piece appears in the quiz (company names, people, cities, countries, agencies, product names, event names).
-- Specific dates, years, or timeframes from the piece appear in the quiz.
-- A sentence or phrase from the piece is quoted or lightly paraphrased in the quiz.
-- An option names an industry/domain in a way that a reader would recognise AS the piece's industry. "In the commercial aviation industry" is a fail if the piece is about airlines; "In an industry where the primary input is a volatile commodity" is fine.
-- The quiz uses "according to", "as described", "in the article", "as we saw above".
-- Any specific number from the piece (dollar amounts, percentages, counts) appears in the quiz UNLESS that number is the universal form of the concept.
+Per the six hard prohibitions in the interactive contract above, fail essence ONLY if one or more of these concrete detail-leaks appears in the quiz:
+- Any proper noun from the piece (company names, people, cities, countries, agencies, product names, event names).
+- Specific dates, years, or timeframes from the piece.
+- A sentence or phrase from the piece, quoted or lightly paraphrased.
+- An option that names an industry/domain in a way a reader would recognise AS the piece's industry. "In the commercial aviation industry" is a fail if the piece is about airlines; "In an industry where the primary input is a volatile commodity" is fine.
+- "According to", "as described", "in the article", "as we saw above".
+- A specific number from the piece (dollar amounts, percentages, counts) UNLESS the number is the universal form of the concept.
 
 Do NOT fail for any of the following — these are EXPECTED, not violations:
 - The quiz tests the same concept the piece teaches (legitimacy, coalition-building, chokepoints, adverse selection, compounding, trade-offs, etc.) using abstract framing. This is the POINT of the quiz, not a violation.
@@ -220,30 +232,39 @@ You are shown:
 
 The file has already passed a structural validator (size, sandbox compatibility, allowlisted external scripts, no eval / fetch / storage / forms / nested iframes / data-URL src). Don't re-check those — focus on whether the file teaches the underlying concept of the piece, in voice, at structural quality, with factually-correct content.
 
+# The contracts you audit against
+
+The Zeemish voice contract governs how the in-interactive copy sounds; the interactive contract governs how the artefact is shaped (essence-not-reference, Plain English split, HTML interactive shape, validator constraints, title / concept / slug). Both apply.
+
+## Voice contract
+
+${VOICE_CONTRACT}
+
+## Interactive contract
+
+${INTERACTIVE_CONTRACT}
+
 # The four dimensions — ALL FOUR scored 0–100
 
 ## 1. Voice (passes at ≥${INTERACTIVE_VOICE_MIN_SCORE})
 
-The Zeemish voice contract applies to in-interactive copy:
-
-${VOICE_CONTRACT}
+Audit the in-interactive copy against the voice contract above, plus the Plain English split rule from the interactive contract.
 
 "In-interactive copy" means anything the reader sees as text inside the iframe: the title element, control labels, captions, button text, tooltips, hover-text, status messages, axis labels. The \`concept\` line above the iframe is also part of the audit.
 
-Extra rules for HTML interactives:
 - Short imperatives are GOOD. "Drag the slider." "Watch the line move." Slider labels read as nouns; that's correct register.
 - Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words. They are correct in the \`title\` and \`concept\` line.
 - Numbers and units displayed on axes or readouts are data, not voice — don't audit them as voice.
 - The \`concept\` line must be a non-empty, voice-compliant sentence. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice.
-- **Plain English split rule for prose.** Caption text, status messages, tooltips inside the iframe follow the same rule the quiz auditor enforces: precise concept name lives in \`title\` and \`concept\` only; everywhere else uses everyday words. Flag captions like *"Throughput collapses under capacity asymmetry"* — the rewrite *"Flow drops sharply when the gap narrows"* teaches the same thing without forcing a re-read. Slider labels, axis units, and short imperatives stay exempt (already covered above).
+- **Plain English split rule for prose.** Per the contract, caption text, status messages, tooltips inside the iframe follow the same split as the quiz path: precise concept name lives in \`title\` and \`concept\` only; everywhere else uses everyday words. Flag captions like *"Throughput collapses under capacity asymmetry"* — the rewrite *"Flow drops sharply when the gap narrows"* teaches the same thing without forcing a re-read. Slider labels, axis units, and short imperatives stay exempt (already covered above).
 
 Score 100 if you'd leave the copy untouched. Score 85 for minor polish. Below 85 for anything a voice-compliant rewrite would visibly improve.
 
 ## 2. Structure (passes at ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE})
 
-The HTML must render as one cohesive teaching artefact, not a pile of widgets.
+Audit against the HTML interactive shape rules in the interactive contract above. The HTML must render as one cohesive teaching artefact, not a pile of widgets.
 
-What passes structure:
+What passes structure (per the contract's eight shape rules):
 - One clear interactive surface — a single slider, a clear pair of toggles, a labelled scrub track, a small simulation with one input. Multiple controls fine if they share an obvious purpose.
 - A clear teaching label — above or alongside the surface, in plain words, what concept the manipulation teaches.
 - Cohesive layout — title, surface, output, explanation read top-to-bottom (or LTR) without the reader hunting.
@@ -268,7 +289,7 @@ THIS IS THE PRIMARY BAR. An HTML interactive that fails essence has nothing to f
 
 The question to answer: *Does manipulating this interactive teach the underlying concept of the piece, or is it decorative?*
 
-The mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place — that's the concept made tactile. The reader's hand on the control should feel the shape of the idea.
+Per the interactive contract, **manipulation embodies the mechanism**: the mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place — that's the concept made tactile. The reader's hand on the control should feel the shape of the idea.
 
 What passes essence:
 - The manipulation embodies the mechanism. Moving the slider changes outputs in a way that reflects how the real concept works.
@@ -282,7 +303,7 @@ What fails essence — DECORATIVE:
 - The interactive is a quiz disguised as a widget. (We already have a quiz path.)
 - The "model" behind the manipulation is arbitrary — moving the slider produces numbers, but those numbers don't reflect the concept.
 
-What fails essence — REFERENCE LEAK (same six rules as the quiz path):
+What fails essence — REFERENCE LEAK (per the six hard prohibitions in the interactive contract above):
 - Proper nouns from the piece appear in the interactive (company names, people, cities, countries, agencies, product names, event names).
 - Specific dates, years, or timeframes from the piece appear in the interactive.
 - Sentences or phrases from the piece are quoted or lightly paraphrased.

@@ -24,6 +24,15 @@
 // verify-interactive-voice / verify-splice / verify-dedup /
 // verify-normalize / verify-validator.
 //
+// Rule body (verdict taxonomy, search-first rule, cutoff-confession
+// ban, web-search budget) is canonical at
+// `content/fact-check-contract.md` since 2026-05-07 (Foundation Fix
+// Task 02 fifth extraction session). This verifier tests the parser
+// shape — what `parseResponse` produces from a stubbed Anthropic
+// response — not the rule body. The 9 test cases continue to assert
+// the three-value status union, the search flag semantics, and the
+// flat-sources URL harvest.
+//
 // Usage: node agents/scripts/verify-fact-checker.mjs
 // Exit code: 0 on all pass, 1 on any failure.
 

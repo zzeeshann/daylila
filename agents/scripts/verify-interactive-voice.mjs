@@ -22,9 +22,14 @@
 // Exit code: 0 on all pass, 1 on any failure.
 //
 // Sync convention: keep JARGON_FLAG_LIST + HEDGE_PATTERNS below
-// aligned by hand with agents/src/interactive-generator-prompt.ts
-// and agents/src/interactive-auditor-prompt.ts (same convention as
-// verify-categoriser-floor.mjs / verify-splice / verify-dedup).
+// aligned by hand with the canonical Plain English split rule in
+// content/interactive-contract.md (the Plain English split rule
+// section + jargon translation list). Same convention as
+// verify-categoriser-floor.mjs / verify-splice / verify-dedup —
+// the verifier mirrors the contract; the contract is the source.
+// Pre-2026-05-05 the canonical sources were the two prompt files;
+// the rule moved into the contract during the third extraction
+// session and the prompts now read from the contract.
 
 // ── Inlined heuristic (sync by hand if prompts change) ──────────────
 //

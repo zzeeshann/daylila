@@ -1,4 +1,4 @@
-import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE } from './shared/generated/contracts';
+import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
 import {
   HTML_FILE_BYTES_MAX,
   HTML_SCRIPT_ALLOWLIST_DESCRIPTION,
@@ -99,71 +99,23 @@ Worked examples:
 
 Notice: the RIGHT subjects never name the specific trigger. They name the PATTERN the specific trigger illustrates.
 
-# Hard prohibitions
-
-1. Do not use proper nouns from the piece (company names, people, cities, countries, agencies, product names).
-2. Do not use specific dates, years, or timeframes from the piece.
-3. Do not quote sentences or phrases from the piece.
-4. Do not write "according to the piece", "as described", "in the article". There is no piece as far as the reader knows.
-5. Do not write "Which of the following best describes what happened in…" — there is no "what happened".
-6. Do not include specific numbers (dollar amounts, percentages, counts) UNLESS they are the universal form of the concept. "A human body is ~60% water" is the concept. "$18.2 billion in quarterly losses" is the piece.
-7. Do not name industries in a way that a reader would recognise as this piece's industry. If the piece is about airlines, don't say "in the commercial aviation industry" — say "in an industry where fuel is 25% of operating cost and demand is seasonal" (the structure, not the label).
-
-# What a good quiz looks like
-
-- ${QUIZ_MIN_QUESTIONS}–${QUIZ_MAX_QUESTIONS} questions, each teaching a distinct facet of the concept. Questions should build: a definition-level opener, then mechanism, then implication, then edge/mis-application.
-- Exactly ${QUIZ_OPTIONS_PER_QUESTION} options per question.
-- Exactly one correct option.
-- Wrong options are *plausible mistakes* — a reader reasoning casually might pick them. They teach by being wrong in instructive ways, not by being obviously silly. Avoid "All of the above" and "None of the above" — they dodge the teaching.
-- Each question carries a 1–2 sentence explanation that unpacks WHY the correct answer is right AND why the most tempting wrong answer falls short.
-- The whole quiz reads as if it were authored BEFORE the piece existed — a standalone teaching asset.
-
 # Voice contract
 
 ${VOICE_CONTRACT}
 
-## Plain English for quizzes — the split rule
+# Interactive contract
 
-The quiz teaches a sophisticated concept, but the **questions, options, and explanations must read like everyday speech**. The precise concept name belongs in two places only: the \`title\` and the \`concept\` line. Everywhere else — every stem, every option, every explanation — uses words a curious 14-year-old would understand on first read, without re-reading.
+The full set of rules for shaping a quiz or HTML interactive lives in the contract below. Hard prohibitions, the Plain English split rule and jargon translation list, the quiz shape (3–5 questions, 4 options, plausible wrong answers, 1–2 sentence explanations), and the title / concept / slug rules all live here:
 
-**Translate concept-jargon into everyday words inside stems / options / explanations:**
+${INTERACTIVE_CONTRACT}
 
-- asymmetry → imbalance, one side has more
-- coordination / coordination agreement → working together, a deal
-- mitigation → softening damage, reducing harm
-- throughput → flow, how much gets through
-- allocation → who gets what, sharing out
-- displacement → being pushed aside, replaced
-- propagation → spreading, passing along
-- restraint / mutual restraint → holding back, sticking with the plan
-- structural → built into the system, baked in
-- mechanism → how it works, what causes it
-- aggregate → total, added up
-- threshold → tipping point, line
-- trade-off → giving up X to get Y
+# Additional quiz-specific anti-patterns
 
-The list isn't exhaustive. The test is: **if a curious 14-year-old can't answer the question without re-reading the stem, simplify it.**
+The contract above governs both quiz and HTML paths. One extra anti-pattern applies to the quiz path only:
 
-**Worked before/after — same concept, rewritten:**
+- Do not write "Which of the following best describes what happened in…" — there is no "what happened" as far as the reader knows.
 
-\`\`\`
-Wrong (academic):
-"Why does asymmetry in outside options destabilize coordination
-agreements even when mutual restraint would benefit all participants?"
-
-Right (plain):
-"Why do deals fall apart when one side has more options to walk away?"
-\`\`\`
-
-Both questions test the same idea. The second one a teenager reads once and answers. The first one even a smart adult re-reads twice.
-
-**No hedging.** Make claims, don't soften them. Banned in explanations: *"could be argued that"*, *"might potentially"*, *"arguably"*, *"it is suggested that"*, *"it could be that"*. Write *"X causes Y"* not *"X might be considered to potentially cause Y"*.
-
-# Title + concept + slug
-
-- \`title\`: 2–6 words, names the concept. Not a headline. Not a question. "Chokepoints and Cascades", "Information Asymmetry", "Moral Hazard".
-- \`concept\`: one sentence naming the underlying principle this quiz teaches. A stranger reading this line on the interactive's page should understand what they'll learn.
-- \`slug\`: kebab-case, derived from the concept (not from the piece headline). Short (under 4 words). "chokepoints-and-cascades", "information-asymmetry", "moral-hazard-in-markets".
+Quiz question count for this prompt: ${QUIZ_MIN_QUESTIONS}–${QUIZ_MAX_QUESTIONS}, exactly ${QUIZ_OPTIONS_PER_QUESTION} options each.
 
 # Diversity with past interactives
 
@@ -428,42 +380,21 @@ Worked examples (same pattern as the quiz path):
 
 The RIGHT shapes never name the specific trigger. They make the underlying PATTERN tactile through the reader's hand on a control.
 
-# Hard prohibitions (the essence-not-reference list)
-
-1. Do not use proper nouns from the piece (company names, people, cities, countries, agencies, product names, event names) anywhere in the HTML — labels, titles, captions, comments, all of it.
-2. Do not use specific dates, years, or timeframes from the piece.
-3. Do not quote sentences or phrases from the piece.
-4. Do not write "according to the piece", "as described", "in the article", "as we saw above". There is no piece as far as the reader knows.
-5. Do not include specific numbers (dollar amounts, percentages, counts) UNLESS they are the universal form of the concept. "A human body is ~60% water" is the concept. "$18.2 billion in quarterly losses" is the piece.
-6. Do not name an industry/domain in a way a reader would recognise AS the piece's industry. If the piece is about airlines, don't label your axis "Strait of Hormuz daily throughput"; label it "Throughput (units/day)" or use a stylised generic.
-
 # Voice contract
 
 Any in-interactive copy — the title above the iframe, the concept line, control labels, captions, button text, tooltips, status messages — follows the Zeemish voice contract:
 
 ${VOICE_CONTRACT}
 
-Extra rules for HTML interactives:
-- Short imperatives are GOOD. "Drag the slider." "Watch the line move." Interactive copy is allowed to be terse — a slider label reads as a noun, not a sentence.
-- Domain-neutral concept words (legitimacy, threshold, chokepoint, asymmetry, trade-off, compounding) are concept vocabulary, not tribe words. They are correct in the \`title\` and \`concept\` line.
-- Numbers and units displayed on axes or as readouts are data, not voice — no rule applies to them as long as they are illustrative or universal (see hard prohibition 5).
-- The \`concept\` line is part of the interactive too. It must be a non-empty, voice-compliant sentence naming the underlying principle the interactive teaches. A topic label ("Chokepoints"), a question, or a missing/blank value all fail voice and the artefact will be revised.
-- **Plain English for prose surfaces.** Caption text, status messages, tooltips, and the \`concept\` sentence follow the same rule as the quiz path: precise concept name in \`title\` and \`concept\` only; everywhere else use everyday words. *"Flow drops sharply when the gap narrows"* beats *"Throughput collapses under capacity asymmetry"*. Slider labels and axis units stay terse nouns ("Capacity:", "Inputs", "USD/barrel") — that's already correct register.
+# Interactive contract
 
-# Structural rules — the interactive must be one cohesive teaching artefact
+The full set of rules for shaping a quiz or HTML interactive lives in the contract below. Hard prohibitions (the essence-not-reference list), the Plain English split rule and jargon translation list, the HTML interactive shape (one clear surface, teaching label, cohesive layout, mobile-respectable, sensible defaults, stable on input, pedagogy hooks, manipulation embodies the mechanism), the title / concept / slug rules, and the validator constraints all live here:
 
-- **One clear interactive surface.** The reader can identify the thing they're meant to manipulate without guessing — a single slider, a clear pair of toggles, a labelled scrub track, a small simulation with one input. Multiple controls are fine *if* they share an obvious purpose (two sliders that compose into one model output) and bad if they fragment the page into disconnected demos.
-- **A clear teaching label.** Above or alongside the interactive surface, in plain words, what concept the manipulation teaches. The reader doesn't have to infer.
-- **Cohesive layout.** Title, surface, output, explanation read top-to-bottom (or left-to-right) without the reader hunting.
-- **Mobile-respectable.** The interactive doesn't break at 375 px width. Use viewport meta and responsive CSS.
-- **Sensible defaults.** Initial state shows something teaching — not a blank canvas requiring three clicks before anything happens.
-- **Stable on input.** Moving the slider from min to max doesn't break the layout, throw a visible error, or render NaN.
-- **Pedagogy hooks.** The reader can tell what happened when they manipulated something — output changed, a label updated, a chart redrew, a value flipped.
-- **Manipulation embodies the mechanism (essence).** The mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place. The reader's hand on the control should feel the shape of the idea.
+${INTERACTIVE_CONTRACT}
 
 # Sandbox compatibility — the file runs inside <iframe sandbox="allow-scripts">
 
-Your file is rendered inside an iframe with exactly one sandbox token: \`allow-scripts\`. Everything below is what that means in practice. The validator catches what it can pre-flight; the sandbox catches the rest at runtime.
+The validator at \`agents/src/interactive-validator.ts\` is the gate; its eight rules are listed in the contract above. The notes below are practical authoring guidance — the validator catches what it can pre-flight; the sandbox catches the rest at runtime.
 
 **Forbidden APIs (must not appear in any \`<script>\` block):**
 - \`localStorage\`, \`sessionStorage\`, \`indexedDB\` — sandbox without \`allow-same-origin\` throws SecurityError on these. Your interactive cannot persist anything between page loads. State lives in memory for the session.
@@ -492,12 +423,6 @@ Your file is rendered inside an iframe with exactly one sandbox token: \`allow-s
 The parent page listens for \`window.message\` events from the iframe. If you want the interactive to report engagement (e.g. "the reader manipulated the surface"), \`window.parent.postMessage({type: 'interactive_engagement', event: 'manipulated'}, '*')\` is allowed. Don't post on initial load — only on real user interaction. Don't post more than ~once per second.
 
 This is not required. Most interactives won't post anything.
-
-# Title + concept + slug
-
-- \`title\`: 2–6 words, names the concept. Not a headline. Not a question. Examples: "Chokepoints and Cascades", "Information Asymmetry", "Coalition Math".
-- \`concept\`: one sentence naming the underlying principle this interactive teaches. A stranger reading this line on the interactive's page should understand what they'll learn.
-- \`slug\`: kebab-case, derived from the concept (not from the piece headline). Short (under 4 words). Examples: "chokepoints-and-cascades", "information-asymmetry", "coalition-math".
 
 # Diversity with past interactives
 

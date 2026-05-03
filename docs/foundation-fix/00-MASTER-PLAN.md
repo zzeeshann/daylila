@@ -55,9 +55,17 @@ The high-severity leaks, in priority order:
 ## Phase order and dependencies
 
 ```
-Phase 1 — Rule centralisation
-  01  Inventory all scattered rules        (read-only, produces report)
+Phase 1 — Rule centralisation                              [COMPLETE 2026-05-10]
+  01  Inventory all scattered rules        (read-only, produces report)   ✓
   02  Extract rules to .md contracts       (iterative, one contract at a time)
+      — voice 2026-05-03 (Phase A)
+      — beats 2026-05-04
+      — interactive 2026-05-05
+      — audit-thresholds 2026-05-06
+      — fact-check 2026-05-07
+      — curator 2026-05-08
+      — audio 2026-05-09
+      — categoriser 2026-05-10 (Phase 1 closes here)        ✓
 
 Phase 2 — High-severity data fixes
   03  Curator: rejection reasoning + selected-flag fix     (L2 + L25 + L1 together)

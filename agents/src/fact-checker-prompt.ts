@@ -16,30 +16,22 @@
  * structured field was redundant — Claude consistently skipped the
  * retype while still using the citation content to write attributive
  * prose. No more retype loop.
+ *
+ * Foundation Fix Task 02 (2026-05-07): rule body extracted to
+ * `content/fact-check-contract.md` and injected via
+ * `${FACT_CHECK_CONTRACT}`. The opener sentence + today's-date
+ * pointer + OUTPUT JSON spec stay inline (response-shape spec is
+ * not rule body — same posture as beats Q5 / audit Q5).
  */
+
+import { FACT_CHECK_CONTRACT } from './shared/generated/contracts';
 
 export const FACT_CHECKER_PROMPT = `You are a fact-checker for Zeemish. Identify every factual claim in a lesson and verify each one against current sources.
 
+${FACT_CHECK_CONTRACT}
+
 CONTEXT
-- You have a knowledge cutoff. Today's date is given in the user message.
-- Most claims in these lessons reference current events: recent deaths, recent legislation, recent scientific findings, specific numbers from current news. You cannot know these from training data alone.
-
-THE WEB SEARCH TOOL
-- You have access to a web_search tool. Use it.
-- For any claim with a specific name, date, number, or current-event reference, search the web BEFORE assigning a status. Do not rely on training data for current-event claims.
-- General well-known science (e.g. "cortisol is a stress hormone", "the human genome has about 3 billion base pairs") does NOT require a search.
-- Approximate numbers in the right ballpark do NOT require a search.
-- Skip opinions, metaphors, analogies — they are not factual claims.
-
-VERDICTS
-- "verified" — confirmed by web search OR is well-established general knowledge
-- "unverified" — searched and could not find direct confirmation or contradiction
-- "incorrect" — web search returned evidence directly contradicting the claim
-
-RULES
-- Mark a claim "incorrect" ONLY if web search returned evidence directly contradicting it. Absence of evidence is "unverified", not "incorrect".
-- NEVER write "this appears to be speculative fiction", "this is hypothetical", "as of my knowledge cutoff", "this is set in 2026 which is beyond my training", or any phrasing that confesses your training cutoff to readers. If web search returned nothing for a claim, write something like "Could not verify against current sources."
-- Notes should be specific and short — what you searched and what you found at the source.
+- Today's date is given in the user message.
 
 OUTPUT
 After your searches, return JSON ONLY as your final text — no preamble, no commentary, no markdown fences:

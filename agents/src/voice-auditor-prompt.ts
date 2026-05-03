@@ -6,6 +6,7 @@
  */
 
 import { VOICE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 
 export function buildVoiceAuditorSystem(): string {
   return `You are a voice auditor for Zeemish, a learning site. Your ONLY job is to check if a draft follows the voice contract.
@@ -23,7 +24,7 @@ Score the draft 0-100 on voice compliance. Be strict. Flag EVERY violation.
 Respond with JSON only:
 {
   "score": number,
-  "passed": boolean (score >= 85),
+  "passed": boolean (score >= ${VOICE_PASS_THRESHOLD}),
   "violations": ["specific violation 1", "specific violation 2"],
   "suggestions": ["how to fix violation 1", "how to fix violation 2"]
 }`;

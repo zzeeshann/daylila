@@ -47,6 +47,41 @@ const SOURCES = [
     path: '../../docs/examples/interactive-reference.html',
     label: 'docs/examples/interactive-reference.html',
   },
+  {
+    name: 'BEAT_CONTRACT',
+    path: '../../content/beat-contract.md',
+    label: 'content/beat-contract.md',
+  },
+  {
+    name: 'INTERACTIVE_CONTRACT',
+    path: '../../content/interactive-contract.md',
+    label: 'content/interactive-contract.md',
+  },
+  {
+    name: 'AUDIT_CONTRACT',
+    path: '../../content/audit-contract.md',
+    label: 'content/audit-contract.md',
+  },
+  {
+    name: 'FACT_CHECK_CONTRACT',
+    path: '../../content/fact-check-contract.md',
+    label: 'content/fact-check-contract.md',
+  },
+  {
+    name: 'CURATOR_CONTRACT',
+    path: '../../content/curator-contract.md',
+    label: 'content/curator-contract.md',
+  },
+  {
+    name: 'AUDIO_CONTRACT',
+    path: '../../content/audio-contract.md',
+    label: 'content/audio-contract.md',
+  },
+  {
+    name: 'CATEGORISER_CONTRACT',
+    path: '../../content/categoriser-contract.md',
+    label: 'content/categoriser-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

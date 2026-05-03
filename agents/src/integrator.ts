@@ -1,7 +1,6 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
-import { VOICE_CONTRACT } from './shared/generated/contracts';
 import { buildIntegratorSystem } from './integrator-prompt';
 import type { VoiceAuditResult } from './voice-auditor';
 import type { StructureAuditResult } from './structure-editor';
@@ -55,7 +54,7 @@ export class IntegratorAgent extends Agent<Env> {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 8000,
-      system: buildIntegratorSystem(VOICE_CONTRACT),
+      system: buildIntegratorSystem(),
       messages: [
         {
           role: 'user',

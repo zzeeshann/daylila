@@ -4,14 +4,16 @@ import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
 import {
   CATEGORISER_PROMPT,
-  CATEGORISER_MAX_ASSIGNMENTS,
-  CATEGORISER_REUSE_CONFIDENCE_STRETCH,
-  CATEGORISER_FALLBACK_SLUG,
   CATEGORISER_RETRY_MESSAGE,
   buildCategoriserPrompt,
   type CategoryContextRow,
   type PieceContext,
 } from './categoriser-prompt';
+import {
+  CATEGORISER_MAX_ASSIGNMENTS,
+  CATEGORISER_REUSE_CONFIDENCE_STRETCH,
+  CATEGORISER_FALLBACK_SLUG,
+} from './shared/categoriser-thresholds';
 
 /** Cap the MDX body excerpt fed to Claude. Big enough to signal the
  *  piece's shape (hook + first teaching beat or two); small enough

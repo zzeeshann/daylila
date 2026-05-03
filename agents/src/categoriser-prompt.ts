@@ -4,36 +4,24 @@
  *
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * CategoriserAgent is the only caller.
+ *
+ * Rule body lives at `content/categoriser-contract.md`, codegenned
+ * into `${CATEGORISER_CONTRACT}` and injected into the system prompt
+ * below. The four named constants (max-assignments, reuse floor,
+ * stretch floor, fallback slug) live at
+ * `agents/src/shared/categoriser-thresholds.ts` and are re-exported
+ * here for back-compat with existing call-sites. Foundation Fix
+ * Task 02 eighth (and final) extraction session, 2026-05-10.
  */
 
-/** Hard cap on assignments per piece. The prompt enforces 1–3; this
- *  constant is re-used by the agent when it clamps the LLM's output
- *  so a misbehaving response can't over-tag a piece. */
-export const CATEGORISER_MAX_ASSIGNMENTS = 3;
+import { CATEGORISER_CONTRACT } from './shared/generated/contracts';
 
-/** Ideal reuse floor — confidence at which an existing category is a
- *  clean fit for the piece's *primary* underlying subject. At or above
- *  this, reuse is the obvious answer. Raised 60 → 75 on 2026-04-25
- *  after the firing-squads piece picked up "Commodity Shocks" at 70
- *  confidence (a cross-domain stretch from "supply running out" to
- *  "commodity shock"). See DECISIONS 2026-04-25. */
-export const CATEGORISER_REUSE_CONFIDENCE_FLOOR = 75;
-
-/** Stretch reuse floor — when no existing category fits at ≥75 AND
- *  the piece isn't novel enough to justify a new category, the prompt
- *  instructs Claude to reuse the closest existing at ≥60 with explicit
- *  reasoning that names what's stretchy. Below this, an existing-cat
- *  assignment is too thin to write — code filters and triggers the
- *  retry-then-fallback path. Added 2026-04-29 as part of the
- *  zero-assignment fix. */
-export const CATEGORISER_REUSE_CONFIDENCE_STRETCH = 60;
-
-/** Reserved slug for the system fallback category seeded in migration
- *  0024. Used ONLY when both Claude attempts return zero assignments.
- *  Hidden from the public library chip bar AND filtered from the
- *  Categoriser context list (Claude must never see it as a "reuse
- *  target" — would defeat the retry layer's purpose). */
-export const CATEGORISER_FALLBACK_SLUG = 'patterns-yet-to-cluster';
+export {
+  CATEGORISER_MAX_ASSIGNMENTS,
+  CATEGORISER_REUSE_CONFIDENCE_FLOOR,
+  CATEGORISER_REUSE_CONFIDENCE_STRETCH,
+  CATEGORISER_FALLBACK_SLUG,
+} from './shared/categoriser-thresholds';
 
 export const CATEGORISER_PROMPT = `You categorise a just-published Zeemish daily piece by assigning it to 1–3 categories. Every piece MUST land in at least one category — returning an empty assignments array is never a valid answer.
 
@@ -43,40 +31,7 @@ You are shown:
 
 Your only output is the JSON described at the bottom. Do not write prose outside the object.
 
-# Hard rule: at least one assignment
-
-Every piece must land in at least one category. If you finish reviewing the existing list and feel none fits cleanly, that's not a reason to return zero — it's a reason to follow the tiered decision below. The empty-array answer doesn't exist.
-
-# The most important rule: prefer reuse over novelty
-
-Categories are a taxonomy for readers to browse the library. They only work if they mean something specific. A taxonomy that grows a new category for every piece becomes noise — it's a list of headlines, not a map.
-
-Strongly prefer reusing an existing category. Before proposing a new one, ask yourself:
-- Is there an existing category whose description covers this piece's *underlying subject*, even if the headline is new?
-- Could this piece plausibly sit alongside pieces already in one of the existing categories? (Check the piece counts — a category with 6 pieces has a defined shape; a category with 1 piece hasn't converged yet.)
-- Am I proposing a new category because the piece is genuinely different, or because the headline uses a different word than the existing category names?
-
-If you're on the fence between reuse and novel, reuse.
-
-# Tiered decision (apply in order — never return zero)
-
-1. **Ideal reuse (confidence ≥${CATEGORISER_REUSE_CONFIDENCE_FLOOR}).** An existing category's description clearly covers this piece's primary underlying subject. Pick it. You may add a second one if the piece genuinely spans (≥${CATEGORISER_REUSE_CONFIDENCE_FLOOR} on the second too).
-
-2. **Stretch reuse (confidence ${CATEGORISER_REUSE_CONFIDENCE_STRETCH}–${CATEGORISER_REUSE_CONFIDENCE_FLOOR - 1}).** No existing category fits cleanly, but one is the closest match AND the piece's underlying subject isn't different enough from the existing taxonomy to warrant a brand-new category. Reuse the closest existing — your reasoning sentence MUST name what makes the fit stretchy (e.g. "thematic echo, not primary subject" / "adjacent mechanism, not core"). This keeps the taxonomy converging rather than fragmenting.
-
-3. **New category (only if neither tier applies).** The piece's underlying subject is materially absent from the existing list — no existing category fits even at ${CATEGORISER_REUSE_CONFIDENCE_STRETCH}. Propose ONE new category. A good new category:
-   - Is a *subject*, not a topic-of-the-week (e.g. "Chokepoints & Supply", not "Suez Canal").
-   - Could plausibly hold 10+ future pieces (e.g. "Monetary Policy", not "This Week's Fed Meeting").
-   - Has a one-sentence description that would help another piece's categoriser know whether to put it here.
-   - Has a kebab-case slug derived from the name (e.g. "chokepoints-and-supply"). Keep it short — under 4 words in the name.
-
-Return AT MOST one new category per piece. If two aspects of the piece feel novel, pick the more important one and reuse-or-stretch-reuse the other.
-
-# Assignment shape
-
-Return between 1 and ${CATEGORISER_MAX_ASSIGNMENTS} assignments. More than one is fine when a piece genuinely spans — e.g. a monetary-policy piece that also teaches supply chains could legitimately land in both. Don't pad. Three is an upper bound, not a target.
-
-For each assignment, provide a confidence (0–100). For existing-category assignments, confidence reflects how well the piece fits that category's stated scope. For a new category, confidence reflects how confidently you believe it's a durable addition to the taxonomy. Existing-category assignments below ${CATEGORISER_REUSE_CONFIDENCE_STRETCH} confidence will be rejected by the writer — don't return them; either find a better existing fit or propose a new category.
+${CATEGORISER_CONTRACT}
 
 # Response format (strict)
 
@@ -159,11 +114,17 @@ ${existing
  * original prompt + first response in the conversation so Claude has
  * full context for the second attempt; the retry message just names
  * the violation and pushes toward the stretch-reuse tier.
+ *
+ * The literal `60` and `74` here are kept in sync by hand with
+ * `content/categoriser-contract.md` — codegen JSON.stringify's the
+ * markdown verbatim, so template-literal interpolations in this
+ * string would never reach Claude. Same posture as fact-check's
+ * `max_uses = 8` retry context.
  */
-export const CATEGORISER_RETRY_MESSAGE = `Your previous response was an empty assignments array (or only contained existing-category assignments below the ${CATEGORISER_REUSE_CONFIDENCE_STRETCH} confidence floor). That violates the contract — every piece MUST land in at least one category.
+export const CATEGORISER_RETRY_MESSAGE = `Your previous response was an empty assignments array (or only contained existing-category assignments below the 60 confidence floor). That violates the contract — every piece MUST land in at least one category.
 
 Re-evaluate using the tiered decision. The most likely correct path here is one of:
-- **Stretch reuse**: pick the closest existing category at ${CATEGORISER_REUSE_CONFIDENCE_STRETCH}–${CATEGORISER_REUSE_CONFIDENCE_FLOOR - 1} confidence, with a reasoning sentence that names what's stretchy.
+- **Stretch reuse**: pick the closest existing category at 60–74 confidence, with a reasoning sentence that names what's stretchy.
 - **New category**: propose ONE durable new category that captures the piece's primary underlying subject.
 
 Return at least 1 assignment now. Same JSON shape as before.`;

@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
 import { FACT_CHECKER_PROMPT } from './fact-checker-prompt';
+import { WEB_SEARCH_MAX_USES } from './shared/fact-check-thresholds';
 
 /**
  * Result of fact-checking a draft.
@@ -83,7 +84,7 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
         {
           type: 'web_search_20250305',
           name: 'web_search',
-          max_uses: 8,
+          max_uses: WEB_SEARCH_MAX_USES,
         } as unknown as Anthropic.Messages.Tool,
       ],
       messages: [

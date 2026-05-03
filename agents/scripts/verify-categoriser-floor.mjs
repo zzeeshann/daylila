@@ -22,8 +22,14 @@
 // Usage: node agents/scripts/verify-categoriser-floor.mjs
 // Exit code: 0 on all pass, 1 on any failure.
 //
-// Inlined parser + filter copies stay in sync with
-// agents/src/categoriser.ts by eye (same convention as verify-splice).
+// Canonical rule body lives at content/categoriser-contract.md
+// (extracted 2026-05-10, Foundation Fix Task 02 eighth and final
+// extraction session). Canonical TypeScript values live at
+// agents/src/shared/categoriser-thresholds.ts. The inlined copies
+// below stay in sync with both by hand — same convention as
+// verify-splice / verify-fact-checker / verify-interactive-voice.
+// This verifier tests resolver shape (parser + floor filter), not
+// rule body.
 
 // ── Inlined copies (sync by hand if categoriser.ts changes) ─────
 const CATEGORISER_REUSE_CONFIDENCE_STRETCH = 60;

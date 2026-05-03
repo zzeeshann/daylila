@@ -2,6 +2,7 @@ import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
 import { extractJson } from './shared/parse-json';
+import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 import { buildVoiceAuditorSystem } from './voice-auditor-prompt';
 
 export interface VoiceAuditResult {
@@ -35,7 +36,7 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
     const result = extractJson<VoiceAuditResult>(text);
-    result.passed = result.score >= 85;
+    result.passed = result.score >= VOICE_PASS_THRESHOLD;
     this.setState({ lastResult: result });
     return result;
   }

@@ -15,6 +15,7 @@
 
 import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { pipelineStepLabel } from '../lib/pipeline-steps';
+import { CUTOFF_CONFESSION_PHRASES, CUTOFF_CONFESSION_REPLACEMENT } from '../lib/fact-check-thresholds';
 import type { MadeEnvelope, MadeFactClaim } from '../lib/made-by';
 
 /**
@@ -522,24 +523,16 @@ function renderStringList(items: string[], emptyNote: string): string {
  * whole note is replaced — not patched in place — so the reader never
  * sees fragments of the original confession.
  *
- * Phase F (2026-04-30) tightening: the original list included
- * 'training data' which is a false-positive risk now that fact-check
- * notes can legitimately reference current AI/ML research that
- * mentions training data. The other 5 phrases are uniquely
- * cutoff-confession phrasings.
+ * Phrase list canonical at `content/fact-check-contract.md`; TS
+ * constants at `src/lib/fact-check-thresholds.ts` (site-side mirror
+ * of `agents/src/shared/fact-check-thresholds.ts`). The
+ * `'training data'` trigger was deliberately dropped per
+ * DECISIONS:497 (false-positive risk).
  */
-const CUTOFF_CONFESSION_PHRASES = [
-  'speculative fiction',
-  'knowledge cutoff',
-  'as of my',
-  'is hypothetical',
-  'beyond my training',
-] as const;
-
 function sanitizeFactNote(note: string): string {
   const lower = note.toLowerCase();
   for (const phrase of CUTOFF_CONFESSION_PHRASES) {
-    if (lower.includes(phrase)) return 'Could not verify against current sources.';
+    if (lower.includes(phrase)) return CUTOFF_CONFESSION_REPLACEMENT;
   }
   return note;
 }

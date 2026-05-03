@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { auditTier } from '../../../../lib/audit-tier';
+import { FALLBACK_SLUG } from '../../../../lib/categoriser-thresholds';
 import type {
   MadeEnvelope,
   MadePiece,
@@ -306,13 +307,13 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // the piece pre-dates Categoriser (pre-2026-04-23) or the agent
   // failed/hasn't run yet — the drawer omits the section in all cases.
   //
-  // The reserved fallback slug `patterns-yet-to-cluster` (migration
-  // 0027) is excluded here too — when both Categoriser attempts return
-  // empty/all-sub-floor the piece is parked in the fallback, but
-  // surfacing "Filed under: Patterns Yet to Cluster" to readers reads
-  // as a confusing self-report. Operator visibility lives in
-  // observer_events. Slug literal stays in sync with src/lib/categories.ts
-  // FALLBACK_SLUG and agents/src/categoriser-prompt.ts CATEGORISER_FALLBACK_SLUG.
+  // The reserved fallback slug (migration 0027) is excluded here too —
+  // when both Categoriser attempts return empty/all-sub-floor the piece
+  // is parked in the fallback, but surfacing "Filed under: Patterns Yet
+  // to Cluster" to readers reads as a confusing self-report. Operator
+  // visibility lives in observer_events. Slug imported from
+  // src/lib/categoriser-thresholds.ts (canonical site-side); agents-side
+  // canonical at agents/src/shared/categoriser-thresholds.ts.
   if (pieceIdFilter) {
     try {
       const cats = await db
@@ -321,10 +322,10 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
              FROM piece_categories pc
              JOIN categories c ON c.id = pc.category_id
             WHERE pc.piece_id = ?
-              AND c.slug != 'patterns-yet-to-cluster'
+              AND c.slug != ?
             ORDER BY pc.confidence DESC, c.name ASC`,
         )
-        .bind(pieceIdFilter)
+        .bind(pieceIdFilter, FALLBACK_SLUG)
         .all<{ slug: string; name: string; confidence: number }>();
       envelope.categories = cats.results.map<MadeCategory>((r) => ({
         slug: r.slug,
