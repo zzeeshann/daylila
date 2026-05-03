@@ -167,10 +167,10 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Interactive max revision rounds (3)
 
 - **What it says:** the produce → audit → revise loop runs up to 3 rounds before shipping with `qualityFlag='low'`.
-- **Where defined:** `agents/src/interactive-generator.ts:38` (`INTERACTIVE_MAX_ROUNDS = 3`); used at `:563` and `:857` (quiz + HTML loops).
+- **Where defined:** `agents/src/interactive-generator.ts:38` (`INTERACTIVE_MAX_ROUNDS = 3`); used at `:563` and `:857` (quiz + HTML loops). The constant's docstring at `:36-37` explicitly says *"Matches the daily-piece auditor loop's MAX_REVISIONS. 3 rounds = 1 initial + 2 revisions."*
 - **Type:** threshold
 - **Used by:** Interactive Generator only.
-- **Duplicated:** no within Interactive Generator. **Same numeric value as the daily-piece `MAX_REVISIONS = 3` at `agents/src/director.ts:23`** — same rule shape, two separate constants. Worth noting for Task 02.
+- **Duplicated:** no within Interactive Generator. **Same numeric value as the daily-piece `MAX_REVISIONS = 3` at `agents/src/director.ts:23`** — same rule shape, two separate constants, with the duplication intentional and documented in the comment. Worth noting for Task 02.
 - **Notes:** Pass 2 addition.
 
 ### Rule: Essence-not-reference (six prohibitions for interactives)
@@ -252,7 +252,7 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Quality flag — `low` taxonomy
 
 - **What it says:** `qualityFlag` is either `null` or the literal string `'low'`. `'low'` means "shipped on max-fail of the audit loop". Frontmatter splice + D1 column + render-time tier fallback all agree.
-- **Where defined:** type union in `src/lib/audit-tier.ts:23` (`qualityFlag?: 'low' | null`); set in `agents/src/director.ts:395` (`const qualityFlag: 'low' | null = passed ? null : 'low'`); spliced into MDX frontmatter at `:483`; persisted to D1 at `:514`.
+- **Where defined:** type union in `src/lib/audit-tier.ts:24` (`qualityFlag?: 'low' | null` — the `auditTier` function param); set in `agents/src/director.ts:395` (`const qualityFlag: 'low' | null = passed ? null : 'low'`); spliced into MDX frontmatter at `:483`; persisted to D1 at `:514`.
 - **Type:** format (taxonomy)
 - **Used by:** Director (writer), audit-tier (reader fallback).
 - **Duplicated:** the `'low'` literal appears in code constants and frontmatter splices but consistently. Single-source taxonomy.
@@ -301,7 +301,7 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Curator skip output shape
 
 - **What it says:** if Curator skips, it must return `{ skip: true, reason }` where `reason` names the specific candidate condition — never a category dismissal like "low-teachability" or "shallow".
-- **Where defined:** `agents/src/curator-prompt.ts:74-78` (single site).
+- **Where defined:** `agents/src/curator-prompt.ts:80-86` (single site — the `{ skip: true, reason }` JSON spec plus the "reason must NOT be a category dismissal" sentence).
 - **Type:** format
 - **Used by:** Curator only.
 - **Duplicated:** no.
