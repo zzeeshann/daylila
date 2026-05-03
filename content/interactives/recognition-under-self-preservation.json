@@ -1,0 +1,71 @@
+{
+  "slug": "recognition-under-self-preservation",
+  "type": "quiz",
+  "title": "Recognition Under Self-Preservation",
+  "concept": "When a guard must spot threats without wrecking what it protects, it stops searching when the next level of accuracy would destroy necessary parts.",
+  "interactiveId": "2e068a09-2031-4a0f-a062-e2d6a72db287",
+  "sourcePieceId": "1837d250-d1bb-4002-9160-40ac0500d673",
+  "publishedAt": 1777774336709,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why would a guard sometimes leave a known danger in place instead of removing it?",
+        "options": [
+          "Because the danger is hiding too well to find",
+          "Because removing it would wreck something the guard needs to keep working",
+          "Because the guard ran out of resources to fight it",
+          "Because the danger isn't actually hurting anyone yet"
+        ],
+        "correctIndex": 1,
+        "explanation": "When a threat sits inside something necessary, digging it out means breaking what you're trying to protect. The guard accepts a controlled risk rather than causing guaranteed harm. The 'ran out of resources' answer mistakes a design limit for a supply problem."
+      },
+      {
+        "question": "What makes a threat harder to spot when it stops acting up?",
+        "options": [
+          "It shrinks and becomes physically smaller",
+          "It quits making the visible signs that got it noticed before",
+          "It moves somewhere else in the system",
+          "It pretends to be something safe"
+        ],
+        "correctIndex": 1,
+        "explanation": "Guards lock onto active signs of harm—things that change, leak, or flash warnings. When a threat goes quiet and those signs disappear, the guard loses its grip. It's not about location or disguise—it's about the warning signal going silent."
+      },
+      {
+        "question": "A store's theft alarm flags suspicious behavior but sometimes lets unclear cases walk out. Why might this beat stopping everyone who looks even slightly off?",
+        "options": [
+          "Stopping innocent shoppers ruins trust and business more than occasional theft costs",
+          "The alarm doesn't have good enough data to catch thieves accurately",
+          "Thieves will just come back through a different door anyway",
+          "Refunding stolen goods is cheaper than investigating everyone"
+        ],
+        "correctIndex": 0,
+        "explanation": "When blocking a real customer costs more than missing a thief, letting unclear cases through is the better bet. The alarm values keeping legitimate shoppers happy over catching every last theft. The 'cheaper refund' answer sees cost but misses the relationship break—innocent people falsely stopped don't come back."
+      },
+      {
+        "question": "Why does a tool built for one job sometimes catch threats that natural guards miss?",
+        "options": [
+          "Built tools are smarter than natural ones",
+          "Natural guards had to juggle many jobs, not just threat-catching",
+          "Built tools see information natural guards can't access",
+          "Natural guards are old and haven't been updated"
+        ],
+        "correctIndex": 1,
+        "explanation": "Guards that evolved in real life had to balance threat-spotting against other survival needs—avoiding friendly fire, keeping necessary parts intact, not burning energy on false alarms. A tool designed for one purpose skips those compromises. It's not about smarts or data—it's about designing for a single goal versus balancing ten."
+      },
+      {
+        "question": "When does 'close enough' become the right place to stop looking for threats?",
+        "options": [
+          "When you run out of time to keep searching",
+          "When the next level of accuracy would wreck what you're trying to protect",
+          "When threats change faster than you can keep up",
+          "When your processing power maxes out"
+        ],
+        "correctIndex": 1,
+        "explanation": "Searching stops improving when the next step costs more than the gap it closes. If catching every last threat means breaking necessary parts, the guard holds at 'close enough' because going further does more harm than good. This isn't about time, speed, or capacity—it's about hitting the point where fixing the last 5% wrecks the 95% you already saved."
+      }
+    ]
+  }
+}
