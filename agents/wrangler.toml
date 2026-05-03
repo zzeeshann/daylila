@@ -5,6 +5,13 @@ main = "src/server.ts"
 compatibility_date = "2026-04-16"
 compatibility_flags = ["nodejs_compat"]
 
+# Codegen runs before every `wrangler dev` and `wrangler deploy`.
+# Reads canonical sources (content/voice-contract.md,
+# docs/examples/interactive-reference.html) and writes
+# src/shared/generated/contracts.ts. See agents/scripts/codegen-contracts.mjs.
+[build]
+command = "node scripts/codegen-contracts.mjs"
+
 [observability]
 enabled = true
 

@@ -7,6 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "types": "wrangler types",
+    "codegen": "node scripts/codegen-contracts.mjs",
+    "verify-contracts-fresh": "node scripts/verify-contracts-fresh.mjs",
     "verify-splice": "node scripts/verify-splice.mjs",
     "verify-normalize": "node scripts/verify-normalize.mjs",
     "verify-validator": "node scripts/verify-validator.mjs",

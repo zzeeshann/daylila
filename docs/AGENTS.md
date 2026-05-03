@@ -309,12 +309,22 @@ wrangler deploy
 - `agents/src/fact-checker-prompt.ts` — FactChecker's single-pass system prompt (Anthropic web_search server tool)
 - `agents/src/integrator-prompt.ts` — Integrator's system prompt builder (interpolates VOICE_CONTRACT)
 - `agents/src/learner-prompt.ts` — Learner's analyse-and-learn system prompt
-- `agents/src/shared/voice-contract.ts` — voice contract as string constant
+- `agents/src/shared/generated/contracts.ts` — **AUTO-GENERATED.** Exports `VOICE_CONTRACT` (from `content/voice-contract.md`) and `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`). Never hand-edited. Regenerate with `cd agents && pnpm codegen`. See "Generated contracts" below.
 - `agents/src/shared/parse-json.ts` — robust JSON extraction from LLM responses
 - `agents/src/shared/prompts.ts` — tombstone; prompts moved to their owning agents
+
+## Generated contracts (codegen, 2026-05-03)
+
+Cloudflare Workers cannot `readFileSync` markdown at runtime, so prompt content has to be embedded in the bundle as TypeScript string constants at build time. Until 2026-05-03 the agents project carried two manual `.ts` mirrors that drifted silently from canonical. Foundation Fix Task 02 Phase A replaced them with build-time codegen.
+
+- **Codegen script:** `agents/scripts/codegen-contracts.mjs`. Reads canonical sources, writes `agents/src/shared/generated/contracts.ts` (`JSON.stringify`-embedded constants). Exports `buildContractsTs()` for the verifier to reuse.
+- **Build hook:** `[build] command = "node scripts/codegen-contracts.mjs"` in `agents/wrangler.toml`. Runs automatically before every `wrangler dev` and `wrangler deploy` (including `cloudflare/wrangler-action@v3` in CI).
+- **Drift gate:** `agents/scripts/verify-contracts-fresh.mjs` re-runs codegen in memory and diffs against the on-disk file; CI's `check-agents` job runs `pnpm verify-contracts-fresh` on every push and pull request, and `deploy-agents` is gated on it via `needs: check-agents`.
+- **Adding a new contract:** drop the canonical `.md` (or other text file) under `content/` (or `docs/examples/` for HTML), append a row to the `SOURCES` array in `codegen-contracts.mjs`, run `pnpm codegen`, commit. CI verifies freshness.
+- **Edit canonical files only.** The `generated/` directory is rewritten on every build; hand-edits there are silently overwritten.
 
 ## Known limitations
 - Audio Auditor does basic file checks only (no STT round-trip — deliberately out of scope; STT catches hallucinations, not TTS failure modes)
 - Site worker needs R2 binding + `/audio/*` route for audio URLs to resolve in production (tracked in ARCHITECTURE deviation + Phase 9 deploy list)
-- Voice contract duplicated in `.md` and `.ts` (manual sync required)
+- ~~Voice contract duplicated in `.md` and `.ts` (manual sync required)~~ — RESOLVED 2026-05-03 via codegen (see "Generated contracts" above).
 - Scanner XML parsing uses regex (fragile with malformed RSS)

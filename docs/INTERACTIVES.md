@@ -84,7 +84,7 @@ We use Anthropic prompt caching to put the stable parts in cache blocks and the 
 
 **What goes in cache:**
 
-- The voice contract ([`agents/src/shared/voice-contract.ts`](../agents/src/shared/voice-contract.ts) — embedded into both Generator and Auditor prompts already).
+- The voice contract ([`content/voice-contract.md`](../content/voice-contract.md), codegenned into [`agents/src/shared/generated/contracts.ts`](../agents/src/shared/generated/contracts.ts) — embedded into both Generator and Auditor prompts already).
 - The HTML structural rules (single-file, sandbox-compatible, allowlist-only externals, no storage, no network — the validator rule list reproduced as positive instructions).
 - The sandbox spec (the iframe attribute list and the rationale for each).
 - Few-shot examples (the hand-built reference at [`docs/examples/interactive-reference.html`](examples/interactive-reference.html), once Phase 2 ships it; possibly one or two more once we have variety).

@@ -7,7 +7,7 @@ import {
   buildDrafterPrompt,
   buildDrafterReflectionPrompt,
 } from './drafter-prompt';
-import { VOICE_CONTRACT } from './shared/voice-contract';
+import { VOICE_CONTRACT } from './shared/generated/contracts';
 import { getRecentLearnings, writeLearning, type Learning } from './shared/learnings';
 import { extractJson } from './shared/parse-json';
 

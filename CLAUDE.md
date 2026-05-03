@@ -94,11 +94,16 @@ src/layouts/            BaseLayout, LessonLayout
 content/daily-pieces/   Daily teaching pieces (YYYY-MM-DD-slug.mdx)
 content/interactives/   Standalone teaching artefacts (quizzes as {slug}.json, HTML as {slug}-html.json)
 agents/src/             16 agent files + per-agent prompt files + shared code
+agents/src/shared/generated/ AUTO-GENERATED prompt-content modules — do NOT hand-edit; regenerate via `cd agents && pnpm codegen`
+agents/scripts/         Verifier scripts (`verify-*.mjs`) + codegen (`codegen-contracts.mjs`)
 migrations/             D1 schema migrations (0001–0028)
 docs/                   Living documentation
 docs/archive/           Closed-project plans (Interactives v3, 2026-04 refinement, voice audit)
 docs/handoff/           Frozen pre-launch specs
 ```
+
+### Agent-prompt contracts (codegen, 2026-05-03)
+Canonical contract content lives in markdown / HTML under `content/` and `docs/examples/` and is embedded into the agents bundle at build time by `agents/scripts/codegen-contracts.mjs`, hooked through `[build]` in `agents/wrangler.toml`. The generated module is `agents/src/shared/generated/contracts.ts` (checked in; CI gate `pnpm verify-contracts-fresh` blocks deploy on a stale committed file). Edit canonical files only — never the `generated/` directory. Today the codegen carries `VOICE_CONTRACT` (from `content/voice-contract.md`) and `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`); subsequent Foundation Fix Task 02 sessions extend it with new `content/<cluster>-contract.md` files.
 
 ### Security
 - Session cookies: HttpOnly, Secure, SameSite=Lax
@@ -171,6 +176,6 @@ Frontmatter metadata (voiceScore, audioBeats, qualityFlag, pieceId, publishedAt,
 - TypeScript strict everywhere
 - No new dependencies without justification
 - Docs updated alongside code, same commit (CLAUDE.md, DECISIONS.md, RUNBOOK, SCHEMA, AGENTS, ARCHITECTURE)
-- Voice contract: plain English, no jargon, no tribe words, short sentences. The contract at `content/voice-contract.md` is canonical (mirror at `agents/src/shared/voice-contract.ts`).
+- Voice contract: plain English, no jargon, no tribe words, short sentences. The contract at `content/voice-contract.md` is canonical; codegenned into `agents/src/shared/generated/contracts.ts` for the agents bundle (see "Agent-prompt contracts" section above).
 - Manto voice doctrine was tried 2026-04-27 and rolled back 2026-04-28; voice rule is the contract only. Don't reach for a posture-doctrine layer above it.
 - When in doubt: "Does this help someone educate themselves for humble decisions?"

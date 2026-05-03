@@ -1,5 +1,4 @@
-import { VOICE_CONTRACT } from './shared/voice-contract';
-import { INTERACTIVE_HTML_REFERENCE } from './shared/interactive-html-reference';
+import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE } from './shared/generated/contracts';
 import {
   HTML_FILE_BYTES_MAX,
   HTML_SCRIPT_ALLOWLIST_DESCRIPTION,

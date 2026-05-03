@@ -15,7 +15,7 @@
  * calls. Cost ~4× cheaper, latency ~4× lower.
  */
 
-import { VOICE_CONTRACT } from './shared/voice-contract';
+import { VOICE_CONTRACT } from './shared/generated/contracts';
 
 /** Threshold below which the voice dimension fails. Mirrors
  *  VoiceAuditor's 85/100 gate on daily pieces. Used by both quiz

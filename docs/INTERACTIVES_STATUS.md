@@ -49,7 +49,7 @@ Slug-drift caveat documented: quiz-only regen MAY produce a different slug if Cl
 **Phase 2, sub-task 2.7 — Reference HTML hand-written + few-shot wired + content fixture deployed. SHIPPED + flag flipped + tagged.**
 
 - **`docs/examples/interactive-reference.html`** — hand-written canonical reference. 6.6 KB; passes the validator on all 8 rules. Teaches **chokepoints**.
-- **`agents/src/shared/interactive-html-reference.ts`** — Worker-readable mirror.
+- **`agents/src/shared/generated/contracts.ts`** — codegenned from the canonical above (and from `content/voice-contract.md`); exports `INTERACTIVE_HTML_REFERENCE`. Was a hand-maintained mirror until 2026-05-03; replaced by `agents/scripts/codegen-contracts.mjs` in Foundation Fix Task 02 Phase A.
 - **`agents/src/interactive-generator-prompt.ts`** — `# Reference example` section embedded inside `INTERACTIVE_HTML_GENERATOR_PROMPT`'s cached block. System prompt size: 12.4 KB → 20.4 KB (~5,100 tokens cached).
 - **`content/interactives/chokepoints-and-cascades-html.json`** — committed fixture; rendered the Hormuz quiz + chokepoints HTML stacked on prod for Zishan's review.
 - Zishan's prod review accepted the reference. Flag flipped to `'true'` via `wrangler d1 execute`. Tag `interactives-v3.2-complete` placed on `347f10e`. The morning 02:00 UTC cron on 2026-04-26 produced the first auto-generated HTML interactive (Mint piece's "Mixing and Traceability", clean pass).
