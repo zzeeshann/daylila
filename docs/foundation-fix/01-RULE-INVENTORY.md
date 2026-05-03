@@ -13,7 +13,9 @@ We previously agreed (logged in `docs/DECISIONS.md` and `docs/FOLLOWUPS.md` in A
 
 > Agent prompts (rubrics, voice rules, validator specs, type specs) should live in markdown read at runtime via prompt caching, not duplicated in TypeScript constants. The voice contract already follows this pattern.
 
-A previous investigation in `docs/FOLLOWUPS.md` mapped roughly 12–15 duplicated rules. This task picks up that thread and finishes the inventory before any extraction work begins.
+A previous investigation in `docs/FOLLOWUPS.md` (entry: `[open] 2026-04-30 (last): Centralise contracts`) already produced a substantial map of the duplications. It documents Tier 1 (8 exact-text duplications with line-number evidence), Tier 2 (3 paraphrased rules), Tier 3 (constants defined but not injected), Tier 4 (the html-reference precedent), the Cloudflare Workers runtime constraint (no `readFileSync` at runtime, no esbuild-plugin support in Wrangler v4), and a recommended approach (Option A: build-time codegen, phases A/B/C/D).
+
+**This task does not start from scratch.** It verifies and completes that existing map. Task 01 produces `docs/RULE-INVENTORY.md` as the consolidated successor document, importing what's already documented in FOLLOWUPS and filling any gaps.
 
 ## What this task does
 
@@ -26,8 +28,8 @@ This file is the complete map of every rule in the system that controls how an a
 In this order:
 
 1. `CLAUDE.md` — project state and current direction
-2. `docs/DECISIONS.md` — past architectural decisions, especially the markdown-as-runtime-truth principle
-3. `docs/FOLLOWUPS.md` — the earlier investigation that started this work
+2. `docs/FOLLOWUPS.md` — specifically the `[open] 2026-04-30 (last): Centralise contracts` entry. **Read this in full before any other reading on this task.** It contains the existing duplication map.
+3. `docs/DECISIONS.md` — past architectural decisions, especially the markdown-as-runtime-truth principle (April 2026)
 4. `content/voice-contract.md` — the model for what a rule contract looks like
 
 ## What counts as a "rule"
@@ -52,17 +54,11 @@ If unsure, include it. The grouping in Task 02 will sort signal from noise.
 
 ## How to find them
 
-Three passes, in this order:
+Two passes, in this order. (Three is overkill given the existing FOLLOWUPS map — the first pass is verification, not discovery.)
 
-**Pass 1 — Code search.** Walk through `agents/src/`, `src/`, `workers/`, and any other source directory. For each file, identify any of:
-- Inline string prompts to Claude
-- TypeScript constants (`const X = ...`) that look like a threshold or limit
-- Validator code with hardcoded counts or shapes
-- Comments or JSDoc that describe an expected output format
+**Pass 1 — Verify the existing map.** For each rule already listed in the FOLLOWUPS centralise-contracts entry, confirm it still exists at the cited line numbers, the duplications still match, and nothing has been silently changed since 2026-04-30. Mark each as VERIFIED, MOVED (still duplicated but file/line shifted), or RESOLVED (already centralised since the entry was written).
 
-**Pass 2 — Doc search.** Walk through `docs/`, `content/`, and the project root. For each markdown file, identify rules embedded in the prose. The brief and `CLAUDE.md` are likely sources.
-
-**Pass 3 — Cross-reference.** For each rule found, check whether it appears in more than one place. The duplications are the most important findings.
+**Pass 2 — Fill gaps.** Walk through `agents/src/`, `src/`, `workers/`, `docs/`, `content/`, and the project root. Look for rules NOT in the FOLLOWUPS map. These are the additions.
 
 ## What `docs/RULE-INVENTORY.md` must contain
 
