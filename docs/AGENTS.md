@@ -95,7 +95,7 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/voice-auditor-prompt.ts`
 
 ### 6. FactCheckerAgent
-- **Role:** Verifies factual claims. Single-pass: Claude with the Anthropic `web_search_20250305` server tool. Searches for any current-event claim before assigning a verdict.
+- **Role:** Verifies factual claims. Single-pass: Claude with the Anthropic `web_search_20250305` server tool. Searches for any current-event claim before assigning a verdict. Reads the **fact-check contract** (`content/fact-check-contract.md`, injected as `${FACT_CHECK_CONTRACT}` since 2026-05-07) — the contract carries the verdict taxonomy, the search-first rule, the cutoff-confession ban, and the `max_uses = 8` web-search budget. Runtime threshold values via `agents/src/shared/fact-check-thresholds.ts`.
 - **Character:** FactChecker would rather flag an honest "I can't verify this" than wave through a claim that sounds reasonable. The truth bar isn't "nothing seems wrong" — it's "every checkable claim got checked, and the unverifiable ones are marked as such." Character failure is confessing the model's training cutoff to readers ("appears to be speculative fiction set in 2026") instead of searching first. Today's date is in the user message; for any claim with a name, date, number, or current-event reference, search before verdicting.
 - **Gate semantics:** Passes if no claim is `incorrect`; unverified claims are acceptable. When the web_search tool returns `unavailable`, result has `searchAvailable: false` and Director logs a warn via Observer — per the "no silent failure" principle.
 - **Method:** `check(mdx)`

@@ -62,6 +62,11 @@ const SOURCES = [
     path: '../../content/audit-contract.md',
     label: 'content/audit-contract.md',
   },
+  {
+    name: 'FACT_CHECK_CONTRACT',
+    path: '../../content/fact-check-contract.md',
+    label: 'content/fact-check-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

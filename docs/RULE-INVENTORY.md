@@ -314,38 +314,38 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Verdict taxonomy (`verified` / `unverified` / `incorrect`)
 
 - **What it says:** every claim is one of three verdicts. `incorrect` requires direct contradicting evidence from web search; absence of evidence is `unverified`, never `incorrect`.
-- **Where defined:** `agents/src/fact-checker-prompt.ts:31-39` (single site, "VERDICTS" + "RULES" sections).
+- **Where defined:** **RESOLVED 2026-05-07 (Foundation Fix Task 02 — fact-check cluster extraction).** Canonical at `content/fact-check-contract.md` ("The verdict taxonomy" section, with the asymmetry rule + pass condition); codegenned into `FACT_CHECK_CONTRACT` in `agents/src/shared/generated/contracts.ts`; injected via `${FACT_CHECK_CONTRACT}` into the Fact Checker system prompt at `agents/src/fact-checker-prompt.ts`. Six TS literal sites self-mirror the `'verified' | 'unverified' | 'incorrect'` union (intentional self-mirror per audit Q4 precedent on `qualityFlag`): `fact-checker.ts:55` type union, `fact-checker.ts:188` parser status validation, `director.ts:463` claimReviews splice filter, `integrator.ts:50` fact-issue feedback filter, `made-drawer.ts:594-597` status-to-CSS class mapping (with `'contested'` legacy alias preserved as render-side back-compat shim), `director.ts:1770` defensive `?? 'unverified'` fallback.
 - **Type:** format (taxonomy)
-- **Used by:** Fact Checker (writer), drawer renderer at `src/interactive/made-drawer.ts` (reader), `daily_audit_claims` table.
-- **Duplicated:** no — single source in prompt; consumers read the column.
-- **Notes:** Pass 2 addition.
+- **Used by:** Fact Checker (writer), Director (splice + defensive fallback), Integrator (feedback filter), drawer renderer (status mapping), `daily_audit_claims` table.
+- **Duplicated:** RESOLVED. Single source for the rule body; six TS literal sites self-mirror via the shared union — no shared package across two worker bundles.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: Search-first for current-event claims
 
 - **What it says:** for any claim with a specific name, date, number, or current-event reference, use the web_search tool BEFORE assigning a status. Do not rely on training data for current-event claims. General well-known science (e.g. "cortisol is a stress hormone") does not require a search.
-- **Where defined:** `agents/src/fact-checker-prompt.ts:25-29` ("THE WEB SEARCH TOOL" section, single site).
+- **Where defined:** **RESOLVED 2026-05-07** — extracted to `content/fact-check-contract.md` ("The web-search rule" section); injected via `${FACT_CHECK_CONTRACT}` at `agents/src/fact-checker-prompt.ts`.
 - **Type:** rubric
 - **Used by:** Fact Checker only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition.
+- **Duplicated:** RESOLVED. Single source.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: Web-search tool max_uses (8)
 
 - **What it says:** Anthropic `web_search_20250305` server tool is invoked with `max_uses: 8` per fact-check call.
-- **Where defined:** `agents/src/fact-checker.ts:86` (single site, literal in API call).
+- **Where defined:** **RESOLVED 2026-05-07** — canonical at `content/fact-check-contract.md` ("The web-search budget" section); runtime value `WEB_SEARCH_MAX_USES = 8` exported from `agents/src/shared/fact-check-thresholds.ts`; consumed at `agents/src/fact-checker.ts:86` via import.
 - **Type:** threshold (magic number)
 - **Used by:** Fact Checker only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition. Tunable per FOLLOWUPS escalation note ("drop max_uses from 8 to 4 if cost runs >$30/month").
+- **Duplicated:** RESOLVED. Single source. No site-side mirror (the site does not call Anthropic's API).
+- **Notes:** Pass 2 addition. RESOLVED. Tunable per FOLLOWUPS escalation note ("drop max_uses from 8 to 4 if cost runs >$30/month").
 
 ### Rule: Cutoff-confession phrase blacklist
 
 - **What it says:** Fact Checker notes must never include phrasings that confess the model's training cutoff to readers — "speculative fiction", "knowledge cutoff", "as of my", "is set in 2026", "is hypothetical", "this is beyond". If web search returned nothing, write "Could not verify against current sources."
-- **Where defined:** `agents/src/fact-checker-prompt.ts:41` (the rule, in prompt prose); `src/interactive/made-drawer.ts:511-535` (defense-in-depth filter at render time, with explicit phrase array at `:532`).
+- **Where defined:** **RESOLVED 2026-05-07** — canonical at `content/fact-check-contract.md` ("Cutoff-confession ban" section, with both the longer illustrative phrasings and the canonical 5-substring filter list as data + the `'training data'` dropped rationale + the canonical replacement string). Writer-side rule travels via `${FACT_CHECK_CONTRACT}` injection at `agents/src/fact-checker-prompt.ts`. Cross-worker mirror via parallel TS constants: `agents/src/shared/fact-check-thresholds.ts` exports `CUTOFF_CONFESSION_PHRASES` (for surface completeness, per `TIER_SOLID_FLOOR` precedent — agents side has no programmatic consumer today); `src/lib/fact-check-thresholds.ts` exports `CUTOFF_CONFESSION_PHRASES` + `CUTOFF_CONFESSION_REPLACEMENT` (consumed by `made-drawer.ts:541-545` filter).
 - **Type:** rubric (with render-time filter)
-- **Used by:** Fact Checker (writer), made-drawer (filter).
-- **Duplicated:** yes, 2 surfaces — but with different roles (prompt rule vs. defense filter). The phrase list at `made-drawer.ts:532` does not import from the prompt; the prompt does not import from the filter.
-- **Notes:** Pass 2 addition.
+- **Used by:** Fact Checker (writer, via contract injection), made-drawer (filter, via TS import).
+- **Duplicated:** RESOLVED. Single source in `content/fact-check-contract.md`; one auto-generated mirror in `contracts.ts`; cross-worker TS-constant mirror (parallel arrays on each side, same shape as cadence.ts ↔ admin-settings.ts and audit-thresholds ↔ audit-thresholds).
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ---
 
@@ -535,7 +535,7 @@ Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates
 10. **Essence-not-reference (six prohibitions)** — **RESOLVED 2026-05-05 (Foundation Fix Task 02 — interactive cluster extraction).** Canonical at `content/interactive-contract.md`; `INTERACTIVE_CONTRACT` injected at the four interactive prompt sites. Auditor prompts retain audit-context paraphrases of the six rules; quiz path retains a 7th quiz-specific anti-pattern inline. INTERACTIVES.md spec doc carries an intentional spec-doc mirror with a contract pointer.
 11. **Plain-English split for quizzes / 14-year-old test** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md`. `verify-interactive-voice.mjs` JS heuristic now hand-syncs with the contract (header pointer updated). Book chapter 09 + INTERACTIVES.md retain narrative / spec-doc mirrors with contract pointers.
 12. **Manipulation embodies the mechanism** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md` (eighth HTML interactive shape rule). HTML auditor retains audit-context paraphrase. INTERACTIVES.md spec mirror updated.
-13. **Cutoff-confession phrase blacklist** — `fact-checker-prompt.ts` (rule) + `made-drawer.ts` (defense filter) (2 surfaces, different roles). Agree.
+13. **Cutoff-confession phrase blacklist** — **RESOLVED 2026-05-07 (Foundation Fix Task 02 — fact-check cluster extraction).** Canonical at `content/fact-check-contract.md`; writer-side via `${FACT_CHECK_CONTRACT}` injection in fact-checker-prompt.ts; render-side via parallel TS constants in `agents/src/shared/fact-check-thresholds.ts` + `src/lib/fact-check-thresholds.ts` (cross-worker mirror). made-drawer.ts:541-545 filter imports both `CUTOFF_CONFESSION_PHRASES` and `CUTOFF_CONFESSION_REPLACEMENT` from the site-side mirror.
 14. **Categoriser fallback slug** — `agents/src/categoriser-prompt.ts` (named const) + `src/lib/categories.ts` (named const, separate worker) + literal SQL in `director.ts` and `made.ts` + migration data (5 surfaces). Agree. Cross-worker drift risk.
 15. **`ALLOWED_INTERVAL_HOURS`** — `agents/src/shared/admin-settings.ts` + `src/lib/cadence.ts` (2 surfaces, separate worker packages). Agree. Cross-worker drift risk.
 16. **Max revision rounds (3)** — **RESOLVED 2026-05-06.** `MAX_AUDIT_ROUNDS = 3` in `agents/src/shared/audit-thresholds.ts`; both director.ts and interactive-generator.ts import (with local aliases `MAX_REVISIONS` / `INTERACTIVE_MAX_ROUNDS` preserving in-file readability).
@@ -553,6 +553,7 @@ In `.md` (good — already the centralisation target shape):
 - The beat contract body (canonical at `content/beat-contract.md`, extracted 2026-05-04 — owns word count, beat target, hook/teaching/practice/close formats, no-JSX rule, frontmatter required fields, SEO meta-description).
 - The interactive contract body (canonical at `content/interactive-contract.md`, extracted 2026-05-05 — owns essence-not-reference, six prohibitions, Plain English split + jargon translations, quiz shape, HTML interactive shape, validator constraints, title/concept/slug rules).
 - The audit contract body (canonical at `content/audit-contract.md`, extracted 2026-05-06 — owns the three gates, the 85/70 thresholds, the 3-round revision bound, the publish-anyway-on-max-fail rule, the `qualityFlag` taxonomy, and the reader-facing tier mapping).
+- The fact-check contract body (canonical at `content/fact-check-contract.md`, extracted 2026-05-07 — owns the verdict taxonomy + asymmetry rule, the search-first rule for current-event claims, the cutoff-confession ban + canonical 5-substring filter list + `'training data'` dropped rationale, and the `max_uses=8` web-search budget).
 
 In code constants (will need extraction in Task 02):
 - Voice Auditor scoring deductions (`voice-auditor-prompt.ts`)
@@ -564,9 +565,7 @@ In code constants (will need extraction in Task 02):
 - Curator's 30-day recent-category soft skip (`curator-prompt.ts`)
 - Curator's SAME-EVENT / SAME-CONCEPT hard skips (`curator-prompt.ts`)
 - Curator's skip output shape (`curator-prompt.ts`)
-- Fact Checker verdict taxonomy (`fact-checker-prompt.ts`)
-- Fact Checker search-first rule (`fact-checker-prompt.ts`)
-- Fact Checker `web_search` `max_uses=8` (`fact-checker.ts`)
+- (extracted 2026-05-07: Fact Checker verdict taxonomy, search-first rule, cutoff-confession ban, and `WEB_SEARCH_MAX_USES = 8` all live in `content/fact-check-contract.md` + `agents/src/shared/fact-check-thresholds.ts` + `src/lib/fact-check-thresholds.ts` mirror)
 - Audio Producer voice / model / format constants (`audio-producer.ts`)
 - Audio character cap 20,000 (`audio-producer.ts`)
 - Audio retry attempts 3 (`audio-producer.ts`)
@@ -612,7 +611,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 - [x] **beats** — canonical `content/beat-contract.md`; codegenned alongside voice + html reference (2026-05-04, Foundation Fix Task 02 second extraction session, branch `foundation-fix-02-extraction-beats`). Read by Drafter, Structure Editor, Integrator. Voice-contract section 3 ("Lesson structure rules") removed in the same commit — beat-contract.md is now the single source.
 - [x] **interactive (quiz + HTML)** — canonical `content/interactive-contract.md`; codegenned alongside voice + beats + html reference (2026-05-05, Foundation Fix Task 02 third extraction session, branch `foundation-fix-02-extraction-quiz`). Read by InteractiveGenerator (both quiz and HTML paths) and InteractiveAuditor (both paths). Carries: essence-not-reference rule, six hard prohibitions, Plain English split rule + 13-word jargon translation list + 14-year-old test + hedge-phrase ban, quiz shape (3–5 questions etc), eight HTML interactive shape rules including manipulation-embodies-the-mechanism, validator constraints in plain English, title / concept / slug rules. Quiz path retains one inline path-specific anti-pattern ("'Which of the following best describes what happened in…'" — quizzes have stems, HTML doesn't). Auditor prompts retain audit-context paraphrases of the six prohibitions and the plain-English flag list (Tier-2 audit-context per beats Q6). `verify-interactive-voice.mjs` continues to mirror the jargon flag list and hedge regexes by hand (header comment updated to name the contract as canonical source).
 - [x] **audit-thresholds** — canonical `content/audit-contract.md`; codegenned alongside voice + beats + interactive + html reference (2026-05-06, Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Carries: the three gates, the voice-pass threshold (85), the audit-tier mapping (polished ≥85, solid 70–84, rough <70), the 3-round revision bound (applied identically to daily-piece and interactive loops), the publish-anyway-on-max-fail rule, and the closed `qualityFlag` taxonomy. Runtime values via named TS constants in `agents/src/shared/audit-thresholds.ts` (agents) and `src/lib/audit-thresholds.ts` (site-side mirror, same shape as cadence.ts ↔ admin-settings.ts). No prompt currently injects `${AUDIT_CONTRACT}` at runtime — the contract is canonical narrative for human readers; values flow through the named constants. The `INTERACTIVE_VOICE_MIN_SCORE` constant in interactive-auditor-prompt.ts is preserved as a re-export alias of `VOICE_PASS_THRESHOLD` for in-file readability. `qualityFlag: 'low' | null` TS type-union sites stay code-side as a documented self-mirror (no shared package across two worker bundles + two Astro Zod schemas).
-- [ ] fact-check — Verdict taxonomy + search-first + cutoff-confession blacklist + max_uses=8.
+- [x] **fact-check** — canonical `content/fact-check-contract.md`; codegenned alongside voice + beats + interactive + audit + html reference (2026-05-07, Foundation Fix Task 02 fifth extraction session, branch `foundation-fix-02-extraction-fact-check`). Read by FactCheckerAgent via `${FACT_CHECK_CONTRACT}` injection. Carries: the verdict taxonomy (closed three-value set + asymmetry rule + pass condition), the search-first rule for current-event claims (with the architectural-commitment rationale), the cutoff-confession ban (with both the longer illustrative phrasings the prompt teaches Claude AND the canonical 5-substring filter list as data + the `'training data'` dropped rationale + the canonical replacement string), and the `max_uses = 8` web-search budget (with the FOLLOWUPS escalation note). Runtime values via named TS constants in `agents/src/shared/fact-check-thresholds.ts` (agents — `WEB_SEARCH_MAX_USES`, `CUTOFF_CONFESSION_PHRASES`) and `src/lib/fact-check-thresholds.ts` (site-side mirror — `CUTOFF_CONFESSION_PHRASES`, `CUTOFF_CONFESSION_REPLACEMENT`). Asymmetric exports because consumers differ on each side: agents calls Anthropic's API (needs the budget); site renders the drawer's defense filter (needs the array + replacement). The `'verified' | 'unverified' | 'incorrect'` TS literal union self-mirrors across six sites (intentional, per audit Q4 precedent on `qualityFlag`); the drawer's `'contested'` legacy alias is documented in the contract as render-side back-compat shim, NOT added to the taxonomy. Integrator's prompt (`integrator-prompt.ts`) does NOT receive `${FACT_CHECK_CONTRACT}` — Integrator does not re-verdict, just revises prose; documented as deliberate non-change. `verify-fact-checker.mjs` continues to mirror `parseResponse` shape by hand (header pointer updated to name the contract canonical).
 - [ ] curator — 5-criteria selection + 10-domain breadth + recent-category soft skip + SAME-EVENT/CONCEPT hard skips + skip-output shape.
 - [ ] audio — ElevenLabs voice/model/format + 20k char cap + retries + per-call beats budget.
 - [ ] categoriser — max-assignments + reuse / stretch floors + fallback slug.

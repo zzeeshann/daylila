@@ -72,6 +72,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Pass condition:** No claim is flagged `incorrect`. Unverified claims are allowed (an honest "couldn't verify against current sources" is the right answer when search returns nothing).
 
+**Where the rule lives.** Since 2026-05-07, the four parts of the Fact Checker's job — the verdict taxonomy (`verified` / `unverified` / `incorrect`), the search-first rule for current-event claims, the ban on confessing the model's training cutoff to readers, and the eight-search budget — all live in a single contract file (`content/fact-check-contract.md`). The agent reads it at runtime; the rule body sits in one place, in plain English, alongside the *why* (why "unverified" is never the same statement as "incorrect," why the cutoff-confession ban exists, what the eight-search budget is for). The drawer's render-time defense filter — the safety net that catches any cutoff-confession phrase that slips through the prompt — reads its phrase list from the same contract source via a small TypeScript constant on the site worker side. One source for a rule applied in two different runtime contexts.
+
 ## 7. Structure Editor
 
 **Job:** Check the shape of the piece.
