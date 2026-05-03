@@ -118,8 +118,14 @@ export interface QuizArtefactResult {
   /** Rounds that threw `'Claude returned non-JSON output'` and were
    *  caught + counted as failed rounds (2026-04-30 hardening). Director
    *  emits one info-severity `logInteractiveGeneratorParseFail` event
-   *  per entry. Empty array on the happy path. */
-  parseFailures: Array<{ round: number }>;
+   *  per entry. Empty array on the happy path.
+   *
+   *  `head` (2026-05-03 diagnostic) carries the inner parseAndValidate
+   *  error message, including the `(len=N, head="...")` substring with
+   *  the first 200 chars of what Claude returned instead of JSON. The
+   *  loop also concatenates these into the all-rounds-failed throw
+   *  message so the data survives QUIZ_FAIL_STUB's defaults. */
+  parseFailures: Array<{ round: number; head?: string }>;
   /** Set when `runQuizLoop` threw and `generate()` caught it (rather
    *  than letting the throw bubble out and abort the whole interactive
    *  generation). Pre-2026-04-30 PM: a quiz throw exited generate()
@@ -163,9 +169,10 @@ export interface HtmlArtefactResult {
   roundsUsed: number;
   voiceScore: number | null;        // null in 2.3 (auditor not yet wired)
   finalAudit: FinalAuditSummary | null; // null in 2.3
-  /** Same shape as QuizArtefactResult.parseFailures (2026-04-30
-   *  hardening). One entry per round that returned non-JSON output. */
-  parseFailures: Array<{ round: number }>;
+  /** Same shape as QuizArtefactResult.parseFailures. `head` carries
+   *  the inner parseAndValidateHtml error text per the 2026-05-03
+   *  diagnostic. */
+  parseFailures: Array<{ round: number; head?: string }>;
   /** See QuizArtefactResult.errorMessage. */
   errorMessage: string | null;
   /** Aggregated token totals — see QuizArtefactResult comment. */
@@ -558,7 +565,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     // Rounds that returned non-JSON output. Caught inside the loop and
     // re-attempted within the 3-round budget; surfaces as info-severity
     // breadcrumbs through the Director's metered observer write path.
-    const parseFailures: Array<{ round: number }> = [];
+    const parseFailures: Array<{ round: number; head?: string }> = [];
 
     for (let round = 1; round <= INTERACTIVE_MAX_ROUNDS; round += 1) {
       roundsUsed = round;
@@ -603,7 +610,14 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           // through to the !lastQuiz commit-path guard and the throw
           // surfaces to Director (operator-retry case). Other errors
           // (validator-shape, infra) stay fatal.
-          parseFailures.push({ round });
+          //
+          // 2026-05-03 diagnostic: preserve the per-round head text
+          // (the `(len=N, head="...")` substring from parseAndValidate's
+          // throw) so the all-rounds-failed throw below can include them.
+          // Without this, generate()'s catch wraps with QUIZ_FAIL_STUB
+          // (zero tokens, empty parseFailures) and the operator-facing
+          // observer event only shows the outer summary.
+          parseFailures.push({ round, head: msg });
           continue;
         }
         throw err;
@@ -694,8 +708,15 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       // the pre-2026-04-30 single-strike fatal, just earned across the
       // full budget. Director catches and routes to logInteractiveGeneratorFailure.
       if (parseFailures.length === roundsUsed) {
+        // 2026-05-03 — surface per-round heads through the throw message
+        // so generate()'s catch + QUIZ_FAIL_STUB wrap propagates them
+        // to the observer event. Heads separated by ` || ` for cheap
+        // admin-side parsing.
+        const heads = parseFailures
+          .map((p) => `R${p.round}: ${p.head ?? '(no head)'}`)
+          .join(' || ');
         throw new Error(
-          `parseAndValidate: Claude returned non-JSON output across all ${roundsUsed} rounds`,
+          `parseAndValidate: Claude returned non-JSON output across all ${roundsUsed} rounds. ${heads}`,
         );
       }
       throw new Error('runQuizLoop: commit path reached without a lastQuiz');
@@ -847,7 +868,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let declinedInLoop = false;
     let roundsUsed = 0;
     // See runQuizLoop.parseFailures. Same shape, same posture.
-    const parseFailures: Array<{ round: number }> = [];
+    const parseFailures: Array<{ round: number; head?: string }> = [];
 
     const auditor = await this.subAgent(
       InteractiveAuditorAgent,
@@ -902,7 +923,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       } catch (err) {
         const msg = err instanceof Error ? err.message : '';
         if (msg.startsWith('parseAndValidateHtml: Claude returned non-JSON output')) {
-          parseFailures.push({ round });
+          // 2026-05-03 diagnostic — see runQuizLoop's matching catch.
+          parseFailures.push({ round, head: msg });
           continue;
         }
         throw err;
@@ -1024,8 +1046,12 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     // DON'T reach the validator — surfacing them as validator failures
     // would mislead operators about the cause.
     if (!lastHtml && parseFailures.length === roundsUsed) {
+      // 2026-05-03 — see runQuizLoop for the heads-in-throw rationale.
+      const heads = parseFailures
+        .map((p) => `R${p.round}: ${p.head ?? '(no head)'}`)
+        .join(' || ');
       throw new Error(
-        `parseAndValidateHtml: Claude returned non-JSON output across all ${roundsUsed} rounds`,
+        `parseAndValidateHtml: Claude returned non-JSON output across all ${roundsUsed} rounds. ${heads}`,
       );
     }
 

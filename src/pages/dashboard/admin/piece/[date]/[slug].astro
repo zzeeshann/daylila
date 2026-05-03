@@ -342,6 +342,31 @@ async function fetchLastFailure(typeSuffix: 'quiz' | 'html'): Promise<LastFailur
 const lastQuizFailure = await fetchLastFailure('quiz');
 const lastHtmlFailure = await fetchLastFailure('html');
 
+// 2026-05-03 — split a parse-fail reason into a short summary + per-round
+// heads. Agents-side `runQuizLoop` / `runHtmlLoop` now append heads to
+// the all-rounds-failed throw as `... R1: <inner> || R2: <inner> || ...`
+// so this surface can render them on their own lines instead of a single
+// long inscrutable code blob. Reasons WITHOUT the marker (older events,
+// or non-parse-fail throws) render unchanged via `summary` only.
+type ParsedFailure = { summary: string; rounds: Array<{ round: number; head: string }> };
+function parseFailureReason(reason: string): ParsedFailure {
+  const splitMarker = / R\d+: /;
+  const firstMatch = reason.match(splitMarker);
+  if (!firstMatch || firstMatch.index === undefined) {
+    return { summary: reason, rounds: [] };
+  }
+  const summary = reason.slice(0, firstMatch.index).trim().replace(/\.$/, '');
+  const tail = reason.slice(firstMatch.index + 1);
+  const rounds: ParsedFailure['rounds'] = [];
+  for (const part of tail.split(' || ')) {
+    const m = part.match(/^R(\d+):\s*(.*)$/s);
+    if (m) rounds.push({ round: Number(m[1]), head: m[2].trim() });
+  }
+  return { summary, rounds };
+}
+const parsedQuizFailure = lastQuizFailure ? parseFailureReason(lastQuizFailure.reason) : null;
+const parsedHtmlFailure = lastHtmlFailure ? parseFailureReason(lastHtmlFailure.reason) : null;
+
 type ZitaConversation = { user_id: string; msgs: ZitaMessage[] };
 const zitaConvos: ZitaConversation[] = (() => {
   const byUser = new Map<string, ZitaMessage[]>();
@@ -918,9 +943,19 @@ function publishedDisplay(): string {
               <>
                 <p class="text-sm text-zee-muted mb-3 italic">
                   No quiz for this piece. Generator either hasn't run, was declined as redundant, or failed.
-                  {lastQuizFailure && (
+                  {parsedQuizFailure && (
                     <span class="block mt-2 not-italic text-zee-text">
-                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastQuizFailure.reason}</code>
+                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{parsedQuizFailure.summary}</code>
+                      {parsedQuizFailure.rounds.length > 0 && (
+                        <ul class="mt-2 ml-1 space-y-1 text-[11px] text-zee-muted">
+                          {parsedQuizFailure.rounds.map((r) => (
+                            <li class="flex gap-2">
+                              <span class="font-mono text-zee-text shrink-0">R{r.round}</span>
+                              <code class="bg-zee-border/40 px-1 rounded break-all">{r.head}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </span>
                   )}
                 </p>
@@ -990,9 +1025,19 @@ function publishedDisplay(): string {
                   {htmlEnabled
                     ? 'No HTML interactive for this piece. Generator either hasn\'t run for this type, was declined, validator-max-failed, or hit a parse error.'
                     : 'HTML interactives are off in admin settings. Quiz path is unaffected.'}
-                  {htmlEnabled && lastHtmlFailure && (
+                  {htmlEnabled && parsedHtmlFailure && (
                     <span class="block mt-2 not-italic text-zee-text">
-                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{lastHtmlFailure.reason}</code>
+                      Last failure: <code class="text-[11px] bg-zee-border/40 px-1 rounded">{parsedHtmlFailure.summary}</code>
+                      {parsedHtmlFailure.rounds.length > 0 && (
+                        <ul class="mt-2 ml-1 space-y-1 text-[11px] text-zee-muted">
+                          {parsedHtmlFailure.rounds.map((r) => (
+                            <li class="flex gap-2">
+                              <span class="font-mono text-zee-text shrink-0">R{r.round}</span>
+                              <code class="bg-zee-border/40 px-1 rounded break-all">{r.head}</code>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </span>
                   )}
                 </p>
