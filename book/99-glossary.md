@@ -14,13 +14,15 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Beat.** One section of a Zeemish piece. Typically a piece has 4–6 beats: Hook, Teaching (2–3 beats), Watch, Close. Each beat is its own MDX `##` heading and gets its own audio clip.
 
+**Beat contract.** The versioned document that defines how Zeemish pieces are *shaped*: 1000–1500 words, 5–6 beats target, hook format, ONE idea per teaching beat, close 1–4 sentences, no JSX tags, MDX frontmatter required fields, SEO meta-description rules. Lives at `content/beat-contract.md`. Read at runtime by the Drafter (when writing), the Structure Editor (when auditing), and the Integrator (when revising). The voice contract is its companion: voice contract governs how Zeemish *sounds*, beat contract governs how Zeemish is *shaped*.
+
 **Claude.** A specific AI language model made by Anthropic. Zeemish uses the Sonnet 4.5 version. See chapter 5.
 
 **Claude Code.** Anthropic's command-line tool for delegating coding tasks to Claude. Different from "Claude" the chat assistant — same underlying model, different interface designed for editing repos.
 
 **Cloudflare.** The company that runs Zeemish's code. A global network of data centres that runs small programs (Workers) close to users. See chapter 3.
 
-**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. See chapter 6.
+**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference, the beat contract markdown) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. New contracts are added by appending to its SOURCES list; the beat contract joined the codegen on 2026-05-04 as the second extracted cluster. See chapter 6.
 
 **Commit.** A saved snapshot of a change in Git, with a message explaining what changed.
 

@@ -2,6 +2,32 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-04: Beats cluster extracted to `content/beat-contract.md` (Foundation Fix Task 02 second extraction session)
+
+Following Phase A's codegen plumbing (2026-05-03), this session extracted the second cluster — beats. Eight rules collapsed from 2–4 surfaces each into a single `content/beat-contract.md` canonical: total length 1000–1500 words, 5–6 beat target / 3–6 acceptable / 7+ padding, hook format, ONE idea per teaching beat, close 1–4 sentences, no JSX tags, MDX frontmatter required fields, SEO meta-description format. Behaviour-preserving — rule values + canonical phrasings unchanged from voice-contract section 3 / drafter-prompt / structure-editor-prompt.
+
+**The change.** New `content/beat-contract.md` (49 lines). New SOURCES row in `agents/scripts/codegen-contracts.mjs` produces `BEAT_CONTRACT` in `agents/src/shared/generated/contracts.ts` (now 12,662 bytes; three exports: VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, BEAT_CONTRACT). Three prompt files now read `${BEAT_CONTRACT}`: `drafter-prompt.ts` (system prompt; replaces inline rules at the old 17–47 + 89), `structure-editor-prompt.ts` (system prompt; CHECK list rewritten as audit framing pointing at the contract), `integrator-prompt.ts` (system prompt; both VOICE_CONTRACT and BEAT_CONTRACT injected so revisions can fix structure issues with full context). `integrator-prompt.ts` migrated from parameter pattern (`buildIntegratorSystem(voiceContract: string)`) to import pattern, matching Phase A's voice-auditor-prompt precedent — `integrator.ts` call site simplifies to `buildIntegratorSystem()`. `content/voice-contract.md` lost its "## Lesson structure rules" section (moved to beat-contract.md); voice contract is now voice rules only — Zeemish Protocol → non-negotiables → editor's test.
+
+**Q1–Q7 resolutions.**
+
+1. **Voice-contract section 3:** removed. Single source for lesson structure rules now lives in `content/beat-contract.md`. Voice Auditor + Interactive surfaces lose harmless visibility (none of them score against beat structure today). Integrator regains visibility via direct `${BEAT_CONTRACT}` import.
+2. **Full vs partial extraction:** full. All eight rules. Brief explicitly counted "5 rules × 3-4 surfaces = 15+ duplications eliminated"; partial extraction would have deferred the cluster.
+3. **Curator's inline 1000–1500 mention at `curator-prompt.ts:63`:** left as value-reference prose. Curator does not enforce the rule; injecting BEAT_CONTRACT for one number reference inside the DEPTH POTENTIAL paragraph would balloon the prompt. Documented residual in RULE-INVENTORY.md.
+4. **Integrator parameter vs import:** migrated to import pattern (Phase A precedent). Cleaner signature; integrator.ts no longer needs to import VOICE_CONTRACT just to pass it through.
+5. **Drafter system vs user message split:** preserved. DRAFTER_PROMPT (system) gains `${BEAT_CONTRACT}` interpolation; user-message buildDrafterPrompt continues to inject voice contract via the existing `voiceContract` parameter. Mirrors Phase A's "swap the bytes, keep the structure" posture.
+6. **Structure Editor CHECK list:** numbered audit framing preserved; rule restatements stripped. Each numbered item names what to flag with thresholds inline only where the auditor needs the value (word count range, beat count range, frontmatter field names — intentional Tier-2 audit-context paraphrases). The rule body lives in the injected contract.
+7. **Book + glossary:** book/09 Drafter and Structure Editor entries updated to reference the beat contract; book/99 glossary gains a `Beat contract` entry analogous to `Voice contract`; existing `Codegen` entry updated to mention beat-contract.md among the canonical files.
+
+**Verification.** `pnpm codegen` ✓ (12,662 bytes), `pnpm verify-contracts-fresh` ✓, `pnpm types` ✓, full verify-* suite ✓ (verify-splice, verify-normalize, verify-validator, verify-dedup, verify-categoriser-floor, verify-interactive-voice, verify-parse-retry, verify-pair-slug, verify-fact-checker — all green; one known-false-positive in verify-dedup is pre-existing). Single-source greps land each value rule in canonical + auto-mirror plus the documented exceptions (Curator residual, voice-auditor scoring deduction, structure-editor audit thresholds).
+
+**Forward observation.** Same risk profile as Phase A's content shift: Drafter and Structure Editor's prompts read materially differently than before (rule restatements gone, contract injection in their place). Voice scores on the next 3–5 cron-generated pieces should hold within tolerance — if they shift materially, revert via `git revert` on the extraction commit (rolls back atomically; codegen regenerates contracts.ts from the rolled-back canonical files).
+
+**What's NOT changed.** No rule values modified. No new clusters extracted (quiz / audit-thresholds / fact-check / curator / audio / categoriser are subsequent Task 02 sessions). The InteractiveGenerator JSON-quote-drop wobble (`[observing] 2026-05-03`) remains deferred until Foundation Fix completes. The `beatCount` frontmatter drift open item remains open by design.
+
+**Branch:** `foundation-fix-02-extraction-beats` off `be63639`. Local only; not pushed pending review.
+
+---
+
 ## 2026-05-03 (night): Diagnostic patch — preserve InteractiveGenerator parse-fail head text
 
 After the codegen Phase A deploy, the 2026-05-03 paleontology piece's quiz parse-failed all 3 rounds. Investigation revealed the catch at `interactive-generator.ts:606` was swallowing the inner `parseAndValidate: ... (len=N, head="...")` per-round errors; only the outer "across all 3 rounds" wrapper survived to operators. No way to tell what Claude actually returned. Diagnostic patch (commit `80bb7b6`):

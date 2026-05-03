@@ -75,7 +75,7 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/curator-prompt.ts`
 
 ### 4. DrafterAgent
-- **Role:** Writes the MDX for a daily piece from a brief, AND self-reflects on the final piece post-publish (P1.4). Enforces `<lesson-shell>` / `<lesson-beat>` format and forces the correct date into frontmatter so it can't drift from the run date. Also authors the meta `description` field per SEO rules in the prompt (140–160 chars, distinct from the title, names the underlying concept) — that string becomes the `<meta name="description">` on every page that reads it (the daily-piece page itself, the homepage hero, the recent-pieces strip, the library list) and the JSON-LD Article description on the daily-piece page. Drafter is the only point in the pipeline writing it, so its quality is autonomous SEO output.
+- **Role:** Writes the MDX for a daily piece from a brief, AND self-reflects on the final piece post-publish (P1.4). Reads the **beat contract** (`content/beat-contract.md`, injected as `${BEAT_CONTRACT}` into the system prompt since 2026-05-04) for piece shape — total length, beat count, hook / teaching / close formats, no-JSX rule, frontmatter required fields, and SEO meta-description format — and the **voice contract** (injected into the user message) for how it sounds. Forces the correct date into frontmatter so it can't drift from the run date. The `description` frontmatter field becomes the `<meta name="description">` on every page that reads it (the daily-piece page itself, the homepage hero, the recent-pieces strip, the library list) and the JSON-LD Article description on the daily-piece page. Drafter is the only point in the pipeline writing it, so its quality is autonomous SEO output.
 - **Character:** Drafter writes for the reader who gives it ten minutes. That reader doesn't owe the piece anything, so the piece owes them: a hook that opens with the observation that creates the question (not a summary that takes the question away), teaching that opens with a fact and lets the principle emerge from it (not a definition that flattens the work), and a close that sits without summarising. Character failure is hedging — "this matters because", "in many ways", "it's important to note" — language that asks the reader to do less work than they're capable of doing. Trust the reader. Show them the thing.
 - **Input:** `DailyPieceBrief`
 - **Output:** `{ mdx, wordCount }` from `draft(brief)`; `ReflectionResult` (`{date, written, overflowCount, considered, tokensIn, tokensOut, durationMs}`) from `reflect(brief, mdx, date)`.
@@ -103,7 +103,7 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/fact-checker-prompt.ts`
 
 ### 7. StructureEditorAgent
-- **Role:** Reviews beat structure, pacing, length. Checks hook, teaching, close rules.
+- **Role:** Reviews beat structure, pacing, length. Audits drafts against the **beat contract** (`content/beat-contract.md`, injected as `${BEAT_CONTRACT}` since 2026-05-04). Checks hook, teaching, close rules.
 - **Character:** StructureEditor is suspicious of pieces that look right but don't move. The reader's attention is finite; structure is what protects it. Beat counts, hook discipline, single-idea-per-beat — these aren't formalism, they're respect for the time the reader is giving. Character failure looks like passing a 7-beat piece because "the writing is good" — the writing being good doesn't earn the seventh beat. Count the beats, check the shape, flag what's off.
 - **Checks:** 3–6 beats, one idea per beat, valid frontmatter, no filler
 - **Learnings:** Does not write to the learnings DB. Post-publish, `LearnerAgent.analysePiecePostPublish` reads `audit_results` (which includes this auditor's findings) and synthesises producer-origin learnings from the full quality record — that subsumes the signal this gate produces. See DECISIONS 2026-04-20 "Drop StructureEditor's writeLearning calls".
@@ -112,7 +112,7 @@ Learner: runs off-pipeline on reader engagement data
 - **Prompt:** `agents/src/structure-editor-prompt.ts`
 
 ### 8. IntegratorAgent
-- **Role:** Takes feedback from all three gates, revises draft, resubmits.
+- **Role:** Takes feedback from all three gates, revises draft, resubmits. Reads both the **voice contract** and the **beat contract** (since 2026-05-04 — both injected directly via `import { VOICE_CONTRACT, BEAT_CONTRACT }` inside `integrator-prompt.ts`; previously the voice contract was passed as a parameter from `integrator.ts`).
 - **Character:** Integrator takes feedback seriously without losing the piece. The auditors are right about what they flagged; they aren't right about how to fix it — that's Integrator's call. Character failure is rewriting voice while addressing structure, or stripping a working sentence because one auditor noticed something nearby. Make the smallest edit that resolves the issue. Send it back.
 - **Retry:** Up to 3 revision passes before escalation.
 - **Instance:** Fresh DO per day (`integrator-daily-${today}`) — daily pipelines are discrete events.
@@ -303,19 +303,19 @@ wrangler deploy
 ## Key shared files
 - `agents/src/types.ts` — Env, per-agent state types, DailyPieceBrief, DailyCandidate, CuratorResult, DrafterResult
 - `agents/src/curator-prompt.ts` — Curator's system prompt + prompt builder
-- `agents/src/drafter-prompt.ts` — Drafter's system prompt + prompt builder
+- `agents/src/drafter-prompt.ts` — Drafter's system prompt + prompt builder (interpolates BEAT_CONTRACT in the system prompt; the user-message prompt builder injects VOICE_CONTRACT)
 - `agents/src/voice-auditor-prompt.ts` — VoiceAuditor's system prompt builder (interpolates VOICE_CONTRACT)
-- `agents/src/structure-editor-prompt.ts` — StructureEditor's system prompt
+- `agents/src/structure-editor-prompt.ts` — StructureEditor's system prompt (interpolates BEAT_CONTRACT)
 - `agents/src/fact-checker-prompt.ts` — FactChecker's single-pass system prompt (Anthropic web_search server tool)
-- `agents/src/integrator-prompt.ts` — Integrator's system prompt builder (interpolates VOICE_CONTRACT)
+- `agents/src/integrator-prompt.ts` — Integrator's system prompt builder (interpolates VOICE_CONTRACT and BEAT_CONTRACT)
 - `agents/src/learner-prompt.ts` — Learner's analyse-and-learn system prompt
-- `agents/src/shared/generated/contracts.ts` — **AUTO-GENERATED.** Exports `VOICE_CONTRACT` (from `content/voice-contract.md`) and `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`). Never hand-edited. Regenerate with `cd agents && pnpm codegen`. See "Generated contracts" below.
+- `agents/src/shared/generated/contracts.ts` — **AUTO-GENERATED.** Exports `VOICE_CONTRACT` (from `content/voice-contract.md`), `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`), and `BEAT_CONTRACT` (from `content/beat-contract.md`). Never hand-edited. Regenerate with `cd agents && pnpm codegen`. See "Generated contracts" below.
 - `agents/src/shared/parse-json.ts` — robust JSON extraction from LLM responses
 - `agents/src/shared/prompts.ts` — tombstone; prompts moved to their owning agents
 
-## Generated contracts (codegen, 2026-05-03)
+## Generated contracts (codegen, 2026-05-03; beats added 2026-05-04)
 
-Cloudflare Workers cannot `readFileSync` markdown at runtime, so prompt content has to be embedded in the bundle as TypeScript string constants at build time. Until 2026-05-03 the agents project carried two manual `.ts` mirrors that drifted silently from canonical. Foundation Fix Task 02 Phase A replaced them with build-time codegen.
+Cloudflare Workers cannot `readFileSync` markdown at runtime, so prompt content has to be embedded in the bundle as TypeScript string constants at build time. Until 2026-05-03 the agents project carried two manual `.ts` mirrors that drifted silently from canonical. Foundation Fix Task 02 Phase A replaced them with build-time codegen. Subsequent extraction sessions add new clusters as separate canonical files (beats, 2026-05-04 — read by Drafter, Structure Editor, Integrator).
 
 - **Codegen script:** `agents/scripts/codegen-contracts.mjs`. Reads canonical sources, writes `agents/src/shared/generated/contracts.ts` (`JSON.stringify`-embedded constants). Exports `buildContractsTs()` for the verifier to reuse.
 - **Build hook:** `[build] command = "node scripts/codegen-contracts.mjs"` in `agents/wrangler.toml`. Runs automatically before every `wrangler dev` and `wrangler deploy` (including `cloudflare/wrangler-action@v3` in CI).

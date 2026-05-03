@@ -102,8 +102,8 @@ docs/archive/           Closed-project plans (Interactives v3, 2026-04 refinemen
 docs/handoff/           Frozen pre-launch specs
 ```
 
-### Agent-prompt contracts (codegen, 2026-05-03)
-Canonical contract content lives in markdown / HTML under `content/` and `docs/examples/` and is embedded into the agents bundle at build time by `agents/scripts/codegen-contracts.mjs`, hooked through `[build]` in `agents/wrangler.toml`. The generated module is `agents/src/shared/generated/contracts.ts` (checked in; CI gate `pnpm verify-contracts-fresh` blocks deploy on a stale committed file). Edit canonical files only — never the `generated/` directory. Today the codegen carries `VOICE_CONTRACT` (from `content/voice-contract.md`) and `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`); subsequent Foundation Fix Task 02 sessions extend it with new `content/<cluster>-contract.md` files.
+### Agent-prompt contracts (codegen, 2026-05-03; beats added 2026-05-04)
+Canonical contract content lives in markdown / HTML under `content/` and `docs/examples/` and is embedded into the agents bundle at build time by `agents/scripts/codegen-contracts.mjs`, hooked through `[build]` in `agents/wrangler.toml`. The generated module is `agents/src/shared/generated/contracts.ts` (checked in; CI gate `pnpm verify-contracts-fresh` blocks deploy on a stale committed file). Edit canonical files only — never the `generated/` directory. The codegen currently carries three exports: `VOICE_CONTRACT` (from `content/voice-contract.md` — now voice rules only after the lesson-structure section moved out on 2026-05-04), `INTERACTIVE_HTML_REFERENCE` (from `docs/examples/interactive-reference.html`), and `BEAT_CONTRACT` (from `content/beat-contract.md` — extracted 2026-05-04, read by Drafter, Structure Editor, Integrator). Subsequent Foundation Fix Task 02 sessions extend the SOURCES array with new clusters.
 
 ### Security
 - Session cookies: HttpOnly, Secure, SameSite=Lax

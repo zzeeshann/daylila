@@ -64,74 +64,74 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: 1000–1500 words across all beats
 
 - **What it says:** total piece length sits between 1000 and 1500 words.
-- **Where defined:** `content/voice-contract.md:33`; `agents/src/drafter-prompt.ts:17`; `agents/src/structure-editor-prompt.ts:14`. Curator references the same range in the depth-potential criterion at `agents/src/curator-prompt.ts:55` ("almost every story has a concept rich enough for 1000–1500 words").
+- **Where defined:** **RESOLVED 2026-05-04 (Foundation Fix Task 02 — beats cluster extraction).** Canonical at `content/beat-contract.md`; codegenned into `BEAT_CONTRACT` in `agents/src/shared/generated/contracts.ts`; injected via `${BEAT_CONTRACT}` at `agents/src/drafter-prompt.ts:19`, `agents/src/structure-editor-prompt.ts:13`, and `agents/src/integrator-prompt.ts:18`. Structure-editor still surfaces the value inline at `:20` as an audit threshold ("Total word count outside 1000–1500"). Curator-prompt.ts:63 retains the value-reference inline mention inside the DEPTH POTENTIAL criterion (documented residual; Curator does not enforce the rule).
 - **Type:** structural (numeric range)
-- **Used by:** Drafter (writes to it), Structure Editor (gates on it), Curator (uses it for depth judgment), Voice Auditor (sees it via the contract).
-- **Duplicated:** yes, 4 surfaces. Values agree.
-- **Notes:** Tier 1 row 2 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter (writes to it), Structure Editor (gates on it), Integrator (revises against it), Curator (uses for depth judgment), Voice Auditor + Interactive surfaces (no longer see it after voice-contract section 3 was moved out — they don't enforce it).
+- **Duplicated:** RESOLVED. Single source in `content/beat-contract.md`; one auto-generated mirror in `contracts.ts`; intentional audit-threshold value at `structure-editor-prompt.ts:20`; documented Curator residual at `curator-prompt.ts:63`.
+- **Notes:** Tier 1 row 2 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: Target 5–6 beats per piece (3–6 acceptable; 7+ is padding)
 
 - **What it says:** target 5–6 beats; 3–6 acceptable; 7+ is the padding zone.
-- **Where defined:** `content/voice-contract.md:34`; `agents/src/drafter-prompt.ts:18`; `agents/src/structure-editor-prompt.ts:11`.
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`; injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor surfaces the value inline at `:21` as an audit threshold ("Beat count outside 3–6, or in the 7+ padding zone").
 - **Type:** structural (numeric range)
-- **Used by:** Drafter, Structure Editor, Voice Auditor (via contract).
-- **Duplicated:** yes, 3 surfaces. Values agree (the structure-editor states the broader 3–6 range; the contract and drafter state the 5–6 target — these are nested, not conflicting).
-- **Notes:** Tier 1 row 3 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter, Structure Editor, Integrator.
+- **Duplicated:** RESOLVED. Single source + auto-mirror + intentional audit-threshold value.
+- **Notes:** Tier 1 row 3 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: Hook format (one screen, observation first, question follows)
 
 - **What it says:** open the hook with the observation that creates the question, then let the question follow. No "in this lesson we'll learn…" openings.
-- **Where defined:** `content/voice-contract.md:36`; `agents/src/drafter-prompt.ts:19`; `agents/src/structure-editor-prompt.ts:12`.
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`; injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor item 3 references the rule with audit-context phrasing. Voice-auditor's `-20` deduction at `voice-auditor-prompt.ts:20` for "In this lesson we'll learn…" openings is the auditor's own scoring math (separate from the beat rule).
 - **Type:** structural (rubric)
-- **Used by:** Drafter (writes to it), Structure Editor (gates on it), Voice Auditor (via contract).
-- **Duplicated:** yes, 3 surfaces. Values agree.
-- **Notes:** Tier 1 row 5 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter, Structure Editor, Integrator.
+- **Duplicated:** RESOLVED.
+- **Notes:** Tier 1 row 5 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: ONE idea per teaching beat; specific observation, not definition
 
 - **What it says:** each teaching beat carries one idea, opens with a specific observation (fact, moment, number) — never a definition or generalisation.
-- **Where defined:** `content/voice-contract.md:37`; `agents/src/drafter-prompt.ts:20`; `agents/src/structure-editor-prompt.ts:13`.
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`; injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor item 4 references the rule with audit-context phrasing.
 - **Type:** structural (rubric)
-- **Used by:** Drafter, Structure Editor, Voice Auditor (via contract).
-- **Duplicated:** yes, 3 surfaces. Values agree.
-- **Notes:** Tier 1 row 4 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter, Structure Editor, Integrator.
+- **Duplicated:** RESOLVED.
+- **Notes:** Tier 1 row 4 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: Close format (1–4 sentences, no summary/CTA/congratulations)
 
 - **What it says:** close is 1–4 sentences; length is whatever lands; no summary, no call-to-action, no congratulations.
-- **Where defined:** `content/voice-contract.md:39`; `agents/src/drafter-prompt.ts:21`; `agents/src/structure-editor-prompt.ts:15`.
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`; injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor item 5 references the rule with audit-context phrasing. Voice-auditor's `-15` deduction for "summary/CTA/congratulations close" at `voice-auditor-prompt.ts:21` is the auditor's own scoring math (separate from the beat rule).
 - **Type:** structural (rubric)
-- **Used by:** Drafter, Structure Editor, Voice Auditor (via contract).
-- **Duplicated:** yes, 3 surfaces. Values agree (loosened on 2026-04-30 from "ONE sentence" to "one to four sentences" across all four sites — see DECISIONS).
-- **Notes:** Tier 1 row 6 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter, Structure Editor, Integrator.
+- **Duplicated:** RESOLVED. (Loosened on 2026-04-30 from "ONE sentence" to "one to four sentences" across all surfaces — see DECISIONS.)
+- **Notes:** Tier 1 row 6 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: No JSX tags; use `## kebab-case` headings
 
 - **What it says:** beats are demarcated by `## kebab-case` markdown headings only; no `<lesson-shell>` / `<lesson-beat>` / `<beat>` / `<section>` JSX tags. The build step wraps headings into Web Components automatically; the audio producer also splits on `## `.
-- **Where defined:** `agents/src/drafter-prompt.ts:36`; `agents/src/structure-editor-prompt.ts:16`.
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md` ("No JSX tags" subsection); injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor item 6 references the rule with audit-context phrasing.
 - **Type:** format
-- **Used by:** Drafter, Structure Editor, downstream rehype + audio producer (consumers, not enforcers).
-- **Duplicated:** yes, 2 surfaces. Values agree.
-- **Notes:** Tier 1 row 8 of the FOLLOWUPS map. VERIFIED.
+- **Used by:** Drafter, Structure Editor, Integrator, downstream rehype + audio producer (consumers, not enforcers).
+- **Duplicated:** RESOLVED.
+- **Notes:** Tier 1 row 8 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: MDX frontmatter required fields
 
 - **What it says:** every published piece's MDX frontmatter must include `title`, `date`, `newsSource`, `underlyingSubject`, `estimatedTime`, `beatCount`, `description`.
-- **Where defined:** `agents/src/drafter-prompt.ts:47` and `:89` (drafter prompt — both initial-draft and the user-message restatement); `agents/src/structure-editor-prompt.ts:17` (structure-editor CHECK #7, listing the same seven fields).
+- **Where defined:** **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md` ("Required frontmatter" subsection); injected via `${BEAT_CONTRACT}` at Drafter, Structure Editor, and Integrator. Structure-editor item 7 keeps the comma-separated field list inline as an audit reference (intentional Tier-2 paraphrase per Q6.b: write-context uses backticked markdown, audit-context uses comma list).
 - **Type:** format
-- **Used by:** Drafter (writes them), Structure Editor (gates on them), content collection, render-time pages.
-- **Duplicated:** yes, 3 surfaces. Values agree.
-- **Notes:** Not in the FOLLOWUPS map. Pass 2 addition.
+- **Used by:** Drafter (writes them), Structure Editor (gates on them), Integrator (revises them), content collection, render-time pages.
+- **Duplicated:** RESOLVED. Single source + auto-mirror + intentional audit-context paraphrase.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: SEO meta-description (140–160 chars, must differ from title, names underlying concept)
 
 - **What it says:** the `description` frontmatter field is 140–160 chars, must not repeat the title verbatim, must name the underlying concept (not just the news event), follows the voice contract.
-- **Where defined:** `agents/src/drafter-prompt.ts:38-44` (single site, dedicated section in DRAFTER_PROMPT).
+- **Where defined:** **RESOLVED 2026-05-04** — relocated to `content/beat-contract.md` ("SEO meta-description" subsection) as part of the beats-cluster extraction. Still single-source: only `BEAT_CONTRACT` carries it.
 - **Type:** format
-- **Used by:** Drafter only (writer); rendered as `<meta name="description">` at site render time.
-- **Duplicated:** no.
-- **Notes:** Single-source rule, lives in TypeScript prompt prose. Pass 2 addition.
+- **Used by:** Drafter (writer); rendered as `<meta name="description">` at site render time. Structure Editor + Integrator now also see the rule via `${BEAT_CONTRACT}` injection but don't enforce content beyond the frontmatter-presence check.
+- **Duplicated:** no — single source.
+- **Notes:** Pass 2 addition. Was code-prose; now lives in `.md`. RESOLVED.
 
 ### Rule: Drafter beat-frontmatter `beatCount` can drift from actual `##` count
 
@@ -524,13 +524,13 @@ The `agents/scripts/verify-*.mjs` family encodes rule shapes as JS regression te
 Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates carry the same value or shape; "drift risk" means manual sync.
 
 1. **Voice contract (full body)** — **RESOLVED 2026-05-03 (Foundation Fix Task 02 Phase A — codegen).** Canonical `content/voice-contract.md` is the single source; `agents/scripts/codegen-contracts.mjs` embeds it into `agents/src/shared/generated/contracts.ts` at build time. The five in-prompt embed sites now all read from one source.
-2. **1000–1500 words** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` + `curator-prompt.ts` (4 surfaces). Agree.
-3. **5–6 beats target / 3–6 acceptable** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
-4. **Hook format** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
-5. **ONE idea per teaching beat** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
-6. **Close format (1–4 sentences)** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
-7. **No JSX tags / kebab-case headings** — `drafter-prompt.ts` + `structure-editor-prompt.ts` (2 surfaces). Agree.
-8. **MDX frontmatter required fields** — `drafter-prompt.ts` (×2) + `structure-editor-prompt.ts` (3 surfaces). Agree.
+2. **1000–1500 words** — **RESOLVED 2026-05-04 (Foundation Fix Task 02 — beats cluster extraction).** Canonical at `content/beat-contract.md`; `BEAT_CONTRACT` injected at Drafter, Structure Editor, Integrator. `structure-editor-prompt.ts:20` keeps the value inline as an audit threshold; `curator-prompt.ts:63` keeps the value-reference inline (documented residual).
+3. **5–6 beats target / 3–6 acceptable** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. `structure-editor-prompt.ts:21` keeps the value inline as an audit threshold.
+4. **Hook format** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. Voice-auditor's `-20` deduction is the auditor's own scoring (separate from the beat rule).
+5. **ONE idea per teaching beat** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`.
+6. **Close format (1–4 sentences)** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. Voice-auditor's `-15` deduction is the auditor's own scoring (separate from the beat rule).
+7. **No JSX tags / kebab-case headings** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`.
+8. **MDX frontmatter required fields** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. `structure-editor-prompt.ts:26` keeps the comma-separated field list inline as an audit-context paraphrase (intentional Tier-2 split per Q6.b).
 9. **Voice score ≥85 pass threshold** — `voice-auditor-prompt.ts` + `voice-auditor.ts` + `audit-tier.ts` (literal `85` in 3 sites) + `interactive-auditor-prompt.ts` (named constant). Agree.
 10. **Essence-not-reference (six prohibitions)** — `interactive-generator-prompt.ts` (numbered list) + `interactive-auditor-prompt.ts` (paraphrased bullets). Agree (paraphrase drift risk).
 11. **Plain-English split for quizzes / 14-year-old test** — `interactive-generator-prompt.ts` + `interactive-auditor-prompt.ts` + `book/09-the-sixteen-roles.md` + `verify-interactive-voice.mjs` (4 surfaces, intentionally different framings). Agree.
@@ -549,7 +549,8 @@ Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates
 Rules that already live in exactly one place and one format.
 
 In `.md` (good — already the centralisation target shape):
-- The voice-contract body itself (canonical at `content/voice-contract.md`) — though it has the `.ts` mirror, the `.md` is the source.
+- The voice-contract body itself (canonical at `content/voice-contract.md`).
+- The beat contract body (canonical at `content/beat-contract.md`, extracted 2026-05-04 — owns word count, beat target, hook/teaching/practice/close formats, no-JSX rule, frontmatter required fields, SEO meta-description).
 
 In code constants (will need extraction in Task 02):
 - Voice Auditor scoring deductions (`voice-auditor-prompt.ts`)
@@ -573,7 +574,6 @@ In code constants (will need extraction in Task 02):
 - Scanner per-feed cap 6 (`scanner.ts`)
 - Scanner global cap 80 (`scanner.ts`)
 - Daily piece max revisions 3 (`director.ts`) — value-shared with the interactive constant above
-- SEO meta-description length 140–160 chars (`drafter-prompt.ts`)
 - HTML interactive validator 8 rule IDs (`interactive-validator.ts`)
 - Quality flag taxonomy (`audit-tier.ts` type union + `director.ts` setter)
 - Publisher repo / branch constants (`publisher.ts`)
@@ -609,7 +609,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 
 - [x] **voice** — canonical `content/voice-contract.md`; codegenned into `agents/src/shared/generated/contracts.ts` via `agents/scripts/codegen-contracts.mjs` (2026-05-03, Foundation Fix Task 02 Phase A, branch `foundation-fix-02-extraction`).
 - [x] **interactive-html-reference** — canonical `docs/examples/interactive-reference.html`; codegenned alongside the voice contract in the same module (2026-05-03).
-- [ ] beats — Beat structure and piece shape cluster + MDX frontmatter + SEO description.
+- [x] **beats** — canonical `content/beat-contract.md`; codegenned alongside voice + html reference (2026-05-04, Foundation Fix Task 02 second extraction session, branch `foundation-fix-02-extraction-beats`). Read by Drafter, Structure Editor, Integrator. Voice-contract section 3 ("Lesson structure rules") removed in the same commit — beat-contract.md is now the single source.
 - [ ] quiz — Quiz / interactive shape cluster (essence prohibitions, plain-English split, 4-dimension audit, max rounds).
 - [ ] audit-thresholds — daily piece max revisions + quality flag + audit-tier 85/70 cluster.
 - [ ] fact-check — Verdict taxonomy + search-first + cutoff-confession blacklist + max_uses=8.

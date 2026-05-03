@@ -44,7 +44,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Job:** Write the piece.
 
-**What it does:** Takes the brief from Curator. Loads the voice contract (the rules for how Zeemish writes). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly — so since 2026-04-30 the Drafter prompt names the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English). Chapter 18 covers why that field has its own contract.
+**What it does:** Takes the brief from Curator. Loads the voice contract (how Zeemish sounds) and the beat contract (how Zeemish pieces are shaped: 1000–1500 words across 5–6 beats, opening with a hook that creates a question, closing in one to four sentences that just sit, frontmatter fields, the SEO meta-description rules). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly. Since 2026-05-04 the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English) live in the beat contract alongside the rest of the piece-shape rules. Chapter 18 covers why that field has its own contract.
 
 **Claude call?** Yes. The biggest one in the pipeline — producing 1,000 to 1,500 words of polished prose takes the most model work.
 
@@ -74,9 +74,11 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Job:** Check the shape of the piece.
 
-**What it does:** Reads the draft. Checks that the hook is one screen, the close is one sentence, there are 3–6 beats, the piece has frontmatter, the word count is in range, the flow makes sense. Flags specific structural issues.
+**What it does:** Reads the draft. Audits it against the beat contract — the same file the Drafter writes from. Checks that the hook is one screen, the close lands without summarising, there are 3–6 beats, the piece has frontmatter, the word count is in range, the flow makes sense. Flags specific structural issues.
 
 **Claude call?** Yes. Another judgment call, focused on shape rather than voice or facts.
+
+**Why it audits against the same contract the writer reads:** the Foundation Fix work in May 2026 pulled the beat rules out of the agent prompts and into a single `content/beat-contract.md` file. The Drafter loads it. The Structure Editor loads it. The Integrator loads it when revising. Auditing against the same source the writer reads is the only way to keep them aligned over time — when a rule changes, it changes in one place, and three agents see the new rule together.
 
 **What it doesn't check yet:** the "Watch" beat. The format spec says every piece should have a Watch beat — what to look for next — but Structure Editor doesn't currently gate on it. On the followups list.
 
