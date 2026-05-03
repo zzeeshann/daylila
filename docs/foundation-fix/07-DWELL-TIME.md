@@ -61,14 +61,9 @@ The endpoint:
 
 Privacy: don't log the IP or user-agent in the row. Just the engagement signal.
 
-### Sub-task 4 — Update the existing engagement reader
+### Sub-task 4 — No dashboard work this task
 
-If the dashboard or admin section reads from `engagement` to show drop-off charts, extend the queries to include the new columns. Show:
-- Average dwell ratio per beat per piece (where does drop-off happen?)
-- Per-piece total listen time
-- Pieces with the highest completion ratios — these are the bangers
-
-If the dashboard isn't rendering this yet, just store the data. Visualisation is a future task.
+No dashboard work; the data lands in D1 and that's enough. Visualisation is a future task.
 
 ## Update docs
 

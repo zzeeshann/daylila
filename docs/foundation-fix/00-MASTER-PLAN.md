@@ -13,8 +13,9 @@ This is foundation work. No new features. No new subdomains. No new agents. Just
 
 The system has grown past its blueprint. Three signals confirmed this:
 
-- The Scanner pulls 80 candidates per run (not 50 as in the brief), with ~5 runs per day producing ~400 candidate-judgments per day. Documentation hasn't caught up.
-- The Fact Checker's web layer has been offline for some time; pieces are publishing without the second-source verification the design originally required.
+- The Scanner pulls 80 candidates per run (not 50 as in the original brief). Cadence is currently `interval_hours=12` — 2 runs per day, producing ~160 candidate-judgments per day. The brief documents a different number; documentation has not caught up.
+- The Fact Checker was rebuilt on 2026-04-30 with Anthropic's `web_search_20250305` server tool and hardened the day after. It is actively searching and surfacing "Sources consulted" lines on every piece. This means the data leak fixes in Phase 2 inherit a working Fact Checker — the audit findings on it are about persistence (per-claim status, search-used flags), not about whether the agent is running.
+- The public dashboard at `/dashboard/` is being retired in favour of the per-piece transparency built into `/daily/` (the expandable "Scanner pulled 80 stories for this run" panels under each piece). Foundation Fix work does not invest in dashboard repairs. Where the audit found dashboard counter staleness, that fix is not in scope; the surface is going away.
 - A code-level data audit found **9 high-severity leaks** — places where the system produces useful judgments and reasoning but never persists them to D1.
 
 Adding new surface area on top of an unmeasured, leaky base would compound the drift. The right move is to stabilise first, then build.
@@ -82,7 +83,7 @@ Each numbered file (`01-`, `02-`, ..., `08-`) is a self-contained brief for **on
 For each task:
 
 1. Open Claude Code in the repo on a new branch.
-2. Tell it: *"Read `docs/CLAUDE.md`, `docs/DECISIONS.md`, `docs/FOLLOWUPS.md`, and `docs/AGENTS.md` first. Then read this task file in full."* Paste the task file.
+2. Tell it: *"Read `CLAUDE.md`, `docs/DECISIONS.md`, `docs/FOLLOWUPS.md`, and `docs/AGENTS.md` first. Then read this task file in full."* Paste the task file.
 3. Let Claude Code propose a plan inside Claude Code, review it, then approve.
 4. After it's done, review the diff. Confirm docs were updated alongside code.
 5. Commit, push, and only then move to the next task.
@@ -96,7 +97,6 @@ When all eight tasks are done:
 - Every duplicated rule lives in exactly one `.md` file. Agents read that file at runtime. Code constants that duplicated the rule are gone.
 - All 9 high-severity leaks are closed. New rows persist with reasoning. Old broken rows are documented if not fixable.
 - The Learner's feedback loop is closed: learnings get marked when applied, validated when subsequent pieces score well.
-- The dashboard counters track reality.
 - `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/AGENTS.md`, `docs/SCHEMA.md`, `docs/DECISIONS.md`, and `docs/FOLLOWUPS.md` are all updated to reflect the new state.
 
 After this programme completes, the platform plan (subdomains, embeddings, side projects) picks back up on a foundation we trust.
@@ -120,5 +120,6 @@ Before starting any task, Claude Code should refresh on these decisions which al
 - **Published pieces are permanent.** No agent revises, regenerates, or updates a published piece. Improvements feed forward only. This rule survives this programme intact.
 - **Small commits, clear messages explaining WHY not WHAT.**
 - **Update docs alongside code in the same commit, not after.**
+- **The book updates alongside the engineering.** Every task in this programme has a corresponding book update task documented in `docs/foundation-fix/BOOK-UPDATES.md`. Skipping the book update is not allowed; it's part of "what success looks like" for every task.
 
 If any task in this programme would violate one of these decisions, stop and flag it before proceeding.

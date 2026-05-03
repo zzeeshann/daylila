@@ -120,7 +120,7 @@ After the schema changes, add a new admin view (or just a SQL helper script) tha
 - Top 10 most-loaded learnings, with their validation count — the *workhorses*.
 - Bottom 10 oldest never-loaded learnings — *candidates for retirement*.
 
-Save the SQL as `scripts/learner-health.sql` and document in `docs/RUNBOOK.md`. Optional: surface it in the existing dashboard if the admin section is straightforward to extend. If extending the dashboard adds significant work, defer to a separate small task.
+Save the SQL as `scripts/learner-health.sql` and document in `docs/RUNBOOK.md`. No dashboard work; the data lands in D1 and that's enough.
 
 ## Update docs
 
