@@ -15,6 +15,7 @@ import { CategoriserAgent } from './categoriser';
 import { InteractiveGeneratorAgent } from './interactive-generator';
 import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
 import { MAX_AUDIT_ROUNDS as MAX_REVISIONS } from './shared/audit-thresholds';
+import { CURATOR_RECENT_WINDOW_DAYS } from './shared/curator-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
@@ -204,7 +205,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     this.enterPhase('curator');
     await this.logStep(today, pieceId,'curating', 'running', {});
     const curator = await this.subAgent(CuratorAgent, 'curator');
-    const recentPieces = await this.getRecentDailyPieces(30);
+    const recentPieces = await this.getRecentDailyPieces(CURATOR_RECENT_WINDOW_DAYS);
 
     // Hard pre-Curator dedup. Curator (Sonnet) keeps picking
     // near-duplicate stories despite multiple prompt-language tightenings
@@ -242,7 +243,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       );
     }
 
-    const recentCategoryCounts = await this.getRecentCategoryCounts(30);
+    const recentCategoryCounts = await this.getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS);
     const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts);
 
     if (curatorResult.skip) {

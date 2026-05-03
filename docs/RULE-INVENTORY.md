@@ -265,47 +265,47 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Selection criteria order (5 numbered)
 
 - **What it says:** Curator picks against five criteria in priority order — TEACHABILITY (find the underlying system), UNIVERSALITY (concept must travel), FRESHNESS, DEPTH POTENTIAL, NO TRIBAL FRAMING.
-- **Where defined:** `agents/src/curator-prompt.ts:24-58` (single site).
+- **Where defined:** **RESOLVED 2026-05-08 (Foundation Fix Task 02 — curator cluster extraction).** Canonical at `content/curator-contract.md` ("Selection criteria" section); codegenned into `CURATOR_CONTRACT` in `agents/src/shared/generated/contracts.ts`; injected via `${CURATOR_CONTRACT}` into the Curator system prompt at `agents/src/curator-prompt.ts`.
 - **Type:** rubric
 - **Used by:** Curator only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition. Reframed 2026-04-25 around the Zeemish Protocol; criterion 1 carries the 10-domain breadth taxonomy below.
+- **Duplicated:** RESOLVED. Single source.
+- **Notes:** Pass 2 addition. Reframed 2026-04-25 around the Zeemish Protocol; criterion 1 carries the 10-domain breadth taxonomy below. RESOLVED.
 
 ### Rule: 10-domain breadth taxonomy
 
 - **What it says:** Curator considers ten domains (inner life, meaning and belief, expression, language and thought, science not as crisis, body and health, how humans live together, skills and craft, technology beyond crisis, time and place) plus worked pairings of news shapes that map into each.
-- **Where defined:** `agents/src/curator-prompt.ts:28-49` (single site, embedded in TEACHABILITY criterion).
+- **Where defined:** **RESOLVED 2026-05-08** — extracted to `content/curator-contract.md` (sub-section under TEACHABILITY criterion in "Selection criteria").
 - **Type:** rubric
 - **Used by:** Curator only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition.
+- **Duplicated:** RESOLVED. Single source.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: Recent-category concentration soft skip (3+ in 30 days)
 
 - **What it says:** if a candidate's underlying subject would land in a category already holding 3+ recent pieces (last 30 days), prefer a candidate that opens a thinner category — unless the news event genuinely demands the fuller category. Soft preference, not a hard skip.
-- **Where defined:** `agents/src/curator-prompt.ts:128-130` (prompt prose); `agents/src/director.ts` `getRecentCategoryCounts(30)` supplies the data (referenced in the curator-prompt comment at `:108-115`); `patterns-yet-to-cluster` is excluded from the count.
+- **Where defined:** **RESOLVED 2026-05-08** — canonical at `content/curator-contract.md` ("Recent-category concentration — soft preference" section). The 30-day data window is exported as `CURATOR_RECENT_WINDOW_DAYS = 30` from `agents/src/shared/curator-thresholds.ts` (agents-only — no site-side mirror); consumed at `director.ts:245` (`getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS)`). The "3+" threshold stays as inline prose in the contract (no programmatic consumer; only Claude reads it). `patterns-yet-to-cluster` is excluded from the count.
 - **Type:** rubric (soft)
 - **Used by:** Curator (read), Director (data source).
-- **Duplicated:** no — single-source rule.
-- **Notes:** Pass 2 addition. Diversity-tuned 2026-05-01.
+- **Duplicated:** RESOLVED. Single source for the rule body; the 30-day window self-mirrors via the named TS constant; the 3+ threshold lives once in the contract.
+- **Notes:** Pass 2 addition. Diversity-tuned 2026-05-01. RESOLVED. The [observing] 2026-05-01 verification window (unblock 2026-05-08) is operator guidance for a future tuning decision, not part of this extraction — any unblock-tweak (tighten 3+ to 4+, list the 5 thinnest categories) now lands cleanly in the contract.
 
 ### Rule: SAME-EVENT and SAME-CONCEPT hard skips
 
 - **What it says:** Curator MUST skip candidates that are about the same news event as a recent piece (different wire-service angles do not count as different stories), AND must skip candidates that teach the same underlying concept as a recent piece, even at a different event.
-- **Where defined:** `agents/src/curator-prompt.ts:132-138` (single site).
+- **Where defined:** **RESOLVED 2026-05-08** — extracted to `content/curator-contract.md` ("SAME-EVENT and SAME-CONCEPT — hard skips" section, with the three worked examples preserved verbatim from the prior buildCuratorPrompt:139-142 location). The 30-day recent-pieces data window is `CURATOR_RECENT_WINDOW_DAYS = 30`; consumed at `director.ts:207` (`getRecentDailyPieces(CURATOR_RECENT_WINDOW_DAYS)`).
 - **Type:** rubric (hard)
-- **Used by:** Curator only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition.
+- **Used by:** Curator only. Defense-in-depth: hard pre-Curator filter at `agents/src/shared/dedup-headlines.ts` (separate cluster, mirrored by `verify-dedup.mjs`) removes near-duplicates BEFORE Curator sees them.
+- **Duplicated:** RESOLVED. Single source.
+- **Notes:** Pass 2 addition. RESOLVED. Recurrence-watch live at `[observing] 2026-04-27 (architectural fix)`.
 
 ### Rule: Curator skip output shape
 
 - **What it says:** if Curator skips, it must return `{ skip: true, reason }` where `reason` names the specific candidate condition — never a category dismissal like "low-teachability" or "shallow".
-- **Where defined:** `agents/src/curator-prompt.ts:80-86` (single site — the `{ skip: true, reason }` JSON spec plus the "reason must NOT be a category dismissal" sentence).
+- **Where defined:** **RESOLVED 2026-05-08** — extracted to `content/curator-contract.md` ("The skip output shape" section, with the JSON spec + "reason must NOT be a category dismissal" instruction + the "If you cannot name the specific condition, you have not earned the skip" closing). The system prompt at `curator-prompt.ts` retains a one-line response-format reminder pointing at the contract; the `parsed.skip` parser at `curator.ts:51` is a use-site of the shape, not duplication of the rule body.
 - **Type:** format
 - **Used by:** Curator only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition.
+- **Duplicated:** RESOLVED. Single source for the rule body; the `'skip'` literal at curator.ts:51 self-mirrors as use-site.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ---
 
@@ -554,18 +554,15 @@ In `.md` (good — already the centralisation target shape):
 - The interactive contract body (canonical at `content/interactive-contract.md`, extracted 2026-05-05 — owns essence-not-reference, six prohibitions, Plain English split + jargon translations, quiz shape, HTML interactive shape, validator constraints, title/concept/slug rules).
 - The audit contract body (canonical at `content/audit-contract.md`, extracted 2026-05-06 — owns the three gates, the 85/70 thresholds, the 3-round revision bound, the publish-anyway-on-max-fail rule, the `qualityFlag` taxonomy, and the reader-facing tier mapping).
 - The fact-check contract body (canonical at `content/fact-check-contract.md`, extracted 2026-05-07 — owns the verdict taxonomy + asymmetry rule, the search-first rule for current-event claims, the cutoff-confession ban + canonical 5-substring filter list + `'training data'` dropped rationale, and the `max_uses=8` web-search budget).
+- The curator contract body (canonical at `content/curator-contract.md`, extracted 2026-05-08 — owns the five selection criteria, the 10-domain breadth taxonomy + worked pairings, the recent-category concentration soft skip with safety-valve override, the SAME-EVENT / SAME-CONCEPT hard skips with three worked examples, and the skip output shape).
 
 In code constants (will need extraction in Task 02):
 - Voice Auditor scoring deductions (`voice-auditor-prompt.ts`)
 - Quiz min/max questions (`interactive-generator-prompt.ts` constants — properly injected)
 - Interactive auditor HTML 75 thresholds (`interactive-auditor-prompt.ts` constants — properly injected; voice 85 now imports from audit-thresholds)
 - Categoriser max assignments / reuse floors / stretch / fallback slug (`categoriser-prompt.ts` constants)
-- Curator's 5 numbered selection criteria (`curator-prompt.ts`)
-- Curator's 10-domain breadth taxonomy (`curator-prompt.ts`)
-- Curator's 30-day recent-category soft skip (`curator-prompt.ts`)
-- Curator's SAME-EVENT / SAME-CONCEPT hard skips (`curator-prompt.ts`)
-- Curator's skip output shape (`curator-prompt.ts`)
 - (extracted 2026-05-07: Fact Checker verdict taxonomy, search-first rule, cutoff-confession ban, and `WEB_SEARCH_MAX_USES = 8` all live in `content/fact-check-contract.md` + `agents/src/shared/fact-check-thresholds.ts` + `src/lib/fact-check-thresholds.ts` mirror)
+- (extracted 2026-05-08: Curator's 5 selection criteria, 10-domain breadth taxonomy, recent-category soft skip, SAME-EVENT / SAME-CONCEPT hard skips, and skip output shape all live in `content/curator-contract.md`; the 30-day window via `CURATOR_RECENT_WINDOW_DAYS` in `agents/src/shared/curator-thresholds.ts` — agents-only, no site-side mirror)
 - Audio Producer voice / model / format constants (`audio-producer.ts`)
 - Audio character cap 20,000 (`audio-producer.ts`)
 - Audio retry attempts 3 (`audio-producer.ts`)
@@ -612,7 +609,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 - [x] **interactive (quiz + HTML)** — canonical `content/interactive-contract.md`; codegenned alongside voice + beats + html reference (2026-05-05, Foundation Fix Task 02 third extraction session, branch `foundation-fix-02-extraction-quiz`). Read by InteractiveGenerator (both quiz and HTML paths) and InteractiveAuditor (both paths). Carries: essence-not-reference rule, six hard prohibitions, Plain English split rule + 13-word jargon translation list + 14-year-old test + hedge-phrase ban, quiz shape (3–5 questions etc), eight HTML interactive shape rules including manipulation-embodies-the-mechanism, validator constraints in plain English, title / concept / slug rules. Quiz path retains one inline path-specific anti-pattern ("'Which of the following best describes what happened in…'" — quizzes have stems, HTML doesn't). Auditor prompts retain audit-context paraphrases of the six prohibitions and the plain-English flag list (Tier-2 audit-context per beats Q6). `verify-interactive-voice.mjs` continues to mirror the jargon flag list and hedge regexes by hand (header comment updated to name the contract as canonical source).
 - [x] **audit-thresholds** — canonical `content/audit-contract.md`; codegenned alongside voice + beats + interactive + html reference (2026-05-06, Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Carries: the three gates, the voice-pass threshold (85), the audit-tier mapping (polished ≥85, solid 70–84, rough <70), the 3-round revision bound (applied identically to daily-piece and interactive loops), the publish-anyway-on-max-fail rule, and the closed `qualityFlag` taxonomy. Runtime values via named TS constants in `agents/src/shared/audit-thresholds.ts` (agents) and `src/lib/audit-thresholds.ts` (site-side mirror, same shape as cadence.ts ↔ admin-settings.ts). No prompt currently injects `${AUDIT_CONTRACT}` at runtime — the contract is canonical narrative for human readers; values flow through the named constants. The `INTERACTIVE_VOICE_MIN_SCORE` constant in interactive-auditor-prompt.ts is preserved as a re-export alias of `VOICE_PASS_THRESHOLD` for in-file readability. `qualityFlag: 'low' | null` TS type-union sites stay code-side as a documented self-mirror (no shared package across two worker bundles + two Astro Zod schemas).
 - [x] **fact-check** — canonical `content/fact-check-contract.md`; codegenned alongside voice + beats + interactive + audit + html reference (2026-05-07, Foundation Fix Task 02 fifth extraction session, branch `foundation-fix-02-extraction-fact-check`). Read by FactCheckerAgent via `${FACT_CHECK_CONTRACT}` injection. Carries: the verdict taxonomy (closed three-value set + asymmetry rule + pass condition), the search-first rule for current-event claims (with the architectural-commitment rationale), the cutoff-confession ban (with both the longer illustrative phrasings the prompt teaches Claude AND the canonical 5-substring filter list as data + the `'training data'` dropped rationale + the canonical replacement string), and the `max_uses = 8` web-search budget (with the FOLLOWUPS escalation note). Runtime values via named TS constants in `agents/src/shared/fact-check-thresholds.ts` (agents — `WEB_SEARCH_MAX_USES`, `CUTOFF_CONFESSION_PHRASES`) and `src/lib/fact-check-thresholds.ts` (site-side mirror — `CUTOFF_CONFESSION_PHRASES`, `CUTOFF_CONFESSION_REPLACEMENT`). Asymmetric exports because consumers differ on each side: agents calls Anthropic's API (needs the budget); site renders the drawer's defense filter (needs the array + replacement). The `'verified' | 'unverified' | 'incorrect'` TS literal union self-mirrors across six sites (intentional, per audit Q4 precedent on `qualityFlag`); the drawer's `'contested'` legacy alias is documented in the contract as render-side back-compat shim, NOT added to the taxonomy. Integrator's prompt (`integrator-prompt.ts`) does NOT receive `${FACT_CHECK_CONTRACT}` — Integrator does not re-verdict, just revises prose; documented as deliberate non-change. `verify-fact-checker.mjs` continues to mirror `parseResponse` shape by hand (header pointer updated to name the contract canonical).
-- [ ] curator — 5-criteria selection + 10-domain breadth + recent-category soft skip + SAME-EVENT/CONCEPT hard skips + skip-output shape.
+- [x] **curator** — canonical `content/curator-contract.md`; codegenned alongside voice + beats + interactive + audit + fact-check + html reference (2026-05-08, Foundation Fix Task 02 sixth extraction session, branch `foundation-fix-02-extraction-curator`). Read by CuratorAgent via `${CURATOR_CONTRACT}` injection. Carries: the five selection criteria (TEACHABILITY / UNIVERSALITY / FRESHNESS / DEPTH POTENTIAL / NO TRIBAL FRAMING), the 10-domain breadth taxonomy + 10 worked pairings (sub-section under TEACHABILITY), the Default: PICK framing, the recent-category concentration soft skip with safety-valve override, the SAME-EVENT / SAME-CONCEPT hard skips with three worked examples, and the skip output shape. The 30-day data window via `CURATOR_RECENT_WINDOW_DAYS = 30` in `agents/src/shared/curator-thresholds.ts` (agents-only — no site-side mirror; the site does not read curator rules). The "3+" soft-skip threshold stays as inline prose in the contract (no programmatic consumer; only Claude reads it). The Zeemish Protocol three-sentence opener stays inline in `curator-prompt.ts` above the contract injection — voice-contract.md is its canonical home; Curator's lift is system-prompt framing per DECISIONS 2026-04-25. Response-format JSON spec + verbatim-UUID rule stay inline in the system prompt below the injection (response-shape, not rule body — same posture as fact-check Q5 / audit Q5 / beats Q6). User-message rule prose collapsed to a Tier-2 audit-context paraphrase under each data block (beats Q6 precedent). No new `verify-curator.mjs` (Curator's behaviour is rule prose Claude reads, not a parser-loop). The hard pre-Curator filter at `agents/src/shared/dedup-headlines.ts` is a separate cluster (Scanner-side, mirrored by `verify-dedup.mjs`).
 - [ ] audio — ElevenLabs voice/model/format + 20k char cap + retries + per-call beats budget.
 - [ ] categoriser — max-assignments + reuse / stretch floors + fallback slug.
 

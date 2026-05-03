@@ -67,6 +67,11 @@ const SOURCES = [
     path: '../../content/fact-check-contract.md',
     label: 'content/fact-check-contract.md',
   },
+  {
+    name: 'CURATOR_CONTRACT',
+    path: '../../content/curator-contract.md',
+    label: 'content/curator-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

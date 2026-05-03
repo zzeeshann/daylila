@@ -40,6 +40,8 @@ The prompt's TEACHABILITY section was rewritten on 2026-05-01 around a ten-domai
 
 A small soft-preference signal sits below the recent-pieces block: a count of how many pieces each library category has received over the last thirty days. If a candidate would land in a category that already holds three or more recent pieces, Curator should prefer one that opens a thinner category — unless the news genuinely demands the fuller category. It is a soft preference, not a skip rule. The hard skips are still SAME-EVENT and SAME-CONCEPT.
 
+**Where the rule lives.** Since 2026-05-08, the five selection criteria, the ten-domain breadth taxonomy, the recent-category soft preference, the SAME-EVENT and SAME-CONCEPT hard skips with their worked examples, and the skip output shape all live in a single contract file (`content/curator-contract.md`). Curator reads it at runtime via prompt injection, the same shape as the voice and beat contracts. The thirty-day window for the recent-pieces and category-concentration data is exported as a single named constant in the agents-side code so the contract and the database queries that feed it never drift. The Zeemish protocol opener stays inline in the Curator prompt itself — that opener is voice-contract.md's canonical home, and Curator lifts it as framing for picking, not as a rule to enforce.
+
 ## 4. Drafter
 
 **Job:** Write the piece.
