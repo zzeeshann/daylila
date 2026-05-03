@@ -1,0 +1,71 @@
+{
+  "slug": "function-invisible-to-direct-test",
+  "type": "quiz",
+  "title": "Function Invisible to Direct Test",
+  "concept": "When a part's effect is too small, too slow, or too rare to measure directly, you must study systems that already differ—but those groups vary in uncontrolled ways, so you cannot isolate what the part was doing.",
+  "interactiveId": "ed90a8a7-01a1-4946-a8b0-7e1a05340691",
+  "sourcePieceId": "a204d497-fbcd-480d-ba91-3b1549d534c3",
+  "publishedAt": 1777817195158,
+  "voiceScore": 78,
+  "qualityFlag": "low",
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why can't you test whether removing a part harms a system by taking it out of healthy systems and watching what changes?",
+        "options": [
+          "Healthy systems adapt too quickly for you to see the effect",
+          "Removing parts from functioning systems for research alone isn't ethically approved",
+          "The effect might not appear for decades, making it impossible to track",
+          "You need thousands of systems to detect small differences, which costs too much"
+        ],
+        "correctIndex": 1,
+        "explanation": "You can't get approval to harm working systems without a medical reason. The other barriers are real—cost, time, adaptation—but ethics is the wall you hit first."
+      },
+      {
+        "question": "If you compare systems that lost a part due to emergency removal with systems that kept it, what makes the comparison messy?",
+        "options": [
+          "Emergency removals are too rare to gather useful data",
+          "The groups differ in dozens of ways you can't control or measure",
+          "Systems that kept the part might lose it later and blur the line",
+          "Emergency procedures damage surrounding areas, hiding the part's real effect"
+        ],
+        "correctIndex": 1,
+        "explanation": "One group lost the part because something went wrong. The other didn't. Every outcome you see could come from the missing part or from the crisis that required removal or from recovery or from treatment. You can't separate them."
+      },
+      {
+        "question": "If you find immune cells inside a part, does that tell you the part's purpose is immune-related?",
+        "options": [
+          "Yes—immune cells only show up in parts dedicated to fighting infection",
+          "Yes—the type of cell tells you what job the part was built to do",
+          "No—many parts contain immune cells but their main purpose is something else entirely",
+          "No—immune cells migrate through tissue and don't stay in one part long enough to matter"
+        ],
+        "correctIndex": 2,
+        "explanation": "A building contains fire alarms, but its purpose isn't fire detection—it's shelter. Immune cells appear in parts for backup, cleanup, sensing. Finding them tells you they're present, not what the whole part does."
+      },
+      {
+        "question": "Why might some systems lose a part and seem fine while others show tiny changes you'd only catch with decades of tracking?",
+        "options": [
+          "The part was already weak in systems that seem fine, so losing it changed nothing",
+          "The effect might be too small or too rare to spot without huge groups tracked for years",
+          "The system builds a backup part immediately to replace what's missing",
+          "Systems that seem fine weren't depending on that part to begin with"
+        ],
+        "correctIndex": 1,
+        "explanation": "If the part's job is tiny or only matters in rare conditions—like slightly faster recovery once every few years—you won't notice it missing. Detecting that needs huge groups tracked for decades. That's the test you can't run."
+      },
+      {
+        "question": "When you can't run the clean test, you study systems that already differed naturally. What's the core problem?",
+        "options": [
+          "Systems that differed naturally have too many genetic differences to compare usefully",
+          "Every pattern you find is tangled with differences you didn't measure or can't control",
+          "Natural differences are too rare to collect enough systems for statistical power",
+          "The differences happened by chance, so results don't repeat in new samples"
+        ],
+        "correctIndex": 1,
+        "explanation": "Systems that already differed before the thing you're studying might be older, used harder, built differently, maintained differently. You adjust for known differences but not the ones you didn't think of. Every conclusion could be real or caused by something unmeasured."
+      }
+    ]
+  }
+}
