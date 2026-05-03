@@ -25,6 +25,7 @@ import {
   type RevisionValidatorViolation,
 } from './interactive-generator-prompt';
 import { validate as validateHtml } from './interactive-validator';
+import { MAX_AUDIT_ROUNDS as INTERACTIVE_MAX_ROUNDS } from './shared/audit-thresholds';
 
 /** Number of recently-published interactives to show Claude for the
  *  diversity nudge. */
@@ -33,9 +34,10 @@ const RECENT_INTERACTIVES_FOR_DIVERSITY = 10;
 /** Max attempts at suffixing a colliding slug (`-2`, `-3`, …). */
 const SLUG_COLLISION_MAX_ATTEMPTS = 5;
 
-/** Max revision rounds before ship-or-abandon. Matches the daily-piece
- *  auditor loop's MAX_REVISIONS. 3 rounds = 1 initial + 2 revisions. */
-const INTERACTIVE_MAX_ROUNDS = 3;
+// Max revision rounds (1 initial + 2 revisions) — single-source in
+// `./shared/audit-thresholds.ts`, applied to both quiz and HTML
+// loops. Same value as the daily-piece auditor loop, per the audit
+// contract at `content/audit-contract.md`.
 
 function stripForExcerpt(mdx: string): string {
   let body = mdx.replace(/^---\n[\s\S]*?\n---\n?/, '');

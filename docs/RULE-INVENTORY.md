@@ -42,20 +42,20 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Voice score pass threshold (≥85)
 
 - **What it says:** a draft passes the voice gate when the auditor score is 85 or higher; below 85 triggers a revision round.
-- **Where defined:** `agents/src/voice-auditor-prompt.ts:26` (literal `85` in the JSON spec line `"passed": boolean (score >= 85)`); `agents/src/voice-auditor.ts:38` (`result.passed = result.score >= 85`); `src/lib/audit-tier.ts:27` (`if (voiceScore >= 85) return 'polished'`); `agents/src/interactive-auditor-prompt.ts:23` (`INTERACTIVE_VOICE_MIN_SCORE = 85`, properly injected via `${...}`).
+- **Where defined:** **RESOLVED 2026-05-06 (Foundation Fix Task 02 — audit-thresholds cluster extraction).** Canonical at `content/audit-contract.md`; runtime value `VOICE_PASS_THRESHOLD = 85` exported from `agents/src/shared/audit-thresholds.ts` (agents) and `src/lib/audit-thresholds.ts` (site-side mirror, same shape as cadence.ts ↔ admin-settings.ts). All four prior sites now import: `voice-auditor-prompt.ts:27` (interpolated as `${VOICE_PASS_THRESHOLD}` in JSON spec line), `voice-auditor.ts:39`, `audit-tier.ts:16` (via site mirror), `interactive-auditor-prompt.ts:24` (`INTERACTIVE_VOICE_MIN_SCORE = VOICE_PASS_THRESHOLD` alias preserved for in-file readability).
 - **Type:** threshold (magic number)
 - **Used by:** Voice Auditor (pass gate), Director (revision loop), audit-tier display, Interactive Auditor.
-- **Duplicated:** yes — three sites hardcode the literal `85` (voice-auditor-prompt.ts:26, voice-auditor.ts:38, audit-tier.ts:27); the interactive auditor uses a named constant. The values agree.
-- **Notes:** The audit-tier file's docstring at `src/lib/audit-tier.ts:8-10` documents this is the same threshold as the auditor's pass bar — but it still hardcodes the number rather than importing.
+- **Duplicated:** RESOLVED. Single source in `content/audit-contract.md`; named TS constant in two parallel worker mirrors (cross-worker mirror pattern, intentional).
+- **Notes:** Tier 3 threshold from the original FOLLOWUPS map. RESOLVED.
 
 ### Rule: Audit-tier thresholds (polished / solid / rough)
 
 - **What it says:** voiceScore ≥85 → polished; 70-84 → solid; <70 → rough. Missing voiceScore + qualityFlag='low' → rough; missing voiceScore + no flag → polished.
-- **Where defined:** `src/lib/audit-tier.ts:27-29` (single site).
+- **Where defined:** **RESOLVED 2026-05-06** — canonical at `content/audit-contract.md`; runtime constants `VOICE_PASS_THRESHOLD = 85` and `TIER_SOLID_FLOOR = 70` exported from `src/lib/audit-thresholds.ts` (site-side mirror) and consumed by `src/lib/audit-tier.ts`.
 - **Type:** threshold
 - **Used by:** every public-facing piece's metadata line (derived at render time).
-- **Duplicated:** no — this is the only enforcement of the 70 floor; the 85 ceiling shares value with the voice gate (above) but is logically the tier boundary, not the gate.
-- **Notes:** Single-source rule; lives in code constant, not `.md`. Will need extraction in Task 02 if the threshold is to be a contract.
+- **Duplicated:** RESOLVED. Single source + cross-worker mirror (intentional, same shape as cadence.ts ↔ admin-settings.ts).
+- **Notes:** RESOLVED. The 70 floor was the only enforcement until extraction; the 85 ceiling now shares the named constant with the voice gate.
 
 ---
 
@@ -243,20 +243,20 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Daily piece max revisions (3)
 
 - **What it says:** Director runs the auditor → integrator loop up to 3 rounds; on round 3 fail, the piece ships with `qualityFlag='low'`.
-- **Where defined:** `agents/src/director.ts:23` (`MAX_REVISIONS = 3`); used at `:327` and `:372`.
+- **Where defined:** **RESOLVED 2026-05-06** — canonical at `content/audit-contract.md`; runtime value `MAX_AUDIT_ROUNDS = 3` exported from `agents/src/shared/audit-thresholds.ts`; aliased to `MAX_REVISIONS` at `director.ts:17` import. Use-sites at `:327` and `:372` unchanged. Same constant imported by InteractiveGenerator (aliased there as `INTERACTIVE_MAX_ROUNDS`) — single source of truth for the rule that "interactive max-rounds matches daily-piece max-revisions" was previously stated as a docstring claim, now an import.
 - **Type:** threshold
-- **Used by:** Director only.
-- **Duplicated:** no within Director. **Same value as `INTERACTIVE_MAX_ROUNDS = 3` in `agents/src/interactive-generator.ts:38`** — same rule shape, two separate constants.
-- **Notes:** Pass 2 addition.
+- **Used by:** Director (daily-piece loop), InteractiveGenerator (quiz + HTML loops).
+- **Duplicated:** RESOLVED. Single shared constant; two named local aliases preserve readability.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: Quality flag — `low` taxonomy
 
 - **What it says:** `qualityFlag` is either `null` or the literal string `'low'`. `'low'` means "shipped on max-fail of the audit loop". Frontmatter splice + D1 column + render-time tier fallback all agree.
-- **Where defined:** type union in `src/lib/audit-tier.ts:24` (`qualityFlag?: 'low' | null` — the `auditTier` function param); set in `agents/src/director.ts:395` (`const qualityFlag: 'low' | null = passed ? null : 'low'`); spliced into MDX frontmatter at `:483`; persisted to D1 at `:514`.
+- **Where defined:** **RESOLVED 2026-05-06 (rule body)** — canonical English statement of the taxonomy + its trigger condition + the publish-anyway philosophy lives at `content/audit-contract.md`. TS type union sites (`audit-tier.ts:24`, `interactive-generator.ts:108/:162`, `observer.ts:481/:511`, `LessonLayout.astro:31/:67`, `content.config.ts:55/:129`) and setter sites (`director.ts:395`, `interactive-generator.ts:724/:1105`) and persist sites (`director.ts:483/:514`, `interactive-generator.ts:741/:780/:1135/:1173`) all left intentionally unchanged — the `'low'` literal at those sites IS the rule application, not duplication of the rule body. Cross-worker self-mirror, same shape as the slug normalisation pattern.
 - **Type:** format (taxonomy)
-- **Used by:** Director (writer), audit-tier (reader fallback).
-- **Duplicated:** the `'low'` literal appears in code constants and frontmatter splices but consistently. Single-source taxonomy.
-- **Notes:** Pass 2 addition. Documented in CLAUDE.md "Quality surfacing".
+- **Used by:** Director (writer), InteractiveGenerator (writer, both quiz + HTML paths), audit-tier (reader fallback), Observer (event types), Astro Zod schemas (write-side enforcement).
+- **Duplicated:** RESOLVED (rule body). Type union sites self-mirror by sharing the `'low' | null` literal — no shared package across two worker bundles plus two Zod schemas.
+- **Notes:** Pass 2 addition. RESOLVED. Documented in CLAUDE.md "Quality surfacing".
 
 ---
 
@@ -531,14 +531,14 @@ Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates
 6. **Close format (1–4 sentences)** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. Voice-auditor's `-15` deduction is the auditor's own scoring (separate from the beat rule).
 7. **No JSX tags / kebab-case headings** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`.
 8. **MDX frontmatter required fields** — **RESOLVED 2026-05-04** — extracted to `content/beat-contract.md`. `structure-editor-prompt.ts:26` keeps the comma-separated field list inline as an audit-context paraphrase (intentional Tier-2 split per Q6.b).
-9. **Voice score ≥85 pass threshold** — `voice-auditor-prompt.ts` + `voice-auditor.ts` + `audit-tier.ts` (literal `85` in 3 sites) + `interactive-auditor-prompt.ts` (named constant). Agree.
+9. **Voice score ≥85 pass threshold** — **RESOLVED 2026-05-06 (Foundation Fix Task 02 — audit-thresholds cluster extraction).** Canonical at `content/audit-contract.md`; `VOICE_PASS_THRESHOLD = 85` in `agents/src/shared/audit-thresholds.ts` + `src/lib/audit-thresholds.ts` (cross-worker mirror). All four prior sites import.
 10. **Essence-not-reference (six prohibitions)** — **RESOLVED 2026-05-05 (Foundation Fix Task 02 — interactive cluster extraction).** Canonical at `content/interactive-contract.md`; `INTERACTIVE_CONTRACT` injected at the four interactive prompt sites. Auditor prompts retain audit-context paraphrases of the six rules; quiz path retains a 7th quiz-specific anti-pattern inline. INTERACTIVES.md spec doc carries an intentional spec-doc mirror with a contract pointer.
 11. **Plain-English split for quizzes / 14-year-old test** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md`. `verify-interactive-voice.mjs` JS heuristic now hand-syncs with the contract (header pointer updated). Book chapter 09 + INTERACTIVES.md retain narrative / spec-doc mirrors with contract pointers.
 12. **Manipulation embodies the mechanism** — **RESOLVED 2026-05-05** — extracted to `content/interactive-contract.md` (eighth HTML interactive shape rule). HTML auditor retains audit-context paraphrase. INTERACTIVES.md spec mirror updated.
 13. **Cutoff-confession phrase blacklist** — `fact-checker-prompt.ts` (rule) + `made-drawer.ts` (defense filter) (2 surfaces, different roles). Agree.
 14. **Categoriser fallback slug** — `agents/src/categoriser-prompt.ts` (named const) + `src/lib/categories.ts` (named const, separate worker) + literal SQL in `director.ts` and `made.ts` + migration data (5 surfaces). Agree. Cross-worker drift risk.
 15. **`ALLOWED_INTERVAL_HOURS`** — `agents/src/shared/admin-settings.ts` + `src/lib/cadence.ts` (2 surfaces, separate worker packages). Agree. Cross-worker drift risk.
-16. **Max revision rounds (3)** — `director.ts` `MAX_REVISIONS` + `interactive-generator.ts` `INTERACTIVE_MAX_ROUNDS` (2 separate constants, same value, same rule shape applied to different artefacts).
+16. **Max revision rounds (3)** — **RESOLVED 2026-05-06.** `MAX_AUDIT_ROUNDS = 3` in `agents/src/shared/audit-thresholds.ts`; both director.ts and interactive-generator.ts import (with local aliases `MAX_REVISIONS` / `INTERACTIVE_MAX_ROUNDS` preserving in-file readability).
 17. **Slug normalisation** — `categoriser.ts` + `interactive-generator.ts` (2 separate function implementations).
 18. **Learning shape** — 3 surfaces within `learner-prompt.ts` (post-publish, Zita, analyse), each restating the same `{ category, observation }` shape and the same hedging ban.
 
@@ -551,13 +551,13 @@ Rules that already live in exactly one place and one format.
 In `.md` (good — already the centralisation target shape):
 - The voice-contract body itself (canonical at `content/voice-contract.md`).
 - The beat contract body (canonical at `content/beat-contract.md`, extracted 2026-05-04 — owns word count, beat target, hook/teaching/practice/close formats, no-JSX rule, frontmatter required fields, SEO meta-description).
+- The interactive contract body (canonical at `content/interactive-contract.md`, extracted 2026-05-05 — owns essence-not-reference, six prohibitions, Plain English split + jargon translations, quiz shape, HTML interactive shape, validator constraints, title/concept/slug rules).
+- The audit contract body (canonical at `content/audit-contract.md`, extracted 2026-05-06 — owns the three gates, the 85/70 thresholds, the 3-round revision bound, the publish-anyway-on-max-fail rule, the `qualityFlag` taxonomy, and the reader-facing tier mapping).
 
 In code constants (will need extraction in Task 02):
 - Voice Auditor scoring deductions (`voice-auditor-prompt.ts`)
-- Audit-tier thresholds 85/70 (`src/lib/audit-tier.ts`)
 - Quiz min/max questions (`interactive-generator-prompt.ts` constants — properly injected)
-- Interactive auditor 4-dimension thresholds 85/75 (`interactive-auditor-prompt.ts` constants — properly injected)
-- Interactive max rounds 3 (`interactive-generator.ts`)
+- Interactive auditor HTML 75 thresholds (`interactive-auditor-prompt.ts` constants — properly injected; voice 85 now imports from audit-thresholds)
 - Categoriser max assignments / reuse floors / stretch / fallback slug (`categoriser-prompt.ts` constants)
 - Curator's 5 numbered selection criteria (`curator-prompt.ts`)
 - Curator's 10-domain breadth taxonomy (`curator-prompt.ts`)
@@ -573,7 +573,7 @@ In code constants (will need extraction in Task 02):
 - Audio per-call beats budget 2 (`audio-producer.ts`)
 - Scanner per-feed cap 6 (`scanner.ts`)
 - Scanner global cap 80 (`scanner.ts`)
-- Daily piece max revisions 3 (`director.ts`) — value-shared with the interactive constant above
+- (extracted 2026-05-06: daily-piece max-revisions and interactive max-rounds both import `MAX_AUDIT_ROUNDS` from `agents/src/shared/audit-thresholds.ts`)
 - HTML interactive validator 8 rule IDs (`interactive-validator.ts`)
 - Quality flag taxonomy (`audit-tier.ts` type union + `director.ts` setter)
 - Publisher repo / branch constants (`publisher.ts`)
@@ -611,7 +611,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 - [x] **interactive-html-reference** — canonical `docs/examples/interactive-reference.html`; codegenned alongside the voice contract in the same module (2026-05-03).
 - [x] **beats** — canonical `content/beat-contract.md`; codegenned alongside voice + html reference (2026-05-04, Foundation Fix Task 02 second extraction session, branch `foundation-fix-02-extraction-beats`). Read by Drafter, Structure Editor, Integrator. Voice-contract section 3 ("Lesson structure rules") removed in the same commit — beat-contract.md is now the single source.
 - [x] **interactive (quiz + HTML)** — canonical `content/interactive-contract.md`; codegenned alongside voice + beats + html reference (2026-05-05, Foundation Fix Task 02 third extraction session, branch `foundation-fix-02-extraction-quiz`). Read by InteractiveGenerator (both quiz and HTML paths) and InteractiveAuditor (both paths). Carries: essence-not-reference rule, six hard prohibitions, Plain English split rule + 13-word jargon translation list + 14-year-old test + hedge-phrase ban, quiz shape (3–5 questions etc), eight HTML interactive shape rules including manipulation-embodies-the-mechanism, validator constraints in plain English, title / concept / slug rules. Quiz path retains one inline path-specific anti-pattern ("'Which of the following best describes what happened in…'" — quizzes have stems, HTML doesn't). Auditor prompts retain audit-context paraphrases of the six prohibitions and the plain-English flag list (Tier-2 audit-context per beats Q6). `verify-interactive-voice.mjs` continues to mirror the jargon flag list and hedge regexes by hand (header comment updated to name the contract as canonical source).
-- [ ] audit-thresholds — daily piece max revisions + quality flag + audit-tier 85/70 cluster.
+- [x] **audit-thresholds** — canonical `content/audit-contract.md`; codegenned alongside voice + beats + interactive + html reference (2026-05-06, Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Carries: the three gates, the voice-pass threshold (85), the audit-tier mapping (polished ≥85, solid 70–84, rough <70), the 3-round revision bound (applied identically to daily-piece and interactive loops), the publish-anyway-on-max-fail rule, and the closed `qualityFlag` taxonomy. Runtime values via named TS constants in `agents/src/shared/audit-thresholds.ts` (agents) and `src/lib/audit-thresholds.ts` (site-side mirror, same shape as cadence.ts ↔ admin-settings.ts). No prompt currently injects `${AUDIT_CONTRACT}` at runtime — the contract is canonical narrative for human readers; values flow through the named constants. The `INTERACTIVE_VOICE_MIN_SCORE` constant in interactive-auditor-prompt.ts is preserved as a re-export alias of `VOICE_PASS_THRESHOLD` for in-file readability. `qualityFlag: 'low' | null` TS type-union sites stay code-side as a documented self-mirror (no shared package across two worker bundles + two Astro Zod schemas).
 - [ ] fact-check — Verdict taxonomy + search-first + cutoff-confession blacklist + max_uses=8.
 - [ ] curator — 5-criteria selection + 10-domain breadth + recent-category soft skip + SAME-EVENT/CONCEPT hard skips + skip-output shape.
 - [ ] audio — ElevenLabs voice/model/format + 20k char cap + retries + per-call beats budget.
@@ -620,4 +620,4 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 Tier 3 disposition (already injected, no extraction needed):
 - `QUIZ_MIN/MAX_QUESTIONS` (interactive-generator-prompt.ts) — RESOLVED via `${...}` template literals.
 - `CATEGORISER_REUSE_CONFIDENCE_FLOOR` / `STRETCH` (categoriser-prompt.ts) — RESOLVED via `${...}`.
-- `INTERACTIVE_*_MIN_SCORE` (interactive-auditor-prompt.ts) — RESOLVED via `${...}`.
+- `INTERACTIVE_HTML_*_MIN_SCORE` (interactive-auditor-prompt.ts, the 75 constants) — RESOLVED via `${...}`. The voice 85 constant `INTERACTIVE_VOICE_MIN_SCORE` was extracted into `agents/src/shared/audit-thresholds.ts` on 2026-05-06 as part of the audit-thresholds cluster (kept as a re-export alias).

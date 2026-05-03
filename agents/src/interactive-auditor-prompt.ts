@@ -16,11 +16,14 @@
  */
 
 import { VOICE_CONTRACT, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 
-/** Threshold below which the voice dimension fails. Mirrors
- *  VoiceAuditor's 85/100 gate on daily pieces. Used by both quiz
- *  and HTML auditor paths. */
-export const INTERACTIVE_VOICE_MIN_SCORE = 85;
+/** Threshold below which the voice dimension fails. Aliased from
+ *  `VOICE_PASS_THRESHOLD` — the audit contract names the same 85/100
+ *  bar for both daily pieces and interactive artefacts. The local
+ *  alias documents the value-share at the import point and reads
+ *  cleanly in the per-dimension scoring lines below. */
+export const INTERACTIVE_VOICE_MIN_SCORE = VOICE_PASS_THRESHOLD;
 
 /** HTML interactive structure dimension threshold. Lower than voice
  *  because structure/essence/factual on HTML are scored (not binary

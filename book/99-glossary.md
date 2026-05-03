@@ -10,6 +10,8 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Astro.** The framework Zeemish uses to build the website. Takes MDX files and turns them into HTML pages. Supports "static site generation" (building the pages once, serving the built files) and "server-side rendering" (building pages on demand).
 
+**Audit contract.** The versioned document that defines how Zeemish *judges* its own work: the three audit gates (voice scored 0–100 passing at 85, structure binary, facts binary), the three-round revision bound, the rule that ships a piece anyway with a Rough tier when those rounds max-fail, the closed `qualityFlag` taxonomy, and the reader-facing tier mapping (Polished / Solid / Rough). Lives at `content/audit-contract.md`. Extracted 2026-05-06; the same value applies to the daily-piece auditor loop and the post-publish interactive loop, so a single shared constant carries it. The voice, beat, and interactive contracts are its companions: voice governs how Zeemish *sounds*, beat governs how *daily pieces* are shaped, interactive governs how the post-publish artefacts are shaped, and audit governs how all of it is *judged*.
+
 **Auditor.** An agent whose job is to judge quality. Voice Auditor, Fact Checker, and Structure Editor are Zeemish's three auditors. See chapter 11.
 
 **Beat.** One section of a Zeemish piece. Typically a piece has 4–6 beats: Hook, Teaching (2–3 beats), Watch, Close. Each beat is its own MDX `##` heading and gets its own audio clip.
@@ -22,7 +24,7 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Cloudflare.** The company that runs Zeemish's code. A global network of data centres that runs small programs (Workers) close to users. See chapter 3.
 
-**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference, the beat contract markdown, the interactive contract markdown) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. New contracts are added by appending to its SOURCES list; the beat contract joined on 2026-05-04 and the interactive contract on 2026-05-05 as the second and third extracted clusters. See chapter 6.
+**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference, the beat contract markdown, the interactive contract markdown, the audit contract markdown) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. New contracts are added by appending to its SOURCES list; the beat contract joined on 2026-05-04, the interactive contract on 2026-05-05, and the audit contract on 2026-05-06 as the second, third, and fourth extracted clusters. See chapter 6.
 
 **Commit.** A saved snapshot of a change in Git, with a message explaining what changed.
 
@@ -80,7 +82,7 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **SQLite.** A small, fast, widely-used database engine. Powers D1 under the hood.
 
-**Tier.** The label Zeemish attaches to each published piece based on its final voice score. `Polished` (≥85), `Solid` (70–84), `Rough` (<70).
+**Tier.** The label Zeemish attaches to each published piece based on its final voice score. `Polished` (≥85), `Solid` (70–84), `Rough` (<70). Threshold values and the publish-anyway-on-Rough rule live in the audit contract since 2026-05-06 — see `content/audit-contract.md`.
 
 **Voice contract.** The versioned document in the Zeemish repo that defines how the publication writes. Plain English, no tribe words, short sentences, hospitality principle. Lives at `content/voice-contract.md`. Loaded into the Drafter's prompt every time.
 

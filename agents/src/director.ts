@@ -14,13 +14,12 @@ import { LearnerAgent } from './learner';
 import { CategoriserAgent } from './categoriser';
 import { InteractiveGeneratorAgent } from './interactive-generator';
 import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
+import { MAX_AUDIT_ROUNDS as MAX_REVISIONS } from './shared/audit-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
 import type { StructureAuditResult } from './structure-editor';
 import type { FactCheckResult } from './fact-checker';
-
-const MAX_REVISIONS = 3;
 
 /**
  * DirectorAgent — pure orchestrator.

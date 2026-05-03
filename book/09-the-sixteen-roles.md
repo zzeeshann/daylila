@@ -60,6 +60,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Why a separate agent?** Because the thing writing the piece is not the best thing to judge the piece. Separation of concerns. A different Claude call, with a different prompt focused only on voice, produces more reliable quality control than asking the same call to self-check.
 
+**Where the 85 lives.** Since 2026-05-06, the threshold itself sits in the audit contract (`content/audit-contract.md`) — the same place that explains why 85, why three rounds, and why a piece that fails three rounds still ships with a Rough tier label instead of disappearing. The auditor reads the number from a single shared constant; both the Voice Auditor's pass gate and the reader-facing tier display use the same value, so a future tweak to the bar moves both surfaces in one commit.
+
 ## 6. Fact Checker
 
 **Job:** Check that the claims in the piece are correct.
@@ -90,7 +92,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Claude call?** Yes. Depending on how bad the draft was, one to three calls.
 
-**Why three rounds:** arbitrary but practical. Most fixable pieces fix in one or two rounds. Anything needing more than three rounds probably has a deeper problem that a human should see.
+**Why three rounds:** arbitrary but practical. Most fixable pieces fix in one or two rounds. Anything needing more than three rounds probably has a deeper problem that a human should see. Since 2026-05-06 this rule lives in the audit contract (`content/audit-contract.md`); the daily-piece loop and the post-publish interactive loop share one constant so the "matches the daily-piece pattern" claim from the interactive code's docstring is now an import, not a comment.
 
 ## 9. Publisher
 
