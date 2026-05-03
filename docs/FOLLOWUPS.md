@@ -167,6 +167,8 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 
 **Priority:** medium. Not blocking; ongoing fragility cost. Drift surface grows monotonically with system size. The next doctrine evolution (whatever shape it takes) will pay this cost in operator time and rollback risk if not addressed first.
 
+**2026-05-03:** Rule inventory completed in `docs/RULE-INVENTORY.md` — Task 01 of foundation-fix programme. Successor map; this entry stays open until Task 02 extracts the rules into contract files.
+
 ---
 
 ## [observing] 2026-04-30: FactChecker rewrite — verify next 5–10 cron pieces actually search

@@ -94,6 +94,16 @@ By keeping each agent's job small and focused, Zeemish stays changeable. Six mon
 
 The 16-agent framing is true at the level of "this is how the code is organised." It is not true at the level of "these are independent collaborating minds." Don't confuse the organising principle with an autonomy claim.
 
+## Where the rules live
+
+Each agent needs rules. Drafter needs rules about what voice to write in. Curator needs rules about what makes a story teachable. The Voice Auditor needs the same rules Drafter used, so it can check the work against them.
+
+A rule that lives in two places drifts. Change it in one file, forget the other, and the auditor stops agreeing with the writer. Coordinating one rule change across four files in a single afternoon is not a hypothetical here — it has happened.
+
+The fix is one file per rule. The voice contract is the first one — `content/voice-contract.md`, plain markdown that any agent can read at runtime. Anything that needs to know how Zeemish sounds reads from that one file.
+
+Most other rules — what counts as a teachable story, how long a piece should be, how a quiz should be shaped — still live inside the prompts that use them. Some are copy-pasted across two or three prompts. Those are being moved out, one rule at a time, into their own markdown files. Same shape as the voice contract: one file, every agent reads from there.
+
 ## The question to ask about any agent system
 
 When someone shows you a system with agents, ask: *what does each agent decide, and what's the consequence if it decides wrong?*
