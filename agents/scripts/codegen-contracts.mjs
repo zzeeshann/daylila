@@ -72,6 +72,11 @@ const SOURCES = [
     path: '../../content/curator-contract.md',
     label: 'content/curator-contract.md',
   },
+  {
+    name: 'AUDIO_CONTRACT',
+    path: '../../content/audio-contract.md',
+    label: 'content/audio-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

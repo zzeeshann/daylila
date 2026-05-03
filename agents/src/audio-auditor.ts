@@ -1,5 +1,6 @@
 import { Agent } from 'agents';
 import type { Env } from './types';
+import { AUDIO_CHAR_CAP } from './shared/audio-thresholds';
 
 export interface AudioAuditBrief {
   pieceId: string;
@@ -36,8 +37,8 @@ interface AudioRow {
   generated_at: number;
 }
 
-// Defense in depth — Producer already aborts over-budget runs.
-const CHAR_CAP = 20_000;
+// Defense in depth — Producer already aborts over-budget runs via the
+// same AUDIO_CHAR_CAP from content/audio-contract.md.
 // 96 kbps MP3 ≈ 12,000 bytes/sec. Narration at ~150 wpm, ~5 chars/word
 // → ~12.5 chars/sec. Expected ≈ 12,000 / 12.5 ≈ 960 bytes per character.
 const EXPECTED_BYTES_PER_CHAR = 960;
@@ -142,10 +143,10 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
       }
     }
 
-    if (totalCharacters > CHAR_CAP) {
+    if (totalCharacters > AUDIO_CHAR_CAP) {
       issues.push({
         beatName: null,
-        issue: `Total characters ${totalCharacters} exceeds cap ${CHAR_CAP}`,
+        issue: `Total characters ${totalCharacters} exceeds cap ${AUDIO_CHAR_CAP}`,
         severity: 'major',
       });
     }

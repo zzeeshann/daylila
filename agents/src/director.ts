@@ -16,6 +16,7 @@ import { InteractiveGeneratorAgent } from './interactive-generator';
 import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
 import { MAX_AUDIT_ROUNDS as MAX_REVISIONS } from './shared/audit-thresholds';
 import { CURATOR_RECENT_WINDOW_DAYS } from './shared/curator-thresholds';
+import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
@@ -1293,7 +1294,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // the ceiling, and persists rows incrementally. The loop ends when
     // D1's row count reaches `totalBeats`. See DECISIONS 2026-04-19
     // "Audio RPC wall-clock budget" for why chunking over alarms.
-    const MAX_BEATS_PER_CHUNK = 2;
+    // MAX_BEATS_PER_CHUNK = AUDIO_BEATS_PER_CHUNK from
+    // content/audio-contract.md — same value the producer's default
+    // maxBeats uses, so neither side can drift.
     const MAX_CHUNK_ITERATIONS = 10; // safety belt for runaway loops
     this.enterPhase('audio-producer');
     await this.logStep(date, pieceId,'audio-producing', 'running', {});

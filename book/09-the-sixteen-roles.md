@@ -116,6 +116,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Why beat by beat:** A single long audio file is clumsier than per-beat clips. Per-beat audio can be navigated — listeners can skip to a specific beat. Also, per-beat clips let the audio pipeline resume from where it stopped if something breaks. Chapter 13 goes into the technical story.
 
+**Where the rule lives.** Since 2026-05-09, the six audio constants — voice, model, output format, the 20,000-character per-piece cap, the 3-attempt retry count, and the per-call 2-beat budget — sit in a single contract file (`content/audio-contract.md`) alongside the *why* of each. The producer reads the values from a small shared module of named constants. No Claude prompt injects the contract because the producer makes no Claude calls; the contract is canonical narrative for the humans who read the system. Chapter 13 covers the technical story behind the per-call budget — the Cloudflare Durable Object's 30-second wall-clock ceiling that drove the chunked-call shape.
+
 ## 11. Audio Auditor
 
 **Job:** Check that the audio files are real and sized correctly.
@@ -125,6 +127,8 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 **Claude call?** No. Just R2 metadata checks.
 
 **What it doesn't do:** Listen to the audio to verify it sounds right. That would require a speech-to-text pass, which is on the followups list.
+
+**Where the cap lives.** The auditor's 20,000-character defense-in-depth check reads the same single source the producer reads — the `AUDIO_CHAR_CAP` constant in the audio contract's runtime module. Before the 2026-05-09 extraction the auditor carried its own copy of the number; the duplication is closed now, so a future tweak to the budget moves both the producer's gate and the auditor's check in one commit.
 
 ## 12. Learner
 

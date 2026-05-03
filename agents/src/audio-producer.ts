@@ -1,6 +1,14 @@
 import { Agent } from 'agents';
 import type { Env } from './types';
 import { normalizeForTTS } from './shared/tts-normalize';
+import {
+  AUDIO_VOICE_ID,
+  AUDIO_MODEL_ID,
+  AUDIO_OUTPUT_FORMAT,
+  AUDIO_CHAR_CAP,
+  AUDIO_MAX_RETRIES,
+  AUDIO_BEATS_PER_CHUNK,
+} from './shared/audio-thresholds';
 
 /**
  * Audio brief for a daily piece. `pieceId` is the primary identity
@@ -53,27 +61,19 @@ interface AudioProducerState {
   lastResult: AudioResult | null;
 }
 
-// Frederick Surrey — calm, British, narrative. Added to "My Voices" so the
-// ID is stable against shared-library removals.
-const VOICE_ID = 'j9jfwdrw7BRfcR43Qohk';
-const MODEL_ID = 'eleven_multilingual_v2';
-// 96 kbps MP3 — indistinguishable from 128 for a single voice, ~25%
-// smaller R2 footprint + egress.
-const OUTPUT_FORMAT = 'mp3_44100_96';
-// Hard cost tripwire. One piece cannot spend more than 20,000
-// characters of ElevenLabs budget. Sized for a 12-beat newspaper-style
-// piece (~200 words/beat + headroom). Budget for a standard 4–6-beat
-// piece is well under.
-const CHAR_CAP = 20_000;
+// Voice / model / format / cap / retries / beats-per-chunk live in
+// content/audio-contract.md (canonical narrative) and flow through
+// agents/src/shared/audio-thresholds.ts (runtime values). Imported
+// at the top of this file.
 
 /**
- * Thrown when a piece's total character count exceeds CHAR_CAP.
+ * Thrown when a piece's total character count exceeds the budget.
  * Director catches this, skips the audio phase (text is already
  * published), and escalates to Observer. Producer refuses to spend
  * money it wasn't authorised for.
  */
 export class AudioBudgetExceededError extends Error {
-  constructor(public readonly totalChars: number, public readonly cap: number = CHAR_CAP) {
+  constructor(public readonly totalChars: number, public readonly cap: number = AUDIO_CHAR_CAP) {
     super(`Piece needs ${totalChars} chars, budget is ${cap}. Aborting audio.`);
     this.name = 'AudioBudgetExceededError';
   }
@@ -110,7 +110,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
    *
    * Order of operations:
    *   1. Extract beats from MDX, prepare text for TTS (stable per call)
-   *   2. Sum characters — abort with AudioBudgetExceededError if > CHAR_CAP
+   *   2. Sum characters — abort with AudioBudgetExceededError if > AUDIO_CHAR_CAP
    *   3. Load last 3 request_ids from D1 for cross-chunk prosodic continuity
    *   4. Iterate prepared beats — skip any already in R2, process up to
    *      maxBeats new ones. For each: ElevenLabs call → R2 put → D1 upsert.
@@ -119,7 +119,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
   async generateAudioChunk(
     brief: AudioBrief,
     mdx: string,
-    maxBeats: number = 2,
+    maxBeats: number = AUDIO_BEATS_PER_CHUNK,
   ): Promise<ChunkResult> {
     const beats = this.extractBeats(mdx);
 
@@ -128,7 +128,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
       .filter((b) => b.text.trim().length > 0);
 
     const totalCharacters = prepared.reduce((sum, b) => sum + b.text.length, 0);
-    if (totalCharacters > CHAR_CAP) {
+    if (totalCharacters > AUDIO_CHAR_CAP) {
       throw new AudioBudgetExceededError(totalCharacters);
     }
 
@@ -291,10 +291,10 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
     text: string,
     previousRequestIds: string[],
   ): Promise<{ audio: ArrayBuffer; requestId: string | null }> {
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=${OUTPUT_FORMAT}`;
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${AUDIO_VOICE_ID}?output_format=${AUDIO_OUTPUT_FORMAT}`;
     const body = JSON.stringify({
       text,
-      model_id: MODEL_ID,
+      model_id: AUDIO_MODEL_ID,
       voice_settings: {
         stability: 0.6,
         similarity_boost: 0.75,
@@ -306,7 +306,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
     });
 
     let lastError: unknown;
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    for (let attempt = 1; attempt <= AUDIO_MAX_RETRIES; attempt++) {
       try {
         const response = await fetch(url, {
           method: 'POST',
@@ -332,7 +332,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
         return { audio, requestId };
       } catch (err) {
         lastError = err;
-        if (err instanceof ElevenLabsClientError || attempt === 3) throw err;
+        if (err instanceof ElevenLabsClientError || attempt === AUDIO_MAX_RETRIES) throw err;
         // 1s, 2s for the two retry gaps
         await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
       }
@@ -360,8 +360,8 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
         beat.publicUrl,
         beat.characterCount,
         beat.requestId,
-        MODEL_ID,
-        VOICE_ID,
+        AUDIO_MODEL_ID,
+        AUDIO_VOICE_ID,
         Date.now(),
       )
       .run();

@@ -354,38 +354,38 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: ElevenLabs voice + model (Frederick Surrey, eleven_multilingual_v2, mp3_44100_96)
 
 - **What it says:** every audio clip uses voice `j9jfwdrw7BRfcR43Qohk` (Frederick Surrey), model `eleven_multilingual_v2`, output format `mp3_44100_96` (96 kbps).
-- **Where defined:** `agents/src/audio-producer.ts:58` (`VOICE_ID`); `:59` (`MODEL_ID`); `:62` (`OUTPUT_FORMAT`). Persisted into `daily_piece_audio` rows at `:362-363`.
+- **Where defined:** **RESOLVED 2026-05-09** — canonical at `content/audio-contract.md` ("Voice, model, and output format" section, with the My Voices stability rationale + the multilingual model choice + the 96 kbps trade-off rationale). Runtime values via `AUDIO_VOICE_ID`, `AUDIO_MODEL_ID`, `AUDIO_OUTPUT_FORMAT` in `agents/src/shared/audio-thresholds.ts`. Audio Producer imports all three; persisted into `daily_piece_audio.voice_id` and `daily_piece_audio.model` for every produced row.
 - **Type:** magic-number (reserved string)
-- **Used by:** Audio Producer only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition. Voice ID added to "My Voices" so the ID is stable against shared-library removals (per code comment).
+- **Used by:** Audio Producer (writer, via TS-constant import). Site-side `made-drawer.ts:296,303` reads the persisted column values for friendly-label display, NOT a rule mirror — graceful fallback if values change.
+- **Duplicated:** RESOLVED. Single source in `content/audio-contract.md`; one auto-generated mirror in `contracts.ts`; runtime values in `audio-thresholds.ts`. Site-side display lookups are not rule mirrors.
+- **Notes:** Pass 2 addition. Voice ID added to "My Voices" so the ID is stable against shared-library removals (per code comment, now narrated in the contract). RESOLVED.
 
 ### Rule: Audio character cap (20,000 per piece)
 
 - **What it says:** one piece cannot spend more than 20,000 characters of ElevenLabs budget. Sized for a 12-beat piece (~200 words/beat + headroom). Budget for a standard 4–6-beat piece is well under.
-- **Where defined:** `agents/src/audio-producer.ts:67` (`CHAR_CAP = 20_000`).
+- **Where defined:** **RESOLVED 2026-05-09** — canonical at `content/audio-contract.md` ("Character cap — 20,000 per piece" section). Runtime value via `AUDIO_CHAR_CAP = 20_000` in `agents/src/shared/audio-thresholds.ts`. Audio Producer imports for the per-piece budget gate (throws `AudioBudgetExceededError` on overrun); Audio Auditor imports for defense-in-depth verification on persisted rows.
 - **Type:** threshold
-- **Used by:** Audio Producer only; throws `AudioBudgetExceededError` on overrun.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition.
+- **Used by:** Audio Producer + Audio Auditor (defense-in-depth duplicate consumer — closed in this extraction).
+- **Duplicated:** RESOLVED. Was duplicated as `CHAR_CAP = 20_000` in audio-producer.ts:67 and audio-auditor.ts:40; both now import `AUDIO_CHAR_CAP`.
+- **Notes:** Pass 2 addition. RESOLVED.
 
 ### Rule: Audio retry attempts (3)
 
-- **What it says:** each ElevenLabs TTS call retries up to 3 times on transient failures. 4xx responses do not retry; 5xx + network errors do.
-- **Where defined:** `agents/src/audio-producer.ts:309` (loop bound); `:324` (4xx no-retry); `:335` (final-attempt rethrow).
+- **What it says:** each ElevenLabs TTS call retries up to 3 times on transient failures. 4xx responses do not retry; 5xx + network errors do. 90-second per-attempt `AbortSignal.timeout`. 1s/2s exponential backoff between attempts.
+- **Where defined:** **RESOLVED 2026-05-09** — canonical at `content/audio-contract.md` ("Retry policy — 3 attempts" section). Runtime value via `AUDIO_MAX_RETRIES = 3` in `agents/src/shared/audio-thresholds.ts`; Audio Producer imports at the loop bound + final-attempt rethrow. The 90-second timeout (single use-site at audio-producer.ts:319) stays inline alongside the fetch call — narrated in contract, not extracted as a constant.
 - **Type:** threshold
 - **Used by:** Audio Producer only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition. Retry policy is implementation, but the 3-attempt count itself is rule-shaped.
+- **Duplicated:** no — single-source code constant.
+- **Notes:** Pass 2 addition. Retry policy is implementation, but the 3-attempt count itself is rule-shaped. RESOLVED.
 
 ### Rule: Per-call beats budget (default 2)
 
-- **What it says:** each Audio Producer alarm cycle generates at most 2 new beats (default `maxBeats=2`). Director calls more rounds if needed; this bounds the per-invocation runtime to fit Cloudflare Worker CPU budgets.
-- **Where defined:** `agents/src/audio-producer.ts:122` (`maxBeats: number = 2`).
+- **What it says:** each Audio Producer alarm cycle generates at most 2 new beats (default `maxBeats=2`). Director calls more rounds if needed; this bounds the per-invocation runtime to fit Cloudflare Worker CPU budgets (DO RPC ~30s wall-clock ceiling).
+- **Where defined:** **RESOLVED 2026-05-09** — canonical at `content/audio-contract.md` ("Per-call beats budget — default 2" section). Runtime value via `AUDIO_BEATS_PER_CHUNK = 2` in `agents/src/shared/audio-thresholds.ts`. Audio Producer imports as the default `maxBeats` parameter; Director imports (aliased as `MAX_BEATS_PER_CHUNK` for in-file readability) as the call-site safety belt.
 - **Type:** threshold
-- **Used by:** Audio Producer only.
-- **Duplicated:** no.
-- **Notes:** Pass 2 addition. Implementation-shaped but rule-encoding (controls how the producer paces work).
+- **Used by:** Audio Producer + Director (call-site safety belt — closed in this extraction).
+- **Duplicated:** RESOLVED. Was duplicated as the producer's `maxBeats: number = 2` default at audio-producer.ts:122 and Director's `MAX_BEATS_PER_CHUNK = 2` at director.ts:1296; both now import `AUDIO_BEATS_PER_CHUNK`.
+- **Notes:** Pass 2 addition. Implementation-shaped but rule-encoding (controls how the producer paces work). Same shape as `MAX_AUDIT_ROUNDS` extraction in audit-thresholds Q3. RESOLVED.
 
 ---
 
@@ -563,10 +563,7 @@ In code constants (will need extraction in Task 02):
 - Categoriser max assignments / reuse floors / stretch / fallback slug (`categoriser-prompt.ts` constants)
 - (extracted 2026-05-07: Fact Checker verdict taxonomy, search-first rule, cutoff-confession ban, and `WEB_SEARCH_MAX_USES = 8` all live in `content/fact-check-contract.md` + `agents/src/shared/fact-check-thresholds.ts` + `src/lib/fact-check-thresholds.ts` mirror)
 - (extracted 2026-05-08: Curator's 5 selection criteria, 10-domain breadth taxonomy, recent-category soft skip, SAME-EVENT / SAME-CONCEPT hard skips, and skip output shape all live in `content/curator-contract.md`; the 30-day window via `CURATOR_RECENT_WINDOW_DAYS` in `agents/src/shared/curator-thresholds.ts` — agents-only, no site-side mirror)
-- Audio Producer voice / model / format constants (`audio-producer.ts`)
-- Audio character cap 20,000 (`audio-producer.ts`)
-- Audio retry attempts 3 (`audio-producer.ts`)
-- Audio per-call beats budget 2 (`audio-producer.ts`)
+- (extracted 2026-05-09: Audio Producer voice / model / format constants, character cap 20,000, retry attempts 3, and per-call beats budget 2 all live in `content/audio-contract.md`; runtime values via `AUDIO_VOICE_ID` / `AUDIO_MODEL_ID` / `AUDIO_OUTPUT_FORMAT` / `AUDIO_CHAR_CAP` / `AUDIO_MAX_RETRIES` / `AUDIO_BEATS_PER_CHUNK` in `agents/src/shared/audio-thresholds.ts` — agents-only, no site-side mirror; Audio Auditor's CHAR_CAP defense-in-depth duplicate and Director's call-site MAX_BEATS_PER_CHUNK both unified into the shared constants)
 - Scanner per-feed cap 6 (`scanner.ts`)
 - Scanner global cap 80 (`scanner.ts`)
 - (extracted 2026-05-06: daily-piece max-revisions and interactive max-rounds both import `MAX_AUDIT_ROUNDS` from `agents/src/shared/audit-thresholds.ts`)
@@ -610,7 +607,7 @@ Tracks Foundation Fix Task 02. One cluster per session. Update after each sessio
 - [x] **audit-thresholds** — canonical `content/audit-contract.md`; codegenned alongside voice + beats + interactive + html reference (2026-05-06, Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Carries: the three gates, the voice-pass threshold (85), the audit-tier mapping (polished ≥85, solid 70–84, rough <70), the 3-round revision bound (applied identically to daily-piece and interactive loops), the publish-anyway-on-max-fail rule, and the closed `qualityFlag` taxonomy. Runtime values via named TS constants in `agents/src/shared/audit-thresholds.ts` (agents) and `src/lib/audit-thresholds.ts` (site-side mirror, same shape as cadence.ts ↔ admin-settings.ts). No prompt currently injects `${AUDIT_CONTRACT}` at runtime — the contract is canonical narrative for human readers; values flow through the named constants. The `INTERACTIVE_VOICE_MIN_SCORE` constant in interactive-auditor-prompt.ts is preserved as a re-export alias of `VOICE_PASS_THRESHOLD` for in-file readability. `qualityFlag: 'low' | null` TS type-union sites stay code-side as a documented self-mirror (no shared package across two worker bundles + two Astro Zod schemas).
 - [x] **fact-check** — canonical `content/fact-check-contract.md`; codegenned alongside voice + beats + interactive + audit + html reference (2026-05-07, Foundation Fix Task 02 fifth extraction session, branch `foundation-fix-02-extraction-fact-check`). Read by FactCheckerAgent via `${FACT_CHECK_CONTRACT}` injection. Carries: the verdict taxonomy (closed three-value set + asymmetry rule + pass condition), the search-first rule for current-event claims (with the architectural-commitment rationale), the cutoff-confession ban (with both the longer illustrative phrasings the prompt teaches Claude AND the canonical 5-substring filter list as data + the `'training data'` dropped rationale + the canonical replacement string), and the `max_uses = 8` web-search budget (with the FOLLOWUPS escalation note). Runtime values via named TS constants in `agents/src/shared/fact-check-thresholds.ts` (agents — `WEB_SEARCH_MAX_USES`, `CUTOFF_CONFESSION_PHRASES`) and `src/lib/fact-check-thresholds.ts` (site-side mirror — `CUTOFF_CONFESSION_PHRASES`, `CUTOFF_CONFESSION_REPLACEMENT`). Asymmetric exports because consumers differ on each side: agents calls Anthropic's API (needs the budget); site renders the drawer's defense filter (needs the array + replacement). The `'verified' | 'unverified' | 'incorrect'` TS literal union self-mirrors across six sites (intentional, per audit Q4 precedent on `qualityFlag`); the drawer's `'contested'` legacy alias is documented in the contract as render-side back-compat shim, NOT added to the taxonomy. Integrator's prompt (`integrator-prompt.ts`) does NOT receive `${FACT_CHECK_CONTRACT}` — Integrator does not re-verdict, just revises prose; documented as deliberate non-change. `verify-fact-checker.mjs` continues to mirror `parseResponse` shape by hand (header pointer updated to name the contract canonical).
 - [x] **curator** — canonical `content/curator-contract.md`; codegenned alongside voice + beats + interactive + audit + fact-check + html reference (2026-05-08, Foundation Fix Task 02 sixth extraction session, branch `foundation-fix-02-extraction-curator`). Read by CuratorAgent via `${CURATOR_CONTRACT}` injection. Carries: the five selection criteria (TEACHABILITY / UNIVERSALITY / FRESHNESS / DEPTH POTENTIAL / NO TRIBAL FRAMING), the 10-domain breadth taxonomy + 10 worked pairings (sub-section under TEACHABILITY), the Default: PICK framing, the recent-category concentration soft skip with safety-valve override, the SAME-EVENT / SAME-CONCEPT hard skips with three worked examples, and the skip output shape. The 30-day data window via `CURATOR_RECENT_WINDOW_DAYS = 30` in `agents/src/shared/curator-thresholds.ts` (agents-only — no site-side mirror; the site does not read curator rules). The "3+" soft-skip threshold stays as inline prose in the contract (no programmatic consumer; only Claude reads it). The Zeemish Protocol three-sentence opener stays inline in `curator-prompt.ts` above the contract injection — voice-contract.md is its canonical home; Curator's lift is system-prompt framing per DECISIONS 2026-04-25. Response-format JSON spec + verbatim-UUID rule stay inline in the system prompt below the injection (response-shape, not rule body — same posture as fact-check Q5 / audit Q5 / beats Q6). User-message rule prose collapsed to a Tier-2 audit-context paraphrase under each data block (beats Q6 precedent). No new `verify-curator.mjs` (Curator's behaviour is rule prose Claude reads, not a parser-loop). The hard pre-Curator filter at `agents/src/shared/dedup-headlines.ts` is a separate cluster (Scanner-side, mirrored by `verify-dedup.mjs`).
-- [ ] audio — ElevenLabs voice/model/format + 20k char cap + retries + per-call beats budget.
+- [x] **audio** — canonical `content/audio-contract.md`; codegenned alongside voice + beats + interactive + audit + fact-check + curator + html reference (2026-05-09, Foundation Fix Task 02 seventh extraction session, branch `foundation-fix-02-extraction-audio`). Read by Audio Producer + Audio Auditor + Director via TS-constant imports — no Claude prompt currently injects the contract at runtime (Audio Producer makes zero Claude calls — TTS-only via ElevenLabs HTTP; Audio Auditor makes zero Claude calls — R2 HEAD checks only). Carries: the ElevenLabs voice/model/format triple (Frederick Surrey `j9jfwdrw7BRfcR43Qohk`, `eleven_multilingual_v2`, `mp3_44100_96`) with My Voices stability + multilingual + 96kbps trade-off rationales, the 20,000-character per-piece cap with sizing rationale (12-beat × 200 words/beat + headroom), the 3-attempt retry policy with shape (4xx no-retry / 5xx + network do retry, 90s per-attempt timeout, 1s/2s backoff), and the per-call 2-beat budget with DO RPC 30s ceiling rationale. Runtime values via six `AUDIO_`-prefixed exports in `agents/src/shared/audio-thresholds.ts` (agents-only — no site-side mirror; the site does not enforce audio rules). Two duplicate consumers closed in this extraction: `CHAR_CAP = 20_000` (producer + auditor defense-in-depth) → both import `AUDIO_CHAR_CAP`; `MAX_BEATS_PER_CHUNK = 2` (producer default param + Director call-site safety belt) → both import `AUDIO_BEATS_PER_CHUNK` (Director keeps the local name as `as`-aliased import for in-file readability — same shape as `MAX_REVISIONS = MAX_AUDIT_ROUNDS` from audit-thresholds Q3). The 90-second `AbortSignal.timeout` and the 5-key `voice_settings` object stay inline (single-call surfaces, narrated in contract). No new `verify-audio.mjs` (Producer is HTTP/R2/D1 implementation). Site-side `made-drawer.ts:296,303` literals are display-label lookups against persisted DB columns, not rule mirrors (graceful fallback if values change).
 - [ ] categoriser — max-assignments + reuse / stretch floors + fallback slug.
 
 Tier 3 disposition (already injected, no extraction needed):
