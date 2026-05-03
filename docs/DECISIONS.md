@@ -2,6 +2,22 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-03 (night): Diagnostic patch — preserve InteractiveGenerator parse-fail head text
+
+After the codegen Phase A deploy, the 2026-05-03 paleontology piece's quiz parse-failed all 3 rounds. Investigation revealed the catch at `interactive-generator.ts:606` was swallowing the inner `parseAndValidate: ... (len=N, head="...")` per-round errors; only the outer "across all 3 rounds" wrapper survived to operators. No way to tell what Claude actually returned. Diagnostic patch (commit `80bb7b6`):
+
+- `runQuizLoop` and `runHtmlLoop` now capture the inner error message into `parseFailures[].head` and concatenate the heads into the all-rounds-failed throw as `... R1: <inner> || R2: <inner> || R3: <inner>`.
+- `QuizArtefactResult.parseFailures` and `HtmlArtefactResult.parseFailures` shape extended with optional `head?: string`.
+- Per-piece admin (`/dashboard/admin/piece/[date]/[slug]/`) gained a `parseFailureReason` helper that splits the augmented reason into summary + per-round entries; "Last failure" now renders each round on its own line with the head text in a code span.
+
+Pure observability. Zero pipeline behaviour change. Older observer events without the per-round suffix render exactly as before.
+
+The patch revealed the actual cause of the parse failures: Claude is dropping the quotes around long sentence-shaped `concept` values. Same wobble hit two pieces in 90 minutes (crocodile all 3 rounds, antibody R1 only — antibody recovered via Layer 1 retry). Pre-existing Claude-side weakness, not caused by the codegen content shift; both pieces ran post-deploy and one recovered through the existing 2026-04-30 hardening. Documented in `docs/FOLLOWUPS.md` `[observing] 2026-05-03: InteractiveGenerator — Claude drops quotes around long concept values` with three forward-fix options ranked (structured-output JSON mode, tighter Layer 2 prefill, JSON-repair preprocessor). **Deferred until after Foundation Fix completes** — wobble is mitigated, not blocking, doesn't affect daily piece publication.
+
+Branch shape: small fix on its own branch (`fix-interactive-parse-fail-heads`), merged to main and rebased over three pipeline auto-commits (the daily piece + html interactive + audio for 2026-05-03 that landed while the patch was being written).
+
+---
+
 ## 2026-05-03: Codegen for agent-prompt contracts (Foundation Fix Task 02 Phase A)
 
 Foundation Fix Task 02's first session shipped the build-time codegen plumbing that lets canonical `.md` / `.html` files be the single runtime source of truth for agent prompts. Phase A only — voice contract + html reference. Subsequent sessions extract one cluster at a time.

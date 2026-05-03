@@ -34,6 +34,40 @@ Format per entry:
 - **Investigation hints:** Grep `src/pages/library/` for "subjects" string render. Check if the count is computed inline or pulled from `src/lib/categories.ts:getCategories()`. The fix is one or two line changes in the .astro template.
 - **Priority:** low (cosmetic / honesty hygiene, not a system bug). Defer until the post-Curator-fix verification window completes — the "subjects" count will mean different things if the breadth intervention bites.
 
+## [observing] 2026-05-03: InteractiveGenerator — Claude drops quotes around long `concept` values
+
+**Surfaced:** 2026-05-03 night, after the Foundation Fix Task 02 Phase A codegen deploy. The 2026-05-03 paleontology piece's quiz (`Locked in stone for 210 million years…`) parse-failed all 3 rounds. The diagnostic patch shipped same night (commit `80bb7b6`) preserves per-round head text into the surviving error message and renders it in the per-piece admin. The crocodile piece's three head strings showed identical wobble:
+
+```
+R1: "concept": When you can't observe behavior directly, physical form reveals function—because structures that sol…
+R2: "concept": When direct observation is impossible, you can reconstruct what something did by measuring…
+R3: "concept": When you can't observe behavior directly, you infer function from physical form—deeper jaws suggest…
+```
+
+`slug` and `title` are correctly quoted; `concept` is a bare unquoted sentence after the colon. JSON parser fails at the first `W`. The same exact wobble hit the 2026-05-03 antibody piece's HTML round 1 (`"concept": A recognition system under resource constraint…`) — that one recovered on round 2 because Layer 1 retry got Claude into a different state. The crocodile got unlucky and burned all three rounds on the same shape.
+
+**Hypothesis:** Claude occasionally treats a long sentence-shaped string value as if the shape itself implies "this is a name / identifier" and emits it without quotes. The wobble is independent of topic and predates the codegen deploy (the 2026-04-27 + 2026-04-30 quiz/html parse-fails documented elsewhere in this file are likely the same shape, but those happened before the diagnostic patch existed so we can't confirm from heads). Long values that contain em-dashes or compound punctuation may push Claude further off the JSON discipline.
+
+**Why it's not a deploy regression:** the antibody piece (also post-deploy) hit the bug AND recovered via retry. The wobble exists whether the codegen ran or not; the codegen content shift (markdown bold restored + bullet list expanded + html CSS pseudo-element restored) does not interact with this Claude-side quoting behaviour.
+
+**Mitigation already in place:** the 2026-04-30 PM Layer 1 (try/catch counts parse-fail as a consumed round) + Layer 2 (`{ role: 'assistant', content: '{' }` prefill) hardening absorbs ~67% of single-round wobbles via retry budget. The crocodile case is the unlucky 3-in-a-row; antibody R1 is the typical 1-in-3 that recovers cleanly.
+
+**Three forward fixes ranked by durability:**
+
+1. **Anthropic structured-output JSON mode.** `response_format: { type: 'json_schema', schema: ... }` forces the API to return structurally valid JSON conforming to a declared schema. Eliminates the wobble entirely. Requires checking SDK + model support for `claude-sonnet-4-5-20250929`; may interact with the assistant-prefill hardening (which would become unnecessary). Most durable, biggest API change.
+2. **Tighten Layer 2 prefill.** Change `{ role: 'assistant', content: '{' }` to something further into the JSON state machine, e.g. `{\n  "slug": "` so Claude is locked inside a string when it begins generating. Forces continuation as a string; covers the wobble for the slug field's first character. The concept/title fields would still be at risk on subsequent positions, so this only partially closes the gap. Smallest change; cheapest to ship; doesn't fully solve it.
+3. **JSON-repair preprocessor in `parseAndValidate`.** Before throwing, run a small repair that detects `"key": <bare-unquoted-value>,` shapes and inserts the missing quotes. Fragile (brittle regex over JSON-ish text) and adds maintenance surface. Covers more wobble shapes than #2 but less reliably than #1.
+
+**Don't ship the fix during Foundation Fix.** This wobble is observable, mitigated, and not blocking. The system honestly reports the failure and ships pieces with quality_flag='low' or no quiz when retry exhausts. Every cron piece still publishes; users are not impacted. Address after Foundation Fix Phase 2 + 3 land — that's when the system has clean data flowing and an isolated experiment on prompt+API changes can be evaluated cleanly.
+
+**Watch.** Track parse-fail rate over the next 14 days. Healthy mid-band: ≤1 all-3-round failure per 14 cron pieces (=12% across both quiz + html paths). Above that, escalate to fix #1.
+
+**Diagnostic surface:** observer events under `Interactive generation failed` now contain `R1: ... || R2: ... || R3: ...` per-round heads in the reason string, rendered cleanly on the per-piece admin (`/dashboard/admin/piece/[date]/[slug]/`). When investigating, read the heads first — the outer "across all 3 rounds" message is the wrapper, the heads are the data.
+
+**Priority:** medium. Pre-existing wobble, mitigated, doesn't block pipeline. Worth fixing when bandwidth permits and Foundation Fix has cleared.
+
+---
+
 ## [wontfix] 2026-05-01: Don't pre-create empty categories
 
 - **Surfaced:** 2026-05-01 plan briefly considered seeding the `categories` table with the 10 domains from the breadth taxonomy (Inner life / Meaning and belief / etc.) as empty rows so Curator + Categoriser see them. User explicit: *"the fix is in the prompt and the input list, not in pre-creating empty categories."*
