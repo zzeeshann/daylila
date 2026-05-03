@@ -20,6 +20,8 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Cloudflare.** The company that runs Zeemish's code. A global network of data centres that runs small programs (Workers) close to users. See chapter 3.
 
+**Codegen.** A small script that runs before the agents bundle is built. Reads canonical files (the voice contract markdown, the HTML reference) and writes a TypeScript file the bundle imports as a string. Cloudflare Workers cannot read files at runtime, so anything an agent needs to read at runtime has to be embedded at build time. The script — `agents/scripts/codegen-contracts.mjs` — replaced two hand-maintained mirror files that had silently drifted from canonical. See chapter 6.
+
 **Commit.** A saved snapshot of a change in Git, with a message explaining what changed.
 
 **Cron.** A scheduled task that runs at a set time. Zeemish's pipeline runs on an hourly cron gated by `admin_settings.interval_hours` — at the default (24) only the 02:00 UTC slot fires, so in practice it's once a day.

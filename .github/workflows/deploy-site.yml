@@ -3,9 +3,30 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
 
 jobs:
+  check-agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: agents/pnpm-lock.yaml
+
+      - run: cd agents && pnpm install --frozen-lockfile
+      - run: cd agents && pnpm verify-contracts-fresh
+      - run: cd agents && pnpm types
+
   deploy-site:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +50,8 @@ jobs:
           command: deploy
 
   deploy-agents:
+    needs: check-agents
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

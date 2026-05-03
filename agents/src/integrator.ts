@@ -1,7 +1,7 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Env } from './types';
-import { VOICE_CONTRACT } from './shared/voice-contract';
+import { VOICE_CONTRACT } from './shared/generated/contracts';
 import { buildIntegratorSystem } from './integrator-prompt';
 import type { VoiceAuditResult } from './voice-auditor';
 import type { StructureAuditResult } from './structure-editor';

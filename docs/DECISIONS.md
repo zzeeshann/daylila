@@ -2,6 +2,34 @@
 
 Append-only. Never edit old entries.
 
+## 2026-05-03: Codegen for agent-prompt contracts (Foundation Fix Task 02 Phase A)
+
+Foundation Fix Task 02's first session shipped the build-time codegen plumbing that lets canonical `.md` / `.html` files be the single runtime source of truth for agent prompts. Phase A only — voice contract + html reference. Subsequent sessions extract one cluster at a time.
+
+**The change.** New `agents/scripts/codegen-contracts.mjs` reads `content/voice-contract.md` and `docs/examples/interactive-reference.html` and writes `agents/src/shared/generated/contracts.ts` (`VOICE_CONTRACT` and `INTERACTIVE_HTML_REFERENCE` as JSON-stringified string constants). Hooked through `[build] command = "node scripts/codegen-contracts.mjs"` in `agents/wrangler.toml`, so every `wrangler dev` and `wrangler deploy` regenerates automatically (including via `cloudflare/wrangler-action@v3` in CI). The two manual mirrors (`agents/src/shared/voice-contract.ts`, `agents/src/shared/interactive-html-reference.ts`) are deleted; six import sites now read `from './shared/generated/contracts'`.
+
+**Drift gate.** `agents/scripts/verify-contracts-fresh.mjs` re-runs codegen in memory and diffs against the on-disk file. Added as `pnpm verify-contracts-fresh` to `agents/package.json`. New `check-agents` job in `.github/workflows/deploy-site.yml` runs the verifier (and `pnpm types`) on every push and pull request; `deploy-agents` is gated on it via `needs: check-agents`. The workflow's `on:` extended to include `pull_request` so PRs are checked too; `deploy-site` and `deploy-agents` jobs gated on `github.event_name == 'push' && github.ref == 'refs/heads/main'` so PRs don't trigger live deploys.
+
+**Generated file checked in.** Per FOLLOWUPS Risk 2 ("Generated-file diff noise in PRs"). The codebase's audit trail is `git log` + `git diff`; verifier-on-CI is the freshness gate. `wrangler types`'s output (`worker-configuration.d.ts`) is already committed under the same logic.
+
+**Canonical-wins.** The two existing `.ts` mirrors had silently drifted from canonical: `voice-contract.ts` stripped markdown bold (`**Plain English.**` → `Plain English.`) and restructured the editor's-test bullet list into prose; `interactive-html-reference.ts` was missing a `.choke::before` CSS block plus several inline JS comments inside the simulation `<script>`. The codegen now embeds the canonical bytes verbatim. Three observable content shifts in what Claude reads on next deploy:
+
+1. Voice-contract bold markers (`**Plain English.**`, `**Hook:**`, etc.) restored.
+2. Voice-contract editor's test now a 5-item bullet list (`- An ad → cut it`...) instead of a single chained sentence.
+3. HTML reference regains the `.choke::before` CSS pseudo-element rules and 6+ inline `//` comments inside the IIFE.
+
+Risk: Claude voice-scoring on the first cron-generated piece after deploy may shift slightly because the contract text it reads is technically different (richer formatting, fuller rules). Treated as one-time alignment with the canonical the operator actually edits, not a behaviour change. Watch the next 3–5 cron pieces; if voice scores shift materially, revert via `git revert` on the codegen commit (rolls back atomically).
+
+**Why Option A and not B/C.** Per the FOLLOWUPS architectural analysis: Option B (esbuild markdown loader) blocked because Wrangler v4 doesn't expose plugin config; Option C (runtime asset binding) forces an async refactor of every prompt-build site, adds 1–5ms cold-start, and reintroduces a manual `content/` ↔ `agents/public/` sync.
+
+**What's NOT changed.** No values changed. No constants modified. No new clusters extracted (beats / quiz / audit thresholds / fact-check / curator / audio / categoriser are subsequent Task 02 sessions). Phase C (Tier-1 cross-prompt re-quoting) and Phase D (Tier-2 paraphrased rules) per FOLLOWUPS remain deferred.
+
+**Tier-3 disposition.** The three Tier-3 constant rows from the original FOLLOWUPS map (`QUIZ_MIN/MAX_QUESTIONS`, `CATEGORISER_REUSE_*`, `INTERACTIVE_*_MIN_SCORE`) are all now correctly injected via `${...}` per the inventory's RESOLVED notes. No code change needed; FOLLOWUPS' "Phase B" is no longer required.
+
+**Branch:** `foundation-fix-02-extraction` off `58cf90c`. Commit lands on push to main.
+
+---
+
 ## 2026-05-02 (post-rebuild): Site-wide visual consistency rules
 
 After the Account rebuild shipped, three polish passes landed back-to-back. Each codified a rule that had been drifting; recording them here so they don't get re-litigated.

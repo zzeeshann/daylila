@@ -15,11 +15,11 @@ Every cited line number was verified against the working tree at commit `9861805
 ### Rule: Voice contract (full body)
 
 - **What it says:** the canonical Zeemish voice rules — Plain English, no tribe words, short sentences, specific beats general, no flattery, trust the reader; lesson-structure section duplicates beat / hook / close rules at the bottom; ends with the editor's read-aloud test.
-- **Where defined:** `content/voice-contract.md` (canonical, 48 lines) ↔ `agents/src/shared/voice-contract.ts` (49-line TypeScript mirror exporting `VOICE_CONTRACT`). Embedded into prompts at `agents/src/voice-auditor-prompt.ts:13`, `agents/src/interactive-generator-prompt.ts:124` and `:445`, `agents/src/interactive-auditor-prompt.ts:48` and `:229`, plus injected via builder at `agents/src/drafter.ts:91` and `agents/src/integrator.ts:58`.
+- **Where defined:** `content/voice-contract.md` (canonical, 48 lines). At build time, `agents/scripts/codegen-contracts.mjs` writes it as `VOICE_CONTRACT` into `agents/src/shared/generated/contracts.ts`. Embedded into prompts at `agents/src/voice-auditor-prompt.ts:13`, `agents/src/interactive-generator-prompt.ts:124` and `:445`, `agents/src/interactive-auditor-prompt.ts:48` and `:229`, plus injected via builder at `agents/src/drafter.ts:91` and `agents/src/integrator.ts:58`.
 - **Type:** voice
 - **Used by:** Drafter, Voice Auditor, Integrator, Interactive Generator (quiz + html paths), Interactive Auditor (quiz + html paths)
-- **Duplicated:** yes — two storage sites (`.md` canonical + `.ts` mirror) plus 7 in-prompt embed sites across 5 prompt files. Manual sync convention; the `.ts` header self-documents the constraint ("If you update one, update the other"). Cloudflare Workers cannot `readFileSync` markdown at runtime; codegen option recommended in FOLLOWUPS.
-- **Notes:** Tier 1 row 1 of the FOLLOWUPS map. VERIFIED.
+- **Duplicated:** **RESOLVED 2026-05-03 (Foundation Fix Task 02 Phase A — codegen).** The manual `agents/src/shared/voice-contract.ts` mirror is deleted; the canonical `.md` is the single source of truth at build time. Five prompt files still embed the contract verbatim (`${VOICE_CONTRACT}`) — that's correct: the agent needs the rule in-prompt to enforce it, and all five embeds now read the same generated source.
+- **Notes:** Tier 1 row 1 of the FOLLOWUPS map. RESOLVED.
 
 ### Rule: Tribe-word ban list
 
@@ -523,7 +523,7 @@ The `agents/scripts/verify-*.mjs` family encodes rule shapes as JS regression te
 
 Numbered list of every rule appearing in 2+ places. "Agree" means the duplicates carry the same value or shape; "drift risk" means manual sync.
 
-1. **Voice contract (full body)** — 2 storage sites (`.md` + `.ts` mirror) + 7 in-prompt embed sites across 5 prompt files. Agree (manual sync). High drift risk; codegen recommended in FOLLOWUPS.
+1. **Voice contract (full body)** — **RESOLVED 2026-05-03 (Foundation Fix Task 02 Phase A — codegen).** Canonical `content/voice-contract.md` is the single source; `agents/scripts/codegen-contracts.mjs` embeds it into `agents/src/shared/generated/contracts.ts` at build time. The five in-prompt embed sites now all read from one source.
 2. **1000–1500 words** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` + `curator-prompt.ts` (4 surfaces). Agree.
 3. **5–6 beats target / 3–6 acceptable** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
 4. **Hook format** — `voice-contract.md` + `drafter-prompt.ts` + `structure-editor-prompt.ts` (3 surfaces). Agree.
@@ -600,3 +600,24 @@ The clusters above (Voice and tone, Beat structure and piece shape, Quiz / inter
 - Scanner / Publisher / Cadence rules are thinner — Task 02 may keep them as code constants and document them in `docs/AGENTS.md` rather than spinning up a contract file each.
 
 These are suggestions only; Task 02 owns the final shape.
+
+---
+
+## Extraction progress
+
+Tracks Foundation Fix Task 02. One cluster per session. Update after each session lands.
+
+- [x] **voice** — canonical `content/voice-contract.md`; codegenned into `agents/src/shared/generated/contracts.ts` via `agents/scripts/codegen-contracts.mjs` (2026-05-03, Foundation Fix Task 02 Phase A, branch `foundation-fix-02-extraction`).
+- [x] **interactive-html-reference** — canonical `docs/examples/interactive-reference.html`; codegenned alongside the voice contract in the same module (2026-05-03).
+- [ ] beats — Beat structure and piece shape cluster + MDX frontmatter + SEO description.
+- [ ] quiz — Quiz / interactive shape cluster (essence prohibitions, plain-English split, 4-dimension audit, max rounds).
+- [ ] audit-thresholds — daily piece max revisions + quality flag + audit-tier 85/70 cluster.
+- [ ] fact-check — Verdict taxonomy + search-first + cutoff-confession blacklist + max_uses=8.
+- [ ] curator — 5-criteria selection + 10-domain breadth + recent-category soft skip + SAME-EVENT/CONCEPT hard skips + skip-output shape.
+- [ ] audio — ElevenLabs voice/model/format + 20k char cap + retries + per-call beats budget.
+- [ ] categoriser — max-assignments + reuse / stretch floors + fallback slug.
+
+Tier 3 disposition (already injected, no extraction needed):
+- `QUIZ_MIN/MAX_QUESTIONS` (interactive-generator-prompt.ts) — RESOLVED via `${...}` template literals.
+- `CATEGORISER_REUSE_CONFIDENCE_FLOOR` / `STRETCH` (categoriser-prompt.ts) — RESOLVED via `${...}`.
+- `INTERACTIVE_*_MIN_SCORE` (interactive-auditor-prompt.ts) — RESOLVED via `${...}`.

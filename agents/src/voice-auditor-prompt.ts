@@ -5,7 +5,7 @@
  * VoiceAuditorAgent is the only caller.
  */
 
-import { VOICE_CONTRACT } from './shared/voice-contract';
+import { VOICE_CONTRACT } from './shared/generated/contracts';
 
 export function buildVoiceAuditorSystem(): string {
   return `You are a voice auditor for Zeemish, a learning site. Your ONLY job is to check if a draft follows the voice contract.

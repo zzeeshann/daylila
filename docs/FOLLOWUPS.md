@@ -41,7 +41,13 @@ Format per entry:
 
 ---
 
-## [open] 2026-04-30 (last): Centralise contracts — single source of truth across agents
+## [resolved 2026-05-03] 2026-04-30 (last): Centralise contracts — single source of truth across agents
+
+**Resolution (2026-05-03):** Phase A shipped on branch `foundation-fix-02-extraction` as Foundation Fix Task 02's first session. Codegen lives at `agents/scripts/codegen-contracts.mjs`; output module at `agents/src/shared/generated/contracts.ts`; drift verifier at `agents/scripts/verify-contracts-fresh.mjs`; CI gate is the new `check-agents` job in `.github/workflows/deploy-site.yml`. The two manual mirrors (`agents/src/shared/voice-contract.ts`, `agents/src/shared/interactive-html-reference.ts`) are deleted; six import sites migrated to the generated module. Both mirrors had drifted from canonical (voice stripped markdown bold + restructured the editor's-test bullets; html dropped a `.choke::before` block + inline JS comments) — codegen now embeds the canonical bytes verbatim. **Tier-3 disposition:** rows 1–3 (`QUIZ_MIN/MAX_QUESTIONS`, `CATEGORISER_REUSE_*`, `INTERACTIVE_*_MIN_SCORE`) are all correctly injected via `${...}` per the inventory's RESOLVED notes; original FOLLOWUPS "Phase B" is no longer needed. **Phases C and D remain deferred** per the original analysis. Full reasoning in `docs/DECISIONS.md` 2026-05-03 entry. Below is the original investigation, kept for context.
+
+---
+
+
 
 **Surfaced:** 2026-04-30 (last). After shipping the Close-beat loosening (4 prompt edits across `content/voice-contract.md`, `agents/src/shared/voice-contract.ts`, `agents/src/drafter-prompt.ts`, `agents/src/structure-editor-prompt.ts`), the operator asked: *why is the voice contract duplicated in 4 places? What was the original reason? Is this pattern repeated elsewhere? What would a clean version look like?* This entry is the investigation. Two parallel Explore agents mapped the duplication landscape and surveyed the build-pipeline constraints that shaped the current pattern. No code change shipped from this investigation; the operator wants to read first, decide later.
 
