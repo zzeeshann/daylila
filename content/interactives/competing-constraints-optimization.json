@@ -1,0 +1,59 @@
+{
+  "slug": "competing-constraints-optimization",
+  "type": "quiz",
+  "title": "Competing Constraints Optimization",
+  "concept": "When two requirements push a system in opposite directions, the optimal solution isn't maximizing either one—it's finding the arrangement where both stay inside acceptable bounds.",
+  "interactiveId": "a9e45399-4dcb-4ef9-ac61-1c1cc9f61fe0",
+  "sourcePieceId": "ee3a82fd-c06a-4557-bfb2-f6b261e6ba07",
+  "publishedAt": 1777913574760,
+  "voiceScore": 90,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A warehouse stores chemicals that degrade in heat but cost more to access when spread far apart. What makes this an optimization problem?",
+        "options": [
+          "The warehouse must choose either low temperature or low access cost",
+          "Two goals conflict — minimizing heat exposure pulls against minimizing distance",
+          "The chemicals will eventually degrade no matter what arrangement is chosen",
+          "Access cost always outweighs degradation risk in storage decisions"
+        ],
+        "correctIndex": 1,
+        "explanation": "Two requirements push in opposite directions — spreading items apart reduces heat but increases access cost, while clustering reduces access cost but concentrates heat. The problem is finding where both constraints stay satisfied, not picking one goal over the other."
+      },
+      {
+        "question": "A city grid places fire stations close together for backup support but far apart for coverage. Why does light intensity change which arrangement works?",
+        "options": [
+          "Changing conditions shift which constraint matters more at that moment",
+          "The city grid is poorly designed and needs permanent optimal placement",
+          "Fire stations should always maximize coverage regardless of backup needs",
+          "Backup support is only necessary during nighttime hours"
+        ],
+        "correctIndex": 0,
+        "explanation": "When fire risk is low, coverage matters more — spread stations apart. When risk spikes, backup support matters more — cluster them. The best arrangement shifts because the relative importance of the two constraints changes, not because one constraint disappears."
+      },
+      {
+        "question": "A server farm spaces machines for airflow but clusters them to reduce cable length. What happens when cooling demand doubles?",
+        "options": [
+          "The optimal spacing stays the same because cable length hasn't changed",
+          "Servers must spread farther apart — the thermal constraint now dominates",
+          "Clustering becomes more important to share cooling infrastructure",
+          "Doubling cooling demand has no effect on spacing decisions"
+        ],
+        "correctIndex": 1,
+        "explanation": "When thermal risk increases, the arrangement must shift to satisfy the more urgent constraint — servers spread apart to prevent overheating, even though cable length increases. The spacing that worked before now violates the thermal boundary."
+      },
+      {
+        "question": "A fleet of delivery trucks balances fuel cost against delivery speed. Why can't you solve this by simply choosing 'minimize total cost'?",
+        "options": [
+          "Speed and fuel cost push opposite directions — faster uses more fuel, slower saves fuel but misses deadlines",
+          "Total cost is impossible to calculate without knowing future fuel prices",
+          "Delivery speed doesn't affect cost in any measurable way",
+          "Minimizing cost always produces the fastest delivery times"
+        ],
+        "correctIndex": 0,
+        "explanation": "The two goals conflict structurally. Driving faster burns more fuel (higher cost) but meets tight deadlines (avoiding late penalties). Driving slower saves fuel but risks missing deadlines (incurring penalties). 'Minimize cost' doesn't resolve the conflict — you need the speed where fuel cost plus deadline penalties is lowest."
+      }
+    ]
+  }
+}
