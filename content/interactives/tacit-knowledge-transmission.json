@@ -1,0 +1,59 @@
+{
+  "slug": "tacit-knowledge-transmission",
+  "type": "quiz",
+  "title": "Tacit Knowledge Transmission",
+  "concept": "Some skills require situational knowledge that cannot be extracted into explicit instructions — you learn them by inhabiting the conditions where they're used, not by following a protocol that isolates components.",
+  "interactiveId": "2ead0696-2660-4b7f-b155-9d76e94d5df2",
+  "sourcePieceId": "7b1cddee-d352-4664-a204-f6e49ff966bf",
+  "publishedAt": 1777860262897,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A skill is tacit when you cannot write down the full procedure for doing it well. What makes a skill tacit?",
+        "options": [
+          "The skill is too complex for current measurement tools to capture all variables",
+          "The skill requires responding to patterns you recognize but cannot describe in advance",
+          "The skill has too many steps to remember without a checklist",
+          "The skill requires physical strength that varies between individuals"
+        ],
+        "correctIndex": 1,
+        "explanation": "Tacit knowledge is knowledge you use but cannot fully articulate — you recognize when to act without being able to list the decision rules. Complexity or measurement limits (option A) are different; tacit skills often look simple but depend on pattern recognition developed through immersion, not decomposition."
+      },
+      {
+        "question": "Two training methods both improve performance. One measures individual physiological markers and adjusts daily. The other embeds learners in the full context where the skill will be used. Why might the second method produce better results even when the first method is scientifically rigorous?",
+        "options": [
+          "The first method uses outdated science that newer research has disproven",
+          "The second method builds skills that depend on reading situations, not just executing physical capacity",
+          "The first method causes more injuries because it pushes athletes too hard",
+          "The second method benefits from peer pressure that makes people try harder"
+        ],
+        "correctIndex": 1,
+        "explanation": "When a skill requires situational judgment — knowing when to surge, how to respond to an opponent's move, what a subtle shift in conditions means — you cannot learn it by isolating physiological variables. The context IS the teacher. The first method is not wrong or outdated; it optimizes what it measures, but measurement cannot capture situational knowledge."
+      },
+      {
+        "question": "A training program isolates one component of a skill and drills it until performance on that component improves. When might this approach fail to improve performance in the real task?",
+        "options": [
+          "When the real task requires coordinating multiple components simultaneously under time pressure",
+          "When the isolated component is too easy and does not challenge the learner",
+          "When the learner gets bored and stops paying attention during drills",
+          "When the measurement tool used to track progress is inaccurate"
+        ],
+        "correctIndex": 0,
+        "explanation": "Decomposing a skill into parts works when the parts combine additively. It fails when the skill depends on integrating components in real time under conditions you cannot script — the relationships between parts, not just the parts themselves, are what you must learn. Boredom and measurement accuracy are separate issues."
+      },
+      {
+        "question": "An expert performs a skill consistently well but cannot explain the full procedure to a novice. Why does this create a teaching problem?",
+        "options": [
+          "The expert has forgotten the steps because they have become automatic",
+          "The novice needs to develop pattern recognition through repeated exposure, not follow a checklist",
+          "The expert is unwilling to share trade secrets that give them a competitive advantage",
+          "The novice lacks the prerequisite knowledge to understand technical explanations"
+        ],
+        "correctIndex": 1,
+        "explanation": "Tacit knowledge cannot be transmitted as a list of instructions because it is knowledge embedded in experience — you learn to recognize the patterns by encountering them, not by memorizing rules. The expert has not forgotten; they never had an explicit procedure. This is why apprenticeship systems exist for skills that resist decomposition."
+      }
+    ]
+  }
+}
