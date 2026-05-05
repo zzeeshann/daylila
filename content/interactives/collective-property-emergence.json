@@ -1,0 +1,59 @@
+{
+  "slug": "collective-property-emergence",
+  "type": "quiz",
+  "title": "Collective Property Emergence",
+  "concept": "Certain properties only exist when many components interact together—they cannot be found in any single part, but reliably appear when you observe the whole system.",
+  "interactiveId": "c09e7d64-5bd3-4c47-b5c6-fb62471ead87",
+  "sourcePieceId": "bb305ff6-936e-4d4f-a0fa-7200787ae669",
+  "publishedAt": 1777989739292,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why can't you measure the temperature of a single atom?",
+        "options": [
+          "The atom is too small for current thermometers to detect",
+          "Temperature is the average energy of many particles moving—one particle has energy but no average",
+          "Single atoms don't have kinetic energy until they collide with others",
+          "Temperature exists in atoms but requires special quantum measurement tools"
+        ],
+        "correctIndex": 1,
+        "explanation": "Temperature is a statistical property—it's the average kinetic energy across many particles bouncing around. A single atom has kinetic energy, but an average requires multiple values. The most tempting wrong answer (atoms need collisions for kinetic energy) confuses having energy with having temperature."
+      },
+      {
+        "question": "A traffic jam moves backward up the highway while every car inside it moves forward. What does this tell you about the jam?",
+        "options": [
+          "The jam is an illusion caused by driver perception of slowdown",
+          "The jam is a pattern that exists at a different scale than the cars creating it",
+          "The jam moves backward because drivers behind it are braking harder than drivers inside it",
+          "The jam exists in each car—their combined slowdowns produce the backward motion"
+        ],
+        "correctIndex": 1,
+        "explanation": "The jam is a collective pattern—a property of the system that doesn't reside in any single car. Individual cars move forward; the slowdown wave propagates backward. The pattern exists at the scale of many cars interacting, not in the parts themselves."
+      },
+      {
+        "question": "If wetness requires millions of molecules sliding past each other, what does that imply about properties in general?",
+        "options": [
+          "All properties are just large collections of smaller properties we haven't measured yet",
+          "Some properties belong to the collection and don't exist in individual components",
+          "Wetness is special—most properties do exist at the smallest scale",
+          "Properties at large scales are approximations that break down under precise measurement"
+        ],
+        "correctIndex": 1,
+        "explanation": "Wetness is an emergent property—it's real and measurable at the scale of many molecules, but you can't find it in any single molecule. This pattern applies broadly: some properties only make sense when components interact at scale, not because we lack precision, but because the property fundamentally belongs to the system."
+      },
+      {
+        "question": "A single molecule bouncing off a wall exerts force for an instant. A billion molecules bouncing create steady pressure. Why is pressure different from force?",
+        "options": [
+          "Pressure is continuous because individual forces overlap in time—it's the sum of many instantaneous forces",
+          "Pressure is a new property that emerges from the pattern of many collisions, not just their sum",
+          "Force and pressure are the same thing measured at different scales",
+          "Pressure exists in each molecule but only becomes measurable when many molecules act together"
+        ],
+        "correctIndex": 1,
+        "explanation": "Pressure is emergent—it's the steady, sustained property that appears when many molecules create a pattern of collisions. It's not just adding up instantaneous forces; the continuity and steadiness are qualitatively new. The tempting wrong answer (pressure is summed forces) treats emergence as addition, missing the qualitative shift."
+      }
+    ]
+  }
+}
