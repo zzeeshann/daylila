@@ -326,6 +326,63 @@ ${recent
   return `${previousBlock}\n\n${feedbackBlock}\n\n${instruction}\n\n${pieceBlock}${recentBlock}`;
 }
 
+/**
+ * Build the user-message for a JSON-repair revision round — used when
+ * the prior round's response failed `parseAndValidate` (Claude returned
+ * something that didn't parse as JSON, e.g. unquoted string values mid-
+ * object). Distinct from buildRevisionPrompt because there's no audited
+ * structured object to quote back; only the raw broken-output head is
+ * available.
+ *
+ * The system prompt is unchanged (`INTERACTIVE_GENERATOR_PROMPT`); this
+ * user message tells Claude its previous attempt was malformed JSON
+ * and asks for a fresh attempt with valid JSON. Re-derives the concept
+ * — does not try to reconstruct the malformed previous output.
+ */
+export function buildJsonRepairPrompt(
+  brokenHead: string,
+  piece: PieceContextForQuiz,
+  recent: RecentInteractive[],
+  round: number,
+): string {
+  const previousBlock = `## Previous attempt (round ${round - 1}) — DID NOT parse as valid JSON
+
+The first ~200 characters of what you returned:
+
+${brokenHead}`;
+
+  const instruction = `## What to do
+
+Re-emit a fresh quiz as valid JSON. Every string value MUST be enclosed in double quotes — including multi-clause concept values that read like natural-language sentences. Use the exact JSON shape:
+
+{ "slug": "...", "title": "...", "concept": "...", "questions": [...] }
+
+This is a JSON-validity issue, not a content issue. Re-derive the concept from the piece's underlying pattern as you would on a fresh attempt; do not try to reconstruct the malformed previous output.
+
+If the piece's concept cannot be taught cleanly in a standalone quiz, decline — return the empty shape {"slug":"","title":"","concept":"","questions":[]}.`;
+
+  const pieceBlock = `## The piece (source — DO NOT reference directly)
+- Headline: "${piece.headline}"
+- Underlying subject: ${piece.underlyingSubject ?? 'unknown'}
+- Categories: ${
+    piece.categories.length > 0
+      ? piece.categories.map((c) => c.name).join(', ')
+      : '(none assigned yet)'
+  }
+
+### Body excerpt
+${piece.bodyExcerpt}`;
+
+  const recentBlock = recent.length === 0
+    ? ''
+    : `\n\n## Recently-published interactives (${recent.length} — still avoid duplicating)
+${recent
+        .map((r) => `- ${r.title}: ${r.concept ?? '(no concept recorded)'}`)
+        .join('\n')}`;
+
+  return `${previousBlock}\n\n${instruction}\n\n${pieceBlock}${recentBlock}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 //   HTML interactive path (Phase 2)
 // ─────────────────────────────────────────────────────────────────────
@@ -633,4 +690,55 @@ ${recent
         .join('\n')}`;
 
   return `${previousBlock}${validatorBlock}${auditBlock}\n\n${instruction}\n\n${pieceBlock}${recentBlock}`;
+}
+
+/**
+ * HTML twin of buildJsonRepairPrompt — used when the prior round's
+ * HTML response failed `parseAndValidateHtml` (Claude returned non-JSON
+ * for the envelope, e.g. unquoted concept value or unescaped quote
+ * inside the `html` string). Same intent: tell Claude its previous
+ * attempt was malformed JSON, ask for a fresh attempt with valid JSON.
+ */
+export function buildHtmlJsonRepairPrompt(
+  brokenHead: string,
+  piece: PieceContextForInteractive,
+  recent: RecentInteractive[],
+  round: number,
+): string {
+  const previousBlock = `## Previous attempt (round ${round - 1}) — DID NOT parse as valid JSON
+
+The first ~200 characters of what you returned:
+
+${brokenHead}`;
+
+  const instruction = `## What to do
+
+Re-emit a fresh HTML interactive as valid JSON. Every string value MUST be enclosed in double quotes, and every \`"\` inside the \`html\` string MUST be escaped as \`\\"\`. Use the exact JSON shape:
+
+{ "slug": "...", "title": "...", "concept": "...", "html": "<!DOCTYPE html>..." }
+
+This is a JSON-validity issue, not a content issue. Re-derive the concept from the piece's underlying pattern as you would on a fresh attempt; do not try to reconstruct the malformed previous output.
+
+If the piece's concept cannot be taught cleanly in a standalone HTML interactive, decline — return the empty shape {"slug":"","title":"","concept":"","html":""}.`;
+
+  const pieceBlock = `## The piece (source — DO NOT reference directly)
+- Headline: "${piece.headline}"
+- Underlying subject: ${piece.underlyingSubject ?? 'unknown'}
+- Categories: ${
+    piece.categories.length > 0
+      ? piece.categories.map((c) => c.name).join(', ')
+      : '(none assigned yet)'
+  }
+
+### Body excerpt
+${piece.bodyExcerpt}`;
+
+  const recentBlock = recent.length === 0
+    ? ''
+    : `\n\n## Recently-published interactives (${recent.length} — still avoid duplicating)
+${recent
+        .map((r) => `- ${r.title}: ${r.concept ?? '(no concept recorded)'}`)
+        .join('\n')}`;
+
+  return `${previousBlock}\n\n${instruction}\n\n${pieceBlock}${recentBlock}`;
 }

@@ -14,8 +14,10 @@ import {
   QUIZ_MAX_QUESTIONS,
   buildInteractivePrompt,
   buildRevisionPrompt,
+  buildJsonRepairPrompt,
   buildHtmlInteractivePrompt,
   buildHtmlRevisionPrompt,
+  buildHtmlJsonRepairPrompt,
   type PieceContextForQuiz,
   type PieceContextForInteractive,
   type RecentInteractive,
@@ -561,6 +563,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let cumulativeCacheRead = 0;
     let lastQuiz: ValidatedQuiz | null = null;
     let lastAudit: InteractiveAuditResult | null = null;
+    // 2026-05-05 — when a round parse-fails, this carries the broken-
+    // output head into the NEXT round's repairQuiz call so Claude sees
+    // its previous attempt was malformed JSON. Cleared on any successful
+    // parse so audit-feedback revisions take priority on the round after.
+    let lastParseFailHead: string | null = null;
     let passed = false;
     let declinedInLoop = false;
     let roundsUsed = 0;
@@ -579,11 +586,26 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let cacheRead = 0;
 
       try {
-        // When the previous round parse-failed, lastQuiz/lastAudit are
-        // null — fall back to the initial produce path. Decline (empty
-        // shape) breaks out of the loop, so reaching here with null
-        // refs after round 1 can ONLY mean the prior round parse-failed.
-        if (round === 1 || !lastQuiz || !lastAudit) {
+        // Three branches in priority order:
+        //   - prior round parse-failed → repairQuiz with the broken head
+        //   - round 1 / no prior parsed quiz / no prior audit → initial produce
+        //   - prior round parsed but failed audit → reviseQuiz with feedback
+        // The repair branch takes priority over revise because parse-fail
+        // is a JSON-validity issue, not a content issue — there's no
+        // audited object to revise from.
+        if (lastParseFailHead) {
+          const res = await this.repairQuiz(
+            lastParseFailHead,
+            pieceContext,
+            recent,
+            round,
+          );
+          produced = res.quiz;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
+        } else if (round === 1 || !lastQuiz || !lastAudit) {
           const res = await this.produceQuiz(pieceContext, recent);
           produced = res.quiz;
           tokensIn = res.tokensIn;
@@ -604,14 +626,21 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           cacheCreate = res.cacheCreateTokens;
           cacheRead = res.cacheReadTokens;
         }
+        // Reaching here means parseAndValidate succeeded — clear the
+        // repair flag so the next round picks the right branch
+        // (revise-with-feedback if audit fails below, or break out if
+        // it passes).
+        lastParseFailHead = null;
       } catch (err) {
         const msg = err instanceof Error ? err.message : '';
         if (msg.startsWith('parseAndValidate: Claude returned non-JSON output')) {
           // Loop-counted retry: treat parse-fail as a consumed round
-          // and continue. If all 3 rounds parse-fail, the loop falls
-          // through to the !lastQuiz commit-path guard and the throw
-          // surfaces to Director (operator-retry case). Other errors
-          // (validator-shape, infra) stay fatal.
+          // and continue. The next round will route through repairQuiz
+          // (lastParseFailHead is now populated) instead of re-running
+          // the initial prompt blind. If all 3 rounds parse-fail, the
+          // loop falls through to the !lastQuiz commit-path guard and
+          // the throw surfaces to Director (operator-retry case). Other
+          // errors (validator-shape, infra) stay fatal.
           //
           // 2026-05-03 diagnostic: preserve the per-round head text
           // (the `(len=N, head="...")` substring from parseAndValidate's
@@ -620,6 +649,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           // (zero tokens, empty parseFailures) and the operator-facing
           // observer event only shows the outer summary.
           parseFailures.push({ round, head: msg });
+          lastParseFailHead = msg;
           continue;
         }
         throw err;
@@ -867,6 +897,9 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     let lastAudit: InteractiveAuditResult | null = null;
     let validatorPassed = false;
     let auditPassed = false;
+    // 2026-05-05 — see runQuizLoop. Carries the broken-output head into
+    // the next round's repairHtml call when parseAndValidateHtml threw.
+    let lastParseFailHead: string | null = null;
     let declinedInLoop = false;
     let roundsUsed = 0;
     // See runQuizLoop.parseFailures. Same shape, same posture.
@@ -887,12 +920,22 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       let cacheRead = 0;
 
       try {
-        // When prior round parse-failed, lastHtml is null — fall back
-        // to the initial produce path. Decline (empty shape) breaks out
-        // of the loop, and validator failures keep lastHtml populated,
-        // so reaching here with null after round 1 ONLY means the prior
-        // round parse-failed.
-        if (round === 1 || !lastHtml) {
+        // Three branches in priority order — see runQuizLoop's matching
+        // comment. Repair takes priority over revise because parse-fail
+        // is a JSON-validity issue, not a content/validator issue.
+        if (lastParseFailHead) {
+          const res = await this.repairHtml(
+            lastParseFailHead,
+            pieceContext,
+            recent,
+            round,
+          );
+          produced = res.html;
+          tokensIn = res.tokensIn;
+          tokensOut = res.tokensOut;
+          cacheCreate = res.cacheCreateTokens;
+          cacheRead = res.cacheReadTokens;
+        } else if (round === 1 || !lastHtml) {
           const res = await this.produceHtml(pieceContext, recent);
           produced = res.html;
           tokensIn = res.tokensIn;
@@ -922,11 +965,17 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
           cacheCreate = res.cacheCreateTokens;
           cacheRead = res.cacheReadTokens;
         }
+        // Reaching here means parseAndValidateHtml succeeded — clear
+        // the repair flag (validator/audit gates run below).
+        lastParseFailHead = null;
       } catch (err) {
         const msg = err instanceof Error ? err.message : '';
         if (msg.startsWith('parseAndValidateHtml: Claude returned non-JSON output')) {
           // 2026-05-03 diagnostic — see runQuizLoop's matching catch.
+          // 2026-05-05 repair — populate lastParseFailHead so the next
+          // round routes through repairHtml with the broken head.
           parseFailures.push({ round, head: msg });
+          lastParseFailHead = msg;
           continue;
         }
         throw err;
@@ -1300,6 +1349,54 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
   }
 
   /**
+   * JSON-repair revision — used when the prior round's response failed
+   * `parseAndValidate` (Claude returned non-JSON). Distinct from
+   * reviseQuiz because there's no audited structured object to quote
+   * back; only the raw broken-output head is available. Same model,
+   * same system prompt, same prefill — only the user message differs.
+   *
+   * Without this path, parse-fail rounds re-run the initial produceQuiz
+   * prompt blind — same input, same likely defect. See
+   * docs/DECISIONS.md 2026-05-05 for the full reasoning.
+   */
+  private async repairQuiz(
+    brokenHead: string,
+    pieceContext: PieceContextForQuiz,
+    recent: RecentInteractive[],
+    round: number,
+  ): Promise<{
+    quiz: ValidatedQuiz | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
+    const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 3000,
+      system: INTERACTIVE_GENERATOR_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: buildJsonRepairPrompt(brokenHead, pieceContext, recent, round),
+        },
+        // See produceQuiz for the prefill rationale.
+        { role: 'assistant', content: '{' },
+      ],
+    });
+
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
+    const usage = extractUsage(response.usage);
+
+    return {
+      quiz: parseAndValidate(rawText),
+      ...usage,
+    };
+  }
+
+  /**
    * Round 1 — initial HTML interactive produce. Returns null html if
    * Claude declined (empty shape). Throws on infrastructure failure
    * or structural-shape validation failure.
@@ -1410,6 +1507,55 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
             recent,
             round,
           ),
+        },
+        // See produceQuiz for the prefill rationale.
+        { role: 'assistant', content: '{' },
+      ],
+    });
+
+    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = '{' + continuation;
+    const usage = extractUsage(response.usage);
+
+    return {
+      html: parseAndValidateHtml(rawText),
+      ...usage,
+    };
+  }
+
+  /**
+   * HTML twin of repairQuiz — used when the prior round's HTML response
+   * failed `parseAndValidateHtml` (e.g. unquoted concept value or
+   * unescaped `"` inside the html string). Same cached system block as
+   * produceHtml/reviseHtml so the cache prefix matches.
+   */
+  private async repairHtml(
+    brokenHead: string,
+    pieceContext: PieceContextForInteractive,
+    recent: RecentInteractive[],
+    round: number,
+  ): Promise<{
+    html: ValidatedHtml | null;
+    tokensIn: number;
+    tokensOut: number;
+    cacheCreateTokens: number;
+    cacheReadTokens: number;
+  }> {
+    const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 16000,
+      system: [
+        {
+          type: 'text',
+          text: INTERACTIVE_HTML_GENERATOR_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      messages: [
+        {
+          role: 'user',
+          content: buildHtmlJsonRepairPrompt(brokenHead, pieceContext, recent, round),
         },
         // See produceQuiz for the prefill rationale.
         { role: 'assistant', content: '{' },
