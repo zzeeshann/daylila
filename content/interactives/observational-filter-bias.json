@@ -1,0 +1,59 @@
+{
+  "slug": "observational-filter-bias",
+  "type": "quiz",
+  "title": "Observational Filter Bias",
+  "concept": "When your search method assumes certain patterns don't exist, you won't look for them—so discoveries outside the assumed pattern require accidents or systematic checks of 'impossible' cases.",
+  "interactiveId": "6fdb62fb-00e3-4eb6-a68b-5a8373a4556f",
+  "sourcePieceId": "088db2c2-9b0b-4f9e-a0d3-6f7492b6a108",
+  "publishedAt": 1777969074118,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A research team builds a detector optimized to find signals between 100–200 Hz because theory predicts nothing exists below 100 Hz. Why might they miss important phenomena?",
+        "options": [
+          "The detector physically cannot register frequencies below 100 Hz",
+          "They never point the detector at sources that would produce sub-100 Hz signals",
+          "Sub-100 Hz signals are always too weak to detect",
+          "Theory has already proven nothing exists below 100 Hz"
+        ],
+        "correctIndex": 1,
+        "explanation": "When you assume a range is empty, you don't allocate observation time there—the detector might be capable, but you never aim it at candidate sources. The second option captures how assumptions shape search strategy, not just instrument design."
+      },
+      {
+        "question": "A survey photographs every galaxy brighter than magnitude 15, catalogs their positions, then concludes 'all galaxies in this region are brighter than magnitude 15.' What went wrong?",
+        "options": [
+          "The survey method guaranteed it would only see what it was designed to detect",
+          "Fainter galaxies don't exist in that region",
+          "The telescope was not sensitive enough",
+          "Magnitude 15 is the physical limit for galaxy brightness"
+        ],
+        "correctIndex": 0,
+        "explanation": "The threshold created a circular result—you found only what your selection criteria allowed. This is distinct from instrument sensitivity; the method itself filtered the population before measurement, so the conclusion reflects the filter, not the sky."
+      },
+      {
+        "question": "After finding one case that violates a widely-accepted boundary (like 'objects below size X can't have property Y'), what's the right next step?",
+        "options": [
+          "Assume it's a measurement error and discard it",
+          "Check whether other cases near the boundary were skipped because they seemed impossible",
+          "Conclude the boundary was completely wrong and all sizes can have the property",
+          "Wait for the anomaly to be independently confirmed before doing anything"
+        ],
+        "correctIndex": 1,
+        "explanation": "One violation means the boundary might be softer or shifted—so you re-examine the zone you skipped because the model said it was empty. Option three overcorrects (the boundary might just need adjustment, not removal), and option one dismisses valid evidence that challenges assumptions."
+      },
+      {
+        "question": "A model predicts phenomenon Z only occurs in environment A. Researchers spend a decade surveying environment A and find 47 cases of Z. Why is the conclusion 'Z only occurs in A' still premature?",
+        "options": [
+          "47 cases is too small a sample size",
+          "They never checked environments B, C, or D because the model said Z wouldn't be there",
+          "Environment A might not be representative of all possible environments",
+          "The model might be wrong about the mechanism causing Z"
+        ],
+        "correctIndex": 1,
+        "explanation": "You've confirmed the model's positive prediction but not tested its negative claim—if you never looked elsewhere, you can't know Z is absent there. Finding Z in A doesn't prove it's exclusive to A unless you've actually searched the places the model said to ignore."
+      }
+    ]
+  }
+}
