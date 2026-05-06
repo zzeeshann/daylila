@@ -2,6 +2,40 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Phase 1C cleanup — breathing-tools relics removed, DNS cleaned, GitHub repo renamed
+
+Amendment to the 2026-05-06 rebrand entry. That entry deferred two cleanups ("GitHub repo rename" and "breathing-tools DNS retirement") to a later phase. "Later" turned out to be the same afternoon. Per append-only rule the 2026-05-06 entry stays as written even where its deferral language is now superseded — this entry is the supersession.
+
+**What was deleted.**
+
+- **R2 bucket `zeemish-listens`** — 30 objects, 476 MB of audio from the breathing-tools era. Not referenced by any current binding (the active site + agents both use `zeemish-audio`). Deleted via Cloudflare dashboard.
+- **Worker `zeemish-site`** — the original breathing-tools site worker. No routes bound to it; effectively dead since the 2026-04-18 custom-domain swap moved the apex to `zeemish-v2`. Deleted.
+- **Worker `zeemish-api`** — was bound to `api.zeemish.io`, the breathing-tools API endpoint. Relic. Deleted.
+- **All 4 DNS records on the `zeemish.io` zone** — Resend MX, Resend DKIM (resend._domainkey TXT), Resend SPF, and the Google Search Console site-ownership verification record. Deleted at the zone level. With these gone, `zeemish.io` no longer resolves at all (curl exit code 6 from external resolvers — confirmed in the 2026-05-06 smoke tests).
+
+**What was renamed.**
+
+- **GitHub repo `zzeeshann/zeemish-v2` → `zzeeshann/daylila`.** Renamed in the GitHub UI. GitHub's automatic redirect on the old URL keeps existing external links + clones working, but the canonical URL is now `daylila`.
+- **`REPO_NAME` constant in [`agents/src/publisher.ts:16`](../agents/src/publisher.ts:16)** — `'zeemish-v2'` → `'daylila'`. This is the actual production-affecting line: Publisher's GitHub Contents API calls now POST to `repos/zzeeshann/daylila/contents/...`. Without this change Publisher would still work (GitHub's redirect handles it), but the canonical reference matches truth.
+- **Four doc-level references** — [docs/RULE-INVENTORY.md](RULE-INVENTORY.md) (the rule's heading + body), [docs/RUNBOOK.md](RUNBOOK.md) (`cd zeemish-v2` example + project-tree diagram), [docs/FOLLOWUPS.md](FOLLOWUPS.md) (two `github.com/zzeeshann/zeemish-v2/commit/…` URLs), and [src/interactive/made-drawer.ts:266](../src/interactive/made-drawer.ts:266) (the user-facing GitHub link to voice-contract.md in the *How this was made* drawer). The made-drawer link is the only reader-visible one; the rest are operator/maintainer-facing.
+- **Local git remote** — switched from `https://github.com/zzeeshann/zeemish-v2.git` to `https://github.com/zzeeshann/daylila.git`. Push to the new URL succeeded; CI ([run 25453299907](https://github.com/zzeeshann/daylila/actions/runs/25453299907)) deployed both workers green from the renamed repo.
+
+**What was intentionally NOT renamed, and why.**
+
+- **Cloudflare worker name `zeemish-v2`** (the site worker) and **`zeemish-agents`** (the agents worker, which holds 9 Durable Object classes for the agent team). These names are internal labels — they don't appear on any reader-facing surface, only in the Cloudflare dashboard and in `wrangler.toml`. Renaming them would require either (a) deploying new workers under the new name and migrating all Durable Object instances across, or (b) using `wrangler` migrations with renamed_classes / new worker bindings — both of which carry a real risk of orphaning DO state (per-agent SQLite storage) or breaking the service binding from the site worker to the agents worker. Reward is cosmetic. Risk is non-zero. The 2026-05-06 rebrand entry's third paragraph ("Out of scope by deliberate deferral") already covered this trade-off and the call hasn't changed — what changed was the GitHub repo, which has zero state migration cost because GitHub auto-redirects.
+- **R2 bucket `zeemish-audio`** — bound to both workers as `AUDIO_BUCKET`. Renaming would require creating the new bucket, copying every object across (every per-beat MP3 generated since 2026-04-18), updating bindings on both workers, and a brief inconsistency window. Same calculus: cosmetic reward, real risk of audio 404s during the migration window.
+- **D1 database `zeemish`** (`f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`) — the database name is just a label; the binding is by ID. The label has zero functional effect. Leaving.
+- **KV namespace IDs** — bound by ID, not name. Same as D1.
+- **`package.json` `"name": "zeemish-v2"`** at the repo root and `"zeemish-agents"` in `agents/package.json` — npm package names. Neither package is published to a registry. The name is a label. Parallel to the Cloudflare worker name and left untouched for the same reason.
+- **Workers.dev URL `https://zeemish-v2.zzeeshann.workers.dev`** referenced in [agents/src/server.ts:39](../agents/src/server.ts:39) CORS allowlist — this is the workers.dev URL that's a function of the worker name. Stays in lockstep with the worker name.
+- **Existing `zeemish-v2` mentions in docs that describe the worker** ([CLAUDE.md](../CLAUDE.md) "What was built" section, [docs/RUNBOOK.md](RUNBOOK.md) URL preamble, [docs/ARCHITECTURE.md](ARCHITECTURE.md) staging-environment future-flexibility section, [docs/FOLLOWUPS.md](FOLLOWUPS.md) site-worker note) — these describe the worker by its actual name. They stay accurate as long as the worker name does.
+
+**Current state of `zeemish.io`.** Abandoned. Custom-domain binding removed from the `zeemish-v2` worker. All 4 DNS records on the zone deleted. External resolvers return no record. The domain is registered through Cloudflare for the remainder of its current registration year and will lapse at next renewal unless deliberately reclaimed.
+
+**Operator-visible result.** The reader hits `daylila.com`. The GitHub repo is `zzeeshann/daylila`. The codebase is on `daylila`. The Drafter pushes to `repos/zzeeshann/daylila/contents/...`. Everything reader-facing or operator-facing has the new name. Internal infrastructure (worker names, R2 bucket name, D1 name, KV IDs, npm package names) still uses the old labels. None of those leak — they're internal trivia. The migration is functionally complete.
+
+**What this entry supersedes from 2026-05-06.** The "Deferred to a later phase" section of the 2026-05-06 entry listed: GitHub repo rename, breathing-tools DNS retirement, R2 `zeemish-listens` cleanup. All three are done. The "Out of scope by deliberate deferral" section of that entry — covering Cloudflare worker names, R2 `zeemish-audio`, D1 `zeemish`, KV IDs, npm package names — still stands and is reaffirmed above.
+
 ## 2026-05-06: Rebrand Zeemish → Daylila and zeemish.io → daylila.com
 
 The platform is renamed. "Zeemish" becomes "Daylila"; the domain `zeemish.io` becomes `daylila.com`. Brief downtime is acceptable; cleanliness matters more than speed. Every reader-visible surface, every agent prompt, every contract, every chapter of the book, and every living doc is updated in this commit.
