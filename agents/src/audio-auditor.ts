@@ -1,5 +1,6 @@
 import { Agent } from 'agents';
-import type { Env } from './types';
+import type { Env, AudioIssueType } from './types';
+import { AUDIO_ISSUE_TYPES } from './types';
 import { AUDIO_CHAR_CAP } from './shared/audio-thresholds';
 
 export interface AudioAuditBrief {
@@ -13,12 +14,31 @@ export interface AudioAuditResult {
   beatCount: number;
   totalCharacters: number;
   totalSizeBytes: number;
+  /** Populated only when persistence to audio_audit_results threw.
+   *  Director reads this AFTER consuming `passed` and fires
+   *  observer.logError once per audit. The verdict (`passed` /
+   *  `issues`) is unaffected — computed in-memory before the
+   *  persistence batch runs. Foundation Fix Task 05 (L12). */
+  persistError: string | null;
 }
 
 export interface AudioIssue {
   beatName: string | null; // null = piece-level issue, not tied to a beat
   issue: string;
   severity: 'minor' | 'major';
+  /** Closed-enum classification of the issue branch. Set at every
+   *  push site in audit(); persisted to audio_audit_results.issue_type
+   *  via the closed-enum AudioIssueType in ./types. Foundation Fix
+   *  Task 05 (L12). */
+  issueType: AudioIssueType;
+  /** R2 key of the file the issue refers to (when applicable —
+   *  missing-file / size-anomaly issues). NULL on piece-level issues
+   *  (no_audio_rows, character_cap_exceeded). */
+  r2Key?: string;
+  /** Actual size in bytes (when applicable — populated on size-related
+   *  issues only; not fabricated for text_too_short / no_audio_rows /
+   *  character_cap_exceeded). */
+  actualSizeBytes?: number;
 }
 
 interface AudioAuditorState {
@@ -79,12 +99,15 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
             beatName: null,
             issue: `No audio rows found for ${brief.date} — producer did not run or persist failed`,
             severity: 'major',
+            issueType: 'no_audio_rows',
           },
         ],
         beatCount: 0,
         totalCharacters: 0,
         totalSizeBytes: 0,
+        persistError: null,
       };
+      result.persistError = await this.persistAuditRows(brief.pieceId, result);
       this.setState({ lastResult: result });
       return result;
     }
@@ -101,6 +124,8 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
           beatName: row.beat_name,
           issue: `Audio file missing in R2: ${row.r2_key}`,
           severity: 'major',
+          issueType: 'missing_file',
+          r2Key: row.r2_key,
         });
         continue;
       }
@@ -113,6 +138,9 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
           beatName: row.beat_name,
           issue: 'Audio file is 0 bytes',
           severity: 'major',
+          issueType: 'empty_file',
+          r2Key: row.r2_key,
+          actualSizeBytes: size,
         });
         continue;
       }
@@ -125,12 +153,18 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
           beatName: row.beat_name,
           issue: `Audio suspiciously small: ${kb(size)}KB for ${row.character_count} chars (expected ~${kb(expectedBytes)}KB). Possibly truncated.`,
           severity: 'major',
+          issueType: 'size_too_small',
+          r2Key: row.r2_key,
+          actualSizeBytes: size,
         });
       } else if (ratio > MAX_SIZE_RATIO) {
         issues.push({
           beatName: row.beat_name,
           issue: `Audio suspiciously large: ${kb(size)}KB for ${row.character_count} chars (expected ~${kb(expectedBytes)}KB).`,
           severity: 'minor',
+          issueType: 'size_too_large',
+          r2Key: row.r2_key,
+          actualSizeBytes: size,
         });
       }
 
@@ -139,6 +173,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
           beatName: row.beat_name,
           issue: `Very short text (${row.character_count} chars) — beat may not be worth audio`,
           severity: 'minor',
+          issueType: 'text_too_short',
         });
       }
     }
@@ -148,6 +183,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
         beatName: null,
         issue: `Total characters ${totalCharacters} exceeds cap ${AUDIO_CHAR_CAP}`,
         severity: 'major',
+        issueType: 'character_cap_exceeded',
       });
     }
 
@@ -158,9 +194,93 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
       beatCount: rows.length,
       totalCharacters,
       totalSizeBytes,
+      persistError: null,
     };
+    result.persistError = await this.persistAuditRows(brief.pieceId, result);
     this.setState({ lastResult: result });
     return result;
+  }
+
+  /**
+   * Persist one summary row + one row per issue to audio_audit_results.
+   * Mirrors InteractiveGeneratorAgent.persistAuditRows() — same DO,
+   * same this.env.DB.batch() pattern.
+   *
+   * Always writes at least the summary row so "audited and clean" is
+   * unambiguously distinguishable from "never audited" at read time.
+   * Each call appends fresh rows with a new created_at; Director's
+   * retry paths re-invoke audit() which appends again, preserving
+   * forensic history (no audit_round column needed — created_at
+   * orders runs).
+   *
+   * Failure posture: try/catch returns the error message instead of
+   * throwing. The audit verdict (`passed`, `issues`) is computed in
+   * memory BEFORE this method runs; a D1 hiccup here cannot affect
+   * Director's branch logic. Director reads `persistError` after the
+   * audit call and fires observer.logError once if populated (no
+   * per-row spam, parallel to Task 03's pattern).
+   *
+   * Bind-count safety: with ~6 beats today, the batch is ~7 statements
+   * × 9 binds each = ~63 binds total. D1's per-statement bind cap is
+   * ~100; per-statement count is ~9, comfortably safe. If the audio
+   * char cap ever rises enough to support 100+ beats per piece, this
+   * batch needs chunking — but AUDIO_CHAR_CAP would block that long
+   * before bind-count became the bottleneck.
+   *
+   * Foundation Fix Task 05 (L12). Closed enum AudioIssueType lives in
+   * ./types; AUDIO_ISSUE_TYPES is the runtime mirror used to validate
+   * before binding (unknown values fall through to 'unknown' so drift
+   * surfaces via the issue_type_breakdown operator query).
+   */
+  private async persistAuditRows(
+    pieceId: string,
+    result: AudioAuditResult,
+  ): Promise<string | null> {
+    try {
+      const now = Date.now();
+      const stmt = this.env.DB.prepare(
+        `INSERT INTO audio_audit_results
+         (id, piece_id, beat_name, passed, issue_type, issue_severity,
+          notes, r2_key, actual_size_bytes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+
+      const majorCount = result.issues.filter((i) => i.severity === 'major').length;
+      const summaryNotes = `Audited ${result.beatCount} beats, ${result.issues.length} issues (${majorCount} major)`;
+
+      const issueRows = result.issues.map((issue) =>
+        stmt.bind(
+          crypto.randomUUID(),
+          pieceId,
+          issue.beatName,
+          0, // every issue row is a fail
+          AUDIO_ISSUE_TYPES.has(issue.issueType) ? issue.issueType : 'unknown',
+          issue.severity,
+          issue.issue,
+          issue.r2Key ?? null,
+          issue.actualSizeBytes ?? null,
+          now,
+        ),
+      );
+
+      const summaryRow = stmt.bind(
+        crypto.randomUUID(),
+        pieceId,
+        null, // beat_name NULL = summary row
+        result.passed ? 1 : 0,
+        null, // issue_type NULL on summary
+        null, // issue_severity NULL on summary
+        summaryNotes,
+        null, // r2_key NULL on summary
+        null, // actual_size_bytes NULL on summary
+        now,
+      );
+
+      await this.env.DB.batch([...issueRows, summaryRow]);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : 'audio_audit_results persist failed';
+    }
   }
 
   private async loadRows(pieceId: string): Promise<AudioRow[]> {

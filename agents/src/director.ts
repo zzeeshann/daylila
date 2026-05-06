@@ -1476,6 +1476,21 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     await this.logStep(date, pieceId,'audio-auditing', 'running', {});
     const auditor = await this.subAgent(AudioAuditorAgent, `audio-auditor-${date}`);
     const auditResult = await auditor.audit({ pieceId, date });
+    // L12 (Foundation Fix Task 05): the auditor persists its verdict
+    // to audio_audit_results inside audit() and surfaces a sentinel on
+    // throw. Fire one Observer error here (no per-row spam) — the
+    // verdict itself was computed in-memory before persistence ran, so
+    // the branch logic below is unaffected by a persistence hiccup.
+    // Audio is ship-and-retry; a feedback-write failure must not block
+    // the surrounding flow.
+    if (auditResult.persistError) {
+      await observer.logError(
+        'audio-auditor',
+        0,
+        `audio_audit_results persist failed: ${auditResult.persistError}`,
+        pieceId,
+      );
+    }
     await this.logStep(date, pieceId,'audio-auditing', auditResult.passed ? 'done' : 'failed', {
       passed: auditResult.passed,
       beatCount: auditResult.beatCount,

@@ -199,6 +199,49 @@ Four read-only queries surface in order:
 
 Safe against prod (SELECT-only). Don't delete anything during the 30-day observation window — the loop needs to settle.
 
+### Verify audio audit results populate
+
+After any new cron piece (post-Foundation-Fix-Task-05), confirm the auditor's verdict + per-issue rows land in `audio_audit_results` and that the producer populates the two new metadata columns on `daily_piece_audio`:
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT id, beat_name, passed, issue_type, issue_severity, notes
+FROM audio_audit_results
+WHERE piece_id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+ORDER BY created_at;
+"
+```
+
+Expected: at least one row (the summary, with `beat_name IS NULL` and a `notes` rollup like `"Audited 6 beats, 0 issues (0 major)"`), plus one row per audit issue if any. A clean piece reports exactly one row, `passed=1`. A piece that flagged ships the summary row + per-issue rows; the summary's `passed` is 0 if any issue was `major` and 1 if all issues were `minor`.
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT id, beat_name, file_size_bytes, duration_seconds
+FROM daily_piece_audio
+WHERE piece_id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+ORDER BY beat_name;
+"
+```
+
+Expected: every row has both `file_size_bytes` and `duration_seconds` populated. NULL on either column means producer didn't fill them — check the latest agents deploy log for `persistError` in observer events. `duration_seconds` is bytes ÷ 12000 (96 kbps assumption per `AUDIO_OUTPUT_FORMAT`); a clean ~3000-char beat should land around 240,000 bytes / 20 seconds.
+
+### Operator queries: Audio audit health
+
+The Audio Auditor's persistence loop tracks per-issue rows and a piece-level summary as of Foundation Fix Task 05. Run `scripts/audio-audit-health.sql` after the loop has been live for ≥7 days for meaningful counts.
+
+```bash
+wrangler d1 execute zeemish --remote --file=scripts/audio-audit-health.sql
+```
+
+Four read-only queries surface in order:
+
+1. **Recent audits** — last 30 piece audits, latest summary row only (window function over `created_at` hides retry noise — a piece audited 3 times shows as one row, the most recent verdict).
+2. **Issue type breakdown** — last 30 days, count by `issue_type` ordered DESC. Drives investigation priority.
+3. **Unfilled metadata** — `daily_piece_audio` rows post-2026-05-12 with NULL `file_size_bytes` or `duration_seconds`. Non-zero count means the producer broke its populate path.
+4. **Size anomalies** — beats whose `file_size_bytes / (character_count × 960)` ratio falls outside the auditor's `[MIN_SIZE_RATIO=0.3, MAX_SIZE_RATIO=3.0]` band. Cross-check on the auditor itself; rows here should also have a matching audit row of `issue_type='size_too_small'` or `'size_too_large'`.
+
+Safe against prod (SELECT-only).
+
 ### Migration tracker hygiene
 Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
 

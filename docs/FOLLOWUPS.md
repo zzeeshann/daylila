@@ -13,6 +13,21 @@ Format per entry:
 
 ---
 
+## [deferred] 2026-05-12: Surface audio_audit_results on admin per-piece deep-dive
+
+- **Surfaced:** 2026-05-12, Foundation Fix Task 05 ("L10, L11, L12 closed"). Task 05 lands the data — every `AudioAuditorAgent.audit()` call writes per-issue rows + a summary row to `audio_audit_results` (migration 0033) — but does not surface it on any reader-facing or admin surface.
+- **Hypothesis:** the natural admin surface is the per-piece deep-dive's existing `audioRows` table at `src/pages/dashboard/admin/piece/[date]/[slug].astro:217` (already SELECTs from `daily_piece_audio` in column-explicit form, so the new `file_size_bytes` column is silently safe but not rendered). The shape would be: an "Audio audit history" panel below the current audioRows render, showing each `audit()` invocation as a row with timestamp, summary verdict (`passed`, `notes` rollup), and a nested expand for per-issue rows when `passed=0`. Window-function pattern parallel to operator-query #1 in `scripts/audio-audit-health.sql`.
+- **Why deferred:** same posture as the Task 03 + Task 04 deferred surface entries below. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. Both consumer files SELECT explicit columns by name; the new table + column don't break either page.
+- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Reader-facing audio audit history on the made-drawer is a separate and lower-priority question — most readers don't care which beat had a size anomaly; the drawer's `MadeAudio` envelope already gives them a pass/fail summary via `has_audio`.
+- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after Phase 2 completes.
+
+## [deferred] 2026-05-12: Backfill made-drawer's totalSizeBytes from daily_piece_audio.file_size_bytes
+
+- **Surfaced:** 2026-05-12, Foundation Fix Task 05. Task 05 closes L11 (the `file_size_bytes` column lands on `daily_piece_audio`); the made-drawer envelope at [`src/pages/api/daily/[date]/made.ts:295`](../src/pages/api/daily/[date]/made.ts:295) currently returns `totalSizeBytes: null` with a comment naming "not stored in D1 — R2 HEAD is agents-worker-only". With the new column populated going forward, that field can return `SUM(file_size_bytes)`.
+- **Hypothesis:** one-line query change in `made.ts` — replace `totalSizeBytes: null` with the sum of the per-row `file_size_bytes` already SELECTed (or extended into the SELECT). NULL on pre-Task-05 historical rows means the sum will be partial for older pieces; honest behaviour is to return null when any row has NULL, or to return the partial sum with a flag — content-design call.
+- **Why deferred:** trivial code change but requires deciding the partial-sum vs null-on-any-NULL behaviour, which is a content decision tied to how the made-drawer renders the value. Pick up next time the made-drawer is touched for other reasons.
+- **Priority:** low. Cosmetic; the `null` is honest today.
+
 ## [observing] 2026-05-11: Learner feedback loop — 30-day signal vs noise evaluation
 
 - **Surfaced:** 2026-05-11, Foundation Fix Task 04 ("L15 closed"). The loop now records load events (`loaded_at` / `load_count`) on every `getRecentLearnings(10)` call, applied attribution (`applied_to_prompts` JSON-append) on every successful publish, and validation timestamps (`last_validated_at`) only for loaded learnings whose piece cleared the Polished-strict bar (voice ≥ 90 AND 1 round). The data lands going forward; this entry is the queued evaluation.
