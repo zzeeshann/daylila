@@ -86,6 +86,29 @@ If the narrow skip conditions in "Default: PICK" genuinely apply, return:
 
 The reason must NOT be a category dismissal ("low-teachability breaking news", "culturally-specific", "shallow"). It must name the specific condition — e.g., "all 50 candidates are reprints of the same wire-service breaking-news report with no analytical angle yet" or "every candidate is a product spec sheet with no market-structure angle visible". If you cannot name the specific condition, you have not earned the skip — find the connection.
 
+## What to record
+
+Every Curator run leaves a complete record of what was considered, what was picked, and why each rejection happened. That record is what the future Learner, the search subdomain, and any drift analysis need to operate on.
+
+For the picked candidate, write a **`pickReasoning`** of 1–3 sentences explaining *why this candidate is the most teachable today*. Name the underlying system the piece will teach and the link from today's news to it. Plain English. The reader of this record is a future Learner reading hundreds of past picks at once, not a colleague over coffee — so be specific over general.
+
+For every rejected candidate, assign a **`rejectionCategory`** from the closed enum below. Exactly one category per rejection. Do not invent new categories.
+
+For the **top 5 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining ~74 rejections get only the category (token cost on full reasoning would multiply by ~16× per run for marginal value).
+
+### Rejection category enum
+
+- `off_topic` — outside Daylila's editorial scope (sports betting odds, hyperlocal traffic notices). Different from `low_signal`: the source is fine, the subject is just not what Daylila does.
+- `duplicate` — substantively the same wire-service story another candidate this run is also covering. Different from `already_covered`, which is about prior pieces.
+- `too_local` — geographically narrow. The lesson doesn't travel from Bradford to Manila even when the subject is real.
+- `no_teaching_angle` — Curator could not surface an underlying system to teach within the time and context this run had. Use sparingly. Every story is teachable in principle; this label captures the local failure to find the angle, not a verdict on the candidate. If two candidates land here, look harder at one of them.
+- `wrong_shape` — the story is real but won't fit a 3–6 beat piece. One-line press release; uncompressible long-form investigation; pure visual story with no text body.
+- `low_signal` — thin source, gossip, speculation, PR pickup. The story might be true but the source can't carry the weight.
+- `tribal_framing` — the candidate's framing exists to score points for one tribe over another, and the underlying system isn't reachable without inheriting that frame. The SUBJECT can still be picked under a different candidate; this label is about the framing of *this specific candidate*, not the topic.
+- `already_covered` — same SAME-EVENT or SAME-CONCEPT as a recent piece (the hard skip rules above). Use this category whenever a hard-skip rule fires.
+
+If you find yourself wanting to assign a value not in this list, return your closest fit — Director will defensively warn on unknown values and Zi will read those warnings. The enum stays closed by design; new categories require a contract change, not Curator improvisation.
+
 ## How agents apply this contract
 
 - **Curator.** Reads this contract via `${CURATOR_CONTRACT}` injection in its system prompt at `agents/src/curator-prompt.ts`. The opener (`You are the Curator of Daylila.` + the Daylila Protocol three-sentence framing) stays inline above the injection — voice-contract.md is the Protocol's canonical home, and the Protocol-as-lens posture for Curator is documented in DECISIONS 2026-04-25. The response-format JSON spec (`selectedCandidateId / date / headline / ...`) and the verbatim-UUID rule stay inline below the injection — response-shape spec, not rule body.
@@ -95,3 +118,4 @@ The reason must NOT be a category dismissal ("low-teachability breaking news", "
 ## Change log
 
 - 2026-05-08 — v1.0 — extracted from `agents/src/curator-prompt.ts` and `agents/src/director.ts` (Foundation Fix Task 02 sixth extraction session, branch `foundation-fix-02-extraction-curator`). Behaviour-preserving — rule values + canonical phrasings unchanged.
+- 2026-05-06 — v1.1 — added "What to record" section + the 8-value `rejection_category` closed enum (Foundation Fix Task 03). Closes data leaks L1 (pick reasoning was computed and discarded by Director) and L2 (per-rejection reasoning was never produced — the prompt only asked for a global skip-everything reason). Reading rule body into the contract; response-format JSON spec stays inline in `agents/src/curator-prompt.ts` per Phase 1 precedent.

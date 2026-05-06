@@ -107,7 +107,7 @@ wrangler secret put SCANNER_RSS_FEEDS_JSON
 ## D1 Database
 
 ### Run migrations
-There are 28 migrations (`0001_init.sql` … `0028_daily_audit_claims.sql`) defining 20 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
+There are 31 migrations (`0001_init.sql` … `0031_curator_reasoning.sql`) defining 22 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
 Apply them (idempotent — skips any already recorded in `d1_migrations`):
 ```bash
 wrangler d1 migrations apply zeemish --remote
@@ -122,6 +122,49 @@ See `### Migration tracker hygiene` below before applying on a live DB — the t
 wrangler d1 execute zeemish --remote --command="SELECT * FROM users LIMIT 5"
 wrangler d1 execute zeemish --remote --command="SELECT * FROM observer_events ORDER BY created_at DESC LIMIT 10"
 ```
+
+### Backfill: historical selected-flag
+
+`daily_candidates.selected = 1` was silently lost on every run before the 2026-04-22 Curator-prompt fix exposed candidate UUIDs to Claude. New runs work; seven pre-fix pieces (2026-04-17 through 2026-04-22, with 2026-04-22 carrying two pieces) had every candidate marked `selected = 0`. The repair script lives at [`scripts/backfill-selected-flag.sql`](../scripts/backfill-selected-flag.sql) — a normalized-headline match scoped by `(date, source)`. The audit-suggested `daily_pieces.id → daily_candidates.piece_id` join would not work because Scanner stamps piece_id on every candidate row, not just the picked one.
+
+```bash
+# Apply the backfill (idempotent — only touches rows where selected=0):
+wrangler d1 execute zeemish --remote --file scripts/backfill-selected-flag.sql
+```
+
+The script ends with a verification SELECT — every published piece should report `picked_count = 1` after the UPDATE. Re-running the script is safe and updates 0 rows on the second run.
+
+### Verify Curator reasoning fields populate
+
+After any new cron piece (post-Foundation-Fix-Task-03), confirm `pick_reasoning` / `rejection_category` / `rejection_reason` populate correctly. From `agents/src/director.ts`'s persistence step.
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT
+  COUNT(*) AS total,
+  SUM(CASE WHEN pick_reasoning IS NOT NULL THEN 1 ELSE 0 END) AS picked_with_reason,
+  SUM(CASE WHEN rejection_category IS NOT NULL THEN 1 ELSE 0 END) AS rejected_with_category,
+  SUM(CASE WHEN rejection_reason IS NOT NULL THEN 1 ELSE 0 END) AS rejected_with_reason
+FROM daily_candidates
+WHERE date = (SELECT MAX(date) FROM daily_candidates);
+"
+```
+
+Expected for one cron run: `total ≈ 80`, `picked_with_reason = 1`, `rejected_with_category ≈ 79`, `rejected_with_reason ≈ 5`.
+
+Enum-drift follow-on (every value should be one of the eight defined in `content/curator-contract.md`):
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT rejection_category, COUNT(*) AS n
+FROM daily_candidates
+WHERE date = (SELECT MAX(date) FROM daily_candidates)
+GROUP BY rejection_category
+ORDER BY n DESC;
+"
+```
+
+Any value not in `{off_topic, duplicate, too_local, no_teaching_angle, wrong_shape, low_signal, tribal_framing, already_covered, NULL}` is Curator drift — surface in the admin observer feed (Director already logs unknowns via `observer.logError`).
 
 ### Migration tracker hygiene
 Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
