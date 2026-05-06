@@ -166,6 +166,39 @@ ORDER BY n DESC;
 
 Any value not in `{off_topic, duplicate, too_local, no_teaching_angle, wrong_shape, low_signal, tribal_framing, already_covered, NULL}` is Curator drift — surface in the admin observer feed (Director already logs unknowns via `observer.logError`).
 
+### Verify Learner feedback loop populates
+
+After any new cron piece (post-Foundation-Fix-Task-04), confirm the loaded learnings receive their `loaded_at` + `load_count` updates and — if the piece published — also receive the `applied_to_prompts` JSON-append (and, if Polished-strict, `last_validated_at`):
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT id, source, category, loaded_at, load_count,
+       applied_to_prompts, last_validated_at
+FROM learnings
+ORDER BY loaded_at DESC NULLS LAST
+LIMIT 10;
+"
+```
+
+Expected on the 10 most-recently-loaded rows: `loaded_at` populated (epoch ms), `load_count >= 1`, `applied_to_prompts` is a JSON array (string starting `[`) containing the new `pieceId`. `last_validated_at` populated only when the piece's `voice_score >= 90` AND its revision rounds were 1 (`LEARNER_VALIDATION_VOICE_FLOOR` / `LEARNER_VALIDATION_MAX_ROUNDS` in `agents/src/shared/audit-thresholds.ts`).
+
+### Operator queries: Learner health
+
+The Learner's feedback loop tracks load + validation events as of Foundation Fix Task 04. Run `scripts/learner-health.sql` after the loop has been live for ≥10 days for meaningful counts; formal review at 30 days per the FOLLOWUPS [observing] entry on Learner-loop evaluation.
+
+```bash
+wrangler d1 execute zeemish --remote --file=scripts/learner-health.sql
+```
+
+Four read-only queries surface in order:
+
+1. **Noise** — count of learnings loaded at least once but never landed in any successful piece.
+2. **Signal** — count of learnings validated by a Polished-strict piece (voice ≥ 90, 1 round).
+3. **Workhorses** — top 10 by `load_count` with their JSON-array applied count.
+4. **Retirement candidates** — bottom 10 oldest never-loaded.
+
+Safe against prod (SELECT-only). Don't delete anything during the 30-day observation window — the loop needs to settle.
+
 ### Migration tracker hygiene
 Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
 

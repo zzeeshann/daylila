@@ -1,0 +1,45 @@
+-- 0032_learner_feedback_loop.sql
+-- Closes data leak L15 — the Learner feedback loop's consumption side.
+-- Foundation Fix Task 04.
+--
+-- Two new columns let the system record, going forward, which learnings
+-- were loaded into a draft and which of those landed in pieces good
+-- enough to count as validation:
+--
+--   loaded_at   INTEGER  — most recent load timestamp (epoch ms).
+--                          Overwritten on each subsequent load. Pairs
+--                          with load_count for "have we seen this
+--                          row recently AND how often" without keeping
+--                          a per-load history table.
+--   load_count  INTEGER  — monotonic count of loads. Durable across
+--                          loaded_at overwrites. DEFAULT 0 so legacy
+--                          rows stay queryable as "never loaded".
+--
+-- The existing applied_to_prompts column (declared INTEGER 0/1 since
+-- migration 0003) is REPURPOSED IN PLACE to hold a JSON array of
+-- daily_pieces.id strings — the pieces this learning was loaded into
+-- AND that subsequently published. SQLite's loose column affinity
+-- tolerates the in-place type change with no ALTER. Read paths treat
+-- legacy `0` / `1` numeric values as null via `LIKE '[%'` guards;
+-- writes use json_insert(COALESCE(applied_to_prompts, '[]'), '$[#]', ?)
+-- with the same guard so a row's first JSON write resets a legacy 0/1.
+--
+-- The existing last_validated_at column (also from migration 0003)
+-- starts receiving its first writes here too — populated only when the
+-- loaded learning's piece cleared the stricter Polished-strict bar
+-- (voiceScore >= 90 AND revision rounds = 1, named in
+-- agents/src/shared/audit-thresholds.ts as
+-- LEARNER_VALIDATION_VOICE_FLOOR / LEARNER_VALIDATION_MAX_ROUNDS).
+--
+-- Forward-only — no backfill of historical learnings. Old
+-- applied_to_prompts = 0 and null last_validated_at rows stay as
+-- honest historical record.
+--
+-- Both columns nullable, additive — no rebuild needed. SQLite ALTER
+-- TABLE ADD COLUMN is non-blocking and safe.
+--
+-- No index — admin queries scope by `id IN (...)` (already PK-indexed)
+-- or scan ~1k rows in year one, scanned in milliseconds. Index on
+-- loaded_at / load_count would be speculative.
+ALTER TABLE learnings ADD COLUMN loaded_at INTEGER;
+ALTER TABLE learnings ADD COLUMN load_count INTEGER DEFAULT 0;
