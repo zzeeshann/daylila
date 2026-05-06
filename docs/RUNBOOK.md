@@ -242,6 +242,69 @@ Four read-only queries surface in order:
 
 Safe against prod (SELECT-only).
 
+### Verify draft revisions persist
+
+After any new cron piece (post-Foundation-Fix-Task-06), confirm the audit-revise loop's persistence lands. The query from the brief, scoped to the most recent piece:
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT
+  p.id, p.tier,
+  COUNT(DISTINCT dr.revision_round) AS rounds,
+  COUNT(idd.id) AS integrator_decisions
+FROM daily_pieces p
+LEFT JOIN draft_revisions dr ON dr.piece_id = p.id
+LEFT JOIN integrator_decisions idd ON idd.piece_id = p.id
+WHERE p.id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+GROUP BY p.id;
+"
+```
+
+Expected:
+
+- **Polished piece (1 round):** `rounds = 1`, `integrator_decisions = 0`.
+- **Solid piece (2-3 rounds):** `rounds = 2` or `3`, `integrator_decisions ≥ 1`.
+
+If `rounds = 0`, the Drafter's persistence didn't land — check observer events for `drafter` errors. If `integrator_decisions = 0` even on multi-round pieces, the Integrator's persistence didn't land — check observer events for `integrator` errors (either `parseError` or `persistError`). Both surface as one event per occurrence via `observer.logError`; spam-free.
+
+To inspect a multi-round piece end-to-end (the prose evolution + the disposition trail):
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT revision_round, authored_by, word_count,
+       length(mdx_content) AS mdx_chars,
+       datetime(created_at / 1000, 'unixepoch') AS at_utc
+FROM draft_revisions
+WHERE piece_id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+ORDER BY revision_round;
+"
+wrangler d1 execute zeemish --remote --command="
+SELECT revision_round, feedback_source, decision,
+       substr(feedback_summary, 1, 80) AS summary,
+       substr(reasoning, 1, 80) AS reasoning
+FROM integrator_decisions
+WHERE piece_id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+ORDER BY revision_round, feedback_source;
+"
+```
+
+### Operator queries: Draft revisions health
+
+The Drafter + Integrator persistence loop tracks per-round MDX and per-feedback-item dispositions as of Foundation Fix Task 06. Run `scripts/draft-revisions-health.sql` after the loop has been live for ≥7 days for meaningful counts.
+
+```bash
+wrangler d1 execute zeemish --remote --file=scripts/draft-revisions-health.sql
+```
+
+Four read-only queries surface in order:
+
+1. **Recent revisions** — last 20 pieces' rounds + decision counts. Same shape as the verification SQL above, but ordered by recency. Drives "did the system change shape recently?" review.
+2. **Decision breakdown** — last 30 days, `feedback_source × decision` rollup. Healthy mid-band: ≥80% accepted, ≤15% overruled, ≤10% partial across all three auditors. Sustained high overrule rates (≥30% from one auditor) is signal that the auditor's precision has drifted.
+3. **Multi-round pieces** — every round of every multi-round piece, last 30 days. Use to spot-check the data shape end-to-end after the first multi-round piece publishes; zero-decision rounds appear honestly.
+4. **Unfilled metadata** — drift detector for `integrator_decisions` rows missing `reasoning` or `resulting_change`. Sustained NULL rates ≥20% are signal that Claude is dropping fields under length pressure or that the prompt's structured-output instructions need tightening.
+
+Safe against prod (SELECT-only).
+
 ### Migration tracker hygiene
 Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
 

@@ -13,6 +13,14 @@ Format per entry:
 
 ---
 
+## [deferred] 2026-05-07: Surface revision trail (rounds + decisions) on the made-drawer + admin per-piece
+
+- **Surfaced:** 2026-05-07, Foundation Fix Task 06 ("L4, L8, L9 closed"). Task 06 lands the data — every `draft()` call writes round 0 to `draft_revisions`, every `revise()` call writes round N + per-decision rows to `draft_revisions` + `integrator_decisions` (migration 0034) — but does not surface it on any reader-facing or admin surface.
+- **Hypothesis:** the natural reader-facing surface is the *How this was made* drawer's existing "What the auditors said" section (rendered from `audit_results` per round). The natural extension is per-round word counts + per-feedback-item dispositions ("Voice flagged 'unlock' — accepted, replaced with 'enable'"). The natural admin surface is the per-piece deep-dive (`src/pages/dashboard/admin/piece/[date]/[slug].astro`) with the full revision trail rendered alongside the existing audit-rounds table — operator-shaped detail showing how the prose evolved across rounds.
+- **Why deferred:** same posture as the Task 03 + Task 04 + Task 05 deferred surface entries above. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. The brief explicitly named drawer work as defer-by-default. Both consumer files (`src/pages/api/daily/[date]/made.ts`, the admin page) SELECT explicit columns; the new tables are silently safe.
+- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Reader-facing made-drawer is a separate and lower-priority question — most readers don't care which feedback items the Integrator overruled; the drawer's audit-rounds section already gives them voice/structure/fact verdicts. The decisions array's diagnostic value is mostly for operators and the future Task 09 verification work.
+- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after Phase 2 completes.
+
 ## [open] 2026-05-12: Integrator regression risk — passing dimensions can flip to failing across rounds
 
 - **Surfaced:** 2026-05-12, observed on the 2026-05-06 magic-mushroom piece (`content/daily-pieces/2026-05-06-single-dose-of-magic-mushroom-psychedelic-can-cause-anatomic.mdx`). Voice scored 95 in Round 1, dropped to 92 in Round 2 after the Integrator's revision introduced "unlock" (a banned tribe word), then recovered to 95 in Round 3. The piece would have shipped as Polished on Round 1 alone; the round-trip across dimensions cost two extra rounds.

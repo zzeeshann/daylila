@@ -69,7 +69,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
     error: null,
   };
 
-  async draft(brief: DailyPieceBrief): Promise<DrafterResult> {
+  async draft(brief: DailyPieceBrief, pieceId: string): Promise<DrafterResult> {
     this.setState({ ...this.state, status: 'drafting', error: null });
 
     try {
@@ -108,11 +108,53 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
         lastDraft: { headline: brief.headline, date: brief.date, wordCount },
       });
 
-      return { mdx, wordCount, loadedLearningIds };
+      // Round-0 persistence (Foundation Fix Task 06, L4). The MDX above
+      // is the source of truth Director hands to the audit-revise loop;
+      // this row preserves it so the revision history can be reconstructed
+      // independent of git's final-only record. Fail-open via persistError
+      // sentinel — a D1 hiccup must not block a publish (the audit-revise
+      // loop runs PRE-publish but uses `mdx` from the return value
+      // directly, not from D1). Director reads persistError after the
+      // call and fires observer.logError once if populated.
+      const persistError = await this.persistInitialDraft(pieceId, mdx, wordCount);
+
+      return { mdx, wordCount, loadedLearningIds, persistError };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Drafter failed';
       this.setState({ ...this.state, status: 'error', error: message });
       throw err;
+    }
+  }
+
+  /**
+   * Persist the initial-draft MDX to draft_revisions as round 0.
+   *
+   * Always one row per call. UNIQUE(piece_id, revision_round) guards
+   * against duplicate writes if the alarm path ever re-invokes draft()
+   * for the same piece — a constraint violation surfaces as a write
+   * error rather than a silent double-record, and the persistError
+   * sentinel carries it back to Director for one observer event.
+   *
+   * Foundation Fix Task 06 (L4). Mirrors AudioAuditorAgent.persistAuditRows
+   * — same DO, same this.env.DB pattern, same fail-open posture.
+   */
+  private async persistInitialDraft(
+    pieceId: string,
+    mdx: string,
+    wordCount: number,
+  ): Promise<string | null> {
+    try {
+      await this.env.DB
+        .prepare(
+          `INSERT INTO draft_revisions
+            (piece_id, revision_round, mdx_content, word_count, authored_by, created_at)
+           VALUES (?, 0, ?, ?, 'drafter', ?)`,
+        )
+        .bind(pieceId, mdx, wordCount, Date.now())
+        .run();
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : 'draft_revisions round-0 persist failed';
     }
   }
 

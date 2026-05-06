@@ -377,7 +377,19 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     this.enterPhase('drafter');
     await this.logStep(today, pieceId,'drafting', 'running', {});
     const drafter = await this.subAgent(DrafterAgent, 'drafter');
-    const { mdx, wordCount, loadedLearningIds } = await drafter.draft(brief);
+    const draftResult = await drafter.draft(brief, pieceId);
+    const { mdx, wordCount, loadedLearningIds } = draftResult;
+    // Foundation Fix Task 06 (L4): if the round-0 write to draft_revisions
+    // tripped, log once via observer. The MDX itself is preserved — the
+    // audit-revise loop reads `mdx` from this scope, not from D1. Same
+    // log-once-per-call posture as the audio-auditor persistError handler
+    // (Task 05) and the learner-feedback batch error handler (Task 04).
+    if (draftResult.persistError) {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      await obs
+        .logError('drafter', 0, `draft_revisions round-0 persist failed: ${draftResult.persistError}`, pieceId)
+        .catch(() => {});
+    }
     await this.logStep(today, pieceId,'drafting', 'done', {
       wordCount, beatCount: brief.beats?.length ?? 0,
     });
@@ -446,9 +458,34 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         this.enterPhase('integrator');
         await this.logStep(today, pieceId,`revising_r${round}`, 'running', { round, failedGates });
         const integrator = await this.subAgent(IntegratorAgent, `integrator-daily-${today}`);
-        const revision = await integrator.revise(currentMdx, voiceResult, structureResult, factResult);
+        // Foundation Fix Task 06 (L8 + L9): pieceId and round thread
+        // through so Integrator can write its own draft_revisions row
+        // (round N) plus one integrator_decisions row per addressed
+        // feedback item. parseError + persistError surface back here for
+        // a single observer event each — same log-once-per-call posture
+        // as the audio-auditor persistError handler (Task 05).
+        const revision = await integrator.revise(
+          pieceId,
+          round,
+          currentMdx,
+          voiceResult,
+          structureResult,
+          factResult,
+        );
         currentMdx = revision.revisedMdx;
-        await this.logStep(today, pieceId,`revising_r${round}`, 'done', { round });
+        if (revision.parseError) {
+          const obs = await this.subAgent(ObserverAgent, 'observer');
+          await obs
+            .logError('integrator', round, `decisions parse fallback: ${revision.parseError}`, pieceId)
+            .catch(() => {});
+        }
+        if (revision.persistError) {
+          const obs = await this.subAgent(ObserverAgent, 'observer');
+          await obs
+            .logError('integrator', round, `revision persist failed: ${revision.persistError}`, pieceId)
+            .catch(() => {});
+        }
+        await this.logStep(today, pieceId,`revising_r${round}`, 'done', { round, decisions: revision.decisions.length });
         this.enterPhase('auditors'); // back to audit for next round
       }
     }
