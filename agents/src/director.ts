@@ -14,7 +14,11 @@ import { LearnerAgent } from './learner';
 import { CategoriserAgent } from './categoriser';
 import { InteractiveGeneratorAgent } from './interactive-generator';
 import { getAdminSetting, parseIntervalHours } from './shared/admin-settings';
-import { MAX_AUDIT_ROUNDS as MAX_REVISIONS } from './shared/audit-thresholds';
+import {
+  MAX_AUDIT_ROUNDS as MAX_REVISIONS,
+  LEARNER_VALIDATION_VOICE_FLOOR,
+  LEARNER_VALIDATION_MAX_ROUNDS,
+} from './shared/audit-thresholds';
 import { CURATOR_RECENT_WINDOW_DAYS } from './shared/curator-thresholds';
 import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thresholds';
 import { CATEGORISER_FALLBACK_SLUG } from './shared/categoriser-thresholds';
@@ -373,7 +377,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     this.enterPhase('drafter');
     await this.logStep(today, pieceId,'drafting', 'running', {});
     const drafter = await this.subAgent(DrafterAgent, 'drafter');
-    const { mdx, wordCount } = await drafter.draft(brief);
+    const { mdx, wordCount, loadedLearningIds } = await drafter.draft(brief);
     await this.logStep(today, pieceId,'drafting', 'done', {
       wordCount, beatCount: brief.beats?.length ?? 0,
     });
@@ -602,6 +606,68 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // logged above in the !passed branch).
     if (passed) {
       await observer.logPublished('daily', 0, brief.headline, lastVoiceScore, totalRounds - 1, publishResult.commitUrl, pieceId);
+    }
+
+    // ─── Learner feedback loop — close L15 (Foundation Fix Task 04) ──
+    // Attribute this piece's id to every learning the Drafter loaded
+    // this run, and (only on the Polished-strict bar) write a
+    // validated timestamp. Synchronous so the data lands before the
+    // off-pipeline alarms below; the piece is already on GitHub by
+    // here so a feedback-write hiccup does NOT block the ship.
+    //
+    // Bind-count safety: getRecentLearnings(10) caps loadedLearningIds
+    // at 10, so each statement here binds at most 11 values (10 IDs +
+    // 1 piece_id, or 10 IDs + 1 timestamp). D1's per-statement bind
+    // cap is ~100; if the recent-learnings limit ever rises above
+    // ~95, this batch needs chunking.
+    if (loadedLearningIds.length > 0) {
+      const placeholders = loadedLearningIds.map(() => '?').join(', ');
+      const updates: D1PreparedStatement[] = [
+        // applied_to_prompts: JSON-append. The CASE WHEN guards
+        // legacy INTEGER 0/1 rows from migration 0003 — they read
+        // back as null and the first JSON write resets them to
+        // a fresh array.
+        this.env.DB
+          .prepare(
+            `UPDATE learnings
+                SET applied_to_prompts = json_insert(
+                      CASE WHEN applied_to_prompts LIKE '[%'
+                           THEN applied_to_prompts ELSE '[]' END,
+                      '$[#]', ?)
+              WHERE id IN (${placeholders})`,
+          )
+          .bind(pieceId, ...loadedLearningIds),
+      ];
+      // Polished-strict bar: voice ≥ LEARNER_VALIDATION_VOICE_FLOOR
+      // AND revision rounds ≤ LEARNER_VALIDATION_MAX_ROUNDS. Stricter
+      // than the public Polished tier — validation is a learner-
+      // signal-quality bar, not a tier change. Constants live in
+      // agents/src/shared/audit-thresholds.ts.
+      if (
+        passed &&
+        lastVoiceScore >= LEARNER_VALIDATION_VOICE_FLOOR &&
+        totalRounds <= LEARNER_VALIDATION_MAX_ROUNDS
+      ) {
+        updates.push(
+          this.env.DB
+            .prepare(
+              `UPDATE learnings
+                  SET last_validated_at = ?
+                WHERE id IN (${placeholders})`,
+            )
+            .bind(Date.now(), ...loadedLearningIds),
+        );
+      }
+      try {
+        await this.env.DB.batch(updates);
+      } catch (err) {
+        await observer.logError(
+          'learner',
+          0,
+          `Failed to persist learnings feedback for ${loadedLearningIds.length} loaded id(s): ${err instanceof Error ? err.message : String(err)}`,
+          pieceId,
+        );
+      }
     }
 
     // ─── Post-publish producer-side learning (P1.3, off-pipeline) ────

@@ -18,9 +18,33 @@ export interface Learning {
   observation: string;
   evidence: string;
   confidence: number;
-  applied_to_prompts: number;
+  /** JSON array of `daily_pieces.id` strings — the pieces this
+   *  learning was loaded into AND that subsequently published.
+   *  Repurposed from the prior INTEGER `0`/`1` shape in migration
+   *  0032 (Foundation Fix Task 04). Pre-Task-04 rows still hold the
+   *  literal numeric `0` or `1`; readers MUST treat any value not
+   *  starting with `[` as null and writers use `LIKE '[%'` guards
+   *  before json_insert so the first JSON write resets a legacy 0/1.
+   *  The DB column is still declared INTEGER but SQLite's loose
+   *  column affinity tolerates the TEXT shape with no ALTER. */
+  applied_to_prompts: string | null;
   created_at: number;
   source: LearningSource | null;
+  /** Most recent load timestamp (epoch ms), set by getRecentLearnings
+   *  as a deliberate side-effect. Overwritten on each subsequent
+   *  load. NULL = never loaded. Added migration 0032. */
+  loaded_at: number | null;
+  /** Monotonic count of loads via getRecentLearnings. Durable across
+   *  loaded_at overwrites. DEFAULT 0 in DB so legacy rows query as
+   *  "never loaded" alongside their NULL loaded_at. Added migration
+   *  0032. */
+  load_count: number;
+  /** Set only when the loaded learning's piece passed the
+   *  Polished-strict bar (voiceScore ≥ LEARNER_VALIDATION_VOICE_FLOOR
+   *  AND revision rounds ≤ LEARNER_VALIDATION_MAX_ROUNDS). Director
+   *  writes after `publishing done`. NULL on every pre-Task-04 row
+   *  (forward-only). */
+  last_validated_at: number | null;
 }
 
 /**
@@ -128,6 +152,27 @@ async function logMissingField(
  * category-specific queries are intentionally deferred. If a caller
  * ever needs to slice by category again, add a separate function
  * rather than re-introducing the optional-param overload.
+ *
+ * **Side-effect (intentional, Foundation Fix Task 04):** every
+ * successful read also writes a load event back to the same rows —
+ * `loaded_at = Date.now()` (overwrites) and `load_count =
+ * COALESCE(load_count, 0) + 1` (monotonic). This closes the load
+ * side of the L15 feedback loop. The function name is kept (one
+ * caller, Drafter) rather than renamed to `loadRecentLearnings…`
+ * to avoid rippling through DECISIONS / AGENTS / RUNBOOK / etc.
+ *
+ * The load event lands BEFORE the draft is written. If the draft
+ * later throws, the load is still recorded — which is correct: the
+ * load did happen. Director's success-path UPDATE
+ * (`applied_to_prompts` JSON-append + optional `last_validated_at`)
+ * fires only when the piece publishes, so a draft-throw cleanly
+ * leaves loaded-but-not-applied rows that surface in the
+ * `noise` query of `scripts/learner-health.sql`.
+ *
+ * Fail-open on the load UPDATE: if it throws, the read result is
+ * returned anyway. Blocking the draft on a feedback-write hiccup
+ * would invert priorities — the loaded learnings still reach the
+ * Drafter prompt; only the load-event accounting is missed.
  */
 export async function getRecentLearnings(
   db: D1Database,
@@ -137,18 +182,26 @@ export async function getRecentLearnings(
     .prepare('SELECT * FROM learnings ORDER BY created_at DESC LIMIT ?')
     .bind(limit)
     .all<Learning>();
-  return result.results;
-}
 
-/**
- * Get all learnings not yet applied to prompts.
- * Used by Director when reviewing patterns for prompt improvements.
- */
-export async function getUnappliedLearnings(
-  db: D1Database,
-): Promise<Learning[]> {
-  const result = await db
-    .prepare('SELECT * FROM learnings WHERE applied_to_prompts = 0 ORDER BY confidence DESC')
-    .all<Learning>();
+  if (result.results.length > 0) {
+    const ids = result.results.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(', ');
+    try {
+      await db
+        .prepare(
+          `UPDATE learnings
+              SET loaded_at = ?,
+                  load_count = COALESCE(load_count, 0) + 1
+            WHERE id IN (${placeholders})`,
+        )
+        .bind(Date.now(), ...ids)
+        .run();
+    } catch {
+      // Fail-open: the draft must not block on a feedback-write
+      // hiccup. The rows are still returned and reach the Drafter
+      // prompt; only the load-event accounting is missed.
+    }
+  }
+
   return result.results;
 }

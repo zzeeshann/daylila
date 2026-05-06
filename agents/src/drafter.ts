@@ -77,12 +77,18 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
 
       // Pull recent learnings so the Drafter writes in light of what prior
       // pieces taught us. Fail-open: a DB hiccup must not block a draft.
+      // The call ALSO writes a load event back to each row's
+      // `loaded_at` + `load_count` (intentional side-effect; see
+      // getRecentLearnings doc-comment). The IDs surface in
+      // DrafterResult.loadedLearningIds so Director's success-path
+      // UPDATE can attribute this piece's id to applied_to_prompts.
       let learnings: Learning[] = [];
       try {
         learnings = await getRecentLearnings(this.env.DB, 10);
       } catch {
         learnings = [];
       }
+      const loadedLearningIds = learnings.map((l) => l.id);
 
       const response = await client.messages.create({
         model: 'claude-sonnet-4-5-20250929',
@@ -102,7 +108,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
         lastDraft: { headline: brief.headline, date: brief.date, wordCount },
       });
 
-      return { mdx, wordCount };
+      return { mdx, wordCount, loadedLearningIds };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Drafter failed';
       this.setState({ ...this.state, status: 'error', error: message });
