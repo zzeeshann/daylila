@@ -13,6 +13,16 @@ Format per entry:
 
 ---
 
+## [open] 2026-05-12: Integrator regression risk — passing dimensions can flip to failing across rounds
+
+- **Surfaced:** 2026-05-12, observed on the 2026-05-06 magic-mushroom piece (`content/daily-pieces/2026-05-06-single-dose-of-magic-mushroom-psychedelic-can-cause-anatomic.mdx`). Voice scored 95 in Round 1, dropped to 92 in Round 2 after the Integrator's revision introduced "unlock" (a banned tribe word), then recovered to 95 in Round 3. The piece would have shipped as Polished on Round 1 alone; the round-trip across dimensions cost two extra rounds.
+- **Hypothesis:** Integrator's `revise()` only sees failed audit feedback (three `if (!result.passed)` blocks at `agents/src/integrator.ts`). Claude inside the Integrator never knows what was passing, so its rewrite to fix one dimension can inadvertently break another. Across 3 rounds this manifests as dimension-flipping ("whack-a-mole") that ships pieces as Rough not because the writing was bad but because the Integrator was chasing its tail. Phase 2 Task 06's `integrator_decisions` data will conflate "genuinely hard piece" with "Integrator chasing its tail" — making the question "is the system getting better?" harder to answer cleanly.
+- **Investigation hints:** Read `agents/src/integrator.ts` (~75 lines, "Stateless — Director spawns a fresh instance per day" comment in the header is the giveaway). The fix is two-part: (1) pass all three audits to the prompt with explicit PRESERVE/FIX framing so passing dimensions survive the rewrite; (2) add Durable Object state for round-to-round memory within a single piece, keyed by `piece_id`, cleared when `piece_id` changes. Full brief at `docs/foundation-fix/09-INTEGRATOR-AWARENESS.md`; session-kickoff prompt at `docs/foundation-fix/09-INTEGRATOR-AWARENESS-prompt.md`.
+- **Prerequisite for the fix:** Foundation Fix Task 06 must ship first (creates `integrator_decisions`); the verification SQL counts pass→fail flips from that table. Need ~10+ multi-round pieces accumulated post-Task-06 before the pre-deploy spot-check has data to verify against. Phase 3 Task 08 is also a prereq (run_id end-to-end).
+- **Sequencing:** queued as Phase 4 Task 09 in `docs/foundation-fix/00-MASTER-PLAN.md`. Picks up after Task 08 closes the original programme AND a 2–4 week watch window has accrued data on `integrator_decisions`.
+- **Stop-condition:** if after the watch window the regression doesn't show up in `integrator_decisions` data, Task 09's stop-condition fires ("regression doesn't show up in production data → may not be needed yet") and the task is descoped. The catalyst observation on the magic-mushroom piece is qualitative evidence; empirical confirmation comes from the table.
+- **Priority:** medium. Doesn't block any pipeline; ships pieces as Rough that might otherwise be Solid. Pick up after Task 08 closes the original programme and Task 06's data has accumulated.
+
 ## [deferred] 2026-05-12: Surface audio_audit_results on admin per-piece deep-dive
 
 - **Surfaced:** 2026-05-12, Foundation Fix Task 05 ("L10, L11, L12 closed"). Task 05 lands the data — every `AudioAuditorAgent.audit()` call writes per-issue rows + a summary row to `audio_audit_results` (migration 0033) — but does not surface it on any reader-facing or admin surface.
