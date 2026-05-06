@@ -2,6 +2,44 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: L15 closed — Learner feedback loop records load + applied + validated events (Foundation Fix Task 04, second Phase 2 task)
+
+The `learnings` table had two columns no code ever wrote to — `applied_to_prompts` (INTEGER 0/1, since migration 0003) and `last_validated_at` (INTEGER, also 0003). The Drafter loaded `getRecentLearnings(10)` on every run, the rows landed in the prompt, and nothing was ever recorded about which learnings were loaded or whether the resulting piece was good. The loop was half-built. This task closes the consumption side so the next 30 days of running produce the data needed to answer "is the Learner actually improving the system, or just generating noise?"
+
+**Six decisions made up front, captured here so future-me reads them instead of re-litigating.**
+
+**Schema vs query-layer for `applied_to_prompts` — repurpose in place to TEXT JSON.** SQLite's loose column affinity tolerates writing JSON into a column declared INTEGER without an ALTER. The `Learning.applied_to_prompts` TS type changed from `number` to `string | null`; readers tolerate legacy `0`/`1` numeric values via `LIKE '[%'` guards (anything not starting with `[` reads as null), and writers use `json_insert(CASE WHEN applied_to_prompts LIKE '[%' THEN applied_to_prompts ELSE '[]' END, '$[#]', ?)` so a row's first JSON write resets a legacy 0/1. The alternative — adding a parallel `applied_piece_ids` column — would leave the legacy INTEGER column as permanent dead weight with overlapping intent, exactly the half-built shape this task is supposed to fix. The trade is that ad-hoc operator queries that do `WHERE applied_to_prompts = 0` will silently miss new JSON rows, and `json_array_length(applied_to_prompts)` on legacy `0` rows will throw — `scripts/learner-health.sql` handles both shapes; new ad-hoc queries should follow that pattern (SCHEMA.md note serves as the warning).
+
+**Threading loaded-IDs Drafter → Director → success path — extend `DrafterResult`.** Added `loadedLearningIds: string[]` to the result. One field, one local variable in Director, no new schema surface. The list lives ~5 seconds in memory between Drafter return and the success-path UPDATE. A `daily_pieces` column would duplicate data the join already has; a `learnings_loaded` side table is a 30-day-data problem to solve later if at all. Integrator does NOT re-load learnings (verified, `agents/src/integrator.ts`), so the list is stable across the whole run.
+
+**`loaded_at` time format — INTEGER epoch ms via `Date.now()` in app code.** All sibling timestamp columns on `learnings` (`created_at`, `last_validated_at`) are INTEGER. The brief's `CURRENT_TIMESTAMP` would give one ISO-string column among epoch-ms siblings; the health SQL and Drafter prompt block would both have to special-case it. Consistency with siblings wins.
+
+**The "validated" bar — new constants, NOT a tier-threshold change.** Added `LEARNER_VALIDATION_VOICE_FLOOR = 90` and `LEARNER_VALIDATION_MAX_ROUNDS = 1` to `agents/src/shared/audit-thresholds.ts`. The reader-facing `VOICE_PASS_THRESHOLD = 85` and `TIER_SOLID_FLOOR = 70` stay untouched. Validation is a learner-signal-quality bar (stricter than the public Polished tier) — conflating with the public tier would misuse the audit contract's vocabulary. The constants live alongside the existing tier thresholds so the audit-contract surface stays one file, but their doc-comments name the asymmetry. No site-worker mirror — agents-only.
+
+**Where the load UPDATE fires — inside `getRecentLearnings`, with a doc-comment naming the side-effect.** One caller (Drafter), so the existing function name + an explicit "this read also writes a load event" doc-comment is honest enough. Renaming would ripple through DECISIONS.md / ARCHITECTURE.md / AGENTS.md / RUNBOOK.md / INTERACTIVES.md and is cosmetic. The doc-comment also names that the load fires even if the draft later throws — which is correct: the load did happen, and the loaded-but-not-applied state surfaces cleanly in `scripts/learner-health.sql`'s `noise` query.
+
+**Failure posture — fail-open on both UPDATEs.** Load UPDATE wraps in its own try/catch; the read result is returned regardless. Director's success-path batch via `this.env.DB.batch()` per the Task 03 pattern; on throw it logs once via `observer.logError('learner', 0, msg, pieceId)` and returns. The piece is already on GitHub by the time these fire — blocking publish on a feedback-write hiccup would invert priorities.
+
+**Schema migration.** `migrations/0032_learner_feedback_loop.sql` adds two nullable additive columns to `learnings`: `loaded_at INTEGER` and `load_count INTEGER DEFAULT 0`. No index — load-side UPDATEs scope by `id IN (...)` (PK-indexed); operator queries scan ~1k rows in year one in milliseconds. Same calculus as Task 03's `0031_curator_reasoning.sql`. Forward-only — no backfill of historical learnings; pre-Task-04 NULLs stay as honest historical record.
+
+**Bind-count safety noted at the batch site.** With `getRecentLearnings(10)` each statement binds at most 11 values (10 IDs + 1 piece_id, or 10 IDs + 1 timestamp). D1's per-statement bind cap is ~100 historically; comfortably safe today. If the recent-learnings limit ever rises above ~95 the batch needs chunking — code comment at the batch site so future bumpers see it.
+
+**Dead code removed.** `getUnappliedLearnings` deleted from `agents/src/shared/learnings.ts` — verified zero callers across `.ts`, `.md`, `.sql`. Its `WHERE applied_to_prompts = 0` predicate is meaningless once the column is JSON; keeping it would mislead the next reader.
+
+**Operator queries.** `scripts/learner-health.sql` ships four read-only queries — `noise` (loaded but never applied), `signal` (validated by Polished-strict pieces), `workhorses` (top 10 by `load_count` with applied-count), `retirement_candidates` (bottom 10 oldest never-loaded). All four tolerate the legacy-INTEGER + JSON-array dual shape via `LIKE '[%'` guards. RUNBOOK documents invocation under "Operator queries: Learner health"; "Verify Learner feedback loop populates" subsection added too as the post-cron sanity check, parallel to Task 03's "Verify Curator reasoning fields populate".
+
+**The reader-facing surface (made-drawer + admin per-piece) is deferred** to a separate task — same posture as Task 03's deferred Curator-reasoning surface. Adding "loaded N learnings, validated N of them" copy to `/api/daily/[date]/made` and the per-piece admin view is content-design work, not data-fix work. The new fields populate going forward; surfacing them is FOLLOWUPS `[deferred]` 2026-05-11. Both consumer files SELECT explicit columns by name; the new columns are silently safe.
+
+**The 30-day evaluation.** Logged as a new FOLLOWUPS `[observing]` entry verbatim from the brief: after 30 days, run `scripts/learner-health.sql` and decide whether learnings are meaningfully selecting useful patterns. Possible outcomes: keep, narrow extraction logic, or replace with a different signal source. NOT this task — laying the rails only.
+
+**Verification.** `pnpm verify-contracts-fresh` ✓. Agents `tsc --noEmit` shows only the 26 pre-existing `src/server.ts` Durable Object errors documented in CLAUDE.md, zero new errors. Migration not yet applied to remote D1 — operator action via `wrangler d1 migrations apply zeemish --remote` post-merge (additive nullable columns; non-destructive). End-to-end check (the post-cron query in RUNBOOK) waits for the next cron run; documented as a permanent post-cron verification step.
+
+**Files touched (4 commits).**
+- Commit 1 (DB layer): `migrations/0032_learner_feedback_loop.sql`, `scripts/learner-health.sql`, `docs/SCHEMA.md`, `docs/RUNBOOK.md`.
+- Commit 2 (agent code): `agents/src/types.ts`, `agents/src/shared/audit-thresholds.ts`, `agents/src/shared/learnings.ts`, `agents/src/drafter.ts`, `agents/src/director.ts`.
+- Commit 3 (operator docs): `CLAUDE.md`, `docs/AGENTS.md`, `docs/DECISIONS.md` (this entry), `docs/FOLLOWUPS.md`.
+- Commit 4 (book): `book/14-closing-the-loop.md`, `book/15-four-signals.md`, `book/99-glossary.md`.
+
 ## 2026-05-06: L1, L2, L25 closed — per-candidate Curator reasoning persisted; selected-flag backfilled on 7 historical pieces (Foundation Fix Task 03, first Phase 2 task)
 
 The Curator now records WHY each pick was made and WHY each rejection happened. Three data leaks closed in one task because they share the same code paths.
