@@ -20,6 +20,7 @@ import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thr
 import { CATEGORISER_FALLBACK_SLUG } from './shared/categoriser-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
+import { REJECTION_CATEGORIES } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
 import type { StructureAuditResult } from './structure-editor';
 import type { FactCheckResult } from './fact-checker';
@@ -271,11 +272,16 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // As of 2026-04-22 the curator prompt shows candidate UUIDs to Claude so
     // the id returned is a real one; surface both failure modes via Observer
     // so the next regression isn't silent like the 2026-04-21 one was.
+    //
+    // Foundation Fix Task 03 (2026-05-06): same UPDATE now also writes
+    // `pick_reasoning` from Curator's output (closes leak L1). The
+    // separate batch UPDATE for `rejection_category` + `rejection_reason`
+    // below closes leak L2.
     if (curatorResult.selectedCandidateId) {
       try {
         const upd = await this.env.DB
-          .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100 WHERE id = ?')
-          .bind(curatorResult.selectedCandidateId)
+          .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100, pick_reasoning = ? WHERE id = ?')
+          .bind(curatorResult.pickReasoning ?? null, curatorResult.selectedCandidateId)
           .run();
         if (!upd.meta || upd.meta.changes === 0) {
           const observer = await this.subAgent(ObserverAgent, 'observer');
@@ -300,6 +306,67 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         `Curator returned no selectedCandidateId — prompt regression or empty candidate list`,
         pieceId,
       );
+    }
+
+    // Persist per-rejection reasoning (closes leak L2). One UPDATE per
+    // rejection, batched so the whole set commits in a single D1 round
+    // trip. Validates each rejection's category against the closed enum
+    // (REJECTION_CATEGORIES from types.ts); any unknown values are
+    // skipped and the count is surfaced via observer.logError once per
+    // run (no per-row spam). Failure modes — batch throw, total
+    // zero-changes — are non-fatal: the piece is already curated and
+    // the data record is non-load-bearing for publish.
+    if (curatorResult.rejections && curatorResult.rejections.length > 0) {
+      let unknownCategoryCount = 0;
+      const validUpdates: D1PreparedStatement[] = [];
+      for (const r of curatorResult.rejections) {
+        if (!REJECTION_CATEGORIES.has(r.rejectionCategory as never)) {
+          unknownCategoryCount += 1;
+          continue;
+        }
+        validUpdates.push(
+          this.env.DB
+            .prepare(
+              'UPDATE daily_candidates SET rejection_category = ?, rejection_reason = ? WHERE id = ? AND piece_id = ?',
+            )
+            .bind(r.rejectionCategory, r.rejectionReason ?? null, r.id, pieceId),
+        );
+      }
+      if (unknownCategoryCount > 0) {
+        const observer = await this.subAgent(ObserverAgent, 'observer');
+        await observer.logError(
+          'curator',
+          0,
+          `Curator returned ${unknownCategoryCount} rejection(s) with unknown rejection_category — closed-enum drift; skipped persistence for those rows`,
+          pieceId,
+        );
+      }
+      if (validUpdates.length > 0) {
+        try {
+          const results = await this.env.DB.batch(validUpdates);
+          const totalChanges = results.reduce(
+            (sum, r) => sum + (r.meta?.changes ?? 0),
+            0,
+          );
+          if (totalChanges === 0) {
+            const observer = await this.subAgent(ObserverAgent, 'observer');
+            await observer.logError(
+              'curator',
+              0,
+              `Curator returned ${validUpdates.length} rejection(s) but all UPDATEs matched 0 rows in daily_candidates — id shape drift`,
+              pieceId,
+            );
+          }
+        } catch (err) {
+          const observer = await this.subAgent(ObserverAgent, 'observer');
+          await observer.logError(
+            'curator',
+            0,
+            `Failed to persist rejection reasoning: ${err instanceof Error ? err.message : String(err)}`,
+            pieceId,
+          );
+        }
+      }
     }
 
     // ─── Phase 3: Drafter ────────────────────────────────────────────

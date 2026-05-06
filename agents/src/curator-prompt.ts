@@ -35,6 +35,7 @@ ${CURATOR_CONTRACT}
 Return JSON:
 {
   "selectedCandidateId": "<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-2d1e-4f9a-b7c8-1e2d3f4a5b6c>",
+  "pickReasoning": "<1-3 sentences explaining why this candidate is the most teachable today — see 'What to record' in the contract>",
   "date": "YYYY-MM-DD",
   "headline": "the news headline",
   "newsSource": "source name",
@@ -49,10 +50,20 @@ Return JSON:
     { "name": "teaching-1", "type": "teaching", "description": "..." },
     { "name": "teaching-2", "type": "teaching", "description": "..." },
     { "name": "close", "type": "close", "description": "..." }
+  ],
+  "rejections": [
+    { "id": "<uuid copied verbatim from the candidate's id: field>", "rejectionCategory": "<one of the 8 enum values from the contract>", "rejectionReason": "<one sentence — only on the top 5 candidates you weighed most seriously; omit on the rest>" }
+    // ... one entry per non-picked candidate. The id MUST be the exact UUID
+    // shown in the candidate list — do not invent, truncate, guess, or
+    // substitute a list position. Same verbatim-UUID rule as
+    // selectedCandidateId. rejectionReason is OPTIONAL — present on the
+    // top 5 only.
   ]
 }
 
-ONLY if the narrow skip conditions in the contract above genuinely apply, return the skip JSON named in "The skip output shape" — and remember: the reason must NAME the specific condition, never a category dismissal.`;
+The "rejections" array must cover EVERY candidate in the input list except the picked one. The "rejectionCategory" field on each entry MUST be one of the 8 values defined in the "Rejection category enum" section of the contract above — do not invent new categories.
+
+ONLY if the narrow skip conditions in the contract above genuinely apply, return the skip JSON named in "The skip output shape" — and remember: the reason must NAME the specific condition, never a category dismissal. The skip path produces no candidate-record (no rejections array), since there is no pick to weigh against.`;
 
 export function buildCuratorPrompt(
   candidates: DailyCandidate[],

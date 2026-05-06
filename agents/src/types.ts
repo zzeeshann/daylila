@@ -99,9 +99,54 @@ export interface DrafterState {
   error: string | null;
 }
 
+/** Closed enum for daily_candidates.rejection_category — see
+ *  content/curator-contract.md "Rejection category enum" for the rule body.
+ *  Director defensively logs unknown values via observer.logError. */
+export type RejectionCategory =
+  | 'off_topic'
+  | 'duplicate'
+  | 'too_local'
+  | 'no_teaching_angle'
+  | 'wrong_shape'
+  | 'low_signal'
+  | 'tribal_framing'
+  | 'already_covered';
+
+/** Runtime mirror of RejectionCategory for membership checks. Director
+ *  validates Curator output against this set and logs the count of
+ *  unknown categories via observer.logError so drift becomes visible
+ *  without per-row spam. */
+export const REJECTION_CATEGORIES: ReadonlySet<RejectionCategory> = new Set<RejectionCategory>([
+  'off_topic',
+  'duplicate',
+  'too_local',
+  'no_teaching_angle',
+  'wrong_shape',
+  'low_signal',
+  'tribal_framing',
+  'already_covered',
+]);
+
+/** A single rejection record — one per non-picked candidate per Curator
+ *  run. Persisted to daily_candidates.rejection_category +
+ *  rejection_reason via Director. The id MUST be the exact UUID from the
+ *  candidate's `id:` field in the prompt. rejectionReason is populated
+ *  only on the top 5 candidates Curator weighed most seriously. */
+export interface CuratorRejection {
+  id: string;
+  rejectionCategory: RejectionCategory;
+  rejectionReason?: string;
+}
+
 /** Result of Curator picking a story (or deciding to skip) */
 export type CuratorResult =
-  | { skip: false; brief: DailyPieceBrief; selectedCandidateId?: string }
+  | {
+      skip: false;
+      brief: DailyPieceBrief;
+      selectedCandidateId?: string;
+      pickReasoning?: string;
+      rejections?: CuratorRejection[];
+    }
   | { skip: true; reason: string };
 
 /** Result of Drafter writing MDX for a brief */
