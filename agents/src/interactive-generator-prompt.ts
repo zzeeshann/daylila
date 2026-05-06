@@ -66,7 +66,7 @@ export const GENERATOR_BODY_EXCERPT_MAX_CHARS = 2500;
 // of truth for the size cap and the allowlist surface; this module
 // references the imports below in the prompt body.
 
-export const INTERACTIVE_GENERATOR_PROMPT = `You produce a short multiple-choice quiz that teaches the UNDERLYING CONCEPT of a just-published Zeemish daily piece.
+export const INTERACTIVE_GENERATOR_PROMPT = `You produce a short multiple-choice quiz that teaches the UNDERLYING CONCEPT of a just-published Daylila daily piece.
 
 You DO NOT write a quiz about the piece.
 
@@ -404,7 +404,7 @@ ${recent
  * prefix). Sub-task 2.7 will append a few-shot reference once
  * docs/examples/interactive-reference.html lands.
  */
-export const INTERACTIVE_HTML_GENERATOR_PROMPT = `You produce a single self-contained HTML interactive that teaches the UNDERLYING CONCEPT of a just-published Zeemish daily piece.
+export const INTERACTIVE_HTML_GENERATOR_PROMPT = `You produce a single self-contained HTML interactive that teaches the UNDERLYING CONCEPT of a just-published Daylila daily piece.
 
 You DO NOT write an interactive about the piece.
 
@@ -439,7 +439,7 @@ The RIGHT shapes never name the specific trigger. They make the underlying PATTE
 
 # Voice contract
 
-Any in-interactive copy — the title above the iframe, the concept line, control labels, captions, button text, tooltips, status messages — follows the Zeemish voice contract:
+Any in-interactive copy — the title above the iframe, the concept line, control labels, captions, button text, tooltips, status messages — follows the Daylila voice contract:
 
 ${VOICE_CONTRACT}
 
@@ -503,7 +503,7 @@ What to copy from the reference:
 
 What NOT to copy from the reference:
 - The specific concept (chokepoints) — derive from your piece's underlying subject.
-- The specific colours (the reference uses Zeemish's gold + teal + cream palette; you can use the same or pick palette-neutral defaults).
+- The specific colours (the reference uses Daylila's gold + teal + cream palette; you can use the same or pick palette-neutral defaults).
 - The specific copy strings — voice rules apply, but text comes from YOUR concept.
 
 \`\`\`html

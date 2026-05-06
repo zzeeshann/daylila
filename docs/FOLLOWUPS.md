@@ -1,4 +1,4 @@
-# Zeemish v2 — Follow-ups Log
+# Daylila v2 — Follow-ups Log
 
 Append-only. One entry per known issue worth fixing later. Close via DECISIONS entry (note the FOLLOWUPS line that's now resolved). Never delete entries.
 
@@ -326,7 +326,7 @@ For full narratives see CLAUDE.md sections "FactChecker Path A.1 — correct the
 
 ## [observing] 2026-04-30: SEO snippet flip — confirm homepage SERP description switches off footer text
 
-**Surfaced:** 2026-04-30 evening, when an operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Zeemish."* — the footer text, not a meaningful description. Fix shipped: homepage description differentiated to ~142 chars naming the news anchor and system-thinking framing; `<footer>` marked `data-nosnippet`; BreadcrumbList JSON-LD on daily pieces; LearningResource JSON-LD on interactives; og:image dimensions + alt; library index description dynamic by top-4 categories. See DECISIONS 2026-04-30 (evening) "SEO snippet fix + structured-data expansion" and CLAUDE.md section of the same name.
+**Surfaced:** 2026-04-30 evening, when an operator's Google search for "zeemish" surfaced the homepage with the SERP snippet *"Educate yourself for humble decisions. Made by 16 agents. © 2026 Daylila."* — the footer text, not a meaningful description. Fix shipped: homepage description differentiated to ~142 chars naming the news anchor and system-thinking framing; `<footer>` marked `data-nosnippet`; BreadcrumbList JSON-LD on daily pieces; LearningResource JSON-LD on interactives; og:image dimensions + alt; library index description dynamic by top-4 categories. See DECISIONS 2026-04-30 (evening) "SEO snippet fix + structured-data expansion" and CLAUDE.md section of the same name.
 
 **Watch for** over the next 1–2 weeks:
 - Google Search Console homepage snippet renders the new meta description (`"Daily teaching anchored in today's news, written and audited by 16 autonomous agents…"`) instead of footer text. Crawl frequency on a domain with daily fresh content is typically 1–3 days; longer if Google deprioritises the homepage in favour of fresh daily pieces.
@@ -335,10 +335,10 @@ For full narratives see CLAUDE.md sections "FactChecker Path A.1 — correct the
 - Run Google Rich Results Test (https://search.google.com/test/rich-results) on a live daily piece + a live interactive 24-48 hours post-deploy. Expect Article + BreadcrumbList valid on the daily-piece URL; LearningResource valid on the interactive URL. Schema.org validator (https://validator.schema.org/) — expect 0 errors on both.
 - Search Console Coverage report — no new "Crawled — currently not indexed" or "Discovered — currently not indexed" entries from the schema additions.
 
-**Unblock condition:** Homepage SERP snippet for "zeemish" no longer reads the footer text (any of: new meta description used, breadcrumb displayed, or just visibly different from `"Educate yourself for humble decisions. ... © 2026 Zeemish."`). Mark `[resolved]` once observed.
+**Unblock condition:** Homepage SERP snippet for "zeemish" no longer reads the footer text (any of: new meta description used, breadcrumb displayed, or just visibly different from `"Educate yourself for humble decisions. ... © 2026 Daylila."`). Mark `[resolved]` once observed.
 
 **Escalation path:** if 2 weeks pass and the snippet still falls back to footer-shape text:
-- (a) The `data-nosnippet` attribute may not be propagating through Cloudflare Workers Static Assets — verify with `curl -s https://zeemish.io/ | grep -o 'data-nosnippet'`. If absent, Cloudflare CDN is serving cached HTML; manual cache purge needed (per CLAUDE.md "Remaining minor items").
+- (a) The `data-nosnippet` attribute may not be propagating through Cloudflare Workers Static Assets — verify with `curl -s https://daylila.com/ | grep -o 'data-nosnippet'`. If absent, Cloudflare CDN is serving cached HTML; manual cache purge needed (per CLAUDE.md "Remaining minor items").
 - (b) Description still considered too generic — extend with 1-2 concrete teaching examples (e.g. *"Stories like commodity shocks, infrastructure debt, and chokepoints — explained as systems, not events."*).
 - (c) Add `<meta name="googlebot" content="max-snippet:160">` as a directive override (per Google's snippet-control docs).
 
@@ -441,7 +441,7 @@ Plus 1 separate orphan in `engagement` — a fresh INSERT landed against the del
 **Surfaced:** 2026-04-27 evening, after the prompt fix at `11c2450` failed within minutes of deploy. Curator picked the same SCOTUS / cell-location story for the **fourth time** in one day, with diverse 50-candidate set + new prompt's worked example using the literal same scenario as a SKIP example. Hard pre-Curator headline-overlap filter shipped this commit at [`agents/src/shared/dedup-headlines.ts`](../agents/src/shared/dedup-headlines.ts) + wired into [`agents/src/director.ts`](../agents/src/director.ts) `triggerDailyPiece` between `getRecentDailyPieces` and `curator.curate`. See DECISIONS 2026-04-27 (architectural fix) for the full diagnosis + four rejected alternatives.
 
 **What to verify:**
-1. Over the next 7 cron firings + any operator-triggered runs (~through 2026-05-04 at `interval_hours=24`; sooner if operator runs voice tests), watch the admin observer feed for `Candidates filtered: N of 50 (headline overlap with recent pieces)` events. Expected: low filter rate (0–5 of 50) most days, occasional 10+ when news is dominated by a story Zeemish has already covered.
+1. Over the next 7 cron firings + any operator-triggered runs (~through 2026-05-04 at `interval_hours=24`; sooner if operator runs voice tests), watch the admin observer feed for `Candidates filtered: N of 50 (headline overlap with recent pieces)` events. Expected: low filter rate (0–5 of 50) most days, occasional 10+ when news is dominated by a story Daylila has already covered.
 2. Same-day twin-piece check: any date with 2+ pieces — diff their headlines + check if the news events match. Specifically: if a SCOTUS case, lawsuit, investigation, legislation, or corporate scandal appears in two pieces' headlines on the same date, the filter did not hold (unlikely with shared-token threshold ≥4) OR the second piece's headline diverged enough to slip past (the next escalation lever).
 3. Filter-rate sanity: if filter removes all 50 candidates on a day with the defensive fallback firing, the threshold may be too low. Watch for the warn event `Headline-overlap dedup would have removed all 50 candidates`. Should be near-impossible at 30-day recent-pieces window.
 
@@ -552,7 +552,7 @@ See DECISIONS 2026-04-27 "Two-row interactive admin section + honest list-page f
 
 ## [open] 2026-04-26: Book is missing three post-launch chapters — Categoriser, Interactives v3, Area 5 single-scroll
 
-**Surfaced:** Refinement Action 6 (soul chapter draft). The book's structure was substantially written in the 2-week window before Area 5 closed; it freezes at "early Area 5" and predates three significant system additions. The four-word soul chapter shipped (00.5); the three post-launch chapters are separate work. Each addition changed how Zeemish *behaves* enough that the book can't honestly describe the system without covering them.
+**Surfaced:** Refinement Action 6 (soul chapter draft). The book's structure was substantially written in the 2-week window before Area 5 closed; it freezes at "early Area 5" and predates three significant system additions. The four-word soul chapter shipped (00.5); the three post-launch chapters are separate work. Each addition changed how Daylila *behaves* enough that the book can't honestly describe the system without covering them.
 
 **Missing chapters:**
 - **Categoriser as the 14th agent** — Chapter 09 was renamed `09-the-sixteen-roles.md` and got a Categoriser section in Area 2 sub-task 2.6, but the chapter doesn't tell the *story* of why the agent exists (taxonomy growth pressure on the library, the 2026-04-25 reuse-floor tightening, the locked-category semantic). Drop-in section in Chapter 09 or a small standalone chapter "How the library categorises itself".
@@ -566,7 +566,7 @@ See DECISIONS 2026-04-27 "Two-row interactive admin section + honest list-page f
 
 **Investigation hints:** All three are documented in CLAUDE.md (Categoriser in the Area 2 + Curator-reframe sections; Interactives v3 in the v3 Phase 0-4 section; Area 5 in the Area 5 + post-tag polish sections) and DECISIONS.md (search 2026-04-23 through 2026-04-26 entries). Voice anchor for the new chapters: existing chapter 08 (`book/08-zeemish-the-idea.md`) — first-person where Zishan speaks, third-person about the system, plain English, short sentences.
 
-**Priority:** medium. The book is read by people trying to understand Zeemish; the gap means readers may finish the book with a working knowledge of an outdated system. Not a correctness problem; a documentation freshness problem. Slot when book-writing energy is available, or when a reader specifically asks about one of the three areas and the explanation would land better as a chapter than as a one-off note.
+**Priority:** medium. The book is read by people trying to understand Daylila; the gap means readers may finish the book with a working knowledge of an outdated system. Not a correctness problem; a documentation freshness problem. Slot when book-writing energy is available, or when a reader specifically asks about one of the three areas and the explanation would land better as a chapter than as a one-off note.
 
 ---
 
@@ -610,7 +610,7 @@ If novel framings don't appear: bias is deeper than the example set. Tighten wit
 **Surfaced:** Area 5 close-out (commit `area-5-done`). Local-preview verification covered structural, engagement, audio auto-advance + smooth-scroll (manually dispatched `ended`), share button (clipboard fallback path), and mobile resize. Real audio in dev returns 404 because R2 isn't bound to the dev server — production audio is the only place to confirm the auto-advance + smooth-scroll loop completes naturally over real clip durations.
 
 **What to verify on prod after deploy:**
-- Visit a recent daily piece on `zeemish.io`, click play, let the first beat's audio finish naturally. Confirm: clip 2 loads + autoplays, page smooth-scrolls so beat 2's heading is at the top of the viewport, audio caption advances to "Beat 2 of N · {Title}", no jank.
+- Visit a recent daily piece on `daylila.com`, click play, let the first beat's audio finish naturally. Confirm: clip 2 loads + autoplays, page smooth-scrolls so beat 2's heading is at the top of the viewport, audio caption advances to "Beat 2 of N · {Title}", no jank.
 - Let it run through every beat. Confirm: each transition smooth-scrolls + caption updates, no transition silently fails (especially across the longest beats — typically `the-pattern` or `why-hard`).
 - Try the prev/next clip buttons mid-listen. Confirm: clicking prev returns to the previous beat with the new clip autoplaying + page scrolling back; prev disables at beat 1, next disables at the last beat.
 - Scroll to the embedded interactive section. Confirm: HTML interactive iframe renders at its natural content height (no inner scrollbar) + `interactive_offered` event in admin observer feed.
@@ -661,7 +661,7 @@ If novel framings don't appear: bias is deeper than the example set. Tighten wit
 **Surfaced:** Phase 2.7's first auto-run produced both a quiz (`683cee9` flagged-low) AND an HTML interactive (`d1e2e31` clean pass) for the U.S. Mint piece. The drawer should now show two distinct interactive sections per the Phase 2.6 dual-artefact extension.
 
 **What to verify:**
-- Visit `https://zeemish.io/daily/2026-04-26/u-s-mint-buys-drug-cartel-gold-and-sells-it-as-american/`.
+- Visit `https://daylila.com/daily/2026-04-26/u-s-mint-buys-drug-cartel-gold-and-sells-it-as-american/`.
 - Open the "How this was made" drawer at the bottom.
 - Should show two interactive sections (separate from each other):
   - **Quiz**: title "Identity Loss Through Transformation", with the dimension-named Rough note (essence-not-reference, structure, factual, or whatever maxed). Voice score + revision count visible.
@@ -741,7 +741,7 @@ User's manual retrigger from admin worked — the pipeline can recover via `/dai
 
 ## [observing] 2026-04-25: Curator pick rate after protocol-reframe — track next 7 cron firings
 
-**Surfaced:** 2026-04-25 same-day. Curator's 14:00 UTC slot declined every one of 50 candidates with the "60+ teachability threshold" boilerplate. Same-session fix dropped the threshold, embedded the Zeemish protocol at the top of `CURATOR_PROMPT`, replaced TEACHABILITY's biased examples with breadth-showing ones across 8 categories, reframed NO-CULTURE-WAR as voice-not-subject, and required skip reasons to name the specific condition rather than dismiss by category. See DECISIONS 2026-04-25 "Curator reframed around the Zeemish protocol; '60+ teachability threshold' dropped".
+**Surfaced:** 2026-04-25 same-day. Curator's 14:00 UTC slot declined every one of 50 candidates with the "60+ teachability threshold" boilerplate. Same-session fix dropped the threshold, embedded the Daylila protocol at the top of `CURATOR_PROMPT`, replaced TEACHABILITY's biased examples with breadth-showing ones across 8 categories, reframed NO-CULTURE-WAR as voice-not-subject, and required skip reasons to name the specific condition rather than dismiss by category. See DECISIONS 2026-04-25 "Curator reframed around the Daylila protocol; '60+ teachability threshold' dropped".
 
 **Hypothesis:** Pick rate should rise from current rate (1 skip in last few firings) to ~95%+. Skip should now only fire on the narrow conditions named in the new prompt (single breaking event re-reported with no new angle, or pure product/spec announcements with no system to teach).
 
@@ -764,13 +764,13 @@ User's manual retrigger from admin worked — the pipeline can recover via `/dai
 
 ---
 
-## [resolved] 2026-04-25: Submit zeemish.io sitemap to Google Search Console
+## [resolved] 2026-04-25: Submit daylila.com sitemap to Google Search Console
 
 **Surfaced:** 2026-04-25 SEO foundations shipping (commit `b089d6d`). The `/sitemap.xml` endpoint is live and auto-updates on every request, but neither Google Search Console nor Bing Webmaster Tools knows the URL exists yet. Until submitted, organic indexing waits on whatever the crawlers happen to discover via inbound links — slow and uneven.
 
 **Hypothesis:** This is a one-time human action, not code work. RUNBOOK has the step-by-step under "Submit sitemap to search engines". Verifying ownership uses a DNS TXT record on the Cloudflare zone (preferred over the HTML-file method since auto-deploy doesn't touch DNS).
 
-**Resolved:** 2026-04-25. Sitemap submitted to Google Search Console as a domain property (`zeemish.io`, not the URL-prefix variant — domain property covers `https://`, `http://`, and every subdomain in one go, which is the right shape for a single-origin site). Verified via DNS TXT on the Cloudflare zone. Sitemap processed successfully on first read; **31 pages discovered** (matches the SSR endpoint's enumeration of homepage + /daily/ + /library/ + 12 daily pieces × slug-inclusive URLs + 7 interactives + 3 category pages + the /daily/ and /library/ indexes). First crawl impressions and Coverage report data will accrue over 1–3 days. Monitor Coverage for any "Crawled — currently not indexed" entries from the pre-Phase-4 date-only URLs (separate FOLLOWUPS entry below covers the 301-redirect option).
+**Resolved:** 2026-04-25. Sitemap submitted to Google Search Console as a domain property (`daylila.com`, not the URL-prefix variant — domain property covers `https://`, `http://`, and every subdomain in one go, which is the right shape for a single-origin site). Verified via DNS TXT on the Cloudflare zone. Sitemap processed successfully on first read; **31 pages discovered** (matches the SSR endpoint's enumeration of homepage + /daily/ + /library/ + 12 daily pieces × slug-inclusive URLs + 7 interactives + 3 category pages + the /daily/ and /library/ indexes). First crawl impressions and Coverage report data will accrue over 1–3 days. Monitor Coverage for any "Crawled — currently not indexed" entries from the pre-Phase-4 date-only URLs (separate FOLLOWUPS entry below covers the 301-redirect option).
 
 **Bing Webmaster Tools — deferred by decision.** Skipping the Bing submission for now. Bing's organic share is small relative to the effort of maintaining a second webmaster property; can revisit if AI-search traffic (Bing powers Copilot's web grounding, You.com, etc.) gets interesting enough to warrant per-source visibility. No action queued; no FOLLOWUPS entry to track.
 
@@ -814,9 +814,9 @@ Option 1 wins on automation — content collection is the source of truth, no ma
 - Drafter prompt lives at [agents/src/drafter-prompt.ts](../agents/src/drafter-prompt.ts) — JSON output schema is the touch site.
 - Look at the 7 existing interactives in `content/interactives/` for examples of well-chosen concept-based slugs (`chokepoints-and-cascades`, `proportional-displacement-visibility`, `phase-change-disruption`) — that prompt design is the pattern to copy.
 
-**Priority:** low. Cosmetic for the URL layer; doesn't affect ranking until the library has enough pieces that long-tail SEO matters (currently 12 pieces, 8 days live). Revisit when piece count crosses ~50 or when a competing concept-tagged URL outranks a Zeemish piece on the same topic.
+**Priority:** low. Cosmetic for the URL layer; doesn't affect ranking until the library has enough pieces that long-tail SEO matters (currently 12 pieces, 8 days live). Revisit when piece count crosses ~50 or when a competing concept-tagged URL outranks a Daylila piece on the same topic.
 
-**Won't fix:** 2026-04-26 — Pure SEO/longevity optimisation with no current breakage. Library is 14 pieces over 9 days; the long-tail SEO threshold (~50 pieces) is not yet near. Reopen when piece count crosses ~50 or when a competing concept-tagged URL outranks a Zeemish piece on the same topic.
+**Won't fix:** 2026-04-26 — Pure SEO/longevity optimisation with no current breakage. Library is 14 pieces over 9 days; the long-tail SEO threshold (~50 pieces) is not yet near. Reopen when piece count crosses ~50 or when a competing concept-tagged URL outranks a Daylila piece on the same topic.
 
 ---
 
@@ -1020,7 +1020,7 @@ Path 1 is shippable today; path 2 comes for free if the schema work lands.
 
 **Priority:** Low. Scrollable, data is honest, per-piece deep-dive is the authoritative per-piece view.
 
-**Resolved:** `e17c25e` (2026-04-22) via Phase 4 of the multi-per-day piece_id schema fix (path 2 — came for free once `pipeline_log.piece_id` landed in migration 0018). `/api/dashboard/pipeline` now returns `groups[]` and `headlines{}` keyed by piece_id; `admin.astro`'s poller renders each run as a collapsible `<details>` block titled with the piece headline + publish time, newest open by default. Deploy verified on production zeemish.io. See DECISIONS 2026-04-22 "piece_id columns on day-keyed tables".
+**Resolved:** `e17c25e` (2026-04-22) via Phase 4 of the multi-per-day piece_id schema fix (path 2 — came for free once `pipeline_log.piece_id` landed in migration 0018). `/api/dashboard/pipeline` now returns `groups[]` and `headlines{}` keyed by piece_id; `admin.astro`'s poller renders each run as a collapsible `<details>` block titled with the piece headline + publish time, newest open by default. Deploy verified on production daylila.com. See DECISIONS 2026-04-22 "piece_id columns on day-keyed tables".
 
 ---
 
@@ -1535,7 +1535,7 @@ Option 2 is the more durable fix — it aligns with the parallel durable fix alr
 
 ## [resolved] 2026-04-19: Curator conceptual diversity (P1.2)
 
-**Surfaced:** 2026-04-19 in the external system-improvement plan (`~/Downloads/ZEEMISH-IMPROVEMENT-PLAN-2026-04-19.md`, never committed to the repo). After the first three published pieces — QVC 2026-04-17, Hormuz 2026-04-18, airlines 2026-04-19 — all three landed on the same meta-concept: systems built for efficiency fail at their narrowest point, and incumbents can't adapt. Visible after three days. A reader arriving on day three and reading all three pieces would think Zeemish is the systems-fragility blog — not what the brief says it is. As of 2026-04-20 a fourth piece (Hormuz shipping) reinforces the pattern.
+**Surfaced:** 2026-04-19 in the external system-improvement plan (`~/Downloads/ZEEMISH-IMPROVEMENT-PLAN-2026-04-19.md`, never committed to the repo). After the first three published pieces — QVC 2026-04-17, Hormuz 2026-04-18, airlines 2026-04-19 — all three landed on the same meta-concept: systems built for efficiency fail at their narrowest point, and incumbents can't adapt. Visible after three days. A reader arriving on day three and reading all three pieces would think Daylila is the systems-fragility blog — not what the brief says it is. As of 2026-04-20 a fourth piece (Hormuz shipping) reinforces the pattern.
 
 **Hypothesis:** Curator has no context about what recent pieces have already taught. Two paths, recommended in order:
 1. Add an `underlying_concept` column to `daily_pieces`. Curator backfills it as it runs. At curate time, show Curator a summary of the last 5–7 pieces (title + `underlying_concept`) and instruct it to prefer candidates whose concept is distant from the recent set.

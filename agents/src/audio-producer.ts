@@ -250,7 +250,7 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
 
   /**
    * Strip MDX/HTML, then hand off to the provider-agnostic normaliser
-   * in shared/tts-normalize.ts (Zeemish prosody alias + Roman-numeral
+   * in shared/tts-normalize.ts (Daylila prosody alias + Roman-numeral
    * conversion). Stripping stays here because the regex-heavy MDX
    * cleanup is specific to the producer's input shape; the normaliser
    * deals only with plain prose so it can be reused by any future TTS

@@ -10,7 +10,7 @@ Git works on your own computer. It does not need the internet. You could use Git
 
 **GitHub** is a website that stores Git projects online, so you can share them with other people or with your future self. When you see `github.com/someone/project-name` in a link, that's a Git project hosted on GitHub.
 
-Zeemish lives at `github.com/zzeeshann/zeemish-v2`. That URL points to a folder of files, plus every version of every file that has ever existed in that project. Click "Commits" on GitHub and you can see the entire history, including this book being added to it.
+Daylila lives at `github.com/zzeeshann/daylila-v2`. That URL points to a folder of files, plus every version of every file that has ever existed in that project. Click "Commits" on GitHub and you can see the entire history, including this book being added to it.
 
 ## What GitHub gives you, beyond storage
 
@@ -22,17 +22,17 @@ Three things.
 
 **A way to catch problems before they land.** GitHub has a feature called **pull requests**. When someone wants to add a change, they propose it as a pull request instead of shoving it straight into the main version. Other people review the change, comment, suggest fixes. Only when everyone agrees does the change get merged. This stops a lot of bad code from reaching the real thing.
 
-## How Zeemish uses GitHub
+## How Daylila uses GitHub
 
-Zeemish's code lives in a GitHub repository. So do the daily pieces, the documentation, and now this book. Every word you are reading is a file that was committed to the repo with a commit message.
+Daylila's code lives in a GitHub repository. So do the daily pieces, the documentation, and now this book. Every word you are reading is a file that was committed to the repo with a commit message.
 
-When a Zeemish agent finishes writing a daily piece, the Publisher agent literally saves it as a file and commits it to GitHub. The commit message says which piece it is and when it published. You can go look.
+When a Daylila agent finishes writing a daily piece, the Publisher agent literally saves it as a file and commits it to GitHub. The commit message says which piece it is and when it published. You can go look.
 
-GitHub also runs **GitHub Actions** — a feature that automatically runs tasks when something happens in the repo. Every time Zeemish code is pushed to the main version of the repo, GitHub Actions deploys it to Cloudflare. The developer doesn't have to run a deploy command. The commit itself triggers the deploy. This is how production software stays current without someone manually shipping each change.
+GitHub also runs **GitHub Actions** — a feature that automatically runs tasks when something happens in the repo. Every time Daylila code is pushed to the main version of the repo, GitHub Actions deploys it to Cloudflare. The developer doesn't have to run a deploy command. The commit itself triggers the deploy. This is how production software stays current without someone manually shipping each change.
 
 ## The vocabulary, compressed
 
-- **Repository** (or **repo**): the folder of files plus all their history. Zeemish is one repo.
+- **Repository** (or **repo**): the folder of files plus all their history. Daylila is one repo.
 - **Commit**: a saved snapshot of a change, with a message explaining it.
 - **Push**: send your local commits up to GitHub.
 - **Pull**: bring GitHub's commits down to your local copy.
@@ -42,4 +42,4 @@ GitHub also runs **GitHub Actions** — a feature that automatically runs tasks 
 
 ## The small honest thing about GitHub
 
-It is owned by Microsoft. It is free for open-source projects and for most small teams. It is not the only place code can live — alternatives exist, like GitLab and Codeberg. Zeemish uses GitHub because the ecosystem around it (Actions, the community, the tooling) is the most developed, and because the whole thing is public anyway. If you prefer a different platform, the underlying Git tool works identically everywhere.
+It is owned by Microsoft. It is free for open-source projects and for most small teams. It is not the only place code can live — alternatives exist, like GitLab and Codeberg. Daylila uses GitHub because the ecosystem around it (Actions, the community, the tooling) is the most developed, and because the whole thing is public anyway. If you prefer a different platform, the underlying Git tool works identically everywhere.

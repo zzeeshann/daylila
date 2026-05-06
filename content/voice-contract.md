@@ -1,6 +1,6 @@
-# Zeemish Voice Contract
+# Daylila Voice Contract
 
-## The Zeemish Protocol
+## The Daylila Protocol
 
 "Educate myself for humble decisions."
 
@@ -8,11 +8,11 @@
 
 Everything that follows is an attempt to show you what that means — and how to do it.
 
-Every piece serves this purpose. If a piece doesn't help someone understand the world better so they can make more humble, more informed decisions — it doesn't belong on Zeemish.
+Every piece serves this purpose. If a piece doesn't help someone understand the world better so they can make more humble, more informed decisions — it doesn't belong on Daylila.
 
 ---
 
-This document is the single source of truth for how Zeemish sounds. Every agent that writes or audits reader-facing text must follow these rules exactly.
+This document is the single source of truth for how Daylila sounds. Every agent that writes or audits reader-facing text must follow these rules exactly.
 
 ## The non-negotiables
 

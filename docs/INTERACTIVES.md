@@ -1,6 +1,6 @@
-# Zeemish Interactives — Spec
+# Daylila Interactives — Spec
 
-How interactives work in Zeemish v2. The reference document for anyone — agent, operator, or future Claude session — who needs to know what an interactive is, what it must do, what it must not do, and how the system handles one that falls short.
+How interactives work in Daylila v2. The reference document for anyone — agent, operator, or future Claude session — who needs to know what an interactive is, what it must do, what it must not do, and how the system handles one that falls short.
 
 This is the spec; it doesn't change session-to-session. Implementation status lives in [`INTERACTIVES_STATUS.md`](INTERACTIVES_STATUS.md). The phase plan lives in [`INTERACTIVES_PLAN.md`](archive/INTERACTIVES_PLAN.md).
 
@@ -130,7 +130,7 @@ The HTML5 sandbox is deny-by-default. With `sandbox=""` (empty value) every scri
 |---|---|---|
 | `allow-scripts` | Lets JS run in the iframe. | **Set.** Without it the interactive is a dead document. |
 | `allow-same-origin` | Treats the iframe's origin as the parent's origin (cookies, storage, same-origin fetches all work). | **Never set.** This is the single most dangerous token to add. With it, a generated file can read `document.cookie`, manipulate `localStorage` for the parent origin, and break out of every other isolation boundary. The whole point of the sandbox collapses if this is on. |
-| `allow-top-navigation` | Lets the iframe navigate the parent window via `window.top.location = ...`. | **Never set.** A redirect from a generated file would yank the reader off Zeemish. |
+| `allow-top-navigation` | Lets the iframe navigate the parent window via `window.top.location = ...`. | **Never set.** A redirect from a generated file would yank the reader off Daylila. |
 | `allow-top-navigation-by-user-activation` | Same as above but only after a user gesture. | **Not set.** Even gated, top-frame navigation from a generated artefact is the wrong shape — the parent page owns reader navigation. |
 | `allow-forms` | Lets `<form>` submissions fire. | **Not set.** The validator already rejects `<form>` (rule 7). Belt and braces. |
 | `allow-popups` | Lets `window.open(...)` create new tabs. | **Not set.** A generated file that pops a new tab is doing something we didn't ask for. |
@@ -148,7 +148,7 @@ If a future interactive shape genuinely requires a token outside `allow-scripts`
 
 With only `allow-scripts`, the iframe is treated as an **opaque origin**. The cumulative effect is:
 
-- **Storage isolation.** `localStorage`, `sessionStorage`, and `indexedDB` calls throw `SecurityError`. Cookies for `zeemish.io` are unreachable.
+- **Storage isolation.** `localStorage`, `sessionStorage`, and `indexedDB` calls throw `SecurityError`. Cookies for `daylila.com` are unreachable.
 - **DOM isolation.** The iframe cannot read or write `parent.document`, `top.document`, or any property on the parent that crosses the origin boundary.
 - **Navigation isolation.** No `window.top.location =`, no `window.parent.location =`, no `<a target="_top">` jumps.
 - **Network surface narrowed.** Same-origin fetches throw. Cross-origin fetches reach opaque origins (no credentials, no readable response). The validator's `network-call` rule catches the patterns up front.
@@ -402,7 +402,7 @@ The Auditor sees:
 
 #### 1. Voice (0–100, passes at ≥85)
 
-The Zeemish voice contract applies to in-interactive copy the same way it applies to a daily piece. "In-interactive copy" means anything the reader sees as text:
+The Daylila voice contract applies to in-interactive copy the same way it applies to a daily piece. "In-interactive copy" means anything the reader sees as text:
 
 - The interactive's title (rendered above the iframe).
 - The `concept` line (a one-sentence statement of what the interactive teaches).

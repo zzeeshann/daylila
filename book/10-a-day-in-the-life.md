@@ -21,7 +21,7 @@ flowchart TD
     I -- No --> J[Integrator<br/>Revise]
     J --> E
     I -- Yes --> K[Publisher<br/>Commit to GitHub]
-    K --> L[Piece live on zeemish.io]
+    K --> L[Piece live on daylila.com]
     L --> M[Alarm: Audio pipeline]
     L --> N[Alarm: Learner]
     L --> O[Alarm: Drafter reflect]
@@ -42,7 +42,7 @@ Each arrow is a handoff. Each box is a role. Observer is logging everything thro
 
 **02:00:12.** Director calls Curator. Curator reads all the candidate rows from `daily_candidates`, plus the last 30 days of published pieces and the last 30 days of category counts (so it can steer away from concepts the library just covered and prefer thinner categories when the news allows). Sends this plus a prompt to Claude:
 
-> *You are Zeemish's Curator. Pick the most teachable story from these 50 candidates — the one where there's a real underlying system worth explaining, not just a headline. Write a brief: what the story is, what the underlying system is, what angle the piece should take, what beats it should have.*
+> *You are Daylila's Curator. Pick the most teachable story from these 50 candidates — the one where there's a real underlying system worth explaining, not just a headline. Write a brief: what the story is, what the underlying system is, what angle the piece should take, what beats it should have.*
 
 **02:00:25.** Claude returns the brief. Curator has picked the Axios story about airlines cutting routes after a jet fuel spike. The angle is "why some airlines break under commodity shocks while others adjust." The brief names eight potential beats. Curator writes the brief to storage and hands control to Director.
 
@@ -70,7 +70,7 @@ All three pass. No revision needed. This piece was a "one-round" piece, which th
 
 > `feat(daily): 2026-04-19 — Airline industry faces a shakeup as jet fuel hits hard`
 
-**02:01:19.** GitHub Actions fires. It rebuilds the site. About two minutes later, the piece is live at `zeemish.io/daily/2026-04-19/`. At this point, the text side of the day is done.
+**02:01:19.** GitHub Actions fires. It rebuilds the site. About two minutes later, the piece is live at `daylila.com/daily/2026-04-19/`. At this point, the text side of the day is done.
 
 **02:01:20.** Director schedules three alarms:
 - Audio pipeline in 2 seconds

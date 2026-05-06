@@ -150,7 +150,7 @@ class LessonShell extends HTMLElement {
 
     const slug = section.dataset.interactiveSlug;
     if (!slug) return;
-    const dedupKey = `zeemish-interactive-offered:${slug}`;
+    const dedupKey = `daylila-interactive-offered:${slug}`;
     if (sessionStorage.getItem(dedupKey)) return;
 
     this.interactiveObserver = new IntersectionObserver((entries) => {

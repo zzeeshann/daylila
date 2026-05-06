@@ -1,6 +1,6 @@
 # Session Protocol
 
-How to work on Zeemish across many Claude Code sessions without losing the thread.
+How to work on Daylila across many Claude Code sessions without losing the thread.
 
 This document is **reusable**. It applies to the interactives work, the video work later, and any other multi-session project. Don't write a new one each time — extend this if rules need to evolve.
 

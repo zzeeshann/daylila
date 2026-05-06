@@ -121,7 +121,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
    *  the prompt-level rule keeps failing to catch (see DECISIONS
    *  2026-04-27 architectural fix). Visibility matters because this
    *  invisibly shapes Curator's input set; if filter rate is high, the
-   *  news cycle is dominated by stories Zeemish has already covered,
+   *  news cycle is dominated by stories Daylila has already covered,
    *  which is itself signal.
    *
    *  pieceId is the run's piece_id (pre-allocated at the top of

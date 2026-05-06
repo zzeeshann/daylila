@@ -1,6 +1,6 @@
-# Zeemish Categoriser Contract
+# Daylila Categoriser Contract
 
-This document is the single source of truth for how Zeemish *files* each piece in the library taxonomy. The voice contract governs how Zeemish sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule; the curator contract governs which story the day's piece teaches; the audio contract governs how the piece is narrated. This contract governs the rule the Categoriser applies after a piece publishes — how many categories a piece gets, the confidence floor at which an existing category counts as a fit, when a brand-new category is allowed, and where a piece lands when nothing fits at all.
+This document is the single source of truth for how Daylila *files* each piece in the library taxonomy. The voice contract governs how Daylila sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule; the curator contract governs which story the day's piece teaches; the audio contract governs how the piece is narrated. This contract governs the rule the Categoriser applies after a piece publishes — how many categories a piece gets, the confidence floor at which an existing category counts as a fit, when a brand-new category is allowed, and where a piece lands when nothing fits at all.
 
 ## What gets assigned
 

@@ -88,7 +88,7 @@ const escapeForScript = (obj: unknown) =>
   JSON.stringify(obj).replace(/</g, '\\u003c');
 
 // JSON-LD Article schema for daily pieces. Article (not NewsArticle —
-// Zeemish teaches, doesn't report) per Google's structured-data guide.
+// Daylila teaches, doesn't report) per Google's structured-data guide.
 // All fields recommended-only per the current docs (no `required`
 // fields), but the more we provide the richer the result card.
 let articleJsonLd: string | null = null;
@@ -98,7 +98,7 @@ if (article) {
   const audioUrl = article.audioUrl
     ? new URL(article.audioUrl, siteOrigin).toString()
     : null;
-  const cleanHeadline = title.replace(/ — Zeemish$/, '');
+  const cleanHeadline = title.replace(/ — Daylila$/, '');
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -112,12 +112,12 @@ if (article) {
     image: [ogImageUrl],
     author: {
       '@type': 'Organization',
-      name: 'Zeemish',
+      name: 'Daylila',
       url: siteOrigin.toString(),
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Zeemish',
+      name: 'Daylila',
       url: siteOrigin.toString(),
       logo: {
         '@type': 'ImageObject',
@@ -194,7 +194,7 @@ if (article && Array.isArray(claimReviews) && claimReviews.length > 0) {
       },
       author: {
         '@type': 'Organization',
-        name: 'Zeemish',
+        name: 'Daylila',
         url: siteOrigin.toString(),
       },
       reviewRating: {
@@ -227,7 +227,7 @@ if (learningResource) {
     isAccessibleForFree: true,
     publisher: {
       '@type': 'Organization',
-      name: 'Zeemish',
+      name: 'Daylila',
       url: siteOrigin.toString(),
     },
   };
@@ -262,8 +262,8 @@ if (learningResource) {
     <meta property="og:image" content={ogImageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Zeemish — educate yourself for humble decisions" />
-    <meta property="og:site_name" content="Zeemish" />
+    <meta property="og:image:alt" content="Daylila — educate yourself for humble decisions" />
+    <meta property="og:site_name" content="Daylila" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -285,7 +285,7 @@ if (learningResource) {
     )}
 
     <!-- Feed auto-discovery for Feedly / Inoreader / NetNewsWire / etc. -->
-    <link rel="alternate" type="application/rss+xml" title="Zeemish daily pieces" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Daylila daily pieces" href="/rss.xml" />
 
     <!-- Fonts: preconnect first, then load -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -298,7 +298,7 @@ if (learningResource) {
   <body class="min-h-screen bg-zee-bg text-zee-text font-sans flex flex-col">
     <header class="w-full max-w-3xl mx-auto px-6 pt-8 pb-4 flex items-center justify-between">
       <a href="/" class="text-lg font-bold tracking-tight text-zee-primary hover:opacity-80 transition-opacity">
-        zeemish
+        daylila
       </a>
       <nav class="flex items-center gap-2 sm:gap-4">
         <a href="/daily/" class="text-xs sm:text-sm text-zee-muted hover:text-zee-primary transition-colors">Daily</a>
@@ -316,7 +316,7 @@ if (learningResource) {
         Educate yourself for humble decisions.
       </p>
       <p class="text-xs text-zee-muted/70 text-center">
-        &copy; 2026 Zeemish
+        &copy; 2026 Daylila
       </p>
       {isAdmin && (
         <p class="text-xs text-zee-muted/60 text-center mt-3">

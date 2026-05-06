@@ -1,5 +1,5 @@
 /**
- * Shared types for the Zeemish agent team.
+ * Shared types for the Daylila agent team.
  */
 
 /** Cloudflare Worker environment bindings */

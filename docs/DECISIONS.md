@@ -1,6 +1,41 @@
-# Zeemish v2 — Decision Log
+# Daylila v2 — Decision Log
 
-Append-only. Never edit old entries.
+Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
+
+## 2026-05-06: Rebrand Zeemish → Daylila and zeemish.io → daylila.com
+
+The platform is renamed. "Zeemish" becomes "Daylila"; the domain `zeemish.io` becomes `daylila.com`. Brief downtime is acceptable; cleanliness matters more than speed. Every reader-visible surface, every agent prompt, every contract, every chapter of the book, and every living doc is updated in this commit.
+
+**The name.** Daylila comes from the day lily — a flower that opens one fresh bloom every single morning, gone by evening. The metaphor IS the product: one fully-finished daily piece each day, nothing rolled over, nothing held back, nothing edited after the fact. The pipeline ships its bloom and lets it stand. Tomorrow there's another one. The permanence rule (published pieces are immutable) was already the practice; the new name just states it out loud.
+
+**Why now.** The audience is still small. A clean foundation has a price tag and that price is lowest before there's anyone to migrate, before search engines have indexed thousands of URLs, before brand equity is meaningful. Doing it later means migrating readers, redoing SEO, re-verifying email senders, re-rendering social cards already cached at every share. Doing it now means a single commit and a few operator actions on a quiet day.
+
+**Out of scope by deliberate deferral.** Internal worker names (`zeemish-v2`, `zeemish-agents`, `zeemish-api`), the GitHub repo name (`zeemish-v2`), the R2 bucket (`zeemish-audio`), the D1 database (`zeemish`), and KV namespace IDs all stay as-is. They're internal infrastructure with zero reader visibility. Renaming them needs a coordinated GitHub-rename + CI-update + binding-update pass and is its own follow-up. Same for the legacy breathing-tools DNS records (`listens.zeemish.io`, `api.zeemish.io`) — they're leftovers from a defunct earlier product, deferred to a separate cleanup phase.
+
+**Files changed by category:**
+- **A. Live-effect config + code** — 7 files: `astro.config.mjs` (canonical site URL), `wrangler.toml` (EMAIL_FROM + Resend comment), `agents/src/server.ts` (CORS allowlist swap, no `zeemish.io` carryover), `src/pages/rss.xml.ts` (fallback URL + feed title), `src/pages/sitemap.xml.ts` (fallback URL), `src/pages/api/auth/magic-link.ts` (sender + subject + body), `src/pages/api/zita/chat.ts` (Zita system prompt brand reference)
+- **B. Reader-visible UI** — ~20 files including `src/layouts/BaseLayout.astro` (10 sites: JSON-LD Organization/Publisher/Author × 3, OG site_name + image alt, RSS link title, header, footer copyright, cleanHeadline regex), `src/layouts/LessonLayout.astro` title template, every page title across `src/pages/*`, `src/lib/constants.ts` comment, `src/interactive/audio-player.ts` MediaSession metadata, plus the OG-image source `scripts/generate-og-image.mjs` (PNG regenerated from updated source). Two sessionStorage key prefixes also bumped (`zeemish-interactive-viewed:*`, `zeemish-interactive-offered:*`) — returning readers will see the dedup re-fire once per interactive, then dedupe correctly going forward.
+- **C. Agent prompts** — 15 files: every pipeline agent's prompt + Zita's system prompt + the type / observer / scanner / audio-producer comments. Scanner's RSS User-Agent header switches from `Zeemish/1.0` to `Daylila/1.0` so feed-publisher access logs reflect the new name immediately.
+- **C-special. TTS prosody alias** — 3 files: `agents/src/shared/tts-normalize.ts` swaps `Zeemish → Zee-mish` for `Daylila → Day-lila` so ElevenLabs reads the new brand cleanly. `agents/scripts/verify-normalize.mjs` regression cases updated; `agents/scripts/verify-dedup.mjs` comment updated. Verifier passes 20/20.
+- **E. Canonical contracts** — all 8 files in `content/`: voice, beat, interactive, audio, curator, audit, fact-check, categoriser. Codegen regenerates `agents/src/shared/generated/contracts.ts` cleanly (zero remaining "Zeemish" mentions in the generated file).
+- **D. Living docs** — ~13 files: README, CLAUDE.md, ARCHITECTURE, RUNBOOK, PROJECT-BRIEF, INTERACTIVES, FOLLOWUPS, AGENTS, SCHEMA, zita-design, SESSION_PROTOCOL, INTERACTIVES_STATUS, RULE-INVENTORY. CLAUDE.md gets one new heritage line near the top stating that the platform was originally launched as Zeemish and rebranded on 2026-05-06.
+- **F. Book** — all 23 chapter / index files. Chapter 08 file rename (`book/08-zeemish-the-idea.md` → `book/08-daylila-the-idea.md`) plus `book/CONTENTS.md` link update. Inside the chapters, straight find/replace; no chapter rewrite. Book voice and prose preserved.
+- **G. DECISIONS.md** — this entry. Existing entries are deliberately preserved with the prior brand name intact — they describe what was true at the time. The file title and the at-top preamble are updated.
+
+**Operator actions required** (these don't ride in this commit; they're configuration on third-party platforms or DNS, and need to happen for the deploy to be functional):
+
+1. **Resend domain verification on `daylila.com`.** Add `resend._domainkey` TXT, `send` MX, and SPF TXT records to the daylila.com DNS zone, then verify in the Resend dashboard. Until that's done the site builds and deploys but **magic-link login fails silently** (Resend rejects the send, the API route swallows the error per its design). This is the highest-priority operator action.
+2. **Cloudflare custom-domain bind.** In the dashboard, bind `daylila.com` (apex) and `www.daylila.com` to the `zeemish-v2` worker. Until done, `daylila.com` 404s. Brief downtime is the acceptable cost.
+3. **301 redirect rule.** Cloudflare Page Rule (or Bulk Redirect) `zeemish.io/*` → `https://daylila.com/$1` permanent. Carries every external link, every search-result, and every existing RSS subscriber over to the new domain. Without this, RSS subscribers and any inbound link goes dead the moment the worker stops responding on `zeemish.io`.
+4. **Cache purge.** Standard step on every deploy (per the existing CLAUDE.md "Cache-purge needed on every Cloudflare deploy" item) — extra-important for this commit because every prerendered page changed both content and security-header surface.
+5. **Search Console.** Register `daylila.com` as a new domain property; submit `https://daylila.com/sitemap.xml`. The 301 from #3 carries most of Google's signal across, but the new property needs to exist for Coverage and Search-Performance data to start accruing on the new domain.
+6. **OG image cache.** No operator action — but the cached version of the old "zeemish" PNG persists at every social platform that previously fetched it. Twitter/Facebook/LinkedIn/Slack/iMessage cache OG images per URL for days–weeks; old shares of `zeemish.io/...` URLs continue to render the old card until the platform's cache expires. New shares post-deploy get the fresh "daylila" PNG immediately.
+
+**Deferred to a later phase** (NOT part of this commit):
+- **GitHub repo rename** (`zzeeshann/zeemish-v2` → `zzeeshann/daylila`). Would break Publisher's `REPO_NAME = 'zeemish-v2'` constant and the CI deploy paths until both are updated in lockstep. Sequenced separately so the repo rename, the CI workflow update, and the worker `service:` binding rename can all land together.
+- **Breathing-tools DNS retirement** (`listens.zeemish.io`, `api.zeemish.io`). Different earlier product entirely; sweeping it up alongside this rebrand would conflate two cleanups. Deferred.
+
+**Why this is in DECISIONS.md and not just CLAUDE.md.** The rebrand is a load-bearing decision that future readers of this codebase need context on — why some bindings are still named `zeemish-*` (internal infrastructure deferred), why the existing-entries section of this same file talks about a domain called `zeemish.io` (truth at the time), why `agents/src/publisher.ts` still pushes to a repo called `zeemish-v2` (deferred lockstep rename). The full reasoning belongs in the append-only log, not in living docs that get rewritten.
 
 ## 2026-05-05: InteractiveGenerator parse-retry Layer 3 — JSON-repair revision on parse-fail (option C, holding for Phase 2 root-cause work)
 

@@ -3,7 +3,7 @@
 //
 // Covers the 2026-04-23 Roman-numeral fix ("Schedule I/IV/V" was being
 // read as the English letter/pronoun by ElevenLabs) plus the
-// pre-existing Zeemish prosody alias (regression check).
+// Daylila prosody alias (regression check).
 //
 // Usage: node agents/scripts/verify-normalize.mjs (or `pnpm verify-normalize`).
 // Exit code: 0 on all pass, 1 on any failure.
@@ -13,8 +13,8 @@
 // verify-splice.mjs) is the established way. Sync if one changes.
 
 const ALIASES = [
-  { pattern: /\bZeemish\b/g, replace: 'Zee-mish' },
-  { pattern: /\bzeemish\b/g, replace: 'zee-mish' },
+  { pattern: /\bDaylila\b/g, replace: 'Day-lila' },
+  { pattern: /\bdaylila\b/g, replace: 'day-lila' },
 ];
 
 const CONTEXT_WORDS = [
@@ -199,16 +199,16 @@ assertEq(
   'Louis fourteen built Versailles.',
 );
 
-// ─── Regression: Zeemish alias still works ───────────────────────
+// ─── Regression: Daylila alias still works ───────────────────────
 assertEq(
-  'Zeemish → Zee-mish (existing alias, case-sensitive uppercase)',
-  normalizeForTTS('Zeemish Protocol starts here.'),
-  'Zee-mish Protocol starts here.',
+  'Daylila → Day-lila (alias, case-sensitive uppercase)',
+  normalizeForTTS('Daylila Protocol starts here.'),
+  'Day-lila Protocol starts here.',
 );
 assertEq(
-  'zeemish → zee-mish (existing alias, lowercase)',
-  normalizeForTTS('the zeemish way is different.'),
-  'the zee-mish way is different.',
+  'daylila → day-lila (alias, lowercase)',
+  normalizeForTTS('the daylila way is different.'),
+  'the day-lila way is different.',
 );
 
 // ─── Edge cases ──────────────────────────────────────────────────

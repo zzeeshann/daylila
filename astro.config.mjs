@@ -6,7 +6,7 @@ import rehypeBeats from './src/lib/rehype-beats.ts';
 
 export default defineConfig({
   // Used for canonical + og:url + og:image absolute URLs.
-  site: 'https://zeemish.io',
+  site: 'https://daylila.com',
   adapter: cloudflare(),
   integrations: [
     mdx({

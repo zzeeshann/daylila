@@ -321,8 +321,8 @@ class AudioPlayer extends HTMLElement {
         ? `Beat ${idx + 1} of ${total} · ${beatHuman}`
         : beatHuman;
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: this.pieceTitle || 'Zeemish',
-      artist: 'Zeemish',
+      title: this.pieceTitle || 'Daylila',
+      artist: 'Daylila',
       album: beatLabel,
       artwork: [
         { src: '/og-image.png', sizes: '1200x630', type: 'image/png' },

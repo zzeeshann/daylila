@@ -39,7 +39,7 @@
 2. **`search_library(query, k=3)`** — returns the top-k matching past pieces as `{date, headline, underlying_subject, beat_titles, excerpt (≤500 chars)}`. Indexed by concept-similarity via Cloudflare Vectorize (see §3). Zita decides when to call it and how to weave the result into a Socratic response. Capped at k=3 to keep response context bounded.
 
 **What's deliberately excluded:**
-- **External web search.** Three reasons, not one: (a) Anthropic's native web-search tool exists but pulls arbitrary text that won't match Zeemish voice — every quoted external passage would break the system's voice consistency. (b) Fact-check posture: the piece has already been through FactCheckerAgent; adding a live web-search layer means Zita could cite something the piece's audit didn't see. (c) Failure modes multiply: rate limits, down upstreams, SSRF concerns, cost alerting. If a reader asks something that legitimately requires the open web, Zita's "I don't know" is the right answer.
+- **External web search.** Three reasons, not one: (a) Anthropic's native web-search tool exists but pulls arbitrary text that won't match Daylila voice — every quoted external passage would break the system's voice consistency. (b) Fact-check posture: the piece has already been through FactCheckerAgent; adding a live web-search layer means Zita could cite something the piece's audit didn't see. (c) Failure modes multiply: rate limits, down upstreams, SSRF concerns, cost alerting. If a reader asks something that legitimately requires the open web, Zita's "I don't know" is the right answer.
 - **`get_reader_profile()`** as a tool. Profile is injected via system prompt (see §1), not a tool the model decides to call. Treating it as a tool invites the model to query it speculatively.
 - **`get_zita_messages_for_user(user_id)`** as a tool. Reading other readers' chats or even the same reader's past chats on other pieces opens the privacy can (see §1 deferred-to-v2 note).
 
@@ -104,10 +104,10 @@ Six modes, ordered by severity × likelihood:
 **If it fires:** Zita may reference a wrong-looking piece, which is embarrassing but recoverable by the reader asking "wait, that's not the one". Not a data-integrity issue. Tune the embedding field weighting if it recurs.
 
 ### 4.4 Long-conversation drift / voice collapse
-**Scenario:** after 30+ turns, Zita starts sounding like a generic helpful chatbot rather than Zeemish's Socratic posture.
+**Scenario:** after 30+ turns, Zita starts sounding like a generic helpful chatbot rather than Daylila's Socratic posture.
 
 **Mitigation:**
-- §1's session summary *includes voice-contract reminders* baked in: the summary prompt ends with "preserve Zeemish voice rules: Socratic, 2–4 sentences, no flattery, ends with a question".
+- §1's session summary *includes voice-contract reminders* baked in: the summary prompt ends with "preserve Daylila voice rules: Socratic, 2–4 sentences, no flattery, ends with a question".
 - §6's voice-consistency test exercises this exact scenario.
 - `zita_history_truncated` observer event (already shipped) is a leading indicator — every truncation is a session that has outrun the default context and is at risk of drift.
 
@@ -135,12 +135,12 @@ Six modes, ordered by severity × likelihood:
 
 **Question (ch.17):** Which reader behaviours would cause Zita to explicitly hand off to a human?
 
-**Decision: no human handoff in v1.** Zeemish is not staffed for support; "hand off to a human" would mean pinging Zishan, and realistic response time is "whenever he checks the dashboard". That's not a handoff — that's an empty promise to the reader.
+**Decision: no human handoff in v1.** Daylila is not staffed for support; "hand off to a human" would mean pinging Zishan, and realistic response time is "whenever he checks the dashboard". That's not a handoff — that's an empty promise to the reader.
 
 **What Zita does instead:** graceful "I don't know" per rule 6 of the existing prompt, plus category-logging so patterns become visible:
 
-- **Self-harm / crisis indicators** → Zita replies with "I'm not the right help for this — please reach out to a crisis line (list one appropriate to the reader's locale if known, otherwise [https://findahelpline.com](https://findahelpline.com))". Logs `zita_crisis_deflection`. This is the one case where a non-Zeemish response is correct; getting voice or Socratic posture "right" here would be wrong.
-- **Account / technical support** (password reset, login issues, billing) → "That's outside what I can help with — try the Account page or email hello@zeemish.io." Logs `zita_support_deflection`.
+- **Self-harm / crisis indicators** → Zita replies with "I'm not the right help for this — please reach out to a crisis line (list one appropriate to the reader's locale if known, otherwise [https://findahelpline.com](https://findahelpline.com))". Logs `zita_crisis_deflection`. This is the one case where a non-Daylila response is correct; getting voice or Socratic posture "right" here would be wrong.
+- **Account / technical support** (password reset, login issues, billing) → "That's outside what I can help with — try the Account page or email hello@daylila.com." Logs `zita_support_deflection`.
 - **PII shared by the reader** (addresses, full names of others, financials) → Zita doesn't quote or repeat the PII. Replies acknowledging without re-stating. Logs `zita_pii_acknowledged`. Does not redact from `zita_messages` — the raw chat still stores what the reader typed; redaction is a display-layer concern.
 - **Harmful content requests** (how to do X where X is illegal / dangerous) → refusal. Logs `zita_refusal`. Standard Claude safety already covers this; we log so we see the category breakdown.
 

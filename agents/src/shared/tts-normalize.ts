@@ -4,7 +4,7 @@
 // the ElevenLabs-specific producer module.
 //
 // Current rules:
-//   1. Brand alias: "Zeemish" → "Zee-mish" (prosody hint, predates this file).
+//   1. Brand alias: "Daylila" → "Day-lila" (prosody hint).
 //   2. Roman numerals: "Schedule III" → "Schedule three",
 //      "Schedule IV and V" → "Schedule four and five",
 //      "Title IX" → "Title nine".
@@ -17,8 +17,8 @@
 // two files in sync by eye (same pattern as verify-splice.mjs).
 
 const ALIASES: Array<{ pattern: RegExp; replace: string }> = [
-  { pattern: /\bZeemish\b/g, replace: 'Zee-mish' },
-  { pattern: /\bzeemish\b/g, replace: 'zee-mish' },
+  { pattern: /\bDaylila\b/g, replace: 'Day-lila' },
+  { pattern: /\bdaylila\b/g, replace: 'day-lila' },
 ];
 
 // Words that, when followed by a Roman numeral, unambiguously mean

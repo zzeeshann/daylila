@@ -1,14 +1,14 @@
-# ZEEMISH v2 — Project Brief
+# DAYLILA v2 — Project Brief
 
-## What Zeemish is
+## What Daylila is
 
-Zeemish is an autonomous learning platform that turns today's real-world news into daily educational pieces — teaching ordinary people the systems, patterns, and ideas behind what's actually happening in the world.
+Daylila is an autonomous learning platform that turns today's real-world news into daily educational pieces — teaching ordinary people the systems, patterns, and ideas behind what's actually happening in the world.
 
-**The Zeemish Protocol: "Educate myself for humble decisions."**
+**The Daylila Protocol: "Educate myself for humble decisions."**
 
 A team of 16 AI agents scans the news on a configurable cron (default 24h, currently running 12h), picks the most teachable story, writes a 10-minute piece explaining the underlying system (not just the headline), audits it for voice, accuracy, and structure, narrates it beat-by-beat as audio, categorises it into the growing library taxonomy, generates a standalone companion quiz that teaches the same underlying concept, and publishes it all — autonomously. The human (Zishan) sets direction, watches the admin control room, and intervenes only when needed.
 
-The news is the hook. The teaching is the substance. "Here's what happened" is CNN. "Here's why it happened and how the underlying thing works" is Zeemish.
+The news is the hook. The teaching is the substance. "Here's what happened" is CNN. "Here's why it happened and how the underlying thing works" is Daylila.
 
 ## Who it's for
 
@@ -99,7 +99,7 @@ Every piece carries a "How this was made" drawer at the bottom — full pipeline
 
 ## Current state
 
-Launched 2026-04-18 at https://zeemish.io, tagged `v1.0.0`. All 16 agents wired. Daily news-driven teaching live with audio narration, library categorisation, and per-piece companion quizzes.
+Launched 2026-04-18 at https://daylila.com, tagged `v1.0.0`. All 16 agents wired. Daily news-driven teaching live with audio narration, library categorisation, and per-piece companion quizzes.
 
 Self-improvement loop closed 2026-04-19: Drafter reads from the learnings table at runtime; four signal sources write back after each publish.
 
@@ -119,7 +119,7 @@ Area 4 — Interactives — completed 2026-04-24: every piece gets a standalone 
 - `content/voice-contract.md` — the voice rules, versioned
 - `book/` — a fourth transparency surface. An honest-prose book explaining every part of the system in plain English. The README says what the software does; the book says why it was built that way. Sixteen chapters, written in the same voice as the daily pieces.
 
-## What Zeemish becomes over time
+## What Daylila becomes over time
 
 After 1 month: 30 pieces. A habit.
 After 6 months: 180 pieces. A real library, clustered by subject.

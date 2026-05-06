@@ -15,10 +15,10 @@ binding = "ASSETS"
 # is one extra worker invocation per asset; negligible at our scale.
 run_worker_first = true
 
-# Resend sender — zeemish.io is verified on Resend (DNS records:
-# resend._domainkey TXT, send MX, send SPF TXT in the zeemish.io zone).
+# Resend sender — daylila.com is verified on Resend (DNS records:
+# resend._domainkey TXT, send MX, send SPF TXT in the daylila.com zone).
 [vars]
-EMAIL_FROM = "Zeemish <hello@zeemish.io>"
+EMAIL_FROM = "Daylila <hello@daylila.com>"
 
 [observability]
 enabled = true

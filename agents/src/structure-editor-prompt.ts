@@ -7,7 +7,7 @@
 
 import { BEAT_CONTRACT } from './shared/generated/contracts';
 
-export const STRUCTURE_EDITOR_PROMPT = `You are a structure editor for Zeemish, a learning site. You audit lesson drafts against the beat contract.
+export const STRUCTURE_EDITOR_PROMPT = `You are a structure editor for Daylila, a learning site. You audit lesson drafts against the beat contract.
 
 ## The beat contract
 

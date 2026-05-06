@@ -1,4 +1,4 @@
-# Zeemish
+# Daylila
 
 > **"Educate myself for humble decisions."**
 >
@@ -6,7 +6,7 @@
 >
 > Everything that follows is an attempt to show you what that means — and how to do it.
 
-Daily teaching, anchored in today's news, produced by a pipeline of specialised Claude calls — each with one job. Live at **[zeemish.io](https://zeemish.io)**.
+Daily teaching, anchored in today's news, produced by a pipeline of specialised Claude calls — each with one job. Live at **[daylila.com](https://daylila.com)**.
 
 ---
 
@@ -14,7 +14,7 @@ Every morning, a pipeline of 16 agents scans the news, picks the most teachable 
 
 You see the result the next morning — a daily teaching piece anchored in today's news, in plain English, with audio narration. A growing library of past pieces. No login needed to read.
 
-The whole pipeline runs in public. Visit [/daily/](https://zeemish.io/daily/) to see today's pieces and the candidate news stories Scanner pulled for each run. Every published piece has a "How this was made" drawer at the bottom showing which agents touched it and what each round of audit said. Transparency is the brand.
+The whole pipeline runs in public. Visit [/daily/](https://daylila.com/daily/) to see today's pieces and the candidate news stories Scanner pulled for each run. Every published piece has a "How this was made" drawer at the bottom showing which agents touched it and what each round of audit said. Transparency is the brand.
 
 ## What it actually is
 
@@ -66,7 +66,7 @@ docs/handoff/           Original architecture briefs (frozen)
 
 ## Status
 
-Launched 2026-04-18 at https://zeemish.io. Tagged `v1.0.0`.
+Launched 2026-04-18 at https://daylila.com. Tagged `v1.0.0`.
 
 Self-improvement loop closed 2026-04-19: Drafter now reads from the `learnings` table at runtime; Learner writes producer-side patterns after each publish; Drafter reflects honestly on its own work after each publish.
 
@@ -74,4 +74,4 @@ Multi-piece cadence shipped 2026-04-21: hourly cron + admin-configurable `interv
 
 Known open items tracked in [docs/FOLLOWUPS.md](docs/FOLLOWUPS.md). Nothing currently blocks publication.
 
-The original Zeemish (a separate breathing-tools site, 2024) lived at the same domain until launch day. That codebase is preserved at [github.com/zzeeshann/zeemish](https://github.com/zzeeshann/zeemish) (archived).
+The original Daylila (a separate breathing-tools site, 2024) lived at the same domain until launch day. That codebase is preserved at [github.com/zzeeshann/zeemish](https://github.com/zzeeshann/zeemish) (archived).

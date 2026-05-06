@@ -154,7 +154,7 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
   /** Fetch and parse a Google News RSS feed */
   private async fetchFeed(url: string, category: string): Promise<NewsCandidate[]> {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Zeemish/1.0 (news aggregator for educational content)' },
+      headers: { 'User-Agent': 'Daylila/1.0 (news aggregator for educational content)' },
     });
 
     if (!response.ok) return [];

@@ -26,7 +26,7 @@
 
 import { FACT_CHECK_CONTRACT } from './shared/generated/contracts';
 
-export const FACT_CHECKER_PROMPT = `You are a fact-checker for Zeemish. Identify every factual claim in a lesson and verify each one against current sources.
+export const FACT_CHECKER_PROMPT = `You are a fact-checker for Daylila. Identify every factual claim in a lesson and verify each one against current sources.
 
 ${FACT_CHECK_CONTRACT}
 

@@ -13,10 +13,10 @@ A detailed walkthrough of each of the four signal sources that feed the `learnin
 - **Self-reflection signal.** The prompt used for the Drafter's post-publish reflection. Why the prompt's specificity matters ("what felt thin" vs "how did the piece go"). How stateless context makes honest self-reflection possible — the reflecting call is the same "role" as the drafting call but doesn't carry any ego about the output.
 - **Socratic signal (Zita).** How Zita works, what questions it asks, how those questions get logged. Why reader questions to Zita are different signal than reader behaviour — questions reveal confusion at a specific point in the piece.
 
-## Why this matters for Zeemish
+## Why this matters for Daylila
 
 - Chapter 14 says the loop is closed. This chapter says how, in detail, for each signal source.
-- A reader who reads this chapter should come out understanding which signals Zeemish can act on now and which ones will take time to accumulate.
+- A reader who reads this chapter should come out understanding which signals Daylila can act on now and which ones will take time to accumulate.
 
 ## Key terms introduced
 

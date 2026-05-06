@@ -35,7 +35,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
         font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
         font-size="44" font-weight="700"
         fill="#1A6B62"
-        letter-spacing="-1.5">zeemish</text>
+        letter-spacing="-1.5">daylila</text>
 
   <circle cx="1120" cy="100" r="6" fill="#C49A1A"/>
 

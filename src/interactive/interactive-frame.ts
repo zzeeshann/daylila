@@ -118,7 +118,7 @@ class InteractiveFrame extends HTMLElement {
     if (!this.interactiveId) return;
     if (typeof IntersectionObserver === 'undefined') return;
 
-    const sessionKey = `zeemish-interactive-viewed:${this.interactiveId}`;
+    const sessionKey = `daylila-interactive-viewed:${this.interactiveId}`;
     try {
       if (sessionStorage.getItem(sessionKey) === '1') return;
     } catch {

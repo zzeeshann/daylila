@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   // Send email via Resend
   const env = locals.runtime.env as Record<string, string>;
   const RESEND_API_KEY = env.RESEND_API_KEY;
-  const EMAIL_FROM = env.EMAIL_FROM ?? 'Zeemish <onboarding@resend.dev>';
+  const EMAIL_FROM = env.EMAIL_FROM ?? 'Daylila <onboarding@resend.dev>';
   const siteUrl = new URL(request.url).origin;
   const magicUrl = `${siteUrl}/auth/verify?token=${token}`;
 
@@ -70,10 +70,10 @@ export const POST: APIRoute = async ({ locals, request }) => {
         body: JSON.stringify({
           from: EMAIL_FROM,
           to: [normalizedEmail],
-          subject: 'Your Zeemish login link',
+          subject: 'Your Daylila login link',
           html: `
-            <p>Here's your login link for Zeemish:</p>
-            <p><a href="${magicUrl}" style="display:inline-block;padding:12px 24px;background:#1A6B62;color:white;text-decoration:none;border-radius:8px;font-family:sans-serif;">Log in to Zeemish</a></p>
+            <p>Here's your login link for Daylila:</p>
+            <p><a href="${magicUrl}" style="display:inline-block;padding:12px 24px;background:#1A6B62;color:white;text-decoration:none;border-radius:8px;font-family:sans-serif;">Log in to Daylila</a></p>
             <p style="color:#6B6B6B;font-size:14px;">This link expires in ${TOKEN_EXPIRY_MINUTES} minutes. If you didn't request this, ignore this email.</p>
           `,
         }),

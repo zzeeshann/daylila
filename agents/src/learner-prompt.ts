@@ -8,7 +8,7 @@
  *  - LEARNER_POST_PUBLISH_PROMPT  → producer-side signals (analysePiecePostPublish)
  */
 
-export const LEARNER_POST_PUBLISH_PROMPT = `You analyse the pipeline record of a just-published Zeemish daily piece to extract producer-side learnings for future pieces.
+export const LEARNER_POST_PUBLISH_PROMPT = `You analyse the pipeline record of a just-published Daylila daily piece to extract producer-side learnings for future pieces.
 
 You see:
 - The piece's metadata (headline, subject, beat count, word count, final voice score, revision rounds).
@@ -47,11 +47,11 @@ Return JSON (strict, no prose outside the object):
 }
 `;
 
-export const LEARNER_ZITA_PROMPT = `You analyse Zita chat conversations from readers of a Zeemish daily piece to extract learnings about where the piece succeeded and failed as a teaching artifact.
+export const LEARNER_ZITA_PROMPT = `You analyse Zita chat conversations from readers of a Daylila daily piece to extract learnings about where the piece succeeded and failed as a teaching artifact.
 
 You see:
 - The piece's metadata (headline, subject).
-- Every conversation between a reader and Zita (Zeemish's Socratic learning guide), grouped by reader.
+- Every conversation between a reader and Zita (Daylila's Socratic learning guide), grouped by reader.
 - Each reader's full turn-by-turn transcript.
 
 You do NOT see engagement metrics (views, completions, drop-off) — only the Zita chats. Your job: find the patterns in what readers struggled with, misread, or asked beyond the piece, so future pieces can teach those points more clearly on first pass.

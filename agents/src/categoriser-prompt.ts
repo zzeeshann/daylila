@@ -23,7 +23,7 @@ export {
   CATEGORISER_FALLBACK_SLUG,
 } from './shared/categoriser-thresholds';
 
-export const CATEGORISER_PROMPT = `You categorise a just-published Zeemish daily piece by assigning it to 1–3 categories. Every piece MUST land in at least one category — returning an empty assignments array is never a valid answer.
+export const CATEGORISER_PROMPT = `You categorise a just-published Daylila daily piece by assigning it to 1–3 categories. Every piece MUST land in at least one category — returning an empty assignments array is never a valid answer.
 
 You are shown:
 - The piece's headline, underlying subject, and the first chunk of its body.

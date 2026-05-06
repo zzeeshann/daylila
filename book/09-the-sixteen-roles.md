@@ -1,8 +1,8 @@
 # 09 — The sixteen roles
 
-Chapter 6 explained what an agent is. Chapter 8 explained what Zeemish does. This chapter explains how the two fit together — the sixteen specific roles that make up Zeemish's daily pipeline.
+Chapter 6 explained what an agent is. Chapter 8 explained what Daylila does. This chapter explains how the two fit together — the sixteen specific roles that make up Daylila's daily pipeline.
 
-A quick reminder from chapter 6: ten of these roles use Claude to make decisions. The other six are supporting code. Both kinds matter. Both kinds are called "agents" in the repo because they each have one clear job and live in one file. That's the only thing the word "agent" promises in Zeemish.
+A quick reminder from chapter 6: ten of these roles use Claude to make decisions. The other six are supporting code. Both kinds matter. Both kinds are called "agents" in the repo because they each have one clear job and live in one file. That's the only thing the word "agent" promises in Daylila.
 
 Here they are, in the order they run.
 
@@ -28,25 +28,25 @@ Here they are, in the order they run.
 
 ## 3. Curator
 
-**Job:** Find the story whose underlying system best teaches the Zeemish protocol — and write the brief.
+**Job:** Find the story whose underlying system best teaches the Daylila protocol — and write the brief.
 
 **What it does:** Reads all the candidates Scanner gathered (typically sixty to eighty). Picks one. Writes a brief — a short document explaining what the story is, what the underlying system is, what angle the piece should take, and roughly what beats the piece should have.
 
-**Claude call?** Yes. One call with the candidates and a prompt that opens with the Zeemish protocol itself. Also sees the last 30 days of published headlines plus each one's underlying subject, and the last 30 days of category counts, so it can steer away from concepts the library just covered and prefer thinner categories when the news allows.
+**Claude call?** Yes. One call with the candidates and a prompt that opens with the Daylila protocol itself. Also sees the last 30 days of published headlines plus each one's underlying subject, and the last 30 days of category counts, so it can steer away from concepts the library just covered and prefer thinner categories when the news allows.
 
-**What "teachable" means in Zeemish's prompt:** every story connects to a system, and the system isn't always something breaking. The library is meant to teach inner life, meaning, expression, language, science as discovery, body, how humans live together, skills, technology beyond crisis, time and place — not only what's failing under pressure. The job is to find the connection between today's news and one of those domains, not to gate-keep against pieces that don't pattern-match an institutional or supply-chain template. A murder case teaches human psychology and the systems of grief and justice. A linguistics study teaches how a language preserves verb tense. A physics result teaches why darkness can travel faster than light. A firing-squads policy teaches the philosophy of state violence. Curator's default is to PICK; skip is reserved for the narrow case where the news is genuinely a single breaking event being re-reported with no new angle, or a pure product spec with no underlying system. The earlier prompt had a "60+ teachability threshold" that read more strictly than intended — Claude treated it as a conservative floor and dismissed sensitive subjects as "culturally-specific" or "shallow." The 2026-04-25 reframe dropped the threshold and embedded the Zeemish protocol at the top of the Curator prompt, so Curator now picks through the same lens the auditors and Drafter already used.
+**What "teachable" means in Daylila's prompt:** every story connects to a system, and the system isn't always something breaking. The library is meant to teach inner life, meaning, expression, language, science as discovery, body, how humans live together, skills, technology beyond crisis, time and place — not only what's failing under pressure. The job is to find the connection between today's news and one of those domains, not to gate-keep against pieces that don't pattern-match an institutional or supply-chain template. A murder case teaches human psychology and the systems of grief and justice. A linguistics study teaches how a language preserves verb tense. A physics result teaches why darkness can travel faster than light. A firing-squads policy teaches the philosophy of state violence. Curator's default is to PICK; skip is reserved for the narrow case where the news is genuinely a single breaking event being re-reported with no new angle, or a pure product spec with no underlying system. The earlier prompt had a "60+ teachability threshold" that read more strictly than intended — Claude treated it as a conservative floor and dismissed sensitive subjects as "culturally-specific" or "shallow." The 2026-04-25 reframe dropped the threshold and embedded the Daylila protocol at the top of the Curator prompt, so Curator now picks through the same lens the auditors and Drafter already used.
 
 The prompt's TEACHABILITY section was rewritten on 2026-05-01 around a ten-domain breadth taxonomy: Inner life (psychology, cognitive science, neuroscience, mental health, child development, aging), Meaning and belief (philosophy, spirituality and religion treated seriously, death and grief, ritual, ethics in practice), Expression (art and art history, music, literature, film and theatre, architecture, design, photography), Language and thought (linguistics, etymology, translation, rhetoric, writing as craft), Science not as crisis (physics, chemistry, biology, mathematics, astronomy, earth science, ecology beyond invasive species), Body and health (medicine, nutrition, sleep, exercise physiology, sex and reproduction, everyday public health), How humans live together (history, anthropology, sociology, everyday economics, education, everyday law, cities, migration), Skills and craft (cooking, gardening, building, sport, games and play, money in practice), Technology beyond crisis (how computers work, the internet, AI substance, cryptography, energy beyond grid strain, transportation), and Time and place (geography, geology, climate over the long arc, astronomy of the everyday). The list is a breadth-showing set, not a whitelist — Curator uses it as a way to *see* what stories are teaching across the whole taxonomy, not only in systems-under-stress.
 
 A small soft-preference signal sits below the recent-pieces block: a count of how many pieces each library category has received over the last thirty days. If a candidate would land in a category that already holds three or more recent pieces, Curator should prefer one that opens a thinner category — unless the news genuinely demands the fuller category. It is a soft preference, not a skip rule. The hard skips are still SAME-EVENT and SAME-CONCEPT.
 
-**Where the rule lives.** Since 2026-05-08, the five selection criteria, the ten-domain breadth taxonomy, the recent-category soft preference, the SAME-EVENT and SAME-CONCEPT hard skips with their worked examples, and the skip output shape all live in a single contract file (`content/curator-contract.md`). Curator reads it at runtime via prompt injection, the same shape as the voice and beat contracts. The thirty-day window for the recent-pieces and category-concentration data is exported as a single named constant in the agents-side code so the contract and the database queries that feed it never drift. The Zeemish protocol opener stays inline in the Curator prompt itself — that opener is voice-contract.md's canonical home, and Curator lifts it as framing for picking, not as a rule to enforce.
+**Where the rule lives.** Since 2026-05-08, the five selection criteria, the ten-domain breadth taxonomy, the recent-category soft preference, the SAME-EVENT and SAME-CONCEPT hard skips with their worked examples, and the skip output shape all live in a single contract file (`content/curator-contract.md`). Curator reads it at runtime via prompt injection, the same shape as the voice and beat contracts. The thirty-day window for the recent-pieces and category-concentration data is exported as a single named constant in the agents-side code so the contract and the database queries that feed it never drift. The Daylila protocol opener stays inline in the Curator prompt itself — that opener is voice-contract.md's canonical home, and Curator lifts it as framing for picking, not as a rule to enforce.
 
 ## 4. Drafter
 
 **Job:** Write the piece.
 
-**What it does:** Takes the brief from Curator. Loads the voice contract (how Zeemish sounds) and the beat contract (how Zeemish pieces are shaped: 1000–1500 words across 5–6 beats, opening with a hook that creates a question, closing in one to four sentences that just sit, frontmatter fields, the SEO meta-description rules). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly. Since 2026-05-04 the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English) live in the beat contract alongside the rest of the piece-shape rules. Chapter 18 covers why that field has its own contract.
+**What it does:** Takes the brief from Curator. Loads the voice contract (how Daylila sounds) and the beat contract (how Daylila pieces are shaped: 1000–1500 words across 5–6 beats, opening with a hook that creates a question, closing in one to four sentences that just sit, frontmatter fields, the SEO meta-description rules). Loads the most recent learnings from past pieces. Produces a complete MDX file — the piece's text, formatted with beat headings, with frontmatter (title, date, beat count, description, etc.). Director adds the rest of the frontmatter at publish time — `voiceScore`, `qualityFlag` if the piece tiered low, `publishedAt`, `pieceId`, `sourceUrl`, and the `audioBeats` map after audio finishes. The reader-facing tier label (Polished / Solid / Rough) is derived at render time from the score, not stored as a field. The `description` field is the page's meta description — search engines read it directly. Since 2026-05-04 the rules for it (140–160 chars, distinct from the title, names the underlying concept, plain English) live in the beat contract alongside the rest of the piece-shape rules. Chapter 18 covers why that field has its own contract.
 
 **Claude call?** Yes. The biggest one in the pipeline — producing 1,000 to 1,500 words of polished prose takes the most model work.
 
@@ -54,7 +54,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 ## 5. Voice Auditor
 
-**Job:** Check if the piece actually sounds like Zeemish.
+**Job:** Check if the piece actually sounds like Daylila.
 
 **What it does:** Reads the draft. Checks it against the voice contract — no tribe words, plain English, short sentences, hospitality principle. Produces a score out of 100 and a list of specific violations if any. Passes if score ≥ 85.
 
@@ -68,7 +68,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Job:** Check that the claims in the piece are correct.
 
-**What it does:** Extracts factual claims from the draft ("fuel rose 40%," "Spirit's margin is 4%," "QVC reached 96 million households"). Checks each one against the live web. The user message includes today's date, and for any claim with a specific name, date, number, or current-event reference, the model searches before deciding. This matters because every Zeemish piece is anchored in current news — by definition, post-cutoff. From launch through April 2026 the agent used DuckDuckGo's Instant Answer API, which only resolved Wikipedia-style topics and returned empty for ~95% of news claims; the verdict collapsed back to training-data inference, which produced confidently-wrong reader-facing notes ("this appears to be speculative fiction set in 2026" on a real news event). Replaced 2026-04-30 with Anthropic's native `web_search_20250305` server tool — Claude decides per-claim whether to search, runs searches inside the same Messages turn, and returns one JSON verdict.
+**What it does:** Extracts factual claims from the draft ("fuel rose 40%," "Spirit's margin is 4%," "QVC reached 96 million households"). Checks each one against the live web. The user message includes today's date, and for any claim with a specific name, date, number, or current-event reference, the model searches before deciding. This matters because every Daylila piece is anchored in current news — by definition, post-cutoff. From launch through April 2026 the agent used DuckDuckGo's Instant Answer API, which only resolved Wikipedia-style topics and returned empty for ~95% of news claims; the verdict collapsed back to training-data inference, which produced confidently-wrong reader-facing notes ("this appears to be speculative fiction set in 2026" on a real news event). Replaced 2026-04-30 with Anthropic's native `web_search_20250305` server tool — Claude decides per-claim whether to search, runs searches inside the same Messages turn, and returns one JSON verdict.
 
 **Claude call?** Yes. One call per audit round, with the web_search tool attached. Claude may invoke the tool 0–8 times per call.
 
@@ -102,7 +102,7 @@ A small soft-preference signal sits below the recent-pieces block: a count of ho
 
 **Job:** Commit the finished piece to GitHub so it goes live.
 
-**What it does:** Takes the approved MDX. Writes it to the right filename (`YYYY-MM-DD-slug.mdx`). Commits to GitHub. This triggers GitHub Actions, which deploys the site, which means the piece is live on `zeemish.io` within two minutes.
+**What it does:** Takes the approved MDX. Writes it to the right filename (`YYYY-MM-DD-slug.mdx`). Commits to GitHub. This triggers GitHub Actions, which deploys the site, which means the piece is live on `daylila.com` within two minutes.
 
 **Claude call?** No. Just GitHub API calls.
 
@@ -209,7 +209,7 @@ The four dimensions:
 
 **Claude call?** No. Just logging.
 
-**Why this matters:** Without Observer, the transparency promise of Zeemish — that every piece has a "how this was made" drawer — has nothing to read from. The drawer depends on Observer having logged the relevant events at the time they happened.
+**Why this matters:** Without Observer, the transparency promise of Daylila — that every piece has a "how this was made" drawer — has nothing to read from. The drawer depends on Observer having logged the relevant events at the time they happened.
 
 ## Plus one more thing
 

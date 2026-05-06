@@ -13,7 +13,7 @@
 - Tier labels on published pieces — Polished (≥85), Solid (70–84), Rough (<70) — and why all of them ship. Since 2026-05-06, the threshold values and the ship-anyway rule live in the audit contract (`content/audit-contract.md`) — pulled out of the code-side docstrings so the rules and their reasoning sit together in one place.
 - What happens when a gate consistently fails on a topic: the piece is not forced through. It escalates to a human.
 
-## Why this matters for Zeemish
+## Why this matters for Daylila
 
 - The gates are what separates "autonomous publishing" from "spam engine." They are the thing that makes daily autonomous publishing safe enough to brand as a teaching system.
 - Each gate is itself a Claude call with a specialised prompt. Keeping the writing call and the judging calls separate is deliberate — chapter 6 explains why.

@@ -10,7 +10,7 @@ import type { DailyPieceBrief } from './types';
 import type { Learning } from './shared/learnings';
 import { BEAT_CONTRACT } from './shared/generated/contracts';
 
-export const DRAFTER_PROMPT = `You are the Drafter for Zeemish daily pieces. You write short teaching pieces anchored in today's news.
+export const DRAFTER_PROMPT = `You are the Drafter for Daylila daily pieces. You write short teaching pieces anchored in today's news.
 
 The news is the HOOK. The teaching is the SUBSTANCE. The reader gets the news AND the education to understand it.
 
@@ -41,7 +41,7 @@ export function buildDrafterPrompt(
     learnings.length === 0
       ? ''
       : `## Lessons from prior pieces
-These are patterns observed across recent Zeemish pieces — producer-side quality signals, self-reflection notes, and (once readers arrive) reader-behaviour signal. Let them shape what you write today.
+These are patterns observed across recent Daylila pieces — producer-side quality signals, self-reflection notes, and (once readers arrive) reader-behaviour signal. Let them shape what you write today.
 
 ${learnings.map((l) => `- [${l.category}] ${l.observation}`).join('\n')}
 

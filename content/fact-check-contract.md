@@ -1,6 +1,6 @@
-# Zeemish Fact-Check Contract
+# Daylila Fact-Check Contract
 
-This document is the single source of truth for how Zeemish *verifies its own writing*. The voice contract governs how Zeemish sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through. This contract governs the rule the Fact Checker auditor applies inside its own gate — what counts as a claim, when to search, what verdicts are allowed, and what the agent must never write to readers.
+This document is the single source of truth for how Daylila *verifies its own writing*. The voice contract governs how Daylila sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through. This contract governs the rule the Fact Checker auditor applies inside its own gate — what counts as a claim, when to search, what verdicts are allowed, and what the agent must never write to readers.
 
 ## What gets checked
 

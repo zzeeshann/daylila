@@ -1,6 +1,6 @@
-# Zeemish Interactive Contract
+# Daylila Interactive Contract
 
-This document is the single source of truth for how Zeemish quizzes and HTML interactives are *shaped*. The voice contract governs how Zeemish *sounds*; this contract governs how the post-publish artefacts (a 3–5 question quiz + a single-file HTML interactive) teach the underlying concept of a daily piece without referencing the piece itself.
+This document is the single source of truth for how Daylila quizzes and HTML interactives are *shaped*. The voice contract governs how Daylila *sounds*; this contract governs how the post-publish artefacts (a 3–5 question quiz + a single-file HTML interactive) teach the underlying concept of a daily piece without referencing the piece itself.
 
 Read together with the voice contract at write- and audit-time.
 

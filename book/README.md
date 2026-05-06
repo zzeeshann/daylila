@@ -1,22 +1,22 @@
-# The Zeemish Book
+# The Daylila Book
 
 *A beginner's guide to how this system works.*
 
 ---
 
-This book is for someone who knows a little about computers and a little about programming, and wants to understand how a system like Zeemish actually works — end to end, from the news arriving on a scheduled cron (default 02:00 UTC, admin-configurable) to the piece appearing on the site.
+This book is for someone who knows a little about computers and a little about programming, and wants to understand how a system like Daylila actually works — end to end, from the news arriving on a scheduled cron (default 02:00 UTC, admin-configurable) to the piece appearing on the site.
 
 It's also for anyone who has heard the words "AI agent," "Cloudflare Worker," "GitHub," or "database" and wondered what they actually mean, and whether the explanations online are deliberately making them sound harder than they are. They are.
 
-You don't need to finish this book to understand Zeemish. Each chapter stands on its own. If you already know what GitHub is, skip that chapter. If you've never opened a terminal in your life, start at the beginning.
+You don't need to finish this book to understand Daylila. Each chapter stands on its own. If you already know what GitHub is, skip that chapter. If you've never opened a terminal in your life, start at the beginning.
 
 ## Who wrote this
 
-The first draft was written with Claude (Anthropic's assistant) during the week after Zeemish launched, in the same style as the pieces Zeemish itself publishes. Plain English. Short sentences. No jargon without immediate translation. Trust the reader.
+The first draft was written with Claude (Anthropic's assistant) during the week after Daylila launched, in the same style as the pieces Daylila itself publishes. Plain English. Short sentences. No jargon without immediate translation. Trust the reader.
 
 ## How to read
 
-Start at `CONTENTS.md` for the table of contents and to see which chapters are written and which are outlines. If you want the shortest path to understanding Zeemish specifically, read chapters 6, 7, 8, 9, and 10 — that's the core story. The earlier chapters give you the world the core story lives in.
+Start at `CONTENTS.md` for the table of contents and to see which chapters are written and which are outlines. If you want the shortest path to understanding Daylila specifically, read chapters 6, 7, 8, 9, and 10 — that's the core story. The earlier chapters give you the world the core story lives in.
 
 ## How to print
 

@@ -42,7 +42,7 @@ function renderSitemap(entries: SitemapEntry[]): string {
 }
 
 export async function GET(context: APIContext): Promise<Response> {
-  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://zeemish.io';
+  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://daylila.com';
   const abs = (path: string) => `${site}${path}`;
 
   const pieces = await getCollection('dailyPieces');

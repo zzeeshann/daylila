@@ -2,7 +2,7 @@
 
 A computer program doesn't naturally remember anything. When it finishes running, everything it was holding in memory disappears. If you want to remember something beyond one run of the program — a user's login, a published piece, a record of what happened yesterday — you have to explicitly write it down somewhere.
 
-"Somewhere" is called storage. There are a few flavours, each good for different things. Zeemish uses three: D1, KV, and R2. Here's what each one is for.
+"Somewhere" is called storage. There are a few flavours, each good for different things. Daylila uses three: D1, KV, and R2. Here's what each one is for.
 
 ## D1 — the relational database
 
@@ -10,7 +10,7 @@ Most programs need to remember structured things. A list of users with email add
 
 For this kind of data, you use a **relational database**. The word "relational" is old and somewhat misleading. What it actually means is: data organised into tables, where each table has named columns and where rows can reference rows in other tables.
 
-Here's what Zeemish's `daily_pieces` table looks like, conceptually:
+Here's what Daylila's `daily_pieces` table looks like, conceptually:
 
 | id | date | title | voice_score | tier |
 |---|---|---|---|---|
@@ -32,19 +32,19 @@ SQL is old (invented in the 1970s) and it's still everywhere. If you learn any o
 
 **Cloudflare D1** is Cloudflare's version of a relational database. Under the hood it uses **SQLite**, which is a small, fast, reliable database engine that's in practically everything — your phone, your browser, your TV. D1 wraps SQLite so it can be used from Cloudflare Workers and replicated across regions.
 
-Zeemish has one D1 database called `zeemish`. It has nineteen tables. Chapter references them throughout.
+Daylila has one D1 database called `daylila`. It has nineteen tables. Chapter references them throughout.
 
 ## KV — fast keyed storage
 
 Sometimes you don't need a full relational database. You just need to remember "for this key, the value is this."
 
-Example: rate limiting. Zeemish needs to remember "this user tried to log in 5 times in the last 15 minutes." That's a key (the user's IP or ID) and a value (the count). It's not worth a full database table. It's a key-value lookup.
+Example: rate limiting. Daylila needs to remember "this user tried to log in 5 times in the last 15 minutes." That's a key (the user's IP or ID) and a value (the count). It's not worth a full database table. It's a key-value lookup.
 
 **Cloudflare KV** is a store for that kind of data. Write a value under a key. Read it back by the key. Set an expiry so it auto-deletes after a while. That's it.
 
 KV is fast to read, slow to write (meaning, writes can take a few hundred milliseconds to become visible worldwide), and cheap. It's great for things like rate limits, cached computations, feature flags. It's terrible for anything you need to query by something other than the exact key.
 
-Zeemish uses KV for rate limiting login attempts and Zita conversations. Nothing critical. If the KV contents evaporated tomorrow, the worst consequence would be that rate limits reset.
+Daylila uses KV for rate limiting login attempts and Zita conversations. Nothing critical. If the KV contents evaporated tomorrow, the worst consequence would be that rate limits reset.
 
 ## R2 — object storage for big things
 
@@ -52,9 +52,9 @@ Databases are great for structured data. They're bad at storing large binary fil
 
 The right tool for big files is called **object storage**. You hand it a file, you get back a URL. The URL points at the file. You can fetch it anywhere, fast, for very little money.
 
-**Cloudflare R2** is Cloudflare's object storage. Zeemish uses it to store audio clips. When Audio Producer finishes narrating a beat, it uploads the MP3 to R2. The upload returns a URL. That URL is saved in D1, and the `<audio-player>` component on the piece page uses it to stream the audio.
+**Cloudflare R2** is Cloudflare's object storage. Daylila uses it to store audio clips. When Audio Producer finishes narrating a beat, it uploads the MP3 to R2. The upload returns a URL. That URL is saved in D1, and the `<audio-player>` component on the piece page uses it to stream the audio.
 
-R2 is similar to Amazon S3 (which you may have heard of). Cloudflare's version doesn't charge "egress" fees — meaning, you don't pay extra when users download from it. That's one of the reasons Zeemish uses R2 instead of S3: cheaper for a project that streams audio to readers.
+R2 is similar to Amazon S3 (which you may have heard of). Cloudflare's version doesn't charge "egress" fees — meaning, you don't pay extra when users download from it. That's one of the reasons Daylila uses R2 instead of S3: cheaper for a project that streams audio to readers.
 
 ## The three in one sentence each
 
@@ -62,12 +62,12 @@ R2 is similar to Amazon S3 (which you may have heard of). Cloudflare's version d
 - **KV** — for simple key-to-value lookups where you already know the key. Fast and cheap, not queryable by anything other than the key.
 - **R2** — for big files. Upload a blob, get a URL. Stream the blob from the URL.
 
-If Zeemish were a library, D1 would be the card catalogue, KV would be the front-desk sticky notes, and R2 would be the actual books on shelves.
+If Daylila were a library, D1 would be the card catalogue, KV would be the front-desk sticky notes, and R2 would be the actual books on shelves.
 
 ## Why having three is normal
 
 A real project usually uses multiple kinds of storage. Nobody stores MP3s in a relational database. Nobody stores user records in object storage. Each tool is right for its shape of data. Getting the shapes right is part of the craft.
 
-When Zeemish was designed, the choice was roughly: "audit results, published pieces, engagement records" → D1. "Rate limits" → KV. "Audio clips" → R2. Later, when a new kind of data came along (learnings), it went into D1 because it's structured. When reader sessions came along, those went into KV because they're keyed by session ID.
+When Daylila was designed, the choice was roughly: "audit results, published pieces, engagement records" → D1. "Rate limits" → KV. "Audio clips" → R2. Later, when a new kind of data came along (learnings), it went into D1 because it's structured. When reader sessions came along, those went into KV because they're keyed by session ID.
 
 Once you see this pattern, databases stop being mysterious. They're just specialised filing cabinets. Pick the one that matches what you're filing.

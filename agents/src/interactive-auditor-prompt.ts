@@ -44,7 +44,7 @@ You are shown:
 
 # The contracts you audit against
 
-The Zeemish voice contract governs how the quiz sounds; the interactive contract governs how the quiz is shaped (essence-not-reference, Plain English split, quiz shape, title / concept / slug rules). Both apply.
+The Daylila voice contract governs how the quiz sounds; the interactive contract governs how the quiz is shaped (essence-not-reference, Plain English split, quiz shape, title / concept / slug rules). Both apply.
 
 ## Voice contract
 
@@ -234,7 +234,7 @@ The file has already passed a structural validator (size, sandbox compatibility,
 
 # The contracts you audit against
 
-The Zeemish voice contract governs how the in-interactive copy sounds; the interactive contract governs how the artefact is shaped (essence-not-reference, Plain English split, HTML interactive shape, validator constraints, title / concept / slug). Both apply.
+The Daylila voice contract governs how the in-interactive copy sounds; the interactive contract governs how the artefact is shaped (essence-not-reference, Plain English split, HTML interactive shape, validator constraints, title / concept / slug). Both apply.
 
 ## Voice contract
 

@@ -37,8 +37,8 @@ function checkAuth(request: Request, env: Env): boolean {
 /** Allowed origins for CORS */
 const ALLOWED_ORIGINS = [
   'https://zeemish-v2.zzeeshann.workers.dev',
-  'https://zeemish.io',
-  'https://www.zeemish.io',
+  'https://daylila.com',
+  'https://www.daylila.com',
 ];
 
 function corsHeaders(request: Request): Record<string, string> {

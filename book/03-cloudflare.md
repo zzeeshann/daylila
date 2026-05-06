@@ -18,7 +18,7 @@ When someone visits a website running on Cloudflare, the request goes to the nea
 
 This used to be called a CDN — a content delivery network. CDNs originally just stored copies of files (images, videos, pages) close to readers. They didn't run code. They just cached.
 
-The new thing — what Zeemish uses — is that Cloudflare now runs full programs at each of those data centres, not just stored files. These programs are called **Workers**.
+The new thing — what Daylila uses — is that Cloudflare now runs full programs at each of those data centres, not just stored files. These programs are called **Workers**.
 
 ## What a Cloudflare Worker is
 
@@ -28,27 +28,27 @@ The important word in that description is **small**. A Worker has to start up, d
 
 This sounds like a limitation. It is. It's also the reason Workers can run in hundreds of locations without costing a fortune. The data centres run millions of these tiny programs in parallel, sharing resources. Your Worker shows up when needed, does its thing, and gets out of the way.
 
-Zeemish has two Workers:
+Daylila has two Workers:
 
-- **The site worker** (`zeemish-v2`) serves the pages you see at `zeemish.io`. Every time you load a page, a Worker runs, gets the content, and sends it to your browser.
-- **The agents worker** (`zeemish-agents`) runs the daily pipeline — Scanner, Curator, Drafter, all of them. This one needs to stay running for minutes, not seconds, so it uses a special Cloudflare feature called **Durable Objects** to keep itself alive and remember state across requests.
+- **The site worker** (`daylila-v2`) serves the pages you see at `daylila.com`. Every time you load a page, a Worker runs, gets the content, and sends it to your browser.
+- **The agents worker** (`daylila-agents`) runs the daily pipeline — Scanner, Curator, Drafter, all of them. This one needs to stay running for minutes, not seconds, so it uses a special Cloudflare feature called **Durable Objects** to keep itself alive and remember state across requests.
 
 ## Durable Objects, briefly
 
 A regular Worker is stateless. A Durable Object is a Worker with memory. It's a single instance that lives in one specific data centre, can be addressed like a small private service, and remembers things between calls.
 
-Every Zeemish agent is a Durable Object. When Scanner wakes up to read the news, it's talking to a Durable Object named `ScannerAgent`. When Drafter writes a piece, it's a Durable Object named `DrafterAgent`. They can call each other. They can schedule themselves to wake up later (Zeemish's audio pipeline uses this — more in chapter 13).
+Every Daylila agent is a Durable Object. When Scanner wakes up to read the news, it's talking to a Durable Object named `ScannerAgent`. When Drafter writes a piece, it's a Durable Object named `DrafterAgent`. They can call each other. They can schedule themselves to wake up later (Daylila's audio pipeline uses this — more in chapter 13).
 
-You don't need to understand the full details now. Just hold the idea: Zeemish's agents aren't hosted on one big server. They're tiny programs living in Cloudflare's network, waking up when needed, going back to sleep when not.
+You don't need to understand the full details now. Just hold the idea: Daylila's agents aren't hosted on one big server. They're tiny programs living in Cloudflare's network, waking up when needed, going back to sleep when not.
 
 ## How Cloudflare relates to GitHub
 
-When you push code to Zeemish's GitHub repo, a GitHub Action automatically tells Cloudflare "new code, please deploy it." Cloudflare rebuilds both Workers with the new code and rolls them out to every data centre worldwide. The whole thing takes about two minutes. Nobody has to log into a server. There is no server to log into.
+When you push code to Daylila's GitHub repo, a GitHub Action automatically tells Cloudflare "new code, please deploy it." Cloudflare rebuilds both Workers with the new code and rolls them out to every data centre worldwide. The whole thing takes about two minutes. Nobody has to log into a server. There is no server to log into.
 
 This is the new shape of software. No machine to maintain. No operating system to patch. No servers to scale. Just code, deployed everywhere, running when needed.
 
 ## The honest caveat
 
-Cloudflare is not magic. It has real limits. Workers can't run arbitrary native programs. They have specific time limits per request. They can be expensive once you use a lot of them. And — like any infrastructure — if Cloudflare has a bad day, Zeemish has a bad day too. The company has had outages. They happen rarely, but they happen.
+Cloudflare is not magic. It has real limits. Workers can't run arbitrary native programs. They have specific time limits per request. They can be expensive once you use a lot of them. And — like any infrastructure — if Cloudflare has a bad day, Daylila has a bad day too. The company has had outages. They happen rarely, but they happen.
 
-For a project like Zeemish, the tradeoffs are good. For a project that needed, say, real-time video streaming or a massively complex database, Cloudflare might not be the right choice. Know your tools. The right answer depends on what you're building.
+For a project like Daylila, the tradeoffs are good. For a project that needed, say, real-time video streaming or a massively complex database, Cloudflare might not be the right choice. Know your tools. The right answer depends on what you're building.

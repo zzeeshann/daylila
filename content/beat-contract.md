@@ -1,6 +1,6 @@
-# Zeemish Beat Contract
+# Daylila Beat Contract
 
-This document is the single source of truth for how Zeemish daily pieces are *shaped*. The voice contract governs how Zeemish *sounds*. The two read together at write- and audit-time.
+This document is the single source of truth for how Daylila daily pieces are *shaped*. The voice contract governs how Daylila *sounds*. The two read together at write- and audit-time.
 
 Every published piece's shape — its word count, its number of beats, the format of its hook and teaching beats and close, its MDX frontmatter — is governed by the rules below.
 

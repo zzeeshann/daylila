@@ -21,7 +21,7 @@ function xmlEscape(s: string): string {
 }
 
 export async function GET(context: APIContext): Promise<Response> {
-  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://zeemish.io';
+  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://daylila.com';
   const feedUrl = `${site}/rss.xml`;
   const channelLink = `${site}/`;
 
@@ -52,7 +52,7 @@ export async function GET(context: APIContext): Promise<Response> {
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">',
     '  <channel>',
-    '    <title>Zeemish — daily pieces</title>',
+    '    <title>Daylila — daily pieces</title>',
     `    <link>${channelLink}</link>`,
     '    <description>Educate yourself for humble decisions. A daily teaching piece anchored in today\u2019s news, made by an autonomous team of agents.</description>',
     '    <language>en</language>',

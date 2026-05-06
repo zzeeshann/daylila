@@ -1,4 +1,6 @@
-# Zeemish v2 — Claude Code Context
+# Daylila v2 — Claude Code Context
+
+Originally launched as Zeemish; rebranded to Daylila on 2026-05-06. See `docs/DECISIONS.md` for full context.
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
 
@@ -10,7 +12,7 @@
 
 **Full chronology:** `docs/DECISIONS.md` is the append-only log of every dated session entry — Path A.1, Path A, Phase A/F+G/H+I, Close-beat loosening, web_search swap, Pair-slug, InteractiveGenerator retry, Area 5/4/3/2 work, Curator reframe, Categoriser zero-fix, all of it. **Open / observing items:** `docs/FOLLOWUPS.md`. **Archived plans (closed projects):** `docs/archive/` (Interactives v3 plan + notes, 2026-04 refinement plan, 2026-04 voice audit).
 
-## The Zeemish Protocol
+## The Daylila Protocol
 
 **"Educate myself for humble decisions."**
 
@@ -18,13 +20,13 @@
 
 Everything that follows is an attempt to show you what that means — and how to do it.
 
-## What Zeemish v2 is
+## What Daylila v2 is
 
 An autonomous multi-agent publishing system. 16 AI agents scan the news, decide what to teach, draft pieces, audit them through quality gates, categorise them into the library taxonomy, generate a standalone quiz per piece, and publish — all without human intervention. Readers see a daily teaching piece anchored in today's news, with a growing library of past pieces and an optional quiz at the end of each.
 
 ## Current state
 
-**LAUNCHED 2026-04-18 at https://zeemish.io.** Tag: `v1.0.0`; latest milestone `v1.6.0` (2026-04-25, Curator/Categoriser tightening). Old breathing-tools site at zeemish.io retired (custom-domain binding moved from `zeemish-site` worker to `zeemish-v2` worker via Cloudflare dashboard). New site live with daily piece, audio, engagement tracking, admin control room, security headers on auth-touching surfaces. Workers.dev URL still active as fallback. The exact git commit at launch is what `v1.0.0` points at — use it as the reference if anyone asks "what shipped on day one".
+**LAUNCHED 2026-04-18 at https://daylila.com.** Tag: `v1.0.0`; latest milestone `v1.6.0` (2026-04-25, Curator/Categoriser tightening). Old breathing-tools site at daylila.com retired (custom-domain binding moved from `zeemish-site` worker to `zeemish-v2` worker via Cloudflare dashboard). New site live with daily piece, audio, engagement tracking, admin control room, security headers on auth-touching surfaces. Workers.dev URL still active as fallback. The exact git commit at launch is what `v1.0.0` points at — use it as the reference if anyone asks "what shipped on day one".
 
 ## What was built
 
@@ -40,7 +42,7 @@ An autonomous multi-agent publishing system. 16 AI agents scan the news, decide 
 ## Architecture
 
 ### Two Workers
-- **zeemish-v2** — Astro site: pages + API routes. `https://zeemish.io` (custom domain; workers.dev URL still active as fallback)
+- **zeemish-v2** — Astro site: pages + API routes. `https://daylila.com` (custom domain; workers.dev URL still active as fallback)
 - **zeemish-agents** — 16 agents as Durable Objects. `https://zeemish-agents.zzeeshann.workers.dev`
 
 ### Stack
@@ -49,7 +51,7 @@ An autonomous multi-agent publishing system. 16 AI agents scan the news, decide 
 - Agents: Cloudflare Agents SDK v0.11.1
 - AI: Anthropic Claude Sonnet 4.5
 - Audio: ElevenLabs (Frederick Surrey voice)
-- Email: Resend (magic link from hello@zeemish.io)
+- Email: Resend (magic link from hello@daylila.com)
 - Deploy: GitHub Actions → Cloudflare (both workers auto-deploy)
 
 ### The 16 Agents (one job per agent, one file per agent)
@@ -58,7 +60,7 @@ Pipeline: Scanner → Curator → Drafter → [Voice, Structure, Fact] → Integ
 
 1. **ScannerAgent** — fetches 17 RSS feeds (Google News topics + direct breadth feeds), deduplicates, stores up to 80 candidates per run
 2. **DirectorAgent** — pure orchestrator. Routes work between agents. Zero LLM calls. Hourly cron gated by `admin_settings.interval_hours` (default 24 → fires at 02:00 UTC once per day).
-3. **CuratorAgent** — picks the most teachable story from today's candidates, plans beats + hook + teaching angle. Reframed 2026-04-25 around the Zeemish Protocol (no "60+ teachability threshold" gate); diversity-tuned 2026-05-01 with a 10-domain breadth taxonomy + recent-category-concentration block.
+3. **CuratorAgent** — picks the most teachable story from today's candidates, plans beats + hook + teaching angle. Reframed 2026-04-25 around the Daylila Protocol (no "60+ teachability threshold" gate); diversity-tuned 2026-05-01 with a 10-domain breadth taxonomy + recent-category-concentration block.
 4. **DrafterAgent** — writes the MDX from the brief, enforces `<lesson-shell>` / `<lesson-beat>` format. Reads recent learnings at runtime; self-reflects post-publish.
 5. **VoiceAuditorAgent** — voice compliance gate (≥85/100)
 6. **FactCheckerAgent** — verifies every claim (single-pass: Claude with Anthropic `web_search_20250305` server tool; today's date in user message; search-first for current-event claims). Reads `content/fact-check-contract.md` via `${FACT_CHECK_CONTRACT}` injection since 2026-05-07 — verdict taxonomy + search-first rule + cutoff-confession ban + `max_uses=8` budget all live there. Path A.1 (2026-05-01) harvests citation URLs from `web_search_tool_result.content[]` for the drawer's "Sources consulted" line.
@@ -152,7 +154,7 @@ Canonical contract content lives in markdown / HTML under `content/` and `docs/e
 - No skip-to-content link for keyboard users; full WCAG audit deferred
 - **Security headers on prerendered HTML (`/`, `/daily/[date]/[slug]/`) — known gap.** Despite `_routes.json` `include: ["/*"]` + `run_worker_first = true` + middleware `Cache-Control: no-store` on HTML, Cloudflare Workers Static Assets serves prerendered `.html` files directly without invoking the worker. Server-rendered routes (`/daily/`, `/library/`, `/library/[slug]/`, `/dashboard/`, `/api/*`, `/audio/*`, `/account`, `/login`) DO get all 6 headers. (`/daily/` joined the SSR side on 2026-05-02 with the rebuild — index needs D1 access; `/library/` was already SSR.) The remaining static pages have no auth, no cross-origin fetches, no third-party scripts beyond Google Fonts (preconnect only). Practical residual risk = clickjacking (low). Two future paths: (a) Cloudflare Transform Rule injecting headers at the edge, (b) `prerender = false` on those pages (~15-50ms perf hit). See `docs/DECISIONS.md` 2026-04-18 "Ship as-is despite header gap" for the full reasoning.
 - **Cloudflare Workers Static Assets (read this before touching cache or headers):** Three caching/routing layers interact and you have to defeat all of them to get headers on prerendered HTML — adapter `_routes.json` (overridden by `scripts/post-build.sh`), `run_worker_first` in wrangler.toml, and the CDN edge cache. Even so, prerendered HTML in production is still served without the worker for filesystem-resolvable paths; the gap is documented and accepted. Don't relitigate.
-- DNS `R2 listens.zeemish.io` and `Worker api.zeemish.io → zeemish-api` are leftover from the OLD breathing-tools site. Different subdomains, not in the way of launch. Retire when convenient.
+- DNS `R2 listens.zeemish.io` and `Worker api.zeemish.io → zeemish-api` are leftover from the OLD breathing-tools site (now also superseded by the daylila.com rebrand — both retirements deferred together). Different subdomains, not in the way of launch. Retire when convenient.
 - Cache-purge needed on every Cloudflare deploy to evict CDN-cached prerendered HTML — until the header-gap above is closed
 - Drafter-declared `beatCount` in frontmatter can drift from actual `##` heading count in the MDX body. Reader UI counts actual headings in `src/lib/rehype-beats.ts` and is correct regardless. Durable fix still pending: add a Structure-Editor gate or drop the frontmatter field and derive at render time.
 - Drafter authors beat headings in kebab-case (`## qvcs-original-advantage`); `rehype-beats.ts` humanises for display. Lossy for acronyms and punctuation. Fixed via optional `beatTitles` frontmatter map (added 2026-04-19) that overrides per-beat. Parallel durable fix still pending: teach Drafter to write display-formatted `##` headings.

@@ -2,7 +2,7 @@
 // Regression harness for the headline-overlap dedup filter in
 // agents/src/shared/dedup-headlines.ts.
 //
-// Cases below are drawn from real Zeemish failure modes (the 2026-04-24
+// Cases below are drawn from real Daylila failure modes (the 2026-04-24
 // Maduro twin pieces, the 2026-04-27 SCOTUS / cell-location twin pieces
 // that recurred FOUR TIMES in one day) plus deliberate false-positive
 // probes (Trump signs different bills, Hurricane Helene days apart) to

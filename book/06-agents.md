@@ -2,7 +2,7 @@
 
 The word "agent" has had a rough year. It's been used to mean so many different things by so many different products that by the time you see "16 AI agents" on a website, you might reasonably wonder whether the phrase means anything at all.
 
-This chapter is about what the word actually means, what it doesn't mean, and what Zeemish's 16 agents actually are.
+This chapter is about what the word actually means, what it doesn't mean, and what Daylila's 16 agents actually are.
 
 ## The simplest definition
 
@@ -36,13 +36,13 @@ That's the essential thing. An agent is a program that moves some of its decisio
 
 There's a spectrum of how much decision-making gets delegated.
 
-**Shallow agent.** The program has one clear job. It calls the model once, uses the answer, and moves on. Most of Zeemish's agents are this shape. Curator calls Claude once to pick a story. Voice Auditor calls Claude once to check voice. Done.
+**Shallow agent.** The program has one clear job. It calls the model once, uses the answer, and moves on. Most of Daylila's agents are this shape. Curator calls Claude once to pick a story. Voice Auditor calls Claude once to check voice. Done.
 
 **Deep agent.** The program lets the model decide what to do next from a menu of options, then carries out that action, then asks the model what to do next, and so on. This is what people usually mean when they talk about "autonomous AI agents." A deep agent might be able to use tools (call APIs, search the web, run code) and chain them together without a human specifying each step.
 
-Zeemish's agents are mostly shallow. Each one has a fixed job. The decision about *which* job runs next is handled by the Director, which does not itself use a model at all. It just routes.
+Daylila's agents are mostly shallow. Each one has a fixed job. The decision about *which* job runs next is handled by the Director, which does not itself use a model at all. It just routes.
 
-A deep agent is harder to build reliably. It tends to wander, make expensive mistakes, or get stuck in loops. Most production systems use shallow agents wired together into a fixed pipeline. That's what Zeemish does.
+A deep agent is harder to build reliably. It tends to wander, make expensive mistakes, or get stuck in loops. Most production systems use shallow agents wired together into a fixed pipeline. That's what Daylila does.
 
 ## What an agent is NOT
 
@@ -56,9 +56,9 @@ And most importantly: **an agent is not an independent mind.** An agent does not
 
 When you see "16 agents," don't picture 16 little people. Picture 16 specialised functions, each with one job, each using an LLM for one specific decision. That's what agents are in practice.
 
-## Zeemish's sixteen roles, rated by agent-ness
+## Daylila's sixteen roles, rated by agent-ness
 
-Not all of Zeemish's "agents" actually use a language model. Being honest about this matters. Here's the breakdown:
+Not all of Daylila's "agents" actually use a language model. Being honest about this matters. Here's the breakdown:
 
 **Real agents (uses Claude for its decision):**
 - Curator — picks the most teachable story, writes the brief
@@ -90,7 +90,7 @@ The design principle, stated plainly: give each role one job, and make that job 
 
 If Drafter had Scanner's job glued onto it, the Drafter file would be hard to reason about. What does Drafter do? It fetches RSS and writes MDX. But why? Because a human wrote it that way twelve months ago and now we can't change it without breaking things.
 
-By keeping each agent's job small and focused, Zeemish stays changeable. Six months from now, if a new news source needs to be added, only Scanner changes. If the voice contract changes, only Voice Auditor changes. This is the whole reason to use the agent framing at all: it organises the code into small, changeable pieces.
+By keeping each agent's job small and focused, Daylila stays changeable. Six months from now, if a new news source needs to be added, only Scanner changes. If the voice contract changes, only Voice Auditor changes. This is the whole reason to use the agent framing at all: it organises the code into small, changeable pieces.
 
 The 16-agent framing is true at the level of "this is how the code is organised." It is not true at the level of "these are independent collaborating minds." Don't confuse the organising principle with an autonomy claim.
 
@@ -100,11 +100,11 @@ Each agent needs rules. Drafter needs rules about what voice to write in. Curato
 
 A rule that lives in two places drifts. Change it in one file, forget the other, and the auditor stops agreeing with the writer. Coordinating one rule change across four files in a single afternoon is not a hypothetical here — it has happened.
 
-The fix is one file per rule. The voice contract is the first one — `content/voice-contract.md`, plain markdown that any agent can read at runtime. Anything that needs to know how Zeemish sounds reads from that one file.
+The fix is one file per rule. The voice contract is the first one — `content/voice-contract.md`, plain markdown that any agent can read at runtime. Anything that needs to know how Daylila sounds reads from that one file.
 
 There is one wrinkle. The agents run on Cloudflare Workers, and Workers cannot read files off disk at runtime. Until May 2026 the workaround was a parallel TypeScript file that mirrored the markdown by hand — and, predictably, the two drifted. The mirror lost the bold markers. It restructured a bullet list into prose. Nobody noticed. So at build time, a small script now reads the canonical markdown and embeds it into the agents bundle as a string. Editing the markdown is enough. The script is `agents/scripts/codegen-contracts.mjs`; the output is checked in so the diff is visible; a verifier in CI fails the deploy if anyone forgets to regenerate.
 
-Most other rules — what counts as a teachable story, how long a piece should be, how a quiz should be shaped — still live inside the prompts that use them. Some are copy-pasted across two or three prompts. Those are being moved out, one rule at a time, into their own markdown files. Same shape as the voice contract: one file, every agent reads from there. As of 2026-05-05, three contracts have moved out: the voice contract (how Zeemish sounds), the beat contract (how daily pieces are shaped), and the interactive contract (how quizzes and HTML interactives are shaped). The remaining clusters — fact-check, curator, audio, categoriser — follow next.
+Most other rules — what counts as a teachable story, how long a piece should be, how a quiz should be shaped — still live inside the prompts that use them. Some are copy-pasted across two or three prompts. Those are being moved out, one rule at a time, into their own markdown files. Same shape as the voice contract: one file, every agent reads from there. As of 2026-05-05, three contracts have moved out: the voice contract (how Daylila sounds), the beat contract (how daily pieces are shaped), and the interactive contract (how quizzes and HTML interactives are shaped). The remaining clusters — fact-check, curator, audio, categoriser — follow next.
 
 ## The question to ask about any agent system
 
@@ -112,6 +112,6 @@ When someone shows you a system with agents, ask: *what does each agent decide, 
 
 If the agent decides what colour to paint a button, the stakes are low. If the agent decides whether to send a legal document, the stakes are high.
 
-Zeemish's agents decide things like "which story to cover" and "does this piece follow the voice contract." Medium stakes. The quality gates exist because the Drafter might write something off-voice. The fact checker exists because the Drafter might be confidently wrong. The Integrator exists because the auditors might flag real issues that need fixing.
+Daylila's agents decide things like "which story to cover" and "does this piece follow the voice contract." Medium stakes. The quality gates exist because the Drafter might write something off-voice. The fact checker exists because the Drafter might be confidently wrong. The Integrator exists because the auditors might flag real issues that need fixing.
 
-The stakes shape the architecture. Higher stakes, more gates, more review. Zeemish's gates are enough for a daily teaching piece. They would not be enough for a medical diagnosis system. Know what you're building.
+The stakes shape the architecture. Higher stakes, more gates, more review. Daylila's gates are enough for a daily teaching piece. They would not be enough for a medical diagnosis system. Know what you're building.

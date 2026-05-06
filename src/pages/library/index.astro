@@ -53,11 +53,11 @@ const subjects = new Set(sorted.map((p) => p.data.underlyingSubject).filter(Bool
 // empty (early-launch state).
 const topCategoryNames = categories.slice(0, 4).map((c) => c.name.toLowerCase()).join(', ');
 const libraryDescription = totalPieces > 0 && topCategoryNames
-  ? `Browse every Zeemish piece. ${totalPieces} pieces across ${categories.length} categories — ${topCategoryNames}, and more.`
-  : `Browse every Zeemish piece. The library grows every day with daily teaching anchored in today's news.`;
+  ? `Browse every Daylila piece. ${totalPieces} pieces across ${categories.length} categories — ${topCategoryNames}, and more.`
+  : `Browse every Daylila piece. The library grows every day with daily teaching anchored in today's news.`;
 ---
 
-<BaseLayout title="Library — Zeemish" description={libraryDescription}>
+<BaseLayout title="Library — Daylila" description={libraryDescription}>
   <div class="pt-6 pb-10">
     <h1 class="text-3xl md:text-4xl font-bold mb-3 leading-tight tracking-tight">Library</h1>
     <p class="text-lg text-zee-muted mb-6">Every piece we've published. Growing every day.</p>

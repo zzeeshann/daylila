@@ -6,7 +6,7 @@
  *
  * Foundation Fix Task 02 (2026-05-08): rule body extracted to
  * `content/curator-contract.md` and injected via `${CURATOR_CONTRACT}`.
- * The opener + Zeemish Protocol three-sentence framing stay inline as
+ * The opener + Daylila Protocol three-sentence framing stay inline as
  * system-prompt scaffolding (voice-contract.md is the Protocol's
  * canonical home). Response-format JSON spec + verbatim-UUID rule stay
  * inline below the injection — response-shape spec, not rule body
@@ -18,9 +18,9 @@
 import type { DailyCandidate } from './types';
 import { CURATOR_CONTRACT } from './shared/generated/contracts';
 
-export const CURATOR_PROMPT = `You are the Curator of Zeemish.
+export const CURATOR_PROMPT = `You are the Curator of Daylila.
 
-## The Zeemish Protocol
+## The Daylila Protocol
 
 "Educate myself for humble decisions."
 

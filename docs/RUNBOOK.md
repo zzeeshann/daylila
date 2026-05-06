@@ -1,8 +1,8 @@
-# Zeemish v2 — Runbook
+# Daylila v2 — Runbook
 
 How to run, deploy, operate, and troubleshoot. Written for a developer who just cloned the repo.
 
-> **URLs:** The site lives at `https://zeemish.io` (custom domain bound to the `zeemish-v2` worker, launched 2026-04-18). The workers.dev URL `https://zeemish-v2.zzeeshann.workers.dev` is still active as a fallback but no longer the canonical entrypoint. The agents worker remains on `https://zeemish-agents.zzeeshann.workers.dev` — internal API, not user-facing.
+> **URLs:** The site lives at `https://daylila.com` (custom domain bound to the `zeemish-v2` worker, launched 2026-04-18). The workers.dev URL `https://zeemish-v2.zzeeshann.workers.dev` is still active as a fallback but no longer the canonical entrypoint. The agents worker remains on `https://zeemish-agents.zzeeshann.workers.dev` — internal API, not user-facing.
 
 ## Prerequisites
 - Node.js 20+
@@ -39,16 +39,16 @@ One-time human action after the SEO foundations shipped (2026-04-25). The sitema
 
 ### Google Search Console
 1. Go to https://search.google.com/search-console
-2. Add property → URL prefix → `https://zeemish.io`
+2. Add property → URL prefix → `https://daylila.com`
 3. Verify ownership (DNS TXT record on the Cloudflare zone, or the HTML file method — DNS is preferred since the site auto-deploys)
 4. Sitemaps → Add a new sitemap → enter `sitemap.xml` → Submit
 5. Wait 1–3 days for the first crawl; check Coverage report for any errors
 
 ### Bing Webmaster Tools
 1. Go to https://www.bing.com/webmasters
-2. Add a site → `https://zeemish.io`
+2. Add a site → `https://daylila.com`
 3. Verify ownership (same DNS TXT method works)
-4. Sitemaps → Submit sitemap → `https://zeemish.io/sitemap.xml`
+4. Sitemaps → Submit sitemap → `https://daylila.com/sitemap.xml`
 
 ### Regenerate the OG image
 When the brand or design changes:
@@ -65,7 +65,7 @@ The script's inline SVG is the source of truth — edit it there, not in the PNG
 ```bash
 pnpm build
 wrangler deploy
-# Deploys to https://zeemish.io (workers.dev URL still active as fallback)
+# Deploys to https://daylila.com (workers.dev URL still active as fallback)
 ```
 Also auto-deploys on every push to `main` via GitHub Actions.
 
@@ -146,11 +146,11 @@ curl -X POST "https://zeemish-agents.zzeeshann.workers.dev/daily-trigger" \
 ```
 
 ### Via dashboard
-Visit https://zeemish.io/dashboard/admin/ and use
+Visit https://daylila.com/dashboard/admin/ and use
 the trigger button (requires ADMIN_EMAIL login).
 
 ### Automatic
-The Director runs on an hourly cron, gated by `admin_settings.interval_hours` (see [`src/pages/dashboard/admin/settings.astro`](../src/pages/dashboard/admin/settings.astro)). The schema default is 24 (one piece a day, 02:00 UTC); production is currently set to 12 (two pieces a day, 02:00 + 14:00 UTC). Admins can flip to 1/2/3/4/6/8/12/24 hours via the settings page without a redeploy; change propagates at the next hourly alarm. It scans news, picks the story whose underlying system best teaches the protocol, drafts, audits, and publishes. At the production 12h cadence each piece is ready ~2 hours after the slot fires. Curator's default is to PICK; skip is rare and reserved for narrow conditions (single breaking event re-reported with no new angle, or pure product/spec announcements with no system to teach). When a skip does fire, the reason names the specific condition, not a category dismissal — see DECISIONS 2026-04-25 "Curator reframed around the Zeemish protocol".
+The Director runs on an hourly cron, gated by `admin_settings.interval_hours` (see [`src/pages/dashboard/admin/settings.astro`](../src/pages/dashboard/admin/settings.astro)). The schema default is 24 (one piece a day, 02:00 UTC); production is currently set to 12 (two pieces a day, 02:00 + 14:00 UTC). Admins can flip to 1/2/3/4/6/8/12/24 hours via the settings page without a redeploy; change propagates at the next hourly alarm. It scans news, picks the story whose underlying system best teaches the protocol, drafts, audits, and publishes. At the production 12h cadence each piece is ready ~2 hours after the slot fires. Curator's default is to PICK; skip is rare and reserved for narrow conditions (single breaking event re-reported with no new angle, or pure product/spec announcements with no system to teach). When a skip does fire, the reason names the specific condition, not a category dismissal — see DECISIONS 2026-04-25 "Curator reframed around the Daylila protocol".
 
 ### Check Director status
 ```bash
@@ -160,8 +160,8 @@ curl "https://zeemish-agents.zzeeshann.workers.dev/status" \
 ```
 
 ### View daily pieces
-- Archive: https://zeemish.io/daily/
-- Single piece: https://zeemish.io/daily/YYYY-MM-DD/{slug}/ (slug-inclusive URL since 2026-04-21 Phase 4)
+- Archive: https://daylila.com/daily/
+- Single piece: https://daylila.com/daily/YYYY-MM-DD/{slug}/ (slug-inclusive URL since 2026-04-21 Phase 4)
 
 ## Interactives v3 — HTML interactive flag
 

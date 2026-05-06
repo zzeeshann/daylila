@@ -1,6 +1,6 @@
-# Zeemish Audit Contract
+# Daylila Audit Contract
 
-This document is the single source of truth for how Zeemish *judges* its own work. The voice contract governs how Zeemish sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped. This contract governs the gates each draft passes through, the bound on revision rounds, the rule that ships a piece anyway when those gates max-fail, and the reader-facing tier label that flows from the voice score.
+This document is the single source of truth for how Daylila *judges* its own work. The voice contract governs how Daylila sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped. This contract governs the gates each draft passes through, the bound on revision rounds, the rule that ships a piece anyway when those gates max-fail, and the reader-facing tier label that flows from the voice score.
 
 ## The three gates
 

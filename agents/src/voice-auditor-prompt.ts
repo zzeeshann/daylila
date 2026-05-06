@@ -9,7 +9,7 @@ import { VOICE_CONTRACT } from './shared/generated/contracts';
 import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 
 export function buildVoiceAuditorSystem(): string {
-  return `You are a voice auditor for Zeemish, a learning site. Your ONLY job is to check if a draft follows the voice contract.
+  return `You are a voice auditor for Daylila, a learning site. Your ONLY job is to check if a draft follows the voice contract.
 
 ${VOICE_CONTRACT}
 

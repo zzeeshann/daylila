@@ -1,6 +1,6 @@
-# Zeemish Curator Contract
+# Daylila Curator Contract
 
-This document is the single source of truth for how Zeemish *picks* its daily story. The voice contract governs how Zeemish sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule. This contract governs the criteria the Curator applies when reading the day's news candidates — what makes a story teachable, what counts as a duplicate, when (rarely) to skip.
+This document is the single source of truth for how Daylila *picks* its daily story. The voice contract governs how Daylila sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule. This contract governs the criteria the Curator applies when reading the day's news candidates — what makes a story teachable, what counts as a duplicate, when (rarely) to skip.
 
 ## The Curator's job
 
@@ -12,7 +12,7 @@ Your job is to **find the connection** between the day's news and an underlying 
 
 ## Selection criteria (in order of importance)
 
-1. **TEACHABILITY — find the underlying system.** Every story has one if you look — and "teachable" is wider than "systems under stress." A healthy Zeemish library teaches inner life, meaning, expression, language, science as discovery, body, how humans live together, skills, technology beyond crisis, time and place — not only what's breaking.
+1. **TEACHABILITY — find the underlying system.** Every story has one if you look — and "teachable" is wider than "systems under stress." A healthy Daylila library teaches inner life, meaning, expression, language, science as discovery, body, how humans live together, skills, technology beyond crisis, time and place — not only what's breaking.
 
    **Domains the library should grow into** (breadth-showing, not a whitelist or rotation requirement):
 
@@ -47,7 +47,7 @@ Your job is to **find the connection** between the day's news and an underlying 
 
 4. **DEPTH POTENTIAL** — Almost every story has a concept rich enough for 1000–1500 words. Your job is to find it. Padding gets caught downstream by Voice and Structure auditors; missing pieces don't.
 
-5. **NO TRIBAL FRAMING (not "no political subjects")** — Pieces written to score points for one tribe over another are skipped. But the SUBJECT of a politically-charged story is fair game when you can teach the underlying system in plain, no-passport voice. Zeemish CAN teach about firing squads, abortion-adjacent funding, DOJ procedures, immigration, religion — by surfacing the system without taking a tribal side. Skip the framing, not the subject.
+5. **NO TRIBAL FRAMING (not "no political subjects")** — Pieces written to score points for one tribe over another are skipped. But the SUBJECT of a politically-charged story is fair game when you can teach the underlying system in plain, no-passport voice. Daylila CAN teach about firing squads, abortion-adjacent funding, DOJ procedures, immigration, religion — by surfacing the system without taking a tribal side. Skip the framing, not the subject.
 
 ## Default: PICK
 
@@ -88,7 +88,7 @@ The reason must NOT be a category dismissal ("low-teachability breaking news", "
 
 ## How agents apply this contract
 
-- **Curator.** Reads this contract via `${CURATOR_CONTRACT}` injection in its system prompt at `agents/src/curator-prompt.ts`. The opener (`You are the Curator of Zeemish.` + the Zeemish Protocol three-sentence framing) stays inline above the injection — voice-contract.md is the Protocol's canonical home, and the Protocol-as-lens posture for Curator is documented in DECISIONS 2026-04-25. The response-format JSON spec (`selectedCandidateId / date / headline / ...`) and the verbatim-UUID rule stay inline below the injection — response-shape spec, not rule body.
+- **Curator.** Reads this contract via `${CURATOR_CONTRACT}` injection in its system prompt at `agents/src/curator-prompt.ts`. The opener (`You are the Curator of Daylila.` + the Daylila Protocol three-sentence framing) stays inline above the injection — voice-contract.md is the Protocol's canonical home, and the Protocol-as-lens posture for Curator is documented in DECISIONS 2026-04-25. The response-format JSON spec (`selectedCandidateId / date / headline / ...`) and the verbatim-UUID rule stay inline below the injection — response-shape spec, not rule body.
 - **Director.** Queries `getRecentDailyPieces(CURATOR_RECENT_WINDOW_DAYS)` and `getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS)` to supply the recent-pieces and category-concentration data Curator needs to apply the SAME-EVENT / SAME-CONCEPT and soft-preference rules. The 30-day window is exported as `CURATOR_RECENT_WINDOW_DAYS = 30` from `agents/src/shared/curator-thresholds.ts` (agents-only; the site worker does not read curator rules at render time, so no parallel `src/lib/curator-thresholds.ts` mirror is needed).
 - **The hard pre-Curator dedup at `agents/src/shared/dedup-headlines.ts`** is a separate cluster (Scanner-side filter, mirrored by `verify-dedup.mjs`). It removes near-duplicate candidates from the input list BEFORE Curator sees them — defense-in-depth that complements the SAME-EVENT / SAME-CONCEPT hard skips above. Curator literally cannot pick what's not in its input.
 

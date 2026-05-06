@@ -9,11 +9,11 @@
 - The difference between text-to-speech (what your phone does when it reads a message aloud) and modern voice synthesis.
 - How modern voice synthesis works: trained on recordings of a real voice, can say things that voice never said.
 - ElevenLabs specifically — a company that made this technology available via a web API.
-- The voice Zeemish uses: Frederick Surrey. Why it was chosen and locked.
-- Per-beat narration: why Zeemish generates audio one beat at a time rather than one file for the whole piece.
+- The voice Daylila uses: Frederick Surrey. Why it was chosen and locked.
+- Per-beat narration: why Daylila generates audio one beat at a time rather than one file for the whole piece.
 - The ethics and limits of voice synthesis — consent, cloning, deepfakes.
 
-## Why this matters for Zeemish
+## Why this matters for Daylila
 
 - Every daily piece has audio narration so readers can listen, not just read.
 - Audio generation is slow (10–15 seconds per beat). The audio pipeline runs separately from the text publish so the day isn't held up.

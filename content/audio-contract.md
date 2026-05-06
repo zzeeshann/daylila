@@ -1,12 +1,12 @@
-# Zeemish Audio Contract
+# Daylila Audio Contract
 
-This document is the single source of truth for how Zeemish *narrates* its daily pieces. The voice contract governs how Zeemish sounds in prose; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule; the curator contract governs which story the day's piece teaches. This contract governs the audio pipeline that turns an approved piece into a per-beat MP3 narration — which voice, which model, which output format, the per-piece spend cap, the retry policy on transient failures, and the per-call beats budget that paces the producer to fit the platform's runtime ceilings.
+This document is the single source of truth for how Daylila *narrates* its daily pieces. The voice contract governs how Daylila sounds in prose; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule; the curator contract governs which story the day's piece teaches. This contract governs the audio pipeline that turns an approved piece into a per-beat MP3 narration — which voice, which model, which output format, the per-piece spend cap, the retry policy on transient failures, and the per-call beats budget that paces the producer to fit the platform's runtime ceilings.
 
 ## Voice, model, and output format
 
-Every audio clip Zeemish produces uses one fixed combination:
+Every audio clip Daylila produces uses one fixed combination:
 
-- **Voice — Frederick Surrey** (`j9jfwdrw7BRfcR43Qohk`). A calm, British, narrative voice — the closest fit to how Zeemish reads on the page. The voice ID is added to the operator's "My Voices" library on the ElevenLabs side so the ID survives shared-library removals; the producer's reference would otherwise break silently if ElevenLabs ever rotated the public catalogue.
+- **Voice — Frederick Surrey** (`j9jfwdrw7BRfcR43Qohk`). A calm, British, narrative voice — the closest fit to how Daylila reads on the page. The voice ID is added to the operator's "My Voices" library on the ElevenLabs side so the ID survives shared-library removals; the producer's reference would otherwise break silently if ElevenLabs ever rotated the public catalogue.
 - **Model — `eleven_multilingual_v2`.** A multilingual model so the voice handles non-English proper nouns (place names, transliterated words, brand names) without the prosody collapse a strict-English model exhibits on the same content.
 - **Output format — `mp3_44100_96`.** 44.1 kHz MP3 at 96 kbps. Indistinguishable from 128 kbps for a single-voice narration, ~25% smaller R2 footprint and egress cost. The audio audit's expected-bytes-per-character bound is calibrated against this bitrate; changing the bitrate would invalidate that calibration.
 

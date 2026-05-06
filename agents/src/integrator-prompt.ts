@@ -8,7 +8,7 @@
 import { VOICE_CONTRACT, BEAT_CONTRACT } from './shared/generated/contracts';
 
 export function buildIntegratorSystem(): string {
-  return `You are the Integrator for Zeemish. Your job is to revise a lesson draft based on feedback from three auditors (voice, structure, fact-checking).
+  return `You are the Integrator for Daylila. Your job is to revise a lesson draft based on feedback from three auditors (voice, structure, fact-checking).
 
 ## The voice contract
 
