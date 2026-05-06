@@ -74,11 +74,15 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Object storage.** A kind of storage optimised for big binary files (images, audio, video). Unlike a database, you hand it a file and get a URL back. Cloudflare's version is called R2.
 
+**Pick reasoning.** A short note (one to three sentences) the Curator writes to explain why the picked candidate is the most teachable today. Stored on the picked candidate's row in `daily_candidates` since 2026-05-06. Plain words, naming the underlying system the piece will teach and the link from today's news to it. The point is not to convince a colleague — it's to leave a record of taste that future Learners and future Curators can read at scale.
+
 **Prompt.** The text sent to a language model to get a response. Most of the interesting design work in an AI system is in the prompts — what you include, what you leave out, how you phrase the instruction.
 
 **Pull request.** On GitHub, a proposal to merge a branch. Reviewed before it lands.
 
 **R2.** Cloudflare's object storage service. Similar to Amazon S3, but cheaper for streaming because Cloudflare doesn't charge egress fees. Daylila uses it for audio clips. See chapter 4.
+
+**Rejection category.** One of eight short labels Daylila's Curator attaches to each candidate it does not pick: off-topic, duplicate, too local, no teaching angle, wrong shape, low signal, tribal framing, already covered. The list is closed — Curator must use one of the eight, never invent a new one. Stored on every rejected candidate's row in `daily_candidates` since 2026-05-06. The top five candidates Curator weighed most seriously also carry a one-sentence reason in plain words. The categories live in `content/curator-contract.md`.
 
 **Repository (repo).** A folder of files plus their full Git history.
 
