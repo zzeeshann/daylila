@@ -305,6 +305,45 @@ Four read-only queries surface in order:
 
 Safe against prod (SELECT-only).
 
+### Verify audio dwell records populate
+
+The reader audio dwell signal lands per-event (not per-cron). Verification fires on listener action, not pipeline run. After the migration applies and a fresh listener has played any audio for ≥1 second:
+
+```bash
+wrangler d1 execute zeemish --remote --command="
+SELECT user_id,
+       beat_name,
+       ROUND(dwell_seconds, 1) AS dwell,
+       ROUND(ratio, 2) AS ratio,
+       ended_reason,
+       datetime(occurred_at / 1000, 'unixepoch') AS at_utc
+FROM audio_dwell_events
+WHERE piece_id = (SELECT id FROM daily_pieces ORDER BY created_at DESC LIMIT 1)
+ORDER BY occurred_at;
+"
+```
+
+Expected: ≥1 row per session that played audio. `dwell_seconds` 0–3600. `ratio` ≤ 1.5 (or NULL if `audio.duration` was NaN at flush). `ended_reason` in the five-value set (`pause` | `ended` | `beat_change` | `heartbeat` | `pagehide`). Zero rows on the latest piece means the pipe hasn't been exercised yet (no listener), not necessarily a bug — try the same query against an older piece's id, or open the page yourself and play 60 seconds.
+
+If the row's `dwell_seconds` is wildly inflated (e.g. 7000 seconds for a 240-second beat), the per-tick clamp in `audio-player.ts` is broken — see drift-detector query 4 in `scripts/dwell-health.sql`.
+
+### Operator queries: Dwell health
+
+The audio dwell signal accrues per listener-event as of Foundation Fix Task 07. Run `scripts/dwell-health.sql` after the signal has been live for ≥7 days for meaningful counts.
+
+```bash
+wrangler d1 execute zeemish --remote --file=scripts/dwell-health.sql
+```
+
+Four read-only queries surface in order:
+
+1. **Recent dwell** — last 30 pieces, total reader-seconds + reader count + average ratio. Drives "is dwell flowing for recent pieces". Healthy mid-band: every recent piece has ≥1 reader and `total_seconds` in the dozens at minimum. Empty result = the pipe broke.
+2. **Per-beat dwell distribution** — last 30 days. Surfaces which beats hold attention. Drop-off heatmap precursor; the FOLLOWUPS `[deferred] 2026-05-07` entry tracks the heatmap UI work.
+3. **Ended-reason breakdown** — sanity check on the closed enum. Healthy distribution: heartbeat majority, beat_change + ended steady minority, pause + pagehide small. If `pagehide` dominates, the heartbeat path is broken. If `pause` is zero across 30 days, the pause hook isn't wired.
+4. **Anti-double-counting drift detector** — flags any `(user_id, piece_id, beat_name)` whose total dwell exceeds 5× the clip duration over a 7-day window. Empty result = healthy. Any rows = investigate the user_id's session for a stuck heartbeat or replay-loop bug. Runtime cousin to the brief's 7000s/240s pathology.
+
+Safe against prod (SELECT-only).
+
 ### Migration tracker hygiene
 Migrations are tracked in the `d1_migrations` table. As of late April 2026 the tracker is in sync (27 rows, 0001–0027). Keep it that way:
 
