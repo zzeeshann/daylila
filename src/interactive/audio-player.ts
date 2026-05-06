@@ -22,6 +22,27 @@ interface AudioBeatsMap {
   [beatName: string]: string;
 }
 
+/** Closed enum for /api/engagement/audio's `ended_reason` field. The
+ *  writer at src/pages/api/engagement/audio.ts validates the same five
+ *  strings; drift surfaces as a 400, not a silent drop. */
+type DwellEndedReason = 'pause' | 'ended' | 'beat_change' | 'heartbeat' | 'pagehide';
+
+/** Heartbeat cadence — every 30s during continuous play. Covers iOS
+ *  Safari's unreliable pagehide path. Cheap; bounded by audio length. */
+const HEARTBEAT_INTERVAL_MS = 30_000;
+
+/** Per-`timeupdate` clamp on accumulated dwell. Prevents tab-throttling
+ *  jumps from inflating dwell_seconds (e.g. a backgrounded tab reporting
+ *  a 60s gap on the next foreground tick). With this clamp + the 30s
+ *  heartbeat flushing, no single (piece, beat) row can exceed
+ *  ~2s × heartbeat-ticks ≈ 30s per heartbeat. The brief warned about
+ *  "7000s for a 240s clip" — that pathology is impossible here. */
+const MAX_TICK_DELTA_S = 2;
+
+/** Skip flushes shorter than this — sub-half-second dwell is noise.
+ *  pagehide is the exception (we'd lose those rows otherwise). */
+const MIN_FLUSH_DWELL_S = 0.5;
+
 class AudioPlayer extends HTMLElement {
   private audio: HTMLAudioElement | null = null;
   private audioBeats: AudioBeatsMap = {};
@@ -42,6 +63,21 @@ class AudioPlayer extends HTMLElement {
    *  lock-screen scrubber and avoids hammering the API on timeupdate. */
   private lastPositionWrite = 0;
 
+  /** piece_id used by the dwell signal POSTs. Read once from
+   *  <lesson-shell data-piece-id> at connect time (rehype-beats stamps
+   *  it from MDX frontmatter). null on stale/legacy bundles —
+   *  flushDwell early-returns in that case, matching lesson-shell's
+   *  trackRead null-skip posture. */
+  private pieceId: string | null = null;
+  /** Seconds of play accumulated since the last flush (NOT since clip
+   *  start). Reset to 0 in flushDwell after the POST is initiated. */
+  private dwellAccumulated = 0;
+  /** performance.now() of the last counted timeupdate. null while
+   *  paused / ended / not yet started. */
+  private lastTickAt: number | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private pagehideHandler: EventListener | null = null;
+
   private playBtn: HTMLButtonElement | null = null;
   private prevBtn: HTMLButtonElement | null = null;
   private nextBtn: HTMLButtonElement | null = null;
@@ -59,6 +95,15 @@ class AudioPlayer extends HTMLElement {
     }
 
     this.pieceTitle = this.getAttribute('data-piece-title') ?? '';
+
+    // piece_id is stamped on <lesson-shell> by rehype-beats; both
+    // elements live in the same DOM tree and the same build pass.
+    // Avoids threading a new prop through LessonLayout / AudioPlayer
+    // .astro callers — the DOM lookup matches the same trust boundary.
+    const shellPieceId = document
+      .querySelector('lesson-shell')
+      ?.getAttribute('data-piece-id');
+    this.pieceId = shellPieceId && shellPieceId.length > 0 ? shellPieceId : null;
 
     if (Object.keys(this.audioBeats).length === 0) return;
 
@@ -105,8 +150,14 @@ class AudioPlayer extends HTMLElement {
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('loadedmetadata', () => this.updateProgress());
     this.audio.addEventListener('ended', () => this.onEnded());
-    this.audio.addEventListener('play', () => this.updatePlayIcon());
-    this.audio.addEventListener('pause', () => this.updatePlayIcon());
+    this.audio.addEventListener('play', () => {
+      this.updatePlayIcon();
+      this.onPlay();
+    });
+    this.audio.addEventListener('pause', () => {
+      this.updatePlayIcon();
+      this.onPause();
+    });
     this.audio.addEventListener('error', () => this.onLoadError());
 
     this.playBtn?.addEventListener('click', () => this.toggle());
@@ -117,17 +168,43 @@ class AudioPlayer extends HTMLElement {
     );
 
     this.installMediaSessionHandlers();
+
+    // Dwell-time signal (Foundation Fix Task 07, L17). Heartbeat fires
+    // every 30s during continuous play; pagehide handler covers tab
+    // close. iOS Safari does NOT fire pagehide reliably on tab-close —
+    // the heartbeat is the cover for that gap.
+    this.heartbeatTimer = setInterval(() => {
+      if (this.audio && !this.audio.paused) {
+        this.flushDwell('heartbeat');
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+    this.pagehideHandler = () => this.flushDwell('pagehide');
+    window.addEventListener('pagehide', this.pagehideHandler);
   }
 
   disconnectedCallback() {
     this.audio?.pause();
     this.clearMediaSession();
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    if (this.pagehideHandler) {
+      window.removeEventListener('pagehide', this.pagehideHandler);
+      this.pagehideHandler = null;
+    }
   }
 
   private loadBeat(beatName: string) {
     if (!this.audio) return;
     const url = this.audioBeats[beatName];
     if (!url) return;
+    // Flush dwell for the OUTGOING beat before swapping. currentBeat
+    // is still the old beat at this point — the flush attributes the
+    // accumulated seconds to the right row.
+    if (this.currentBeat !== null && this.currentBeat !== beatName) {
+      this.flushDwell('beat_change');
+    }
     this.currentBeat = beatName;
     this.audio.src = url;
     this.resetProgressUI();
@@ -171,6 +248,12 @@ class AudioPlayer extends HTMLElement {
   }
 
   private onEnded() {
+    // Flush BEFORE loadBeat — currentBeat must still point at the
+    // just-ended clip when the dwell row is built. loadBeat would
+    // also trigger a 'beat_change' flush, but we want the closing
+    // event to record as 'ended' (for the ended-reason breakdown
+    // operator query in scripts/dwell-health.sql).
+    this.flushDwell('ended');
     const nextBeat = this.nextBeatName();
     if (nextBeat) {
       this.loadBeat(nextBeat);
@@ -240,6 +323,7 @@ class AudioPlayer extends HTMLElement {
 
   private updateProgress() {
     if (!this.audio) return;
+    this.accumulateDwell();
     const dur = this.audio.duration;
     const cur = this.audio.currentTime;
     if (this.progressFill && isFinite(dur) && dur > 0) {
@@ -247,6 +331,111 @@ class AudioPlayer extends HTMLElement {
     }
     if (this.timeEl) this.timeEl.textContent = formatTime(cur);
     this.maybeWritePositionState();
+  }
+
+  /**
+   * Wall-clock dwell accumulator. Called from every `timeupdate` while
+   * playing. Uses performance.now() deltas (NOT audio.currentTime
+   * deltas) — currentTime resets to 0 on loadBeat, can jump backward
+   * on seekFromClick, and doesn't reflect wall-clock time during
+   * stalls. Per-tick delta is clamped to [0, MAX_TICK_DELTA_S] so a
+   * backgrounded-tab gap can't inflate dwell_seconds.
+   */
+  private accumulateDwell() {
+    if (!this.audio || this.audio.paused) return;
+    const now = performance.now();
+    if (this.lastTickAt === null) {
+      this.lastTickAt = now;
+      return;
+    }
+    const delta = (now - this.lastTickAt) / 1000;
+    this.lastTickAt = now;
+    if (!Number.isFinite(delta) || delta <= 0) return;
+    this.dwellAccumulated += Math.min(delta, MAX_TICK_DELTA_S);
+  }
+
+  private onPlay() {
+    // Re-arm the tick marker on play / re-play. Don't reset if it's
+    // already armed (some browsers fire `play` multiple times for the
+    // same playing audio — re-arming would discard the in-flight tick).
+    if (this.lastTickAt === null) {
+      this.lastTickAt = performance.now();
+    }
+  }
+
+  private onPause() {
+    // Flush whatever has accumulated since the last flush. The
+    // dwellAccumulated < MIN_FLUSH_DWELL_S guard inside flushDwell
+    // skips noise (e.g. a `pause` immediately followed by `ended`,
+    // which can fire back-to-back in some browsers — second call has
+    // dwellAccumulated=0 and is skipped).
+    this.flushDwell('pause');
+  }
+
+  /**
+   * Central choke point for every dwell signal. Five callers:
+   * onPause / onEnded / loadBeat (beat_change) / heartbeat tick /
+   * pagehide. Builds the payload, dispatches to the right transport
+   * (sendBeacon for pagehide, fetch+keepalive otherwise), then
+   * resets state.
+   *
+   * Skips sub-half-second flushes EXCEPT pagehide — pagehide is
+   * one-shot, so we'd lose the row otherwise.
+   */
+  private flushDwell(reason: DwellEndedReason) {
+    if (!this.audio || !this.pieceId || !this.currentBeat) {
+      // Stale-bundle / pre-init / no-piece-id case — drop the signal.
+      this.dwellAccumulated = 0;
+      this.lastTickAt = this.audio && !this.audio.paused ? performance.now() : null;
+      return;
+    }
+
+    // Final tick before building the payload — captures the trailing
+    // fraction since the last `timeupdate`.
+    if (this.lastTickAt !== null && !this.audio.paused) {
+      this.accumulateDwell();
+    }
+
+    const dwell = this.dwellAccumulated;
+    if (dwell < MIN_FLUSH_DWELL_S && reason !== 'pagehide') {
+      // Reset so the next play session starts clean.
+      this.dwellAccumulated = 0;
+      this.lastTickAt = this.audio.paused ? null : performance.now();
+      return;
+    }
+
+    const dur = this.audio.duration;
+    const ratio =
+      isFinite(dur) && dur > 0 ? Math.min(dwell / dur, 1.5) : null;
+
+    const payload = {
+      piece_id: this.pieceId,
+      beat_name: this.currentBeat,
+      dwell_seconds: dwell,
+      ratio,
+      ended_reason: reason,
+    };
+
+    if (reason === 'pagehide' && typeof navigator.sendBeacon === 'function') {
+      try {
+        const blob = new Blob([JSON.stringify(payload)], {
+          type: 'application/json',
+        });
+        navigator.sendBeacon('/api/engagement/audio', blob);
+      } catch {
+        // sendBeacon throws synchronously on quota; the row is lost.
+      }
+    } else {
+      fetch('/api/engagement/audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    }
+
+    this.dwellAccumulated = 0;
+    this.lastTickAt = this.audio.paused ? null : performance.now();
   }
 
   private resetProgressUI() {

@@ -13,6 +13,15 @@ Format per entry:
 
 ---
 
+## [deferred] 2026-05-07: Drop-off heatmaps when N>30 days of dwell data accrue across N>30 pieces
+
+- **Surfaced:** 2026-05-07, Foundation Fix Task 07 ("L17 closed"). Task 07 lands the data — every `audio-player` flush boundary writes a row to `audio_dwell_events` (migration 0035) — but does not surface it on any reader-facing or admin surface. Brief explicitly: "no dashboard work this task". The data lands going forward so the future heatmap consumer has accumulated input.
+- **Hypothesis:** the natural admin surface is a per-piece drop-off heatmap on `src/pages/dashboard/admin/piece/[date]/[slug].astro` — for each beat, render a horizontal bar showing average completion ratio (`AVG(ratio)`) and listener count (`COUNT(DISTINCT user_id)`). High-ratio bars = the beat held attention; low-ratio = readers tap in but don't stay. Operator query #2 in `scripts/dwell-health.sql` (per-beat dwell distribution) is the backbone — same SELECT, rendered visually. A reader-facing surface (made-drawer) is a separate, lower-priority question; most readers don't care which beat had the steepest drop-off.
+- **Unblock criterion (data sample size, NOT calendar date):** ≥30 days of accrual across ≥30 pieces with ≥1 listener each. Heatmap is statistically meaningful only at that scale; rendering it earlier would be visualisation noise and misread as system signal. Phrased this way explicitly so the next pickup-task uses real-data thresholds, not "wait 30 days".
+- **Why deferred:** same posture as the Task 03 + Task 04 + Task 05 + Task 06 deferred surface entries below. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. The brief explicitly named drawer / dashboard work as defer-by-default for Task 07.
+- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Use the `idx_dwell_piece_occurred` composite index on `(piece_id, occurred_at)` for the per-piece scan; the leftmost prefix handles the WHERE. Per-user retrospectives (e.g. "show all dwell rows for this signed-in user") are even further deferred — `idx_dwell_user_occurred` is in place to serve them when picked up.
+- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after the unblock criterion is met.
+
 ## [deferred] 2026-05-07: Surface revision trail (rounds + decisions) on the made-drawer + admin per-piece
 
 - **Surfaced:** 2026-05-07, Foundation Fix Task 06 ("L4, L8, L9 closed"). Task 06 lands the data — every `draft()` call writes round 0 to `draft_revisions`, every `revise()` call writes round N + per-decision rows to `draft_revisions` + `integrator_decisions` (migration 0034) — but does not surface it on any reader-facing or admin surface.
