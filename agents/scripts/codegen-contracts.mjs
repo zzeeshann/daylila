@@ -82,6 +82,11 @@ const SOURCES = [
     path: '../../content/categoriser-contract.md',
     label: 'content/categoriser-contract.md',
   },
+  {
+    name: 'INTEGRATOR_CONTRACT',
+    path: '../../content/integrator-contract.md',
+    label: 'content/integrator-contract.md',
+  },
 ];
 
 const OUTPUT_PATH = resolve(__dirname, '../src/shared/generated/contracts.ts');

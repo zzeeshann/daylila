@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**22 tables across 31 migrations.**
+**25 tables across 34 migrations.**
 
 ## Reader-side tables
 
@@ -410,7 +410,59 @@ Empty at migration time. No backfill — historical `audio_audit_results` can't 
 
 Operator queries: `scripts/audio-audit-health.sql` ships four read-only queries — `recent_audits` (latest summary per piece, last 30), `issue_type_breakdown` (last 30 days, count by issue type), `unfilled_metadata` (rows with NULL `file_size_bytes` or `duration_seconds` post-Task-05; non-zero means producer broke), `size_anomalies` (cross-check on auditor's MIN/MAX_SIZE_RATIO band).
 
-## Migrations summary (31 migrations, 23 tables)
+### draft_revisions
+Per-round MDX preserved across the audit-revise loop. Closes data leaks L4 (initial + per-round drafts only in memory) and L8 (per-round MDX diffs nowhere — diffs are now derivable as a `LEFT JOIN draft_revisions dr1 ... draft_revisions dr2 ON dr2.revision_round = dr1.revision_round + 1` against this table). One row per (piece, round) pair. The published copy in git remains source of truth for what readers see; this table holds the trail.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK AUTOINCREMENT | Surrogate key. Chosen over the TEXT-PK-with-randomUUID() pattern of `audit_results` / `audio_audit_results` because draft_revisions has a natural unique key `(piece_id, revision_round)` and its only consumers are SELECT-by-piece queries. |
+| piece_id | TEXT NOT NULL | `daily_pieces.id` (UUID). Non-enforced FK, consistent with the rest of this codebase's join columns. |
+| revision_round | INTEGER NOT NULL | 0 = Drafter's initial output (round number Director assigns). 1+ = Integrator output after round N's auditor feedback. Same numbering scheme Director uses in its `r${round}` taskId suffix and `auditing_r${round}` step labels in `pipeline_log`. |
+| mdx_content | TEXT NOT NULL | Full MDX as written by the agent — Drafter's raw output for round 0, Integrator's parsed `revisedMdx` field for round 1+. INCLUDES the agent-generated frontmatter; EXCLUDES Director's later splices (voiceScore, pieceId, publishedAt, audioBeats, claimReviews). Diff between rows is therefore pure agent prose, not Director noise. |
+| word_count | INTEGER | Denormalised so admin queries can render the trail without TEXT scans. NULL allowed for forward-compat; current writers always populate. |
+| authored_by | TEXT NOT NULL | Closed enum: `'drafter'` (round 0) or `'integrator'` (round 1+). Loose TEXT (no CHECK) so adding a value never requires a migration; defensive validation lives at the writer. |
+| created_at | INTEGER NOT NULL | Unix ms. Codebase convention. |
+
+UNIQUE constraint `(piece_id, revision_round)` — one row per pair. Idempotency: a re-invocation of `draft()` or `revise()` for the same `(piece, round)` surfaces as a write failure rather than silently double-recording. The agent writers wrap the INSERT in try/catch and surface the error via `persistError` sentinel so a constraint violation logs once via `observer.logError` without sinking the publish path.
+
+Index: `idx_draft_revisions_piece` on `piece_id` (composite-on-`(piece_id, revision_round)` is implicit via the UNIQUE constraint, so an explicit one would duplicate). Migration: `0034_draft_revisions.sql`.
+
+**Failure posture.** Persistence wraps in try/catch inside the agent (Drafter's `persistInitialDraft`, Integrator's `persistRevision`); on throw, `DrafterResult.persistError` or `IntegrationResult.persistError` populates and Director fires `observer.logError` exactly once per call. The MDX itself is computed in-memory before the persistence batch — Director's branch logic is unaffected by a feedback-write hiccup.
+
+Empty at migration time. No backfill — historical revision histories cannot be reconstructed (they only ever lived in memory). Forward-only, same posture as Task 05's pre-fix NULL precedent on `daily_piece_audio` metadata columns and Task 04's pre-fix NULL precedent on `learnings.loaded_at`.
+
+### integrator_decisions
+Per-feedback-item disposition record from the Integrator. Closes data leak L9 (per-feedback-item accept/overrule reasoning stored nowhere). One row per feedback item the Integrator addressed in a single revision round. Joins to `draft_revisions` via `(piece_id, revision_round)`.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK AUTOINCREMENT | Surrogate key. |
+| piece_id | TEXT NOT NULL | `daily_pieces.id` (UUID). Non-enforced FK. |
+| revision_round | INTEGER NOT NULL | 1+ — round 0 is the initial Drafter output, before any Integrator decisions. |
+| feedback_source | TEXT NOT NULL | Closed enum from `FeedbackSource` in `agents/src/types.ts` — three values: `voice_auditor`, `fact_checker`, `structure_editor`. One value per auditor agent in the daily-piece pipeline. Loose TEXT (no CHECK), defensive validation at the writer (`FEEDBACK_SOURCES` runtime mirror). |
+| feedback_summary | TEXT NOT NULL | The Integrator's own paraphrase of the issue — *not* a quote of the auditor's wording. Diagnostic value: when `feedback_summary` doesn't match what the auditor actually said, that's signal about prompt drift. |
+| decision | TEXT NOT NULL | Closed enum from `IntegratorDecision` — three values: `accepted` (revised the prose per feedback), `overruled` (chose not to act), `partial` (some aspect addressed, others left). Loose TEXT, defensive validation at the writer (`INTEGRATOR_DECISIONS` runtime mirror). Same posture as Task 03's `RejectionCategory`. |
+| reasoning | TEXT | Integrator's free-form explanation. Optional but strongly preferred. NULL is honest when the model didn't supply one. |
+| resulting_change | TEXT | One-line summary of what literally changed in the MDX. Optional. The diff between `draft_revisions` rounds is the source of truth for the literal change; this column is the Integrator's own one-line characterisation. |
+| created_at | INTEGER NOT NULL | Unix ms. |
+
+No UNIQUE constraint — a single round can produce many decisions; no natural composite key beyond `(piece_id, revision_round, feedback_summary)` and `feedback_summary` is freeform prose, not a stable join key.
+
+Indexes:
+- `idx_integrator_decisions_piece` on `piece_id` — per-piece read path.
+- `idx_integrator_decisions_source` on `feedback_source` — cross-piece operator queries (e.g. "show all overruled voice_auditor flags last 30 days"). Speculative, but cardinality is bounded (3 values) and index size is negligible, so worth the write-amp for operator-query ergonomics.
+
+Migration: `0034_draft_revisions.sql` (single bundled migration with `draft_revisions`).
+
+**Defensive validation at the writer.** The Integrator's parse path validates each decision's `feedback_source` against `FEEDBACK_SOURCES` and `decision` against `INTEGRATOR_DECISIONS` before binding. Unknown values cause the row to be dropped from the batch, and the count of drops surfaces via `IntegrationResult.parseError` — Director logs once via `observer.logError`. Same drop-with-visibility posture as `AudioIssueType`'s validation in Task 05.
+
+**Failure posture.** Same as `draft_revisions` — try/catch inside the agent, `persistError` sentinel back to Director, single observer event per failure.
+
+Empty at migration time. No backfill.
+
+Operator queries: `scripts/draft-revisions-health.sql` ships four read-only queries — `recent_revisions` (last 20 pieces' rounds + decision counts; the verification SQL named in `docs/foundation-fix/06-DRAFT-REVISIONS.md`), `decision_breakdown` (feedback_source × decision, last 30 days), `multi_round_pieces` (every round of every multi-round piece, with decisions joined), `unfilled_metadata` (drift detector for missing reasoning / resulting_change).
+
+## Migrations summary (34 migrations, 25 tables)
 - `0001_init.sql` — users, progress, submissions, zita_messages
 - `0002_observer_events.sql` — agent_tasks (later dropped), observer_events
 - `0003_engagement_learnings.sql` — engagement, learnings
@@ -443,4 +495,5 @@ Operator queries: `scripts/audio-audit-health.sql` ships four read-only queries 
 - `0030_saved_pieces.sql` — Account rebuild Phase 2 (2026-05-02). Created `saved_pieces(user_id, piece_id, created_at)` with composite PK `(user_id, piece_id)` for idempotent toggles + `idx_saved_pieces_user(user_id, created_at DESC)` for the Account "newest first" list query. Writer is `src/pages/api/saved/toggle.ts` (GET returns current state for piece-page hydration; POST toggles). `mergeProgress` extended again to merge this table alongside `progress` and `user_piece_reads`. Empty at migration time. Additive, rollback = DROP TABLE.
 - `0031_curator_reasoning.sql` — Foundation Fix Task 03 (2026-05-XX). Added three nullable TEXT columns to `daily_candidates` — `pick_reasoning` (1-3 sentences on the picked candidate), `rejection_category` (closed-enum label on every rejected row), `rejection_reason` (one-sentence reason on the top 5 runner-ups only). Closes data leaks L1 (pick reasoning was discarded) and L2 (per-rejection reasoning was never produced). Enum body lives in `content/curator-contract.md`. No index — admin + made-drawer SELECTs scope by `piece_id` (already indexed); ad-hoc queries on rejection_category run against ~30k rows in year one, scanned in milliseconds. Director persists via `this.env.DB.batch()` after Curator returns; existing 2026-04-22 observer-log pattern wraps the new UPDATEs (throw, zero-changes, unknown-enum). Companion script `scripts/backfill-selected-flag.sql` repaired the 7 pre-2026-04-22 historical pieces' selected-flag in the same session (L25 residual). See DECISIONS 2026-05-XX "L1, L2, L25 closed".
 - `0032_learner_feedback_loop.sql` — Foundation Fix Task 04 (2026-05-11). Added two nullable additive columns to `learnings`: `loaded_at INTEGER` (most recent load timestamp, overwritten on each load) and `load_count INTEGER DEFAULT 0` (monotonic count). Repurposed the existing `applied_to_prompts` column from INTEGER `0`/`1` to TEXT JSON array of `daily_pieces.id`s — SQLite's loose column affinity tolerates the in-place type change without ALTER; legacy values read as null via `LIKE '[%'` guards. The existing `last_validated_at` column starts receiving its first writes here, populated only when the loaded learning's piece passed the **Polished-strict bar** (voiceScore ≥ 90 AND revision rounds ≤ 1; new constants `LEARNER_VALIDATION_VOICE_FLOOR` + `LEARNER_VALIDATION_MAX_ROUNDS` in `agents/src/shared/audit-thresholds.ts`). Closes data leak L15 — the Learner feedback loop's consumption side. Forward-only; no backfill. `getRecentLearnings` writes `loaded_at` + bumps `load_count` as a deliberate side-effect; Director batches the `applied_to_prompts` JSON-append + the optional `last_validated_at` UPDATE via `this.env.DB.batch()` after `publishing done` (Task 03 pattern). Companion script `scripts/learner-health.sql` surfaces the four operator queries — noise / signal / workhorses / retirement candidates. No index — load-side UPDATEs scope by `id IN (...)` (PK-indexed); operator queries scan ~1k rows in year one, scanned in milliseconds. See DECISIONS 2026-05-11 "L15 closed".
+- `0034_draft_revisions.sql` — Foundation Fix Task 06 (2026-05-07). Two new tables in one bundled migration. **L4:** `draft_revisions(id, piece_id, revision_round, mdx_content, word_count, authored_by, created_at)` with UNIQUE`(piece_id, revision_round)` and `idx_draft_revisions_piece`. Round 0 = Drafter (`DrafterAgent.persistInitialDraft`); round 1+ = Integrator (`IntegratorAgent.persistRevision`). The published copy in git is unchanged source of truth; D1 holds the trail. **L8:** per-round MDX diffs are derivable from row-pairs in this table — no diff column stored (per the brief, "diffs can be computed at read time"). **L9:** `integrator_decisions(id, piece_id, revision_round, feedback_source, feedback_summary, decision, reasoning, resulting_change, created_at)` with `idx_integrator_decisions_piece` and `idx_integrator_decisions_source`. One row per addressed feedback item; closed-enum `decision` (`accepted` | `overruled` | `partial`) and `feedback_source` (`voice_auditor` | `fact_checker` | `structure_editor`). Closed enums (`IntegratorDecision`, `FeedbackSource`) live in `agents/src/types.ts` as typed unions + `ReadonlySet` runtime mirrors. **Response shape change:** Integrator's `revise()` now accepts `(pieceId, revisionRound, mdx, voiceResult, structureResult, factResult)` and returns `{ revisedMdx, decisions[], parseError, persistError }` (was `{ revisedMdx, changesSummary }`); Drafter's `draft()` now accepts `(brief, pieceId)` and returns `{ ..., persistError }`. Director threads `pieceId` and `round` through both call sites and fires `observer.logError` once per call on either sentinel. Forward-only — no backfill. Companion script `scripts/draft-revisions-health.sql` ships four read-only operator queries (`recent_revisions` / `decision_breakdown` / `multi_round_pieces` / `unfilled_metadata`). Additive, rollback = DROP TABLE both. See DECISIONS 2026-05-07 "L4, L8, L9 closed".
 - `0033_audio_audit_persistence.sql` — Foundation Fix Task 05 (2026-05-12). One bundled migration, three closures. **L12:** created `audio_audit_results(id, piece_id, beat_name, passed, issue_type, issue_severity, notes, r2_key, actual_size_bytes, created_at)` + composite index on `(piece_id, created_at)`. Per-issue + per-piece-summary audit output for the audio pipeline; mirrors `interactive_audit_results` (migration 0023) shape. Writer site is `AudioAuditorAgent.audit()` itself (mirrors `InteractiveGeneratorAgent.persistAuditRows()` precedent — same DO, same `this.env.DB.batch()`); each call writes one summary row + N issue rows. **L11:** added nullable `file_size_bytes INTEGER` to `daily_piece_audio` — captured by Audio Producer as `audioBuffer.byteLength` immediately after `arrayBuffer()`. **L10:** the always-NULL `duration_seconds` column starts receiving its first writes here, computed as `Math.round(byteLength / 12000)` (96 kbps assumption per `AUDIO_OUTPUT_FORMAT` in `agents/src/shared/audio-thresholds.ts`). Closed enum `AudioIssueType` lives in `agents/src/types.ts` — eight values with `unknown` reserved for forward-compat. Director's `runAudioPipeline` reads `auditResult.persistError` after the audit call and fires `observer.logError('audio-auditor', 0, msg, pieceId)` exactly once per audit on persistence-write failure (no per-row spam, parallel to Task 03's pattern). Forward-only — no backfill of historical pieces; pre-Task-05 `daily_piece_audio` rows stay NULL on both new columns. Companion script `scripts/audio-audit-health.sql` ships four read-only operator queries (`recent_audits` / `issue_type_breakdown` / `unfilled_metadata` / `size_anomalies`). Additive, rollback = DROP TABLE `audio_audit_results` (the `file_size_bytes` ALTER stays inert if rolled back; SQLite has no DROP COLUMN without table rebuild). See DECISIONS 2026-05-12 "L10, L11, L12 closed".

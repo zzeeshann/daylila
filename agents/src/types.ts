@@ -161,6 +161,12 @@ export interface DrafterResult {
    *  empty (early days) or the read may have failed open (DB hiccup);
    *  either way no feedback UPDATE fires. Foundation Fix Task 04. */
   loadedLearningIds: string[];
+  /** Populated only when persistence to draft_revisions threw on the
+   *  round-0 write. Director reads this AFTER consuming `mdx` and
+   *  fires observer.logError once if populated. The MDX itself is
+   *  unaffected — computed before the persistence call runs.
+   *  Foundation Fix Task 06 (L4). */
+  persistError: string | null;
 }
 
 /** Closed enum for audio_audit_results.issue_type — one value per
@@ -206,4 +212,53 @@ export interface DailyCandidate {
   summary: string;
   url: string;
   teachabilityScore?: number;
+}
+
+/** Closed enum for integrator_decisions.decision — the disposition the
+ *  Integrator records on each piece of auditor feedback. accepted = the
+ *  prose was revised per the feedback. overruled = the Integrator chose
+ *  not to act on the feedback (rare; the prompt instructs it to fix
+ *  every flagged issue, but a fact-check flag the Integrator believes
+ *  is spurious is a legitimate overrule). partial = some aspect
+ *  addressed, others deliberately left. Same posture as
+ *  RejectionCategory + AudioIssueType — loose TEXT in the table,
+ *  defensive validation at the writer. Foundation Fix Task 06. */
+export type IntegratorDecision = 'accepted' | 'overruled' | 'partial';
+
+/** Runtime mirror of IntegratorDecision for membership checks. The
+ *  persistence path drops decision rows whose `decision` value isn't
+ *  in this set; the count of drops surfaces via Integrator's
+ *  `parseError` sentinel (Director logs once via observer.logError),
+ *  matching the AudioIssueType drop-with-visibility posture. */
+export const INTEGRATOR_DECISIONS: ReadonlySet<IntegratorDecision> = new Set<IntegratorDecision>([
+  'accepted',
+  'overruled',
+  'partial',
+]);
+
+/** Closed enum for integrator_decisions.feedback_source — which
+ *  auditor raised the item the Integrator addressed. One value per
+ *  auditor agent in the daily-piece pipeline. Foundation Fix Task 06. */
+export type FeedbackSource = 'voice_auditor' | 'fact_checker' | 'structure_editor';
+
+/** Runtime mirror of FeedbackSource for membership checks. Same drop-
+ *  with-visibility posture as INTEGRATOR_DECISIONS. */
+export const FEEDBACK_SOURCES: ReadonlySet<FeedbackSource> = new Set<FeedbackSource>([
+  'voice_auditor',
+  'fact_checker',
+  'structure_editor',
+]);
+
+/** A single Integrator decision record — one per feedback item the
+ *  Integrator addressed in a single revision round. Persisted to
+ *  integrator_decisions. The Integrator returns these inside
+ *  IntegrationResult.decisions; the agent's persistence batch writes
+ *  one row per record alongside the round's draft_revisions row.
+ *  Foundation Fix Task 06 (L9). */
+export interface IntegratorDecisionRecord {
+  feedbackSource: FeedbackSource;
+  feedbackSummary: string;
+  decision: IntegratorDecision;
+  reasoning?: string;
+  resultingChange?: string;
 }
