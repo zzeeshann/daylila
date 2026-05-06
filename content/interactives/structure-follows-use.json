@@ -1,0 +1,59 @@
+{
+  "slug": "structure-follows-use",
+  "type": "quiz",
+  "title": "Structure Follows Use",
+  "concept": "Physical systems rebuild themselves in response to how they're used—tissue reorganizes, pathways strengthen or weaken, and the time this takes depends on how fast the system can mobilize resources to where demand changed.",
+  "interactiveId": "6548fb98-57ec-4c02-8ee1-5b4bd64bc76a",
+  "sourcePieceId": "24105499-7103-437c-b231-d40bdaae5bb1",
+  "publishedAt": 1778033022418,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does it mean when scientists say a physical structure in the body changed?",
+        "options": [
+          "The structure's activity level increased temporarily",
+          "The structure's physical components reorganized—tissue density shifted, connections formed or dissolved, material was added or removed",
+          "The structure's chemical environment changed without altering physical layout",
+          "The structure began responding to different signals"
+        ],
+        "correctIndex": 1,
+        "explanation": "Structural change means the physical arrangement of components changed—not just what they're doing right now. Bone density, muscle fiber count, neural pathway organization—all are physical reorganization, detectable by measuring the material itself."
+      },
+      {
+        "question": "Why does structural reorganization usually happen slowly?",
+        "options": [
+          "The body waits to confirm demand is persistent before committing resources",
+          "Building new tissue and pruning old connections requires transporting materials and breaking down components—both take time",
+          "Slow change prevents instability from rapid shifts",
+          "Genetic constraints limit how fast cells can divide"
+        ],
+        "correctIndex": 1,
+        "explanation": "Physical reorganization is construction work—materials must arrive, proteins must be synthesized, old structures must be dismantled. The timeline is set by how fast the system can mobilize and assemble resources, not by caution or genetic speed limits."
+      },
+      {
+        "question": "A process that speeds up structural reorganization without changing the pattern of what reorganizes is best understood as:",
+        "options": [
+          "A shortcut that skips normal quality checks",
+          "A mechanism that amplifies the signals that trigger reorganization",
+          "A catalyst that accelerates the logistics of building and pruning without altering which structures respond to demand",
+          "A temporary override that forces change regardless of whether it's needed"
+        ],
+        "correctIndex": 2,
+        "explanation": "Speeding up reorganization without changing what reorganizes means the same demand-responsive pattern happens faster—like pouring more concrete per day on a construction site. The mechanism is logistical acceleration, not altered instructions or bypassed checks."
+      },
+      {
+        "question": "If a system reorganizes its structure faster than usual, what risk does it face?",
+        "options": [
+          "It might reorganize in response to short-term noise instead of persistent demand",
+          "Faster change always produces weaker structures",
+          "The system exhausts resources needed for other maintenance",
+          "Speed prevents fine-tuning, so the new structure will be less precise"
+        ],
+        "correctIndex": 0,
+        "explanation": "The main risk of fast reorganization is mistaking temporary spikes for lasting need—building infrastructure for demand that disappears. Slower timelines act as a filter: only persistent patterns trigger costly rebuilding. Speed itself doesn't weaken structures or exhaust resources unless the reorganization was a false alarm."
+      }
+    ]
+  }
+}
