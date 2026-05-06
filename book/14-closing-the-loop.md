@@ -48,6 +48,22 @@ Closing the loop — the work that shipped on April 19 — means three things:
 
 With these three in place, the loop is closed. A learning written on Monday shapes Tuesday's draft. Tuesday's draft generates new learnings. Wednesday reads Tuesday's learnings. The system has memory.
 
+## What was still missing — closed on May 11, 2026
+
+The loop closed on April 19 was honest about one thing — the system reads from the table — and quiet about another. It never recorded *which* learnings the Drafter had actually loaded into a given draft, or *whether* the resulting piece turned out well. The table was a memory the system wrote into and read from. It was not a memory the system could measure.
+
+Without that measurement, a question that matters could not be answered. Of the patterns the Learner has been writing for weeks — are any of them actually compounding into better pieces, or are most of them just sitting there, loaded into the prompt and then ignored?
+
+May 11 closed that gap on the consumption side. Three small additions:
+
+1. **Every load is recorded.** When the Drafter pulls the ten most recent learnings into its prompt, each of those rows now gets a timestamp and its load counter goes up by one. The same patterns reach the prompt as before; the system just remembers it asked.
+
+2. **Every successful publish credits the loaded learnings.** When a piece reaches GitHub, the new piece's id is appended to a list on each learning that fed into it. A row that was loaded and then helped produce something carries the receipt; a row that was loaded but the resulting piece never published carries nothing.
+
+3. **A stricter bar marks validation.** A learning whose piece cleared the publish gate in one round at a voice score of ninety or higher gets a separate validation timestamp. This bar is deliberately stricter than the public Polished tier — pieces that needed revisions, or that scraped through at eighty-five, do not count. Validation is not the same as the reader-facing quality marker. It is a private signal of whether the loaded patterns helped enough that the very best pieces happened.
+
+After thirty days of data accumulates, a small SQL script (`scripts/learner-health.sql`) surfaces four counts — patterns that load but never land, patterns that validated, the most-loaded patterns and how many validated, and the oldest patterns no Drafter has reached for. Only then can anyone honestly say whether the Learner is selecting useful patterns or generating noise. The table now has the columns to make that conversation possible. The conversation itself comes after the data does.
+
 ## Why this matters more than it sounds
 
 Most software doesn't have this shape. Most software runs the same way on day 1,000 as it did on day 1. That's actually a feature — you want your bank's software to behave predictably.

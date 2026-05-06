@@ -13,6 +13,24 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-11: Learner feedback loop — 30-day signal vs noise evaluation
+
+- **Surfaced:** 2026-05-11, Foundation Fix Task 04 ("L15 closed"). The loop now records load events (`loaded_at` / `load_count`) on every `getRecentLearnings(10)` call, applied attribution (`applied_to_prompts` JSON-append) on every successful publish, and validation timestamps (`last_validated_at`) only for loaded learnings whose piece cleared the Polished-strict bar (voice ≥ 90 AND 1 round). The data lands going forward; this entry is the queued evaluation.
+- **Unblock:** ≥30 days of cron runs against the new schema. After that, run `wrangler d1 execute zeemish --remote --file=scripts/learner-health.sql` and read all four queries (noise / signal / workhorses / retirement candidates).
+- **Decision to make:** is the Learner meaningfully selecting useful patterns, or just generating noise? Possible outcomes:
+  - **Keep** — `signal` count is non-trivial and `workhorses` show validation; loop is producing what it claimed to produce.
+  - **Narrow extraction logic** — `noise` count dwarfs `signal`; many loaded patterns never reach Polished-strict pieces. Tighten what Learner writes (higher confidence floor, or category-specific extraction).
+  - **Replace with a different signal source** — both counts are low because `getRecentLearnings(10)` is too narrow; consider relevance scoring (tag match against brief subject) as the v2 retrieval shape.
+- **Do NOT delete learnings during the observation window** — even ones that look unused. Loop needs to settle.
+- **Priority:** medium. Decision deferred ~30 days; setting up the rails was the work, not the analysis.
+
+## [deferred] 2026-05-11: Surface Learner feedback (loaded / applied / validated) in made-drawer + admin per-piece
+
+- **Surfaced:** 2026-05-11, Foundation Fix Task 04. The data lands going forward; no reader-facing or admin surface renders it yet.
+- **Hypothesis:** the natural reader-facing surface is the per-piece *How this was made* drawer's "What the system learned from this piece" section — currently renders `learnings` rows by source (producer / self-reflection / Zita), one logical extension is "and N rows from prior pieces were loaded into this draft, M of which were validated by this publish". Admin surface is the per-piece deep-dive table — operator-shaped detail showing which specific learnings were loaded + their validation count over time.
+- **Why deferred:** same posture as the Task 03 deferred surface entry above. Design work, not data work — bundling would have grown scope 30%. Both consumer files (`src/pages/api/daily/[date]/made.ts`, `src/pages/dashboard/admin/piece/[date]/[slug].astro`) SELECT explicit columns; the new columns are silently safe.
+- **Priority:** low. Pick up after the 30-day evaluation entry above resolves — its outcome (keep / narrow / replace) shapes what the surface should say.
+
 ## [deferred] 2026-05-06: Surface curator pick + rejection reasoning in made-drawer + admin per-piece
 
 - **Surfaced:** 2026-05-06, Foundation Fix Task 03 ("L1, L2, L25 closed"). Task 03 lands the data — `pick_reasoning` on the picked candidate, `rejection_category` + `rejection_reason` on every rejection — but does not surface it on any reader-facing or admin surface.

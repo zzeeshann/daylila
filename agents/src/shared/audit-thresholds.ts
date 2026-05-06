@@ -34,3 +34,18 @@ export const TIER_SOLID_FLOOR = 70;
  *  (InteractiveGenerator quiz + HTML loops) — one rule, two
  *  artefact types. */
 export const MAX_AUDIT_ROUNDS = 3;
+
+/** Learner-feedback validation: voice-score floor a piece must clear
+ *  for its loaded learnings to receive `last_validated_at`. STRICTER
+ *  than the reader-facing Polished tier (VOICE_PASS_THRESHOLD = 85);
+ *  validation is a signal-quality bar for the learner loop, not a
+ *  tier change — conflating the two would misuse the audit
+ *  contract's vocabulary. Foundation Fix Task 04 (closes L15). */
+export const LEARNER_VALIDATION_VOICE_FLOOR = 90;
+
+/** Learner-feedback validation: maximum Director-tracked
+ *  audit-then-revise rounds a piece may have taken for its loaded
+ *  learnings to receive `last_validated_at`. 1 = initial draft
+ *  passed every gate first try (zero revisions). Stricter than
+ *  MAX_AUDIT_ROUNDS = 3 (the publish gate). Foundation Fix Task 04. */
+export const LEARNER_VALIDATION_MAX_ROUNDS = 1;

@@ -96,6 +96,8 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Tier.** The label Daylila attaches to each published piece based on its final voice score. `Polished` (≥85), `Solid` (70–84), `Rough` (<70). Threshold values and the publish-anyway-on-Rough rule live in the audit contract since 2026-05-06 — see `content/audit-contract.md`.
 
+**Validated learning.** A learning that was loaded into a draft whose final piece cleared every quality gate in one round at a voice score of ninety or above. Stricter than the public Polished tier (≥85) by design — validation is a private signal of whether the loaded patterns helped enough that the very best pieces happened. Marked with a `last_validated_at` timestamp on the row in `learnings`. Added 2026-05-11 (Foundation Fix Task 04). The thresholds live in `agents/src/shared/audit-thresholds.ts` as `LEARNER_VALIDATION_VOICE_FLOOR` and `LEARNER_VALIDATION_MAX_ROUNDS`. See chapter 14.
+
 **Voice contract.** The versioned document in the Daylila repo that defines how the publication writes. Plain English, no tribe words, short sentences, hospitality principle. Lives at `content/voice-contract.md`. Loaded into the Drafter's prompt every time.
 
 **Web Component.** A standard browser feature for building reusable UI elements with custom HTML tags. Daylila uses Web Components for the interactive parts of pieces (`<lesson-shell>`, `<lesson-beat>`, `<audio-player>`, `<zita-chat>`).

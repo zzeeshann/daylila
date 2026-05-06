@@ -153,6 +153,14 @@ export type CuratorResult =
 export interface DrafterResult {
   mdx: string;
   wordCount: number;
+  /** IDs of learnings the Drafter pulled from getRecentLearnings(10)
+   *  this run. Threaded back to Director so the success-path UPDATE
+   *  can append this piece's id to applied_to_prompts (and, if the
+   *  piece clears the Polished-strict bar, also write
+   *  last_validated_at). Empty array is valid — the table may be
+   *  empty (early days) or the read may have failed open (DB hiccup);
+   *  either way no feedback UPDATE fires. Foundation Fix Task 04. */
+  loadedLearningIds: string[];
 }
 
 /** A news candidate from the Scanner */
