@@ -76,6 +76,9 @@ Phase 2 — High-severity data fixes
 
 Phase 3 — Hygiene
   08  Retention policy + run_id                            (L16 + L23 + L24)
+
+Phase 4 — Post-foundation
+  09  Integrator: regression awareness                     (within-piece state, all-audits-in-prompt)
 ```
 
 Phase 1 runs first because once rules live in dedicated `.md` files, the data fixes in Phase 2 can update those files (e.g. recording rejection reasoning shape) instead of editing prompts buried in TypeScript.
@@ -83,6 +86,8 @@ Phase 1 runs first because once rules live in dedicated `.md` files, the data fi
 Phase 2 tasks can run in any order after Phase 1 lands, but the order above is roughly by dependency and impact.
 
 Phase 3 is hygiene that doesn't block anything but should land within the same programme so we don't carry tech debt into the next one.
+
+Phase 4 is post-foundation work — issues surfaced after the original 8-task scope was set. Task 09 closes a regression-risk pattern observed on the 2026-05-06 magic-mushroom piece. It sits intentionally **after a watch window** of 2–4 weeks following Task 06, not immediately after Task 08, because its pre-deploy spot-check needs ~10+ multi-round pieces of `integrator_decisions` data to find the regression pattern empirically. Daylila ships ~1 piece/day; the watch window lets the empirical signal accrue. If after the window the regression doesn't show up in `integrator_decisions` data, Task 09's stop-condition fires and the task is descoped.
 
 ## How to use these task files
 
