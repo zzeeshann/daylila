@@ -34,6 +34,15 @@ export interface BeatAudio {
   publicUrl: string;
   characterCount: number;
   requestId: string | null;
+  /** Size of the MP3 payload from ElevenLabs (audioBuffer.byteLength).
+   *  Closes data leak L11. Foundation Fix Task 05. */
+  fileSizeBytes: number;
+  /** Approximate playback length in seconds, computed as
+   *  Math.round(byteLength / 12000) — assumes 96 kbps per
+   *  AUDIO_OUTPUT_FORMAT='mp3_44100_96'. Closes data leak L10
+   *  (column existed since migration 0010, always-NULL until now).
+   *  Foundation Fix Task 05. */
+  durationSeconds: number;
 }
 
 /**
@@ -65,6 +74,25 @@ interface AudioProducerState {
 // content/audio-contract.md (canonical narrative) and flow through
 // agents/src/shared/audio-thresholds.ts (runtime values). Imported
 // at the top of this file.
+
+/**
+ * Bytes-per-second of audio output, derived from AUDIO_OUTPUT_FORMAT.
+ * 96 kbps MP3 = 96,000 bits/sec = 12,000 bytes/sec.
+ *
+ * Used to derive `duration_seconds` on every persisted beat row from
+ * the actual MP3 byte length (no extra ElevenLabs call needed; the
+ * /text-to-speech endpoint returns audio bytes only — duration would
+ * require a separate /with-timestamps call that doubles per-beat
+ * cost). The auditor's `EXPECTED_BYTES_PER_CHAR = 960` constant in
+ * audio-auditor.ts encodes the same 96 kbps assumption (12,000 bytes
+ * × ~12.5 chars/sec narration ≈ 960 bytes/char), so the pipeline
+ * stays internally consistent.
+ *
+ * **If AUDIO_OUTPUT_FORMAT changes, update this divisor in lockstep.**
+ * 192 kbps would be 24,000; 64 kbps would be 8,000. Drift between the
+ * two means duration_seconds silently lies.
+ */
+const BYTES_PER_SECOND_AT_96KBPS = 12_000;
 
 /**
  * Thrown when a piece's total character count exceeds the budget.
@@ -174,6 +202,13 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
         httpMetadata: { contentType: 'audio/mpeg' },
       });
 
+      // Closes L11 (file_size_bytes) + L10 (duration_seconds). The
+      // Math.round on duration matches the auditor's integer-display
+      // expectations and the SCHEMA's INTEGER column type. Foundation
+      // Fix Task 05.
+      const fileSizeBytes = res.audio.byteLength;
+      const durationSeconds = Math.round(fileSizeBytes / BYTES_PER_SECOND_AT_96KBPS);
+
       const publicUrl = `/${r2Key}`;
       const beatAudio: BeatAudio = {
         beatName: beat.name,
@@ -181,6 +216,8 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
         publicUrl,
         characterCount: beat.text.length,
         requestId: res.requestId,
+        fileSizeBytes,
+        durationSeconds,
       };
       processedBeats.push(beatAudio);
 
@@ -344,13 +381,18 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
    * Upsert one beat's row into daily_piece_audio. Idempotent — if
    * producer re-runs (manual retry, partial failure recovery), each
    * row is refreshed rather than duplicated.
+   *
+   * file_size_bytes (added migration 0033, L11) and duration_seconds
+   * (was always NULL pre-Task-05, L10) populate from the BeatAudio
+   * carrier — both derived from audioBuffer.byteLength right after the
+   * ElevenLabs response. Foundation Fix Task 05.
    */
   private async persistBeatRow(pieceId: string, date: string, beat: BeatAudio): Promise<void> {
     await this.env.DB.prepare(
       `INSERT OR REPLACE INTO daily_piece_audio
          (piece_id, beat_name, date, r2_key, public_url, character_count,
-          duration_seconds, request_id, model, voice_id, generated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)`,
+          duration_seconds, file_size_bytes, request_id, model, voice_id, generated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         pieceId,
@@ -359,6 +401,8 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
         beat.r2Key,
         beat.publicUrl,
         beat.characterCount,
+        beat.durationSeconds,
+        beat.fileSizeBytes,
         beat.requestId,
         AUDIO_MODEL_ID,
         AUDIO_VOICE_ID,

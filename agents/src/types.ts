@@ -163,6 +163,40 @@ export interface DrafterResult {
   loadedLearningIds: string[];
 }
 
+/** Closed enum for audio_audit_results.issue_type — one value per
+ *  branch in AudioAuditorAgent.audit(). The auditor sets `issueType`
+ *  on every AudioIssue at construction time; the persistence batch
+ *  carries it through unchanged. `unknown` is reserved for forward-
+ *  compat — a future issue path added to the auditor without a
+ *  corresponding union extension persists as `unknown` rather than
+ *  being dropped. Same posture as RejectionCategory above. Foundation
+ *  Fix Task 05. */
+export type AudioIssueType =
+  | 'no_audio_rows'
+  | 'missing_file'
+  | 'empty_file'
+  | 'size_too_small'
+  | 'size_too_large'
+  | 'text_too_short'
+  | 'character_cap_exceeded'
+  | 'unknown';
+
+/** Runtime mirror of AudioIssueType for membership checks. Used by
+ *  the auditor's persistence path to validate before binding into the
+ *  closed-enum column; unknown values fall through to `unknown` so
+ *  drift becomes visible via the issue_type_breakdown operator query
+ *  rather than silently dropping rows. */
+export const AUDIO_ISSUE_TYPES: ReadonlySet<AudioIssueType> = new Set<AudioIssueType>([
+  'no_audio_rows',
+  'missing_file',
+  'empty_file',
+  'size_too_small',
+  'size_too_large',
+  'text_too_short',
+  'character_cap_exceeded',
+  'unknown',
+]);
+
 /** A news candidate from the Scanner */
 export interface DailyCandidate {
   id: string;
