@@ -1,0 +1,59 @@
+{
+  "slug": "prepared-observation",
+  "type": "quiz",
+  "title": "Prepared Observation",
+  "concept": "Unexpected discoveries emerge when someone with enough background knowledge to recognize anomalies examines data collected for a different purpose—the pattern was always there, but only becomes visible to a mind equipped to see it.",
+  "interactiveId": "748cb248-ba8e-48be-ba4e-fc88b79f55bd",
+  "sourcePieceId": "45921a12-0156-478f-b8ab-7d9534f87439",
+  "publishedAt": 1778076186551,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does having background knowledge make accidental discoveries more likely?",
+        "options": [
+          "It lets you design better experiments from the start",
+          "It helps you notice when something doesn't fit expected patterns",
+          "It makes you more careful about collecting clean data",
+          "It prevents you from making measurement errors"
+        ],
+        "correctIndex": 1,
+        "explanation": "Background knowledge creates a mental model of what should happen—so when data doesn't match, you notice the mismatch. The discovery isn't about designing better searches or avoiding errors; it's about recognizing significance in something unexpected."
+      },
+      {
+        "question": "What role does original purpose play when data reveals something unintended?",
+        "options": [
+          "The original purpose limits what you can discover",
+          "The original purpose determines the quality of the discovery",
+          "The original purpose shapes what data exists to examine in the first place",
+          "The original purpose should be abandoned once the discovery appears"
+        ],
+        "correctIndex": 2,
+        "explanation": "You were collecting that specific data for a reason—it exists because someone thought it was worth gathering. The unintended discovery only becomes possible because the data was there to look at. The original purpose created the substrate; the prepared mind recognized what else it contained."
+      },
+      {
+        "question": "Why can't you systematically search for this kind of discovery?",
+        "options": [
+          "You don't know what patterns to look for until you see them",
+          "The data sets are too large to search exhaustively",
+          "The discoveries are too rare to justify the search cost",
+          "The tools needed don't exist yet"
+        ],
+        "correctIndex": 0,
+        "explanation": "Systematic searches require knowing what you're searching for—a target shape, a threshold, a signature. These discoveries happen when something in the data suggests a pattern you hadn't imagined. You can't specify it in advance because recognizing it IS the discovery."
+      },
+      {
+        "question": "A researcher examining soil samples for contamination notices an unusual microbial colony that wasn't part of the study design. Why does this fit the prepared observation pattern?",
+        "options": [
+          "The researcher was trained to identify microbes, so recognized something out of place",
+          "The contamination study required looking at microbes anyway",
+          "The unusual colony was bigger and easier to spot than expected",
+          "The researcher got lucky finding something rare"
+        ],
+        "correctIndex": 0,
+        "explanation": "The researcher's training created the conditions for noticing—they knew enough microbiology to see that this colony didn't match standard forms. The discovery wasn't about luck or study design overlap; it was about having the knowledge to recognize significance in something unexpected."
+      }
+    ]
+  }
+}
