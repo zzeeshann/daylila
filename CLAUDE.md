@@ -60,7 +60,7 @@ Pipeline: Scanner → Curator → Drafter → [Voice, Structure, Fact] → Integ
 
 1. **ScannerAgent** — fetches 17 RSS feeds (Google News topics + direct breadth feeds), deduplicates, stores up to 80 candidates per run
 2. **DirectorAgent** — pure orchestrator. Routes work between agents. Zero LLM calls. Hourly cron gated by `admin_settings.interval_hours` (default 24 → fires at 02:00 UTC once per day).
-3. **CuratorAgent** — picks the most teachable story from today's candidates, plans beats + hook + teaching angle. Reframed 2026-04-25 around the Daylila Protocol (no "60+ teachability threshold" gate); diversity-tuned 2026-05-01 with a 10-domain breadth taxonomy + recent-category-concentration block.
+3. **CuratorAgent** — picks the most teachable story from today's candidates, plans beats + hook + teaching angle. Reframed 2026-04-25 around the Daylila Protocol (no "60+ teachability threshold" gate); diversity-tuned 2026-05-01 with a 10-domain breadth taxonomy + recent-category-concentration block. As of 2026-05-06 (Foundation Fix Task 03) Curator records `pick_reasoning` on the picked candidate and `rejection_category` (closed 8-value enum: `off_topic`, `duplicate`, `too_local`, `no_teaching_angle`, `wrong_shape`, `low_signal`, `tribal_framing`, `already_covered`) + `rejection_reason` (top-5 runner-ups only) on every rejection — closes data leaks L1 + L2. `max_tokens` raised 3000 → 8000 to fit the new response shape.
 4. **DrafterAgent** — writes the MDX from the brief, enforces `<lesson-shell>` / `<lesson-beat>` format. Reads recent learnings at runtime; self-reflects post-publish.
 5. **VoiceAuditorAgent** — voice compliance gate (≥85/100)
 6. **FactCheckerAgent** — verifies every claim (single-pass: Claude with Anthropic `web_search_20250305` server tool; today's date in user message; search-first for current-event claims). Reads `content/fact-check-contract.md` via `${FACT_CHECK_CONTRACT}` injection since 2026-05-07 — verdict taxonomy + search-first rule + cutoff-confession ban + `max_uses=8` budget all live there. Path A.1 (2026-05-01) harvests citation URLs from `web_search_tool_result.content[]` for the drawer's "Sources consulted" line.
@@ -79,7 +79,7 @@ Pipeline: Scanner → Curator → Drafter → [Voice, Structure, Fact] → Integ
 - **Public dashboard removed 2026-05-02.** `/dashboard/` redirects 301 → `/daily/`. Reader-facing transparency lives on every piece's *How this was made* drawer (per-piece pipeline timeline, audit rounds, candidates, learnings). Daily itself surfaces the candidate sets Scanner pulled for each run.
 - **Admin** (`/dashboard/admin/`) — ADMIN_EMAIL only. Pipeline controls, observer events with acknowledge, engagement data, agent tasks. Per-piece deep-dive at `/dashboard/admin/piece/[date]/[slug]/` with full timeline + audit rounds + scanner candidates + Zita conversations + observer events. Operator entry: footer "Admin →" link in `BaseLayout.astro` (gated on `ADMIN_EMAIL`, only visible on SSR pages).
 
-### Database (D1 — 22 tables, 30 migrations)
+### Database (D1 — 22 tables, 31 migrations)
 See `docs/SCHEMA.md` for the canonical schema (always source-of-truth for table + migration counts).
 - Reader: users, progress, submissions, zita_messages, user_piece_reads, saved_pieces, magic_tokens
 - Agent: observer_events, engagement, learnings, audit_results, pipeline_log
