@@ -13,7 +13,7 @@ How to run, deploy, operate, and troubleshoot. Written for a developer who just 
 
 ### Site (Astro)
 ```bash
-cd zeemish-v2
+cd daylila
 pnpm install
 pnpm dev
 # Open http://localhost:4321
@@ -607,7 +607,7 @@ uncommitted file.
 
 ## Project structure
 ```
-zeemish-v2/
+daylila/
 ├── src/                    Astro site (pages, components, layouts)
 │   ├── pages/              Routes (index, daily, library, account, login, dashboard, API)
 │   ├── components/         Astro components (AudioPlayer)

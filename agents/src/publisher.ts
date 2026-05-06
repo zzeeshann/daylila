@@ -13,7 +13,7 @@ interface PublisherState {
 }
 
 const REPO_OWNER = 'zzeeshann';
-const REPO_NAME = 'zeemish-v2';
+const REPO_NAME = 'daylila';
 const BRANCH = 'main';
 
 /**

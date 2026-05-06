@@ -444,9 +444,9 @@ Every cited line number was verified against the working tree at commit `9861805
 - **Duplicated:** the rule is stated in the publisher header AND in CLAUDE.md AND in the per-task book updates rule. They agree.
 - **Notes:** Pass 2 addition. This is the most important non-numeric rule in the system and lives partly in code, partly in prose.
 
-### Rule: GitHub repo target (`zzeeshann/zeemish-v2`, branch `main`)
+### Rule: GitHub repo target (`zzeeshann/daylila`, branch `main`)
 
-- **What it says:** Publisher commits MDX to `zzeeshann/zeemish-v2` on branch `main`.
+- **What it says:** Publisher commits MDX to `zzeeshann/daylila` on branch `main`.
 - **Where defined:** `agents/src/publisher.ts:15-17` (`REPO_OWNER`, `REPO_NAME`, `BRANCH` constants).
 - **Type:** magic-number (reserved string)
 - **Used by:** Publisher only.

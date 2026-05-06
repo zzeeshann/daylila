@@ -263,7 +263,7 @@ class MadeDrawer extends HTMLElement {
             ${STRUCTURE_RULES.map((r) => `<li class="made-rule">${escapeHtml(r)}</li>`).join('')}
           </ul>
           <p class="made-rules-footer">
-            Full contract: <a href="https://github.com/zzeeshann/zeemish-v2/blob/main/content/voice-contract.md" target="_blank" rel="noopener">voice-contract.md <span class="made-glyph-teal" aria-hidden="true">↗</span></a>
+            Full contract: <a href="https://github.com/zzeeshann/daylila/blob/main/content/voice-contract.md" target="_blank" rel="noopener">voice-contract.md <span class="made-glyph-teal" aria-hidden="true">↗</span></a>
           </p>
         </div>
       </section>
