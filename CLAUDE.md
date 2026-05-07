@@ -1,5 +1,7 @@
 # Daylila v2 — Claude Code Context
 
+> Every session starts by reading [docs/SESSION_OPENER.md](docs/SESSION_OPENER.md) and acknowledging each section. No exceptions.
+
 Originally launched as Zeemish; rebranded to Daylila on 2026-05-06. See `docs/DECISIONS.md` for full context.
 
 **Read this first. Then read `docs/handoff/ZEEMISH-V2-ARCHITECTURE-REVISED.md` and `docs/handoff/ZEEMISH-DAILY-PIECES.md`.**
