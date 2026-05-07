@@ -1,6 +1,7 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
-import type { Env } from './types';
+import type { Env, VoiceFailureReason } from './types';
+import { VOICE_FAILURE_REASONS } from './types';
 import { extractJson } from './shared/parse-json';
 import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 import { buildVoiceAuditorSystem } from './voice-auditor-prompt';
@@ -10,6 +11,16 @@ export interface VoiceAuditResult {
   score: number; // 0-100
   violations: string[];
   suggestions: string[];
+  /** Foundation Fix Task 08 PR 08c (2026-05-07). Closed-enum tokens
+   *  for the failure-reason kinds the auditor flagged. Empty array on
+   *  pass. Validated against VOICE_FAILURE_REASONS at parse time —
+   *  unknown tokens drop, the count surfaces via parseError. */
+  failureReasons: VoiceFailureReason[];
+  /** Populated when Claude's response was missing or contained
+   *  invalid failure-reason tokens. Director logs once per audit if
+   *  set. Same drop-with-visibility posture as Task 06's
+   *  IntegratorDecision parse path. */
+  parseError?: string | null;
 }
 
 interface VoiceAuditorState {
@@ -35,8 +46,33 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const result = extractJson<VoiceAuditResult>(text);
-    result.passed = result.score >= VOICE_PASS_THRESHOLD;
+    const raw = extractJson<VoiceAuditResult & { failure_reasons?: unknown }>(text);
+
+    // Validate failure_reasons against the closed enum. Unknown tokens
+    // drop with the count surfaced via parseError; the verdict
+    // (score / violations / suggestions) is preserved unchanged.
+    // Same posture as Task 06's IntegratorDecision parse path.
+    const rawReasons = Array.isArray(raw.failure_reasons) ? raw.failure_reasons : [];
+    const failureReasons: VoiceFailureReason[] = [];
+    let droppedCount = 0;
+    for (const token of rawReasons) {
+      if (typeof token === 'string' && VOICE_FAILURE_REASONS.has(token as VoiceFailureReason)) {
+        failureReasons.push(token as VoiceFailureReason);
+      } else {
+        droppedCount += 1;
+      }
+    }
+
+    const result: VoiceAuditResult = {
+      passed: (raw.score ?? 0) >= VOICE_PASS_THRESHOLD,
+      score: raw.score ?? 0,
+      violations: Array.isArray(raw.violations) ? raw.violations : [],
+      suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+      failureReasons,
+      parseError: droppedCount > 0
+        ? `Voice auditor dropped ${droppedCount} unknown failure_reason token(s) from the response`
+        : null,
+    };
     this.setState({ lastResult: result });
     return result;
   }

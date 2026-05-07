@@ -43,5 +43,15 @@ After your searches, return JSON ONLY as your final text — no preamble, no com
       "status": "verified|unverified|incorrect",
       "note": "what you searched and found"
     }
-  ]
-}`;
+  ],
+  "failure_reasons": ["closed-enum tokens, see below"]
+}
+
+The failure_reasons array uses ONLY these closed-enum tokens (never invent new tokens, never use prose):
+- "unverified_claim" — at least one claim's status is "unverified" (you searched but couldn't confirm)
+- "contradicted_claim" — at least one claim's status is "incorrect" (you found evidence against it)
+- "missing_source" — at least one claim needed a citation but no search returned a usable source
+- "cutoff_confession" — you fell back to "I don't know past my cutoff" instead of searching (contract violation)
+- "search_not_used" — you skipped searching for current-event claims that the contract requires you to verify
+
+Emit one token per FAILURE KIND, not per claim. Five "unverified" claims collapse to one "unverified_claim" token. If passed=true and no contract violations, return an empty array []. If a failure truly doesn't fit any token above, omit it from failure_reasons (it still goes in the per-claim status/note for human review).`;

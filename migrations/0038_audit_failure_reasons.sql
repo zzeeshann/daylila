@@ -1,0 +1,87 @@
+-- 0038_audit_failure_reasons.sql
+--
+-- Foundation Fix Task 08 PR 08c — closes L24 (audit failure reasons
+-- live as JSON-in-TEXT inside `audit_results.notes`, not SQL-queryable).
+--
+-- Adds two normalised columns to `audit_results`:
+--   - `failure_reasons TEXT` — comma-separated closed-enum tokens, one
+--     per reason the auditor flagged. Empty/NULL on passes. Queryable
+--     via `LIKE '%token%'` operator queries without parsing JSON out
+--     of the `notes` column.
+--   - `suggestions_count INTEGER` — the number of suggestion strings
+--     the auditor produced this round. Cheap drift-detector for
+--     "auditor went silent" cases.
+--
+-- Closed enums (one per auditor) live in `content/audit-contract.md`
+-- new sections "Voice Auditor failure_reasons enum" / "Structure Editor
+-- failure_reasons enum" / "Fact Checker failure_reasons enum" plus
+-- runtime-mirror `ReadonlySet`s in `agents/src/types.ts`. Same posture
+-- as the closed-enum patterns from Tasks 03 (`RejectionCategory`), 05
+-- (`AudioIssueType`), 06 (`IntegratorDecision` + `FeedbackSource`),
+-- and 07 (`DwellEndedReason`).
+--
+-- `notes` column is preserved unchanged — it remains the source of
+-- truth for full audit detail (the JSON of `voice.violations` /
+-- `structure.issues` / `facts.claims` / `facts.sources`). The new
+-- columns are for fast queries; the JSON is for full detail. Site-side
+-- consumers (`made.ts:479+503`, `admin/piece/[date]/[slug].astro:397`)
+-- parse `notes` as JSON via `parseStringArray` — adding sibling columns
+-- doesn't change that parsing.
+--
+-- Forward-only — historical rows stay NULL on both columns. No
+-- backfill: the prompts to produce structured failure_reasons[] only
+-- exist after this migration ships; pre-migration rows have the JSON
+-- in `notes` but no closed-enum mapping. Operator queries that want
+-- a complete picture JOIN with `notes` parsing for old rows.
+--
+-- Forward-compat note: the auditor parsers validate every emitted
+-- failure-reason token against the closed Set; unknown values drop
+-- with a `parseError` sentinel + `observer.logError` once per audit
+-- (no per-row spam). Same drop-with-visibility posture as Task 06's
+-- `IntegratorDecision` validation.
+
+-- ══════════════════════════════════════════════════════════════════
+-- AUTO-APPLIED (runs on `wrangler d1 migrations apply`)
+-- ══════════════════════════════════════════════════════════════════
+
+ALTER TABLE audit_results ADD COLUMN failure_reasons   TEXT;
+ALTER TABLE audit_results ADD COLUMN suggestions_count INTEGER;
+
+-- No index. Year-1 row count for `audit_results` is ~3000 (1 piece/day
+-- × 3 auditors × ~3 rounds × 365 days), SQLite full-scans this range
+-- in milliseconds. Same calculus as Task 03's no-speculative-index
+-- decision on `rejection_category`. Add an index when ad-hoc operator
+-- queries on `failure_reasons` become slow enough to notice.
+
+-- ══════════════════════════════════════════════════════════════════
+-- POST-APPLY VERIFY (run via `wrangler d1 execute --remote`)
+-- ══════════════════════════════════════════════════════════════════
+--
+-- PRAGMA table_info(audit_results);
+--   -- expect existing columns + the two new ones (failure_reasons,
+--   -- suggestions_count) at the end.
+--
+-- SELECT COUNT(*) FROM audit_results WHERE failure_reasons IS NOT NULL;
+--   -- expect 0 immediately post-apply; non-zero after the next pipeline
+--   -- run with the new auditor parsers live.
+--
+-- After the next run with the new prompts:
+--   SELECT auditor, failure_reasons, suggestions_count
+--   FROM audit_results
+--   WHERE created_at > unixepoch() * 1000 - 86400000 AND passed = 0
+--   LIMIT 10;
+--   -- expect failure_reasons populated with closed-enum tokens
+--   -- (e.g. "tribe_word,long_sentence" for voice rounds that failed)
+--   -- and suggestions_count > 0 on the failing rows.
+
+-- ══════════════════════════════════════════════════════════════════
+-- ROLLBACK
+-- ══════════════════════════════════════════════════════════════════
+--
+-- ALTER TABLE audit_results DROP COLUMN failure_reasons;
+-- ALTER TABLE audit_results DROP COLUMN suggestions_count;
+--
+-- Non-destructive — `notes` JSON still carries the full failure
+-- detail; only the normalised projection is lost. Auditor agents
+-- need a parallel revert (back to old response shape) to stop
+-- writing the new fields once the column is gone.

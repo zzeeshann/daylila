@@ -1,6 +1,7 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
-import type { Env } from './types';
+import type { Env, StructureFailureReason } from './types';
+import { STRUCTURE_FAILURE_REASONS } from './types';
 import { extractJson } from './shared/parse-json';
 import { STRUCTURE_EDITOR_PROMPT } from './structure-editor-prompt';
 
@@ -8,6 +9,12 @@ export interface StructureAuditResult {
   passed: boolean;
   issues: string[];
   suggestions: string[];
+  /** Foundation Fix Task 08 PR 08c (2026-05-07). Closed-enum tokens
+   *  for the structure failure kinds the auditor flagged. Empty array
+   *  on pass. Validated against STRUCTURE_FAILURE_REASONS at parse
+   *  time — unknown tokens drop, the count surfaces via parseError. */
+  failureReasons: StructureFailureReason[];
+  parseError?: string | null;
 }
 
 interface StructureEditorState {
@@ -32,7 +39,30 @@ export class StructureEditorAgent extends Agent<Env, StructureEditorState> {
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const result = extractJson<StructureAuditResult>(text);
+    const raw = extractJson<StructureAuditResult & { failure_reasons?: unknown }>(text);
+
+    // Validate failure_reasons against the closed enum. Same posture
+    // as VoiceAuditor (Task 08 PR 08c) and Task 06's IntegratorDecision.
+    const rawReasons = Array.isArray(raw.failure_reasons) ? raw.failure_reasons : [];
+    const failureReasons: StructureFailureReason[] = [];
+    let droppedCount = 0;
+    for (const token of rawReasons) {
+      if (typeof token === 'string' && STRUCTURE_FAILURE_REASONS.has(token as StructureFailureReason)) {
+        failureReasons.push(token as StructureFailureReason);
+      } else {
+        droppedCount += 1;
+      }
+    }
+
+    const result: StructureAuditResult = {
+      passed: !!raw.passed,
+      issues: Array.isArray(raw.issues) ? raw.issues : [],
+      suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+      failureReasons,
+      parseError: droppedCount > 0
+        ? `Structure editor dropped ${droppedCount} unknown failure_reason token(s) from the response`
+        : null,
+    };
 
     // Learnings are NOT written here. Learner.analysePiecePostPublish reads
     // audit_results post-publish and synthesises producer-origin learnings

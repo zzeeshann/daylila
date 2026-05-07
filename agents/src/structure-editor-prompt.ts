@@ -32,7 +32,18 @@ Respond with JSON only:
 {
   "passed": boolean,
   "issues": ["specific issue 1", "specific issue 2"],
-  "suggestions": ["how to fix issue 1", "how to fix issue 2"]
+  "suggestions": ["how to fix issue 1", "how to fix issue 2"],
+  "failure_reasons": ["closed-enum tokens, see below"]
 }
 
-If no issues, return { "passed": true, "issues": [], "suggestions": [] }`;
+The failure_reasons array uses ONLY these closed-enum tokens (never invent new tokens, never use prose):
+- "weak_hook" — hook does not open with the observation that creates the question, or uses a "In this lesson, we'll learn..." opening, or summarises before asking
+- "missing_close" — close summarises, calls to action, congratulates, or rambles past four sentences
+- "beat_too_long" — any beat is padded or carries more than one idea
+- "pacing_uneven" — beats vary wildly in weight; the piece doesn't breathe at a consistent pace
+- "wrong_beat_count" — outside the 3-6 range, or in the 7+ padding zone
+- "wrong_word_count" — outside 1000-1500
+
+Emit one token per VIOLATION KIND, not per instance. Three "beat_too_long" issues collapse to one token. If passed=true, return an empty array []. If a violation truly doesn't fit any token above, omit it from failure_reasons (it still goes in issues[] for human review).
+
+If no issues, return { "passed": true, "issues": [], "suggestions": [], "failure_reasons": [] }`;

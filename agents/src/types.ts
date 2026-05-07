@@ -212,6 +212,92 @@ export const AUDIO_ISSUE_TYPES: ReadonlySet<AudioIssueType> = new Set<AudioIssue
   'unknown',
 ]);
 
+/** Closed enum of failure reasons the Voice Auditor can emit.
+ *  Stored as comma-separated values in `audit_results.failure_reasons`
+ *  on rows where `passed=0`. Each token tags ONE specific kind of
+ *  voice-contract violation; an auditor pass can list multiple tokens.
+ *  Lives in `content/audit-contract.md` "Voice Auditor failure_reasons
+ *  enum" section as the canonical source. Same closed-enum posture as
+ *  RejectionCategory (Task 03), AudioIssueType (Task 05), and
+ *  IntegratorDecision / FeedbackSource (Task 06).
+ *
+ *  `unknown` is reserved for forward-compat — if Claude emits a token
+ *  the closed Set hasn't seen yet, it persists as `unknown` (drift
+ *  becomes visible via the `failure_reasons LIKE '%unknown%'` operator
+ *  query) rather than silently dropping the row.
+ *
+ *  Foundation Fix Task 08 PR 08c (2026-05-07). Closes leak L24. */
+export type VoiceFailureReason =
+  | 'tribe_word'
+  | 'long_sentence'
+  | 'vague_subject'
+  | 'no_specific_example'
+  | 'flattery'
+  | 'jargon_without_translation'
+  | 'unknown';
+
+export const VOICE_FAILURE_REASONS: ReadonlySet<VoiceFailureReason> = new Set<VoiceFailureReason>([
+  'tribe_word',
+  'long_sentence',
+  'vague_subject',
+  'no_specific_example',
+  'flattery',
+  'jargon_without_translation',
+  'unknown',
+]);
+
+/** Closed enum of failure reasons the Structure Editor can emit.
+ *  Same shape as VoiceFailureReason. Tags structural issues with the
+ *  beat contract — beat count, hook shape, pacing, length floors,
+ *  etc. Lives in `content/audit-contract.md` "Structure Editor
+ *  failure_reasons enum" section.
+ *
+ *  Foundation Fix Task 08 PR 08c (2026-05-07). */
+export type StructureFailureReason =
+  | 'weak_hook'
+  | 'missing_close'
+  | 'beat_too_long'
+  | 'pacing_uneven'
+  | 'wrong_beat_count'
+  | 'wrong_word_count'
+  | 'unknown';
+
+export const STRUCTURE_FAILURE_REASONS: ReadonlySet<StructureFailureReason> = new Set<StructureFailureReason>([
+  'weak_hook',
+  'missing_close',
+  'beat_too_long',
+  'pacing_uneven',
+  'wrong_beat_count',
+  'wrong_word_count',
+  'unknown',
+]);
+
+/** Closed enum of failure reasons the Fact Checker can emit. Tags the
+ *  shape of the fact-check failure (an unverified claim, a contradicted
+ *  claim, etc.); the Fact Checker also writes per-claim status into
+ *  `daily_audit_claims` since 2026-04-30, so this enum complements
+ *  that more granular record at the per-audit summary level. Lives in
+ *  `content/audit-contract.md` "Fact Checker failure_reasons enum"
+ *  section.
+ *
+ *  Foundation Fix Task 08 PR 08c (2026-05-07). */
+export type FactFailureReason =
+  | 'unverified_claim'
+  | 'contradicted_claim'
+  | 'missing_source'
+  | 'cutoff_confession'
+  | 'search_not_used'
+  | 'unknown';
+
+export const FACT_FAILURE_REASONS: ReadonlySet<FactFailureReason> = new Set<FactFailureReason>([
+  'unverified_claim',
+  'contradicted_claim',
+  'missing_source',
+  'cutoff_confession',
+  'search_not_used',
+  'unknown',
+]);
+
 /** A news candidate from the Scanner */
 export interface DailyCandidate {
   id: string;

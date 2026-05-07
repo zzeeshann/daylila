@@ -1,6 +1,7 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
-import type { Env } from './types';
+import type { Env, FactFailureReason } from './types';
+import { FACT_FAILURE_REASONS } from './types';
 import { extractJson } from './shared/parse-json';
 import { FACT_CHECKER_PROMPT } from './fact-checker-prompt';
 import { WEB_SEARCH_MAX_USES } from './shared/fact-check-thresholds';
@@ -49,6 +50,12 @@ export interface FactCheckResult {
    *  returned across this audit. Drawer renders a "Sources consulted"
    *  line from this list. */
   sources: string[];
+  /** Foundation Fix Task 08 PR 08c (2026-05-07). Closed-enum tokens
+   *  for the fact-check failure kinds. Empty array on pass. Validated
+   *  against FACT_FAILURE_REASONS at parse time — unknown tokens drop,
+   *  the count surfaces via parseError. */
+  failureReasons: FactFailureReason[];
+  parseError?: string | null;
 }
 
 export interface FactClaim {
@@ -166,7 +173,11 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
 
     const flatSources = Array.from(sources);
 
-    let parsed: { passed?: boolean; claims?: Array<{ claim?: string; status?: string; note?: string }> };
+    let parsed: {
+      passed?: boolean;
+      claims?: Array<{ claim?: string; status?: string; note?: string }>;
+      failure_reasons?: unknown;
+    };
     try {
       parsed = extractJson(textCombined);
     } catch (err) {
@@ -177,6 +188,8 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
         searchUsed,
         searchAvailable,
         sources: flatSources,
+        failureReasons: [],
+        parseError: `Fact checker response was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
       };
       this.setState({ lastResult: result });
       return result;
@@ -194,12 +207,29 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
 
     const hasIncorrect = claims.some((c) => c.status === 'incorrect');
 
+    // Validate failure_reasons against the closed enum. Same posture
+    // as VoiceAuditor + StructureEditor (Task 08 PR 08c).
+    const rawReasons = Array.isArray(parsed.failure_reasons) ? parsed.failure_reasons : [];
+    const failureReasons: FactFailureReason[] = [];
+    let droppedCount = 0;
+    for (const token of rawReasons) {
+      if (typeof token === 'string' && FACT_FAILURE_REASONS.has(token as FactFailureReason)) {
+        failureReasons.push(token as FactFailureReason);
+      } else {
+        droppedCount += 1;
+      }
+    }
+
     const result: FactCheckResult = {
       passed: !hasIncorrect,
       claims,
       searchUsed,
       searchAvailable,
       sources: flatSources,
+      failureReasons,
+      parseError: droppedCount > 0
+        ? `Fact checker dropped ${droppedCount} unknown failure_reason token(s) from the response`
+        : null,
     };
 
     this.setState({ lastResult: result });
