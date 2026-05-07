@@ -4,6 +4,7 @@ import type { Env } from './types';
 import { DirectorAgent } from './director';
 import { ObserverAgent } from './observer';
 import { LearnerAgent } from './learner';
+import { runRetention } from './retention';
 
 // Re-export for Durable Object bindings
 export { DirectorAgent };
@@ -511,5 +512,23 @@ export default {
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
+  },
+
+  /**
+   * Cloudflare Cron Trigger handler — Foundation Fix Task 08
+   * (2026-05-07). Wired in `agents/wrangler.toml` `[triggers] crons =
+   * ["0 4 * * *"]`. Fires daily at 04:00 UTC, two hours after the
+   * 02:00 daily-publish slot.
+   *
+   * Currently single-purpose: daily retention pass. If future cron
+   * triggers land, dispatch on `controller.cron` here.
+   *
+   * `ctx.waitUntil` keeps the worker alive past `scheduled()`'s
+   * synchronous return so the retention writes finish.
+   */
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === '0 4 * * *') {
+      ctx.waitUntil(runRetention(env));
+    }
   },
 } satisfies ExportedHandler<Env>;

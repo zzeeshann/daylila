@@ -183,17 +183,17 @@ try {
 
   // Pipeline history — terminal step per PIECE (not per day) for the
   // last 14 runs. At multi-per-day cadence a calendar day has multiple
-  // pipeline attempts, and grouping by run_id=date hides per-piece run
+  // pipeline attempts, and grouping by run_date=date hides per-piece run
   // quality (one piece could fail out of two and the day-aggregate view
   // would show only the latest terminal step). Group by piece_id post-
   // migration-0018, join daily_pieces for the headline. Orphan piece_ids
   // (scanner-skipped / error before publish) still surface with a null
   // headline so "stalled" runs are visible. Legacy rows with null
   // piece_id fall through the OR branch so they still render, keyed by
-  // run_id alone.
+  // run_date alone.
   const histRes = await db
     .prepare(
-      `SELECT pl.piece_id, pl.run_id, pl.step, pl.status, pl.data, pl.created_at,
+      `SELECT pl.piece_id, pl.run_date, pl.step, pl.status, pl.data, pl.created_at,
               dp.headline, dp.date AS piece_date
        FROM pipeline_log pl
        LEFT JOIN daily_pieces dp ON dp.id = pl.piece_id
@@ -202,16 +202,16 @@ try {
          WHERE created_at = (
            SELECT MAX(created_at) FROM pipeline_log p2
            WHERE (p2.piece_id IS NOT NULL AND p2.piece_id = p1.piece_id)
-              OR (p2.piece_id IS NULL AND p1.piece_id IS NULL AND p2.run_id = p1.run_id)
+              OR (p2.piece_id IS NULL AND p1.piece_id IS NULL AND p2.run_date = p1.run_date)
          )
        )
        ORDER BY pl.created_at DESC LIMIT 14`,
     )
-    .all<{ piece_id: string | null; run_id: string; step: string; status: string; data: string | null; created_at: number; headline: string | null; piece_date: string | null }>();
+    .all<{ piece_id: string | null; run_date: string; step: string; status: string; data: string | null; created_at: number; headline: string | null; piece_date: string | null }>();
   pipelineHistory = histRes.results.map((r) => ({
-    runId: r.run_id,
+    runId: r.run_date,
     pieceId: r.piece_id,
-    date: r.piece_date ?? r.run_id,
+    date: r.piece_date ?? r.run_date,
     headline: r.headline,
     finalStep: r.step,
     finalStatus: r.status,

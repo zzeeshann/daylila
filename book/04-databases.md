@@ -71,3 +71,17 @@ A real project usually uses multiple kinds of storage. Nobody stores MP3s in a r
 When Daylila was designed, the choice was roughly: "audit results, published pieces, engagement records" → D1. "Rate limits" → KV. "Audio clips" → R2. Later, when a new kind of data came along (learnings), it went into D1 because it's structured. When reader sessions came along, those went into KV because they're keyed by session ID.
 
 Once you see this pattern, databases stop being mysterious. They're just specialised filing cabinets. Pick the one that matches what you're filing.
+
+## Keeping data forever isn't a virtue
+
+A specialised filing cabinet only works if you're honest about what's worth keeping.
+
+Daylila's database holds three kinds of data. There are the published pieces themselves — those are permanent, part of the record. There are signals tied to those pieces — audit scores, learnings, the per-feedback decisions the Integrator made on each round. Those stay too; they're how the system explains and improves itself. And then there's process noise — every time the Scanner pulls a story it doesn't pick, every "running" status update written to the pipeline log, every routine event written to the observer feed.
+
+Process noise grows fast. At one piece a day with eighty candidates per scan, just the rejected-candidate rows pile up at fifty thousand a year. Multiply that across the half-dozen tables that record process steps and you get millions of rows of nothing-ever-read in a few years.
+
+The honest answer is to delete it. Not all of it — published-piece audits stay forever — but the process noise has a window. Ninety days for routine observer events, ninety days for unselected candidates, one hundred and eighty for the per-step pipeline log. Each table's window reflects how long a human might plausibly want to look at it. After that, it's gone.
+
+A small worker runs at four in the morning each day, walks the policy table, and deletes what's expired. It logs what it did to the same observer feed it's helping prune. Before it deletes anything from a table that could link to a published piece, it checks that the rows it's about to delete don't link — if any do, it stops and writes a high-severity event, because that's a bug, not retention.
+
+The discipline is small but the principle behind it matters: every row a system keeps is a row it has to read past, back up, and reason about. Keeping data forever isn't a virtue. Keeping the right data forever is.

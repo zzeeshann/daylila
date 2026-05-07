@@ -6,6 +6,7 @@ import { AUDIO_CHAR_CAP } from './shared/audio-thresholds';
 export interface AudioAuditBrief {
   pieceId: string;
   date: string; // YYYY-MM-DD — retained for display/logging only
+  runId?: string | null; // Foundation Fix Task 08 (2026-05-07) — per-run UUID
 }
 
 export interface AudioAuditResult {
@@ -107,7 +108,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
         totalSizeBytes: 0,
         persistError: null,
       };
-      result.persistError = await this.persistAuditRows(brief.pieceId, result);
+      result.persistError = await this.persistAuditRows(brief.pieceId, brief.runId ?? null, result);
       this.setState({ lastResult: result });
       return result;
     }
@@ -234,6 +235,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
    */
   private async persistAuditRows(
     pieceId: string,
+    runId: string | null,
     result: AudioAuditResult,
   ): Promise<string | null> {
     try {
@@ -241,8 +243,8 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
       const stmt = this.env.DB.prepare(
         `INSERT INTO audio_audit_results
          (id, piece_id, beat_name, passed, issue_type, issue_severity,
-          notes, r2_key, actual_size_bytes, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          notes, r2_key, actual_size_bytes, created_at, run_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
 
       const majorCount = result.issues.filter((i) => i.severity === 'major').length;
@@ -260,6 +262,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
           issue.r2Key ?? null,
           issue.actualSizeBytes ?? null,
           now,
+          runId,
         ),
       );
 
@@ -274,6 +277,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
         null, // r2_key NULL on summary
         null, // actual_size_bytes NULL on summary
         now,
+        runId,
       );
 
       await this.env.DB.batch([...issueRows, summaryRow]);

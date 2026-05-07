@@ -157,6 +157,16 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // tables. See DECISIONS 2026-04-22 "piece_id columns on day-keyed
     // tables".
     const pieceId = crypto.randomUUID();
+    // Pre-allocate run_id at run-start (Foundation Fix Task 08, 2026-05-07).
+    // Per-pipeline-execution UUID — multiple pieces shipped on the same
+    // calendar date share the same `today` (run_date) but each carries
+    // a unique runId. logStep + saveAuditResults + scheduled-alarm
+    // payloads thread this through so every row produced by this run
+    // is forensically traceable end-to-end. Off-pipeline observer
+    // events from post-publish alarms (Categoriser, Learner reflection,
+    // Zita synthesis, Interactive generation) get this runId via the
+    // schedule payload. Migration 0037.
+    const runId = crypto.randomUUID();
 
     // Cadence config — read above the guard below because the guard's
     // slot-start math depends on intervalHours. Phase 3's hourly-cron
@@ -188,29 +198,32 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .first<{ id: string }>();
       if (existing) {
         const observer = await this.subAgent(ObserverAgent, 'observer');
-        await observer.logDailyRunSkipped(today, intervalHours, slotStartMs, existing.id);
+        // runId not yet allocated — slot guard fires before we mint one.
+        // existing.id is the piece occupying the slot; runId attribution
+        // belongs to its run, not this skipped one.
+        await observer.logDailyRunSkipped(today, intervalHours, slotStartMs, existing.id, null);
         return null;
       }
     }
 
     // ─── Phase 1: Scanner ────────────────────────────────────────────
     this.enterPhase('scanner', `daily/${today}`);
-    await this.logStep(today, pieceId,'scanning', 'running', { intervalHours });
+    await this.logStep(today, pieceId, runId,'scanning', 'running', { intervalHours });
     const scanner = await this.subAgent(ScannerAgent, 'scanner');
-    const candidates = await scanner.scan(pieceId);
-    await this.logStep(today, pieceId,'scanning', 'done', { candidateCount: candidates.length });
+    const candidates = await scanner.scan(pieceId, runId);
+    await this.logStep(today, pieceId, runId,'scanning', 'done', { candidateCount: candidates.length });
 
     if (candidates.length === 0) {
-      await this.logStep(today, pieceId,'skipped', 'done', { reason: 'No candidates found' });
+      await this.logStep(today, pieceId, runId,'skipped', 'done', { reason: 'No candidates found' });
       const observer = await this.subAgent(ObserverAgent, 'observer');
-      await observer.logError('daily', 0, 'Scanner found no candidates', pieceId);
+      await observer.logError('daily', 0, 'Scanner found no candidates', pieceId, runId);
       this.exitToIdle();
       return null;
     }
 
     // ─── Phase 2: Curator ────────────────────────────────────────────
     this.enterPhase('curator');
-    await this.logStep(today, pieceId,'curating', 'running', {});
+    await this.logStep(today, pieceId, runId,'curating', 'running', {});
     const curator = await this.subAgent(CuratorAgent, 'curator');
     const recentPieces = await this.getRecentDailyPieces(CURATOR_RECENT_WINDOW_DAYS);
 
@@ -238,6 +251,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           sharedTokens: f.match.sharedTokens,
         })),
         pieceId,
+        runId,
       );
     }
 
@@ -247,6 +261,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         'dedup-filter', 0,
         `Headline-overlap dedup would have removed all ${candidates.length} candidates against recent pieces; falling back to unfiltered list (better a possible duplicate than no piece). Investigate the threshold or Scanner output.`,
         pieceId,
+        runId,
       );
     }
 
@@ -254,9 +269,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts);
 
     if (curatorResult.skip) {
-      await this.logStep(today, pieceId,'skipped', 'done', { reason: curatorResult.reason });
+      await this.logStep(today, pieceId, runId,'skipped', 'done', { reason: curatorResult.reason });
       const observer = await this.subAgent(ObserverAgent, 'observer');
-      await observer.logError('daily', 0, curatorResult.reason, pieceId);
+      await observer.logError('daily', 0, curatorResult.reason, pieceId, runId);
       this.exitToIdle();
       return null;
     }
@@ -267,7 +282,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // date-force in MDX frontmatter can never drift from Director's run date,
     // regardless of what Claude put in the brief.
     brief.date = today;
-    await this.logStep(today, pieceId,'curating', 'done', {
+    await this.logStep(today, pieceId, runId,'curating', 'done', {
       headline: brief.headline, subject: brief.underlyingSubject, newsSource: brief.newsSource,
     });
 
@@ -284,8 +299,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     if (curatorResult.selectedCandidateId) {
       try {
         const upd = await this.env.DB
-          .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100, pick_reasoning = ? WHERE id = ?')
-          .bind(curatorResult.pickReasoning ?? null, curatorResult.selectedCandidateId)
+          .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100, pick_reasoning = ?, run_id = ? WHERE id = ?')
+          .bind(curatorResult.pickReasoning ?? null, runId, curatorResult.selectedCandidateId)
           .run();
         if (!upd.meta || upd.meta.changes === 0) {
           const observer = await this.subAgent(ObserverAgent, 'observer');
@@ -293,6 +308,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             'curator', 0,
             `selectedCandidateId ${curatorResult.selectedCandidateId} matched 0 rows in daily_candidates — id shape drift from Curator`,
             pieceId,
+            runId,
           );
         }
       } catch (err) {
@@ -301,6 +317,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           'curator', 0,
           `Failed to mark selected candidate: ${err instanceof Error ? err.message : String(err)}`,
           pieceId,
+          runId,
         );
       }
     } else {
@@ -309,6 +326,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         'curator', 0,
         `Curator returned no selectedCandidateId — prompt regression or empty candidate list`,
         pieceId,
+        runId,
       );
     }
 
@@ -331,9 +349,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         validUpdates.push(
           this.env.DB
             .prepare(
-              'UPDATE daily_candidates SET rejection_category = ?, rejection_reason = ? WHERE id = ? AND piece_id = ?',
+              'UPDATE daily_candidates SET rejection_category = ?, rejection_reason = ?, run_id = ? WHERE id = ? AND piece_id = ?',
             )
-            .bind(r.rejectionCategory, r.rejectionReason ?? null, r.id, pieceId),
+            .bind(r.rejectionCategory, r.rejectionReason ?? null, runId, r.id, pieceId),
         );
       }
       if (unknownCategoryCount > 0) {
@@ -343,6 +361,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           0,
           `Curator returned ${unknownCategoryCount} rejection(s) with unknown rejection_category — closed-enum drift; skipped persistence for those rows`,
           pieceId,
+          runId,
         );
       }
       if (validUpdates.length > 0) {
@@ -359,6 +378,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
               0,
               `Curator returned ${validUpdates.length} rejection(s) but all UPDATEs matched 0 rows in daily_candidates — id shape drift`,
               pieceId,
+              runId,
             );
           }
         } catch (err) {
@@ -368,6 +388,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             0,
             `Failed to persist rejection reasoning: ${err instanceof Error ? err.message : String(err)}`,
             pieceId,
+            runId,
           );
         }
       }
@@ -375,9 +396,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     // ─── Phase 3: Drafter ────────────────────────────────────────────
     this.enterPhase('drafter');
-    await this.logStep(today, pieceId,'drafting', 'running', {});
+    await this.logStep(today, pieceId, runId,'drafting', 'running', {});
     const drafter = await this.subAgent(DrafterAgent, 'drafter');
-    const draftResult = await drafter.draft(brief, pieceId);
+    const draftResult = await drafter.draft(brief, pieceId, runId);
     const { mdx, wordCount, loadedLearningIds } = draftResult;
     // Foundation Fix Task 06 (L4): if the round-0 write to draft_revisions
     // tripped, log once via observer. The MDX itself is preserved — the
@@ -387,10 +408,10 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     if (draftResult.persistError) {
       const obs = await this.subAgent(ObserverAgent, 'observer');
       await obs
-        .logError('drafter', 0, `draft_revisions round-0 persist failed: ${draftResult.persistError}`, pieceId)
+        .logError('drafter', 0, `draft_revisions round-0 persist failed: ${draftResult.persistError}`, pieceId, runId)
         .catch(() => {});
     }
-    await this.logStep(today, pieceId,'drafting', 'done', {
+    await this.logStep(today, pieceId, runId,'drafting', 'done', {
       wordCount, beatCount: brief.beats?.length ?? 0,
     });
 
@@ -411,7 +432,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     for (let round = 1; round <= MAX_REVISIONS; round++) {
       totalRounds = round;
-      await this.logStep(today, pieceId,`auditing_r${round}`, 'running', { round });
+      await this.logStep(today, pieceId, runId,`auditing_r${round}`, 'running', { round });
       const [voiceResult, structureResult, factResult] = await Promise.all([
         (await this.subAgent(VoiceAuditorAgent, `voice-daily-r${round}`)).audit(currentMdx),
         (await this.subAgent(StructureEditorAgent, `struct-daily-r${round}`)).review(currentMdx),
@@ -420,7 +441,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
       lastFactResult = factResult;
 
-      await this.saveAuditResults(taskId, pieceId, round, voiceResult, structureResult, factResult);
+      await this.saveAuditResults(taskId, pieceId, runId, round, voiceResult, structureResult, factResult);
 
       // "No silent failure" (architecture §3.2): if the fact-checker's
       // web_search tool was unavailable, surface it via Observer. Pipeline
@@ -433,6 +454,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           'fact-check',
           0,
           'Anthropic web_search tool unavailable — fact-check fell back to training-data inference',
+          pieceId,
+          runId,
         ).catch(() => {});
       }
 
@@ -442,7 +465,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       if (!structureResult.passed) failedGates.push('structure');
       if (!factResult.passed) failedGates.push('facts');
 
-      await this.logStep(today, pieceId,`auditing_r${round}`, failedGates.length === 0 ? 'done' : 'failed', {
+      await this.logStep(today, pieceId, runId,`auditing_r${round}`, failedGates.length === 0 ? 'done' : 'failed', {
         round, voiceScore: lastVoiceScore,
         voicePassed: voiceResult.passed, factsPassed: factResult.passed, structurePassed: structureResult.passed,
         violations: voiceResult.violations?.slice(0, 3),
@@ -456,7 +479,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // ─── Integrator: revise if any gate failed ──────────────────────
       if (round < MAX_REVISIONS) {
         this.enterPhase('integrator');
-        await this.logStep(today, pieceId,`revising_r${round}`, 'running', { round, failedGates });
+        await this.logStep(today, pieceId, runId,`revising_r${round}`, 'running', { round, failedGates });
         const integrator = await this.subAgent(IntegratorAgent, `integrator-daily-${today}`);
         // Foundation Fix Task 06 (L8 + L9): pieceId and round thread
         // through so Integrator can write its own draft_revisions row
@@ -466,6 +489,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         // as the audio-auditor persistError handler (Task 05).
         const revision = await integrator.revise(
           pieceId,
+          runId,
           round,
           currentMdx,
           voiceResult,
@@ -476,16 +500,16 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         if (revision.parseError) {
           const obs = await this.subAgent(ObserverAgent, 'observer');
           await obs
-            .logError('integrator', round, `decisions parse fallback: ${revision.parseError}`, pieceId)
+            .logError('integrator', round, `decisions parse fallback: ${revision.parseError}`, pieceId, runId)
             .catch(() => {});
         }
         if (revision.persistError) {
           const obs = await this.subAgent(ObserverAgent, 'observer');
           await obs
-            .logError('integrator', round, `revision persist failed: ${revision.persistError}`, pieceId)
+            .logError('integrator', round, `revision persist failed: ${revision.persistError}`, pieceId, runId)
             .catch(() => {});
         }
-        await this.logStep(today, pieceId,`revising_r${round}`, 'done', { round, decisions: revision.decisions.length });
+        await this.logStep(today, pieceId, runId,`revising_r${round}`, 'done', { round, decisions: revision.decisions.length });
         this.enterPhase('auditors'); // back to audit for next round
       }
     }
@@ -595,11 +619,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // Log escalation — Zishan still needs to know when a piece shipped
       // low. Publisher runs after this so the Observer entry exists
       // regardless of whether the git commit succeeds.
-      await observer.logEscalation('daily', 0, brief.headline, lastVoiceScore, totalRounds, failedGates, pieceId);
+      await observer.logEscalation('daily', 0, brief.headline, lastVoiceScore, totalRounds, failedGates, pieceId, runId);
     }
 
     this.enterPhase('publisher');
-    await this.logStep(today, pieceId,'publishing', 'running', { qualityFlag });
+    await this.logStep(today, pieceId, runId,'publishing', 'running', { qualityFlag });
     const publisher = await this.subAgent(PublisherAgent, `publisher-daily-${today}`);
     const slug = brief.headline.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
     const filePath = `content/daily-pieces/${today}-${slug}.mdx`;
@@ -627,15 +651,15 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const readingMinutes = Math.max(1, Math.round(wordCount / 200));
     await this.env.DB
       .prepare(
-        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, word_count, beat_count, voice_score, fact_check_passed, quality_flag, reading_minutes, published_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, word_count, beat_count, voice_score, fact_check_passed, quality_flag, reading_minutes, published_at, created_at, run_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(pieceId, today, brief.headline, brief.underlyingSubject, brief.newsSource ?? '',
-        wordCount, brief.beats?.length ?? 0, lastVoiceScore, factsPassed, qualityFlag, readingMinutes, publishedAtMs, publishedAtMs)
+        wordCount, brief.beats?.length ?? 0, lastVoiceScore, factsPassed, qualityFlag, readingMinutes, publishedAtMs, publishedAtMs, runId)
       .run().catch(() => {});
 
-    await this.logStep(today, pieceId,'publishing', 'done', { commitUrl: publishResult.commitUrl, filePath: publishResult.filePath, qualityFlag });
-    await this.logStep(today, pieceId,'done', 'done', {
+    await this.logStep(today, pieceId, runId,'publishing', 'done', { commitUrl: publishResult.commitUrl, filePath: publishResult.filePath, qualityFlag });
+    await this.logStep(today, pieceId, runId,'done', 'done', {
       headline: brief.headline,
       date: today,
       voiceScore: lastVoiceScore,
@@ -648,7 +672,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // low-quality publish distinctly from a clean one (escalation already
     // logged above in the !passed branch).
     if (passed) {
-      await observer.logPublished('daily', 0, brief.headline, lastVoiceScore, totalRounds - 1, publishResult.commitUrl, pieceId);
+      await observer.logPublished('daily', 0, brief.headline, lastVoiceScore, totalRounds - 1, publishResult.commitUrl, pieceId, runId);
     }
 
     // ─── Learner feedback loop — close L15 (Foundation Fix Task 04) ──
@@ -709,6 +733,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           0,
           `Failed to persist learnings feedback for ${loadedLearningIds.length} loaded id(s): ${err instanceof Error ? err.message : String(err)}`,
           pieceId,
+          runId,
         );
       }
     }
@@ -722,6 +747,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // before the audio schedule so alarm ordering is deterministic.
     await this.schedule(1, 'analyseProducerSignalsScheduled', {
       pieceId,
+      runId,
       date: today,
       title: brief.headline,
     });
@@ -737,6 +763,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // reflection prompt has the original ask alongside the MDX.
     await this.schedule(1, 'reflectOnPieceScheduled', {
       pieceId,
+      runId,
       date: today,
       title: brief.headline,
       filePath: publishResult.filePath,
@@ -761,6 +788,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const ZITA_SYNTHESIS_DELAY_SECONDS = 23 * 60 * 60 + 45 * 60; // 85500s
     await this.schedule(ZITA_SYNTHESIS_DELAY_SECONDS, 'analyseZitaPatternsScheduled', {
       pieceId,
+      runId,
       date: today,
       title: brief.headline,
     });
@@ -777,6 +805,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // 2 sub-task 2.2 — CategoriserAgent".
     await this.schedule(1, 'categoriseScheduled', {
       pieceId,
+      runId,
       date: today,
       title: brief.headline,
       filePath: publishResult.filePath,
@@ -793,6 +822,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // See DECISIONS 2026-04-24 "Area 4 sub-task 4.4 — InteractiveGeneratorAgent".
     await this.schedule(1, 'generateInteractiveScheduled', {
       pieceId,
+      runId,
       date: today,
       title: brief.headline,
       filePath: publishResult.filePath,
@@ -809,6 +839,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // DECISIONS 2026-04-19 "Audio via alarm, not inline".
     await this.schedule(2, 'runAudioPipelineScheduled', {
       pieceId,
+      runId,
       date: today,
       filePath: publishResult.filePath,
       title: brief.headline,
@@ -843,23 +874,25 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async analyseProducerSignalsScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
   }): Promise<void> {
     const { pieceId, date, title } = payload;
+    const runId = payload.runId ?? null;
     const observer = await this.subAgent(ObserverAgent, 'observer');
     try {
       const learner = await this.subAgent(LearnerAgent, 'learner');
       const result = await learner.analysePiecePostPublish(pieceId, date);
       if (result.overflowCount > 0) {
         await observer
-          .logLearnerOverflow(date, title, result.written, result.overflowCount, pieceId)
+          .logLearnerOverflow(date, title, result.written, result.overflowCount, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer
-        .logLearnerFailure(date, title, reason, pieceId)
+        .logLearnerFailure(date, title, reason, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
       // non-retriable: logged, moving on
     }
@@ -879,21 +912,23 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async analyseZitaPatternsScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
   }): Promise<void> {
     const { pieceId, date, title } = payload;
+    const runId = payload.runId ?? null;
     const observer = await this.subAgent(ObserverAgent, 'observer');
     try {
       const learner = await this.subAgent(LearnerAgent, 'learner');
       const result = await learner.analyseZitaPatternsDaily(pieceId, date);
       await observer
-        .logZitaSynthesisMetered(date, title, result, pieceId)
+        .logZitaSynthesisMetered(date, title, result, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer
-        .logZitaSynthesisFailure(date, title, reason, pieceId)
+        .logZitaSynthesisFailure(date, title, reason, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
       // non-retriable: logged, moving on
     }
@@ -915,12 +950,14 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async reflectOnPieceScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
     filePath: string;
     brief: DailyPieceBrief;
   }): Promise<void> {
     const { pieceId, date, title, filePath, brief } = payload;
+    const runId = payload.runId ?? null;
     const observer = await this.subAgent(ObserverAgent, 'observer');
     try {
       const publisher = await this.subAgent(PublisherAgent, `scheduled-reader-${date}`);
@@ -928,19 +965,19 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       if (!current) {
         console.error(`reflectOnPieceScheduled: MDX not found at ${filePath} for ${date}`);
         await observer
-          .logReflectionFailure(date, title, `MDX not found at ${filePath}`, pieceId)
+          .logReflectionFailure(date, title, `MDX not found at ${filePath}`, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
         return;
       }
       const drafter = await this.subAgent(DrafterAgent, 'drafter');
       const result = await drafter.reflect(brief, current.mdx, date, pieceId);
       await observer
-        .logReflectionMetered(date, title, result, pieceId)
+        .logReflectionMetered(date, title, result, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer
-        .logReflectionFailure(date, title, reason, pieceId)
+        .logReflectionFailure(date, title, reason, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
       // non-retriable: logged, moving on
     }
@@ -967,18 +1004,20 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async categoriseScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
     filePath: string;
   }): Promise<void> {
     const { pieceId, date, title, filePath } = payload;
+    const runId = payload.runId ?? null;
     const observer = await this.subAgent(ObserverAgent, 'observer');
     try {
       const publisher = await this.subAgent(PublisherAgent, `scheduled-reader-${date}`);
       const current = await publisher.readPublishedMdx(filePath);
       if (!current) {
         await observer
-          .logCategoriserFailure(date, title, `MDX not found at ${filePath}`, pieceId)
+          .logCategoriserFailure(date, title, `MDX not found at ${filePath}`, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
         return;
       }
@@ -999,6 +1038,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
               tokensOutFirst: result.tokensOutFirst,
             },
             pieceId,
+            runId,
           )
           .catch(() => { /* observer write failure never blocks */ });
       }
@@ -1016,17 +1056,18 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
               durationMs: result.durationMs,
             },
             pieceId,
+            runId,
           )
           .catch(() => { /* observer write failure never blocks */ });
       } else {
         await observer
-          .logCategoriserMetered(date, title, result, pieceId)
+          .logCategoriserMetered(date, title, result, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer
-        .logCategoriserFailure(date, title, reason, pieceId)
+        .logCategoriserFailure(date, title, reason, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
       // non-retriable: logged, moving on
     }
@@ -1055,6 +1096,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async requestInteractiveGenerate(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
     filePath: string;
@@ -1081,18 +1123,20 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async generateInteractiveScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
     filePath: string;
   }): Promise<void> {
     const { pieceId, date, title, filePath } = payload;
+    const runId = payload.runId ?? null;
     const observer = await this.subAgent(ObserverAgent, 'observer');
     try {
       const publisher = await this.subAgent(PublisherAgent, `scheduled-reader-${date}`);
       const current = await publisher.readPublishedMdx(filePath);
       if (!current) {
         await observer
-          .logInteractiveGeneratorFailure(date, title, `MDX not found at ${filePath}`, pieceId)
+          .logInteractiveGeneratorFailure(date, title, `MDX not found at ${filePath}`, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
         return;
       }
@@ -1109,6 +1153,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             totalDurationMs: result.durationMs,
           },
           pieceId,
+          runId,
         )
         .catch(() => { /* observer write failure never blocks */ });
       // 2026-04-30 hardening — emit one info-severity breadcrumb per
@@ -1117,13 +1162,13 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // visible in the admin feed without firing as warns.
       for (const pf of result.quiz.parseFailures) {
         await observer
-          .logInteractiveGeneratorParseFail(date, title, 'quiz', pf.round, pieceId)
+          .logInteractiveGeneratorParseFail(date, title, 'quiz', pf.round, pieceId, runId)
           .catch(() => { /* observer write failure never blocks */ });
       }
       if (result.html) {
         for (const pf of result.html.parseFailures) {
           await observer
-            .logInteractiveGeneratorParseFail(date, title, 'html', pf.round, pieceId)
+            .logInteractiveGeneratorParseFail(date, title, 'html', pf.round, pieceId, runId)
             .catch(() => { /* observer write failure never blocks */ });
         }
       }
@@ -1140,6 +1185,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             `${title} (quiz)`,
             result.quiz.errorMessage,
             pieceId,
+            runId,
           )
           .catch(() => { /* observer write failure never blocks */ });
       }
@@ -1150,13 +1196,14 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             `${title} (html)`,
             result.html.errorMessage,
             pieceId,
+            runId,
           )
           .catch(() => { /* observer write failure never blocks */ });
       }
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'unknown error';
       await observer
-        .logInteractiveGeneratorFailure(date, title, reason, pieceId)
+        .logInteractiveGeneratorFailure(date, title, reason, pieceId, runId)
         .catch(() => { /* observer write failure never blocks */ });
       // non-retriable: logged, moving on
     }
@@ -1340,11 +1387,19 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async runAudioPipelineScheduled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     filePath: string;
     title: string;
   }): Promise<void> {
     const { pieceId, date, filePath, title } = payload;
+    // Foundation Fix Task 08 (2026-05-07): runId may be absent from the
+    // payload when this alarm runs from retryAudio / retryAudioFresh /
+    // retryAudioBeat (the operator path is a fresh run). Generate a
+    // synthetic UUID for those callers so pipeline_log + audit rows
+    // still group cleanly. Inline-pipeline alarms scheduled from
+    // triggerDailyPiece always carry runId.
+    const runId = payload.runId ?? crypto.randomUUID();
 
     // Arm a silent-stall watchdog — 12min gives the outer alarm (15min
     // wall budget) 3min of head-room. If the audio pipeline exceeds
@@ -1356,6 +1411,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // when an audio-failure event already fired since `armedAt`.
     await this.schedule(12 * 60, 'checkAudioStalled', {
       pieceId,
+      runId,
       date,
       title,
       armedAt: Date.now(),
@@ -1374,11 +1430,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         'producer',
         `Scheduled audio skipped — MDX not found at ${filePath}`,
         pieceId,
+        runId,
       );
       return;
     }
 
-    await this.runAudioPipeline(pieceId, date, current.mdx, filePath, title);
+    await this.runAudioPipeline(pieceId, runId, date, current.mdx, filePath, title);
   }
 
   /**
@@ -1400,11 +1457,13 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async checkAudioStalled(payload: {
     pieceId: string;
+    runId?: string | null;
     date: string;
     title: string;
     armedAt: number;
   }): Promise<void> {
     const { pieceId, date, title, armedAt } = payload;
+    const runId = payload.runId ?? null;
 
     // (1) If has_audio=1, the pipeline completed normally before the
     // watchdog fired. No-op.
@@ -1438,6 +1497,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       'producer',
       `Silent stall — audio pipeline exceeded 12min watchdog with no completion or failure event. Manual retry likely required.`,
       pieceId,
+      runId,
     );
   }
 
@@ -1456,6 +1516,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   private async runAudioPipeline(
     pieceId: string,
+    runId: string,
     date: string,
     mdx: string,
     filePath: string,
@@ -1476,7 +1537,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // maxBeats uses, so neither side can drift.
     const MAX_CHUNK_ITERATIONS = 10; // safety belt for runaway loops
     this.enterPhase('audio-producer');
-    await this.logStep(date, pieceId,'audio-producing', 'running', {});
+    await this.logStep(date, pieceId, runId,'audio-producing', 'running', {});
     let totalBeats = 0;
     let totalCharacters = 0;
     let chunkIterations = 0;
@@ -1503,11 +1564,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       const reason = err instanceof AudioBudgetExceededError
         ? `Over ${err.cap}-char cap (would spend ${err.totalChars} chars)`
         : err instanceof Error ? err.message : 'Producer failed';
-      await this.logStep(date, pieceId,'audio-producing', 'failed', { reason });
-      await observer.logAudioFailure(date, title, 'producer', reason, pieceId);
+      await this.logStep(date, pieceId, runId,'audio-producing', 'failed', { reason });
+      await observer.logAudioFailure(date, title, 'producer', reason, pieceId, runId);
       return;
     }
-    await this.logStep(date, pieceId,'audio-producing', 'done', {
+    await this.logStep(date, pieceId, runId,'audio-producing', 'done', {
       beatCount: totalBeats,
       totalCharacters,
       durationEstimate: Math.round((totalCharacters / 5 / 150) * 60),
@@ -1516,9 +1577,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     // ─── audio-auditor ──────────────────────────────────────────────
     this.enterPhase('audio-auditor');
-    await this.logStep(date, pieceId,'audio-auditing', 'running', {});
+    await this.logStep(date, pieceId, runId,'audio-auditing', 'running', {});
     const auditor = await this.subAgent(AudioAuditorAgent, `audio-auditor-${date}`);
-    const auditResult = await auditor.audit({ pieceId, date });
+    const auditResult = await auditor.audit({ pieceId, date, runId });
     // L12 (Foundation Fix Task 05): the auditor persists its verdict
     // to audio_audit_results inside audit() and surfaces a sentinel on
     // throw. Fire one Observer error here (no per-row spam) — the
@@ -1532,9 +1593,10 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         0,
         `audio_audit_results persist failed: ${auditResult.persistError}`,
         pieceId,
+        runId,
       );
     }
-    await this.logStep(date, pieceId,'audio-auditing', auditResult.passed ? 'done' : 'failed', {
+    await this.logStep(date, pieceId, runId,'audio-auditing', auditResult.passed ? 'done' : 'failed', {
       passed: auditResult.passed,
       beatCount: auditResult.beatCount,
       totalCharacters: auditResult.totalCharacters,
@@ -1547,7 +1609,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .filter((i) => i.severity === 'major')
         .map((i) => i.issue)
         .join('; ');
-      await observer.logAudioFailure(date, title, 'auditor', majorReasons, pieceId);
+      await observer.logAudioFailure(date, title, 'auditor', majorReasons, pieceId, runId);
       return;
     }
 
@@ -1556,7 +1618,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // set of beats regardless of how many chunks produced them, plus
     // any beats from prior partial runs picked up via R2 head-check.
     this.enterPhase('audio-publisher');
-    await this.logStep(date, pieceId,'audio-publishing', 'running', {});
+    await this.logStep(date, pieceId, runId,'audio-publishing', 'running', {});
     // ORDER BY beat_name ASC (not generated_at) so the audioBeats map
     // serialises identically across runs regardless of which beat was
     // regenerated most recently. Publisher's splice compares the full
@@ -1585,7 +1647,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .bind(pieceId)
         .run()
         .catch(() => {});
-      await this.logStep(date, pieceId,'audio-publishing', 'done', {
+      await this.logStep(date, pieceId, runId,'audio-publishing', 'done', {
         commitUrl: publishResult.commitUrl,
         beatCount: finalBeatCount,
       });
@@ -1596,11 +1658,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         totalCharacters,
         publishResult.commitUrl,
         pieceId,
+        runId,
       );
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'Publisher failed';
-      await this.logStep(date, pieceId,'audio-publishing', 'failed', { reason });
-      await observer.logAudioFailure(date, title, 'publisher', reason, pieceId);
+      await this.logStep(date, pieceId, runId,'audio-publishing', 'failed', { reason });
+      await observer.logAudioFailure(date, title, 'publisher', reason, pieceId, runId);
     }
   }
 
@@ -1653,6 +1716,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         0,
         `retryAudio no-op: piece ${pieceId} already has audio published (has_audio=1). Use "Start over" or per-beat Regenerate to trigger a rewrite.`,
         pieceId,
+        null,
       );
       return;
     }
@@ -1788,6 +1852,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         0,
         `retryAudioBeat: no daily_piece_audio row for piece ${pieceId} beat "${beatName}". Use Continue to generate missing beats.`,
         pieceId,
+        null,
       );
       return;
     }
@@ -1916,6 +1981,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   private async saveAuditResults(
     taskId: string,
     pieceId: string,
+    runId: string,
     round: number,
     voice: VoiceAuditResult,
     structure: StructureAuditResult,
@@ -1930,17 +1996,21 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // citation URL list) from this JSON to render the "Sources
     // consulted" line under the Facts section. Pre-Path-A rows have a
     // bare claims array; the API parser handles both shapes.
+    //
+    // Foundation Fix Task 08 (2026-05-07): each audit row also carries
+    // run_id (UUID) so multi-piece-per-day runs are forensically
+    // traceable end-to-end. Migration 0037.
     try {
       await this.env.DB.batch([
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(crypto.randomUUID(), taskId, draftId, 'voice', voice.passed ? 1 : 0, voice.score, JSON.stringify(voice.violations), now, pieceId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(crypto.randomUUID(), taskId, draftId, 'voice', voice.passed ? 1 : 0, voice.score, JSON.stringify(voice.violations), now, pieceId, runId),
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId, runId),
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts), now, pieceId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts), now, pieceId, runId),
       ]);
     } catch { /* audit logging shouldn't break the pipeline */ }
 
@@ -1950,13 +2020,14 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // rows. Columns stay in the schema (additive nullable) for back-
     // compat; an admin "claims explorer" view can still query by piece
     // + round + status without the per-claim source attribution.
+    // Foundation Fix Task 08 (2026-05-07): also writes run_id.
     if (Array.isArray(facts.claims) && facts.claims.length > 0) {
       try {
         const stmts = facts.claims.map((claim, idx) =>
           this.env.DB.prepare(
             `INSERT INTO daily_audit_claims
-              (id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              (id, audit_result_id, piece_id, round, claim_index, claim_text, status, note, sources_json, search_query, created_at, run_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           ).bind(
             crypto.randomUUID(),
             factAuditId,
@@ -1969,6 +2040,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
             null,
             null,
             now,
+            runId,
           ),
         );
         await this.env.DB.batch(stmts);
@@ -1980,22 +2052,26 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
   }
 
   /** Write a step to the pipeline_log table for the admin monitor.
-   *  `runId` stays YYYY-MM-DD for day-grouping consumers (Phase 3
-   *  walk-back); `pieceId` is the additive per-piece axis introduced
-   *  in migration 0018 to isolate multi-per-day runs. Orphan piece_ids
-   *  (runs that skip or error before publishing) are acceptable —
-   *  readers filter on daily_pieces.id JOIN where needed. */
+   *  `runDate` stays YYYY-MM-DD for day-grouping consumers (Phase 3
+   *  walk-back; renamed from `run_id` in migration 0037 / Foundation
+   *  Fix Task 08). `pieceId` is the per-piece axis from migration 0018.
+   *  `runId` is the new UUID per pipeline run from migration 0037 —
+   *  multi-piece-per-day runs share a `runDate` but each has a unique
+   *  `runId`. Orphan piece_ids (runs that skip or error before
+   *  publishing) are acceptable — readers filter on daily_pieces.id
+   *  JOIN where needed. */
   private async logStep(
-    runId: string,
+    runDate: string,
     pieceId: string,
+    runId: string,
     step: string,
     status: string,
     data: Record<string, unknown>,
   ): Promise<void> {
     try {
       await this.env.DB
-        .prepare('INSERT INTO pipeline_log (id, run_id, step, status, data, created_at, piece_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(crypto.randomUUID(), runId, step, status, JSON.stringify(data), Date.now(), pieceId)
+        .prepare('INSERT INTO pipeline_log (id, run_date, step, status, data, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(crypto.randomUUID(), runDate, step, status, JSON.stringify(data), Date.now(), pieceId, runId)
         .run();
     } catch { /* pipeline log shouldn't break the pipeline */ }
   }

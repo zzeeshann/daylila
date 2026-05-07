@@ -355,6 +355,87 @@ Migrations are tracked in the `d1_migrations` table. As of late April 2026 the t
   The result should list every `.sql` file in `migrations/` except the pending one. If rows are missing, the tracker is drifted and `migrations apply` will try to replay everything — likely hitting `duplicate column name` on an `ALTER TABLE ADD COLUMN` that's already live.
 - **If drift is detected:** recovery is to manually `INSERT INTO d1_migrations (name) VALUES ('NNNN_…')` for the already-applied rows the tracker is missing, then re-run `migrations apply`. Full procedure and the specific rows inserted on 2026-04-20 are documented in [DECISIONS.md](DECISIONS.md) 2026-04-20 "Surfacing the learning loop" (operational-notes bullet on the migration-apply snag).
 
+### Verify run_id populates end-to-end (Foundation Fix Task 08, post-cron)
+
+After the next 02:00 UTC publish + 04:00 UTC retention pair runs (live or DRY_RUN), verify run_id threading lands cleanly:
+
+```sql
+-- pipeline_log carries both run_date (date) and run_id (UUID):
+SELECT run_date, run_id, COUNT(*) AS steps
+FROM pipeline_log
+WHERE created_at > unixepoch() * 1000 - 86400000
+GROUP BY run_date, run_id
+ORDER BY run_date DESC, steps DESC;
+-- Expect one (run_date, run_id) pair per piece. Multi-piece-per-day
+-- runs share run_date but have distinct run_id UUIDs.
+
+-- Every pipeline writer table has the same run_id for its rows:
+SELECT
+  (SELECT COUNT(DISTINCT run_id) FROM daily_candidates    WHERE created_at > unixepoch() * 1000 - 86400000) AS candidates,
+  (SELECT COUNT(DISTINCT run_id) FROM daily_pieces        WHERE created_at > unixepoch() * 1000 - 86400000) AS pieces,
+  (SELECT COUNT(DISTINCT run_id) FROM audit_results       WHERE created_at > unixepoch() * 1000 - 86400000) AS audits,
+  (SELECT COUNT(DISTINCT run_id) FROM observer_events     WHERE created_at > unixepoch() * 1000 - 86400000) AS events,
+  (SELECT COUNT(DISTINCT run_id) FROM draft_revisions     WHERE created_at > unixepoch() * 1000 - 86400000) AS drafts,
+  (SELECT COUNT(DISTINCT run_id) FROM audio_audit_results WHERE created_at > unixepoch() * 1000 - 86400000) AS audio_audits;
+-- Expect every value to equal the run count from the previous query.
+
+-- Forensic: pull every row produced by one specific run:
+SELECT 'daily_pieces'  AS tbl, headline AS detail FROM daily_pieces  WHERE run_id = ?
+UNION ALL SELECT 'pipeline_log', step          FROM pipeline_log     WHERE run_id = ?
+UNION ALL SELECT 'audit_results', auditor       FROM audit_results    WHERE run_id = ?
+UNION ALL SELECT 'observer_events', title       FROM observer_events  WHERE run_id = ?
+UNION ALL SELECT 'draft_revisions', CAST(revision_round AS TEXT) FROM draft_revisions WHERE run_id = ?
+ORDER BY tbl;
+-- Substitute one runId UUID. Expect a complete narrative of what one
+-- pipeline execution did, end to end.
+```
+
+If a writer table shows fewer DISTINCT run_id values than pipeline_log, that writer's threading regressed; investigate.
+
+### Operator queries: Retention worker health
+
+Read-only queries. Run after the 04:00 UTC cron has fired at least once.
+
+```sql
+-- Last 7 days of retention activity (dry-run + live mixed):
+SELECT created_at, title, severity,
+       json_extract(context, '$.candidateCount') AS candidates,
+       json_extract(context, '$.deletedCount') AS deleted,
+       json_extract(context, '$.dryRun') AS dry_run,
+       json_extract(context, '$.windowDays') AS window_days
+FROM observer_events
+WHERE title LIKE 'Retention %'
+ORDER BY created_at DESC LIMIT 50;
+
+-- Tables that haven't been pruned recently (rule mis-configured? schema drift?):
+SELECT json_extract(context, '$.table') AS tbl, MAX(created_at) AS last_seen
+FROM observer_events
+WHERE title LIKE 'Retention %'
+GROUP BY tbl ORDER BY last_seen ASC;
+
+-- Did the published-piece guard ever trip?
+SELECT created_at, title, body
+FROM observer_events
+WHERE title LIKE 'Retention guard tripped:%'
+ORDER BY created_at DESC LIMIT 5;
+-- Any rows here are bugs — the policy SQL has drifted.
+```
+
+### Flip retention worker out of DRY_RUN mode
+
+> **Destructive — confirm with user before running.** The retention worker ships in DRY_RUN mode (`agents/wrangler.toml` `[vars] RETENTION_DRY_RUN = "true"`). After a 7-day review window of dry-run observer events, flip to live:
+
+```sh
+cd agents
+npx wrangler secret put RETENTION_DRY_RUN
+# Enter: false
+# (Or remove the [vars] entry and redeploy.)
+```
+
+Next 04:00 UTC fire writes `Retention pruned: <table>` (severity `info`) instead of `Retention dry-run: <table>`. Counts should match the dry-run values. If something looks wrong, immediately flip back: `wrangler secret put RETENTION_DRY_RUN` → enter `true`.
+
+See [docs/RETENTION.md](RETENTION.md) for the full policy table, manual override, and rollback procedures.
+
 ## Trigger a daily piece
 
 Daily pieces are the only content type. The manual trigger and the
@@ -576,7 +657,7 @@ npx wrangler d1 execute zeemish --remote --command \
   "DELETE FROM daily_pieces WHERE date = '$DATE'; \
    DELETE FROM daily_candidates WHERE date = '$DATE'; \
    DELETE FROM daily_piece_audio WHERE date = '$DATE'; \
-   DELETE FROM pipeline_log WHERE run_id = '$DATE'; \
+   DELETE FROM pipeline_log WHERE run_date = '$DATE'; \
    DELETE FROM audit_results WHERE task_id LIKE 'daily/$DATE%'; \
    DELETE FROM observer_events WHERE created_at >= (strftime('%s','now','start of day') * 1000);"
 ```

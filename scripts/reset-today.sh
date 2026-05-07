@@ -25,8 +25,9 @@
 #   zita_messages         WHERE piece_id = ?   (0014)
 #   learnings             WHERE piece_id = ?   (0014 + 2026-04-22 writer)
 #   engagement            WHERE piece_id = ?   (0017)
-#   pipeline_log          run_id=<date> AND created_at BETWEEN <window>
-#                         (run_id stays YYYY-MM-DD per Phase 3 walk-back;
+#   pipeline_log          run_date=<date> AND created_at BETWEEN <window>
+#                         (run_date renamed from run_id in migration 0037,
+#                          2026-05-07 — date-shape semantics intact;
 #                          window = published_at ±20min)
 #   observer_events       created_at BETWEEN <window>
 #                         (no piece_id column; same window as pipeline_log)
@@ -176,7 +177,7 @@ if [[ -n "$PIECE_ID" ]]; then
      DELETE FROM zita_messages WHERE piece_id = '$PIECE_ID'; \
      DELETE FROM learnings WHERE piece_id = '$PIECE_ID'; \
      DELETE FROM engagement WHERE piece_id = '$PIECE_ID'; \
-     DELETE FROM pipeline_log WHERE run_id = '$piece_date' AND created_at BETWEEN $window_start AND $window_end; \
+     DELETE FROM pipeline_log WHERE run_date = '$piece_date' AND created_at BETWEEN $window_start AND $window_end; \
      DELETE FROM observer_events WHERE created_at BETWEEN $window_start AND $window_end;"
   echo ""
 
@@ -235,7 +236,7 @@ echo "[2/3] Clearing D1 rows for $DATE across 5 tables..."
 npx wrangler d1 execute zeemish --remote --command \
   "DELETE FROM daily_pieces WHERE date = '$DATE'; \
    DELETE FROM daily_candidates WHERE date = '$DATE'; \
-   DELETE FROM pipeline_log WHERE run_id = '$DATE'; \
+   DELETE FROM pipeline_log WHERE run_date = '$DATE'; \
    DELETE FROM audit_results WHERE task_id LIKE 'daily/$DATE%'; \
    DELETE FROM observer_events WHERE created_at >= (strftime('%s','now','start of day') * 1000);"
 echo ""

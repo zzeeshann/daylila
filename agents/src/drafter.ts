@@ -69,7 +69,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
     error: null,
   };
 
-  async draft(brief: DailyPieceBrief, pieceId: string): Promise<DrafterResult> {
+  async draft(brief: DailyPieceBrief, pieceId: string, runId: string | null = null): Promise<DrafterResult> {
     this.setState({ ...this.state, status: 'drafting', error: null });
 
     try {
@@ -116,7 +116,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       // loop runs PRE-publish but uses `mdx` from the return value
       // directly, not from D1). Director reads persistError after the
       // call and fires observer.logError once if populated.
-      const persistError = await this.persistInitialDraft(pieceId, mdx, wordCount);
+      const persistError = await this.persistInitialDraft(pieceId, runId, mdx, wordCount);
 
       return { mdx, wordCount, loadedLearningIds, persistError };
     } catch (err) {
@@ -140,6 +140,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
    */
   private async persistInitialDraft(
     pieceId: string,
+    runId: string | null,
     mdx: string,
     wordCount: number,
   ): Promise<string | null> {
@@ -147,10 +148,10 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       await this.env.DB
         .prepare(
           `INSERT INTO draft_revisions
-            (piece_id, revision_round, mdx_content, word_count, authored_by, created_at)
-           VALUES (?, 0, ?, ?, 'drafter', ?)`,
+            (piece_id, revision_round, mdx_content, word_count, authored_by, created_at, run_id)
+           VALUES (?, 0, ?, ?, 'drafter', ?, ?)`,
         )
-        .bind(pieceId, mdx, wordCount, Date.now())
+        .bind(pieceId, mdx, wordCount, Date.now(), runId)
         .run();
       return null;
     } catch (err) {

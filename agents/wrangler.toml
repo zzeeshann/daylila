@@ -15,6 +15,25 @@ command = "node scripts/codegen-contracts.mjs"
 [observability]
 enabled = true
 
+# Cloudflare Cron Trigger — daily retention worker (Foundation Fix
+# Task 08, 2026-05-07). Fires at 04:00 UTC daily, two hours after the
+# 02:00 UTC daily-publish cron's first slot. Routes through the
+# scheduled() handler in src/server.ts which calls runRetention from
+# src/retention.ts. Per-table policy lives in retention.ts; the worker
+# starts in DRY_RUN mode (RETENTION_DRY_RUN env var defaulting to
+# 'true') for the first 7 days post-deploy. Operator flips to live
+# only after reviewing 7 days of dry-run observer events. Anything
+# that DELETEs published-piece-linked rows throws (a bug, not retention).
+[triggers]
+crons = ["0 4 * * *"]
+
+# Retention worker safety rail. First-deploy default is 'true' (count
+# rows, log, delete nothing); operator unsets the var or flips to
+# 'false' via `wrangler secret put RETENTION_DRY_RUN` only after a
+# 7-day dry-run review window.
+[vars]
+RETENTION_DRY_RUN = "true"
+
 # Durable Object bindings — one per agent class
 [[durable_objects.bindings]]
 name = "DIRECTOR"
