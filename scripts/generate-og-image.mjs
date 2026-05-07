@@ -2,6 +2,17 @@
 /**
  * One-off generator for public/og-image.png.
  *
+ * STALE as of 2026-05-07. The live public/og-image.png was hand-designed
+ * during the Day Lila rebrand and includes the new D-mark logo with a
+ * gold dot, the "Day Lila" wordmark, and a tagline that this script
+ * doesn't render. Running this script will OVERWRITE the better
+ * hand-designed asset with the simpler text-only version below. Do not
+ * run unless you intend to switch back to a generative-only design.
+ * If the brand visuals change again, prefer hand-design + drop into
+ * public/og-image.png over editing this script.
+ *
+ * Original docstring kept for reference:
+ *
  * Run when the OG card design changes:
  *   node scripts/generate-og-image.mjs
  *

@@ -5,4 +5,4 @@ Disallow: /api/
 Disallow: /auth/
 Disallow: /account/
 
-Sitemap: https://zeemish.io/sitemap.xml
+Sitemap: https://daylila.com/sitemap.xml

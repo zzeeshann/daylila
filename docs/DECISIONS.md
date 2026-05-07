@@ -2,6 +2,36 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Brand-icon source master 1024px landed (closes the open FOLLOWUPS entry from the prior commit)
+
+Follow-up to the brand-icon swap committed minutes earlier. Operator delivered a 1024×1024 PNG of the Day Lila D-mark — matches the deployed `public/icon-512.png` design at 2× resolution. Replaced `design/favicon-source-1024.png` (overwriting the now-stale Zeemish Z source) and mirrored the new master into the archive at `design/brand-handoff/favicon-source-1024.png` so the handoff folder reflects current state. The `[open]` FOLLOWUPS entry opened in the prior commit is now `[resolved]` with a same-day Resolved line. `design/brand-handoff/SPEC.md` updated — the "What did NOT land" section flipped to "Source master" with a one-line note. No code paths affected; `design/` isn't served. Files: 2 brand assets (`design/favicon-source-1024.png` + the brand-handoff mirror), `design/brand-handoff/SPEC.md`, this entry, FOLLOWUPS marker flip.
+
+---
+
+## 2026-05-07: Brand-icon swap — Zeemish "Z" mark replaced with Day Lila "D" mark
+
+The 2026-05-06 rebrand updated the wordmark in the header (`BaseLayout.astro:300` → "daylila") and the OG card (`og-image.png` → "daylila") but left the icon set on the old Zeemish "Z" glyph — favicon, PWA icons, Apple touch icon. Anyone who bookmarked the site, added it to their home screen, or saw the browser tab still got a Z. This swap closes the gap.
+
+**Naming convention locked.** Internal/code/docs use `Daylila` (one word) — keeps the existing convention in CLAUDE.md, file names, worker handles. User-visible surfaces (OS labels, share cards, headers) use `Day Lila` (two words). The lowercase one-word `daylila` rendering on the header and OG card is the wordmark/logotype style, not the brand name. Operator confirmed both rules in this session.
+
+**Handoff workflow.** A new `design/brand-handoff/` folder collected the five existing assets (favicon.svg, apple-touch-icon.png, icon-192.png, icon-512.png, favicon-source-1024.png) plus a `SPEC.md` describing required dimensions, brand colours (`#1A6B62` teal background, `#FAF8F4` cream mark, `#C49A1A` gold accent), and the design intent (pictorial mark not wordmark; readable at 16×16). Operator redesigned externally and returned a zip with same filenames. Pattern is reusable for the next brand change — the folder stays as a template.
+
+**What landed.** Five files placed at their existing destinations: `public/favicon.svg` (D-shape with gold dot inside, viewBox `0 0 32 32` — different from the old `0 0 512 512` but harmless since SVG is resolution-independent and `BaseLayout.astro:252` references the file by path with no dimension expectations), `public/apple-touch-icon.png` (180×180), `public/icon-192.png` (192×192), `public/icon-512.png` (512×512), `public/og-image.png` (1200×630, hand-redesigned with the new D-mark integrated next to the "Day Lila" wordmark plus tagline "The news is the hook. Understanding is the point." plus `daylila.com` footer — bonus delivery; old PNG also said "daylila" but lacked the integrated mark).
+
+**Three text edits in the same swap.** `public/site.webmanifest` `name` + `short_name` flipped from `Zeemish` to `Day Lila` (two-word form because OS surfaces show this string verbatim when readers add to home screen). `public/robots.txt` Sitemap URL flipped from `https://zeemish.io/sitemap.xml` to `https://daylila.com/sitemap.xml`. `design/brand-handoff/SPEC.md` got a "Brand name vs wordmark" section to prevent the designer putting wordmark text inside the icon plate.
+
+**`scripts/generate-og-image.mjs` flagged stale.** The script's plain-SVG render produces a text-only "daylila" version that doesn't include the D-mark. Anyone running it would clobber the better hand-designed asset. Added a STALE warning at the top of the docstring saying "do not run unless switching back to a generative-only design." Considered updating the script to recreate the new design, but the path data for the D-mark would be fragile to maintain. Hand-design is the better contract going forward.
+
+**Missing from delivery — `favicon-source-1024.png` design master.** The old Zeemish source still sits at `design/favicon-source-1024.png`. Not deleted (per `feedback_non_destructive.md` — git keeps history but live state is misleading); flagged as a new `[open]` FOLLOWUPS entry to replace when a 1024px master is available. Doesn't affect anything user-facing — `design/` isn't served, the file is internal regen reference only.
+
+**Wider docs sweep deliberately scoped out.** CLAUDE.md and DECISIONS.md and AGENTS.md and similar docs continue to refer to the project as `Daylila` (one word). Operator confirmed: "for docs etc its ok daylila — that's just referencing like website." No mass rename. The two-word "Day Lila" form lives at user-visible surfaces only.
+
+**Cache caveat.** Per the standing CLAUDE.md note, prerendered HTML + favicon are CDN-cached. Visitors will keep seeing the old Z mark until Cloudflare cache purge after deploy. Mentioned in commit body so the operator can run the purge as part of the post-deploy ritual.
+
+**Files.** 5 brand assets in `public/`, 2 text files (`public/site.webmanifest`, `public/robots.txt`), 1 generator-script docstring (`scripts/generate-og-image.mjs`), 1 new design folder (`design/brand-handoff/` with `SPEC.md` + 5 archived originals), CLAUDE.md latest-session note, this entry, FOLLOWUPS entry for the missing source master.
+
+---
+
 ## 2026-05-07: Integrator regression awareness landed (Foundation Fix Phase 4 Task 09 — programme COMPLETE)
 
 Phase 4 closes with this PR. The original 8-task Foundation Fix scope completed earlier the same day (Task 08 PR 08c, commit `c4815e1`); Task 09 is post-foundation work added when the 2026-05-12 `[open]` FOLLOWUPS entry "Integrator regression risk" surfaced the dimension-whack-a-mole pattern empirically on the 2026-05-06 magic-mushroom piece (voice 95→92→95 across three rounds — should have shipped as Polished on R1 alone).
