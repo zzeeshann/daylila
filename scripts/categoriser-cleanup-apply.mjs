@@ -48,6 +48,17 @@ const REPO_ROOT = join(__dirname, '..');
 const PLAN_PATH = join(__dirname, 'categoriser-cleanup-plan.json');
 const MIGRATION_PATH = join(REPO_ROOT, 'migrations', '0039_categoriser_cleanup.sql');
 
+/** The reserved operator-review fallback category. CategoriserAgent's
+ *  last-resort path writes to this row when both Claude attempts return
+ *  empty/all-sub-floor, and the agent throws on the next run if the row
+ *  is missing. Stage A's prompt instructs Claude to leave it untouched,
+ *  but if Claude includes it in the disposition list anyway (as
+ *  happened on the first cleanup run, 2026-05-07), this guard skips it
+ *  at deletion time so the migration can never wipe the fallback row.
+ *  Mirror of CATEGORISER_FALLBACK_SLUG in
+ *  agents/src/shared/categoriser-thresholds.ts. */
+const FALLBACK_SLUG = 'patterns-yet-to-cluster';
+
 let plan;
 try {
   plan = JSON.parse(readFileSync(PLAN_PATH, 'utf8'));
@@ -98,11 +109,20 @@ for (const t of targetCategories) {
 const reassignedPieceIds = new Set(reassignments.map((r) => r.piece_id));
 
 // Collect every old slug that's being merged or retired — these are
-// the candidates for deletion at the end.
+// the candidates for deletion at the end. The fallback slug is
+// EXCLUDED unconditionally regardless of what disposition Claude
+// proposes for it; deleting the fallback row would break the agent on
+// the next cron run (categoriser.ts:271-274 throws if missing).
 const oldSlugsToCheck = new Set();
+let fallbackSkipped = false;
 for (const d of disposition) {
   if (d.action === 'merge_into' || d.action === 'retire' || d.action === 'rename_to') {
-    if (d.old_slug) oldSlugsToCheck.add(d.old_slug);
+    if (!d.old_slug) continue;
+    if (d.old_slug === FALLBACK_SLUG) {
+      fallbackSkipped = true;
+      continue;
+    }
+    oldSlugsToCheck.add(d.old_slug);
   }
 }
 
@@ -195,6 +215,9 @@ console.error(`Wrote ${MIGRATION_PATH}`);
 console.error(`  ${targetCategories.length} new categories.`);
 console.error(`  ${reassignedPieceIds.size} pieces reassigned.`);
 console.error(`  ${oldSlugsToCheck.size} old categories candidates for deletion.`);
+if (fallbackSkipped) {
+  console.error(`  Fallback slug "${FALLBACK_SLUG}" excluded from deletion (locked operator-review row).`);
+}
 console.error('');
 console.error('Next steps:');
 console.error(`  1. Read ${MIGRATION_PATH} end-to-end. Sanity-check the SQL.`);
