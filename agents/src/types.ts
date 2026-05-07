@@ -34,6 +34,15 @@ export interface Env {
    * hardcoded defaults in scanner.ts.
    */
   SCANNER_RSS_FEEDS_JSON?: string;
+  /**
+   * Foundation Fix Task 08 (2026-05-07) — retention worker safety rail.
+   * 'true' (default for first 7 days post-deploy) makes the daily 04:00
+   * UTC retention worker count + log rows that WOULD be deleted, but
+   * delete nothing. Operator flips to 'false' (or unsets) only after
+   * reviewing the dry-run observer events. See agents/src/retention.ts
+   * and docs/RETENTION.md.
+   */
+  RETENTION_DRY_RUN?: string;
 }
 
 /** Plan for a single beat within a piece */

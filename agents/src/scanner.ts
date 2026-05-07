@@ -91,7 +91,7 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
    *  are acceptable; readers filter on daily_pieces.id JOIN where
    *  needed. See DECISIONS 2026-04-22 "piece_id columns on day-keyed
    *  tables". */
-  async scan(pieceId: string): Promise<NewsCandidate[]> {
+  async scan(pieceId: string, runId: string | null = null): Promise<NewsCandidate[]> {
     const today = new Date().toISOString().slice(0, 10);
     const allCandidates: NewsCandidate[] = [];
     const seenHeadlines = new Set<string>();
@@ -129,10 +129,10 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
       try {
         await this.env.DB
           .prepare(
-            `INSERT OR IGNORE INTO daily_candidates (id, date, headline, source, category, summary, url, created_at, piece_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT OR IGNORE INTO daily_candidates (id, date, headline, source, category, summary, url, created_at, piece_id, run_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           )
-          .bind(candidate.id, today, candidate.headline, candidate.source, candidate.category, candidate.summary, candidate.url, now, pieceId)
+          .bind(candidate.id, today, candidate.headline, candidate.source, candidate.category, candidate.summary, candidate.url, now, pieceId, runId)
           .run();
       } catch { /* continue */ }
     }

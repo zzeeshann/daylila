@@ -175,7 +175,7 @@ try {
     audits = auditsRes.results;
 
     const pipelineRes = await db
-      .prepare('SELECT step, status, data, created_at FROM pipeline_log WHERE run_id = ? ORDER BY created_at ASC')
+      .prepare('SELECT step, status, data, created_at FROM pipeline_log WHERE run_date = ? ORDER BY created_at ASC')
       .bind(date)
       .all<PipelineRow>();
     pipeline = pipelineRes.results;

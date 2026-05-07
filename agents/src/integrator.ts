@@ -61,6 +61,7 @@ interface IntegratorRawEnvelope {
 export class IntegratorAgent extends Agent<Env> {
   async revise(
     pieceId: string,
+    runId: string | null,
     revisionRound: number,
     mdx: string,
     voiceResult: VoiceAuditResult,
@@ -116,6 +117,7 @@ export class IntegratorAgent extends Agent<Env> {
 
     const persistError = await this.persistRevision(
       pieceId,
+      runId,
       revisionRound,
       revisedMdx,
       decisions,
@@ -141,6 +143,7 @@ export class IntegratorAgent extends Agent<Env> {
    */
   private async persistRevision(
     pieceId: string,
+    runId: string | null,
     revisionRound: number,
     mdx: string,
     decisions: IntegratorDecisionRecord[],
@@ -152,16 +155,16 @@ export class IntegratorAgent extends Agent<Env> {
       const draftRow = this.env.DB
         .prepare(
           `INSERT INTO draft_revisions
-            (piece_id, revision_round, mdx_content, word_count, authored_by, created_at)
-           VALUES (?, ?, ?, ?, 'integrator', ?)`,
+            (piece_id, revision_round, mdx_content, word_count, authored_by, created_at, run_id)
+           VALUES (?, ?, ?, ?, 'integrator', ?, ?)`,
         )
-        .bind(pieceId, revisionRound, mdx, wordCount, now);
+        .bind(pieceId, revisionRound, mdx, wordCount, now, runId);
 
       const decisionStmt = this.env.DB.prepare(
         `INSERT INTO integrator_decisions
           (piece_id, revision_round, feedback_source, feedback_summary,
-           decision, reasoning, resulting_change, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           decision, reasoning, resulting_change, created_at, run_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
 
       const decisionRows = decisions.map((d) =>
@@ -174,6 +177,7 @@ export class IntegratorAgent extends Agent<Env> {
           d.reasoning ?? null,
           d.resultingChange ?? null,
           now,
+          runId,
         ),
       );
 

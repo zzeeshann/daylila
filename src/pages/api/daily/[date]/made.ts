@@ -110,7 +110,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           .bind(pieceIdFilter)
           .all<{ step: string; status: string; data: string | null; created_at: number }>()
       : await db
-          .prepare('SELECT step, status, data, created_at FROM pipeline_log WHERE run_id = ? ORDER BY created_at ASC')
+          .prepare('SELECT step, status, data, created_at FROM pipeline_log WHERE run_date = ? ORDER BY created_at ASC')
           .bind(date)
           .all<{ step: string; status: string; data: string | null; created_at: number }>();
 

@@ -8,6 +8,7 @@ export interface ObserverEvent {
   body: string;
   context: Record<string, unknown> | null;
   piece_id: string | null;
+  run_id: string | null;
   created_at: number;
 }
 
@@ -28,6 +29,15 @@ interface ObserverState {
  * day window it used to fall back to. System-level events (admin
  * settings changes, global errors) pass `null` and remain visible
  * only on the admin home feed.
+ *
+ * run_id threading (2026-05-07, migration 0037 / Foundation Fix Task
+ * 08): every method also accepts a trailing `runId: string | null =
+ * null` so multi-piece-per-day runs are forensically traceable
+ * end-to-end. Off-pipeline alarms (post-publish reflection,
+ * categorisation, interactive generation, Zita synthesis) thread
+ * the run's UUID via their schedule payload; system-level events
+ * pass null. Default-null preserves call-site back-compat for any
+ * legacy caller not yet updated.
  */
 export class ObserverAgent extends Agent<Env, ObserverState> {
   initialState: ObserverState = { eventCount: 0 };
@@ -41,6 +51,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     revisionCount: number,
     commitUrl: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'info',
@@ -48,6 +59,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `"${title}" passed all gates and was committed to the repo.`,
       context: { source, voiceScore, revisionCount, commitUrl },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -62,6 +74,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     rounds: number,
     failedGates: string[],
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'escalation',
@@ -69,6 +82,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `"${title}" didn't clear all gates after ${rounds} revision rounds. Unresolved: ${failedGates.join(', ')}. Published with voice ${voiceScore}/100; worth a manual look.`,
       context: { source, voiceScore, rounds, failedGates },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -80,6 +94,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     _unused: number,
     error: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -87,6 +102,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Pipeline error: ${error}`,
       context: { source, error },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -105,6 +121,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     intervalHours: number,
     slotStartMs: number,
     existingPieceId: string,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'info',
@@ -112,6 +129,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Slot starting ${new Date(slotStartMs).toISOString()} (interval_hours=${intervalHours}) already has piece ${existingPieceId} for date ${date}. No action needed.`,
       context: { date, intervalHours, slotStartMs, existingPieceId, reason: 'slot_already_published' },
       piece_id: existingPieceId,
+      run_id: runId,
     });
   }
 
@@ -133,6 +151,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     filteredCount: number,
     samples: Array<{ candidateHeadline: string; matchedHeadline: string; sharedTokens: number }>,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     const sampleLines = samples.slice(0, 5).map((s) =>
       `- "${s.candidateHeadline}" matched "${s.matchedHeadline}" (${s.sharedTokens} shared tokens)`
@@ -144,6 +163,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Pre-Curator dedup removed ${filteredCount} of ${totalCandidates} candidates for ${date}. Curator saw the remaining ${totalCandidates - filteredCount}.\n${sampleLines}${more}`,
       context: { date, totalCandidates, filteredCount, samples },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -156,6 +176,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     totalCharacters: number,
     commitUrl: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'info',
@@ -163,6 +184,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Audio for "${title}" landed in ${beatCount} beats (${totalCharacters} chars). Commit: ${commitUrl}`,
       context: { date, beatCount, totalCharacters, commitUrl },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -175,6 +197,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     title: string,
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -182,6 +205,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Producer-side analysis failed for "${title}" (${date}). Reason: ${reason}. The piece is live; the loop just missed one iteration.`,
       context: { date, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -194,6 +218,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     written: number,
     overflowCount: number,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -201,6 +226,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Post-publish analysis for "${title}" produced ${written + overflowCount} learnings; wrote ${written}, dropped ${overflowCount}. Usually means the analysis restated the same pattern multiple ways — worth a look if it keeps happening.`,
       context: { date, written, overflowCount },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -220,6 +246,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       durationMs: number;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     const overflowNote =
       metrics.overflowCount > 0
@@ -231,6 +258,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Self-reflection for "${title}" (${date}) produced ${metrics.considered} bullets, wrote ${metrics.written}.${overflowNote} Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
       context: { date, ...metrics },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -254,6 +282,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       durationMs: number;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     if (metrics.skipped) {
       await this.writeEvent({
@@ -262,6 +291,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         body: `Reader Q&A synthesis for "${title}" (${date}) skipped — only ${metrics.userMsgCount} reader message${metrics.userMsgCount === 1 ? '' : 's'}, threshold is 5. No Claude call fired. Latency: ${metrics.durationMs}ms (DB only).`,
         context: { date, ...metrics },
         piece_id: pieceId,
+        run_id: runId,
       });
       return;
     }
@@ -275,6 +305,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Reader Q&A synthesis for "${title}" (${date}) considered ${metrics.userMsgCount} reader messages, produced ${metrics.considered} bullets, wrote ${metrics.written}.${overflowNote} Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
       context: { date, ...metrics },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -286,6 +317,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     title: string,
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -293,6 +325,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Reader Q&A synthesis failed for "${title}" (${date}). Reason: ${reason}. The piece is live; the loop just missed one iteration.`,
       context: { date, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -303,6 +336,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     title: string,
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -310,6 +344,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Self-reflection failed for "${title}" (${date}). Reason: ${reason}. The piece is live; the loop just missed one iteration.`,
       context: { date, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -342,6 +377,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       existingAssignments?: Array<{ name: string; slug: string; confidence: number }>;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     if (metrics.skipped) {
       const existing = metrics.existingAssignments ?? [];
@@ -354,6 +390,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         body: `"${title}" (${date}) already has categories. No Claude call fired.${existingNote} Latency: ${metrics.durationMs}ms (DB only).`,
         context: { date, ...metrics },
         piece_id: pieceId,
+        run_id: runId,
       });
       return;
     }
@@ -366,6 +403,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `"${title}" (${date}) assigned to ${metrics.assignmentsWritten} categor${metrics.assignmentsWritten === 1 ? 'y' : 'ies'} (considered ${metrics.considered}).${novelNote} Tokens: in=${metrics.tokensIn} out=${metrics.tokensOut}. Latency: ${metrics.durationMs}ms.`,
       context: { date, ...metrics },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -381,6 +419,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     title: string,
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -388,6 +427,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Categoriser failed for "${title}" (${date}). Reason: ${reason}. The piece is live; it'll just miss category assignments until a manual retag.`,
       context: { date, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -407,6 +447,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       tokensOutFirst: number;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     const reasonNote =
       detail.reason === 'empty'
@@ -418,6 +459,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `"${title}" (${date}) — Categoriser firing one retry: ${reasonNote}. First call: considered=${detail.consideredFirst}, tokens in=${detail.tokensInFirst} out=${detail.tokensOutFirst}.`,
       context: { date, ...detail },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -436,6 +478,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       durationMs: number;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -443,6 +486,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `"${title}" (${date}) landed in the reserved "Patterns Yet to Cluster" category — both Claude attempts returned empty or all-sub-floor. Operator review recommended; the taxonomy may need a new category. Tokens: in=${detail.tokensInTotal} out=${detail.tokensOutTotal}. Latency: ${detail.durationMs}ms.`,
       context: { date, ...detail },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -534,6 +578,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       totalDurationMs: number;
     },
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     const quiz = metrics.quiz;
     const html = metrics.html;
@@ -646,6 +691,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body,
       context: { date, ...metrics },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -658,6 +704,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     title: string,
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'warn',
@@ -665,6 +712,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `InteractiveGenerator failed for "${title}" (${date}). Reason: ${reason}. The piece is live; retry from admin or via /interactive-generate-trigger once the cause is fixed.`,
       context: { date, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -683,6 +731,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     type: 'quiz' | 'html',
     round: number,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'info',
@@ -692,6 +741,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         `Treating as failed round and retrying within the 3-round budget.`,
       context: { date, type, round },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -709,6 +759,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     deletedFilePath: string,
     changedBy: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'info',
@@ -727,6 +778,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
         changedBy,
       },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -739,6 +791,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     phase: 'producer' | 'auditor' | 'publisher',
     reason: string,
     pieceId: string | null = null,
+    runId: string | null = null,
   ): Promise<void> {
     await this.writeEvent({
       severity: 'escalation',
@@ -746,6 +799,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
       body: `Audio ${phase} failed for "${title}" on ${date}. Text is already live. Reason: ${reason}. Retry from admin dashboard.`,
       context: { date, phase, reason },
       piece_id: pieceId,
+      run_id: runId,
     });
   }
 
@@ -795,8 +849,8 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     try {
       await this.env.DB
         .prepare(
-          `INSERT INTO observer_events (id, severity, title, body, context, piece_id, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO observer_events (id, severity, title, body, context, piece_id, run_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           id,
@@ -805,6 +859,7 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
           event.body,
           JSON.stringify(event.context),
           event.piece_id ?? null,
+          event.run_id ?? null,
           now,
         )
         .run();

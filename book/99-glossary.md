@@ -94,7 +94,13 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **Repository (repo).** A folder of files plus their full Git history.
 
+**Retention policy.** The set of rules that decides which database rows live forever and which get deleted after a window. Published pieces and their audits stay forever — they're part of the record. Process noise — rejected candidates, routine observer events, the per-step pipeline log — has a window: ninety days, one hundred and eighty days, one year depending on the table. A small worker runs at 04:00 UTC daily, walks the policy, and deletes what's expired. It writes one event per table to the observer feed so the operator can see what was pruned. Before deleting from a table that could link to a published piece, it runs a guard query — if the guard finds any published-piece rows that match the delete window, it stops and writes a high-severity event, because that's a bug, not retention. Lives at `agents/src/retention.ts`; the policy table lives at `docs/RETENTION.md`. Added 2026-05-07 (Foundation Fix Task 8). The first seven days run in dry-run mode (count rows, log, delete nothing) as a safety rail.
+
 **RSS.** An old but still widely used format for publishing news feeds. Scanner reads news via RSS.
+
+**Run (in Daylila).** One full pipeline execution that takes one news scan and produces (or fails to produce) one piece. With multi-piece-per-day cadence, multiple runs happen on the same calendar day. See **Run ID**.
+
+**Run ID.** A UUID the Director generates at the top of every pipeline execution, threaded through every row that execution writes — the pipeline log, audit results, observer events, draft revisions, and a few others. Multi-piece-per-day runs share the same calendar day (`run_date`) but each carries a unique `run_id`. Before this column existed, an operator looking at a database row could tell which piece it belonged to (via `piece_id`) and which day (via `run_date`), but couldn't ask "show me everything one specific run did, end to end" without guessing at timestamps. Added 2026-05-07 (Foundation Fix Task 8, migration 0037). Off-pipeline alarms — categorisation, post-publish learning, audio retries — thread the same run_id through their schedule payloads so the chain stays connected after the original run returns.
 
 **Server.** A computer running all the time that answers requests from other computers over the internet. Daylila doesn't have a traditional server — it has Cloudflare Workers instead.
 
