@@ -2,6 +2,36 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Post-icon-swap brand audit — header wordmark `daylila` → `DayLila`, EMAIL_FROM hardening, DNS retirement
+
+Third commit in today's brand sequence (after the icon swap and the 1024px source-master delivery). Operator asked for a residual-Zeemish sweep across the codebase to confirm the rebrand is closed.
+
+**Audit posture.** Three Explore agents ran in parallel, each scoped to a different surface area: (1) HTML head + meta tags + email templates + sitemap + 404 page; (2) user-facing copy across `src/pages/`, `src/components/`, `src/layouts/`, `src/interactive/`, `src/styles/`, `src/lib/`; (3) audio TTS normaliser + `agents/src/**` brand mentions + `content/daily-pieces/**` MDX + DNS / ops references in wrangler configs and GitHub workflows.
+
+**Headline finding — 0 user-visible "Zeemish" bugs.** Every `<title>`, og:* tag (og:site_name, og:image:alt), JSON-LD `author`/`publisher`/`name`, RSS feed title, 404 page text, sitemap URL already reads "Daylila"/"daylila.com". Magic-link email subject + body already read "Daylila". Audio TTS normaliser at `agents/src/shared/tts-normalize.ts:20-21` already aliases `Daylila` → `Day-lila` (and the lowercase variant) for prosody — no legacy "Zeemish" pronunciation rules anywhere in `agents/src/audio-producer.ts`, `agents/src/audio-auditor.ts`, or `content/audio-contract.md`. New audio narration won't say "Zeemish" out loud. `grep -ri "zeemish" content/daily-pieces/ content/interactives/` returns zero matches; the permanence rule was never put under stress.
+
+**The ~16 remaining `zeemish*` strings classified INTERNAL OK.** All in-codebase `zeemish*` references serve technical contracts that would carry real cost to rename for cosmetic reward:
+
+- **postMessage protocol** — `zeemishFrame: 'resize'`, `zeemishFrame: 'ping'`, `__zeemishResizeProbe` window key. Used in `src/lib/interactive-html.ts` and `src/interactive/interactive-frame.ts`. Renaming would break the contract between embedded interactive iframes (sandboxed) and the parent listener; bilateral coordination required across content already in production.
+- **localStorage keys** — `zeemish-completed:${piece_id}` and `zeemish-completed-date:${piece_date}` in `src/interactive/lesson-shell.ts`. Renaming would lose existing reader completion state for everyone who's already finished pieces.
+- **Worker / D1 / R2 names** — `zeemish-v2`, `zeemish-agents` workers; `zeemish` D1 database; `zeemish-audio` R2 bucket. Renaming requires Durable Object state migration (workers), database rebinding (D1), and object-by-object migration (R2). All are labels-only from a user perspective; zero user-facing surface.
+
+**Three small things landed in the audit:**
+
+**(1) Header wordmark `daylila` → `DayLila`** at `src/layouts/BaseLayout.astro:301`. The operator surfaced this from the screenshot of the live site and chose camelCase one-word logotype style after seeing three options: keep lowercase (locked-convention default), switch to two-word "Day Lila" (relax convention to treat header as user-visible), or switch to camelCase "DayLila" (smaller doctrine shift). The convention paragraph in CLAUDE.md was updated to lock the new form: header uses `DayLila`, OG card stays `Day Lila`. The OG card image is a hand-designed PNG and stays as-is (PR #13 already shipped it with "Day Lila" two-word form per the icon-swap entry below). `scripts/generate-og-image.mjs` was previously flagged STALE in CLAUDE.md and is not run; left untouched.
+
+**(2) EMAIL_FROM hardening** at `src/pages/api/auth/magic-link.ts`. The previous fallback `'Daylila <onboarding@resend.dev>'` is dropped — production `EMAIL_FROM` is set in `wrangler.toml:21` to `'Daylila <hello@daylila.com>'`, so the fallback only fires on misconfigured deploys. The fallback would silently send mail from Resend's sandbox domain rather than failing visibly. Replaced with an explicit guard: `if (!EMAIL_FROM) throw new Error('EMAIL_FROM is not configured')`. The validation block was pulled above the `magic_tokens` INSERT so a misconfigured deploy throws *before* leaving an orphan token row in D1. Production behaviour: zero change (env var is set). Misconfig behaviour: 500 response on first hit, no DB pollution, operator sees the error in worker logs immediately.
+
+**(3) DNS retirement complete.** Operator removed `listens.zeemish.io` (R2) and `api.zeemish.io` (Worker `zeemish-api`) records from Cloudflare dashboard during the audit conversation. Both were leftover from the OLD breathing-tools site (superseded by the daylila.com rebrand). The CLAUDE.md "Remaining minor items" bullet was deleted as a result — the deferred-cleanup item is closed, no separate FOLLOWUPS entry needed because the cleanup happened in-session.
+
+**Out of scope deliberately.** Rejected at the planning stage and named in the plan file: worker rename, D1 db rename, R2 bucket rename, postMessage protocol rename, localStorage key rename. Same logic across all five — state-migration risk for cosmetic reward, none are user-facing.
+
+**Verification.** `pnpm build` clean. `grep "lowercase one-word"` and `grep "listens.zeemish.io"` against CLAUDE.md both return zero matches after the edits. Header confirmed via worker preview to read `DayLila`. EMAIL_FROM behaviour: production env var still set (zero behaviour change in prod); locally with env var unset, the route throws as designed.
+
+**Files.** 2 site files (`src/layouts/BaseLayout.astro`, `src/pages/api/auth/magic-link.ts`), CLAUDE.md (naming-convention paragraph + DNS leftover-bullet deletion + new follow-up note in the latest-session entry), this DECISIONS entry. Third commit on the same branch as the icon swap + source-master delivery.
+
+---
+
 ## 2026-05-07: Brand-icon source master 1024px landed (closes the open FOLLOWUPS entry from the prior commit)
 
 Follow-up to the brand-icon swap committed minutes earlier. Operator delivered a 1024×1024 PNG of the Day Lila D-mark — matches the deployed `public/icon-512.png` design at 2× resolution. Replaced `design/favicon-source-1024.png` (overwriting the now-stale Zeemish Z source) and mirrored the new master into the archive at `design/brand-handoff/favicon-source-1024.png` so the handoff folder reflects current state. The `[open]` FOLLOWUPS entry opened in the prior commit is now `[resolved]` with a same-day Resolved line. `design/brand-handoff/SPEC.md` updated — the "What did NOT land" section flipped to "Source master" with a one-line note. No code paths affected; `design/` isn't served. Files: 2 brand assets (`design/favicon-source-1024.png` + the brand-handoff mirror), `design/brand-handoff/SPEC.md`, this entry, FOLLOWUPS marker flip.
