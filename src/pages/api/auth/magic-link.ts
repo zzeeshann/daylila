@@ -40,6 +40,14 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const now = Date.now();
   const expiresAt = now + TOKEN_EXPIRY_MINUTES * 60 * 1000;
 
+  // Validate email config before any DB writes so misconfig fails fast
+  const env = locals.runtime.env as Record<string, string>;
+  const RESEND_API_KEY = env.RESEND_API_KEY;
+  const EMAIL_FROM = env.EMAIL_FROM;
+  if (!EMAIL_FROM) {
+    throw new Error('EMAIL_FROM is not configured');
+  }
+
   // Check if user exists with this email
   const existingUser = await db
     .prepare('SELECT id FROM users WHERE email = ?')
@@ -53,9 +61,6 @@ export const POST: APIRoute = async ({ locals, request }) => {
     .run();
 
   // Send email via Resend
-  const env = locals.runtime.env as Record<string, string>;
-  const RESEND_API_KEY = env.RESEND_API_KEY;
-  const EMAIL_FROM = env.EMAIL_FROM ?? 'Daylila <onboarding@resend.dev>';
   const siteUrl = new URL(request.url).origin;
   const magicUrl = `${siteUrl}/auth/verify?token=${token}`;
 
