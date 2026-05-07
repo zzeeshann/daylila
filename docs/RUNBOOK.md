@@ -305,6 +305,23 @@ Four read-only queries surface in order:
 
 Safe against prod (SELECT-only).
 
+### Operator queries: Integrator regression health
+
+The Integrator's round-to-round regression-prevention rails landed with Foundation Fix Phase 4 Task 09 (2026-05-07). Run `scripts/integrator-regression-health.sql` after ≥10 multi-round pieces have published with the new code (~2-4 weeks at ~1 piece/day, ~50% multi-round rate) for the post-deploy regression-rate evaluation.
+
+```bash
+wrangler d1 execute zeemish --remote --file=scripts/integrator-regression-health.sql
+```
+
+Four read-only queries surface in order:
+
+1. **Recent regressions** — pass→fail flips by `feedback_source` over the last 30 days, using the `round_pairs` CTE from the brief. Pre-Task-09 baseline: the 2026-05-06 magic-mushroom voice 95→92→95 anecdote (qualitative — `integrator_decisions` was not yet populated when Task 09 shipped). Post-Task-09 expectation: per-source regression count drops noticeably as the prompt's PRESERVE/FIX framing + round-to-round state suppress whack-a-mole flips.
+2. **Multi-round pieces count** — sample-size gauge for query 1. Below 5 means the empirical signal is too thin to read query 1 confidently; wait longer.
+3. **Per-piece regressions** — when query 1 returns non-zero, this query names the specific pieces that triggered it. Useful for spot-checking the actual prompt sent to Claude on a flipping round (admin pipeline-log view's request-payload field) when diagnosing why the PRESERVE framing didn't take effect.
+4. **Round distribution** — pieces by revision_round in the last 30 days. Sanity check on Director's audit-revise loop separately from Integrator behaviour. If round-2 count drops to zero overnight, that's a Director bug, not an Integrator improvement.
+
+Safe against prod (SELECT-only). The 30-day evaluation outcome is queued in FOLLOWUPS as `[observing] 2026-05-07: Integrator regression-rate evaluation`.
+
 ### Verify audio dwell records populate
 
 The reader audio dwell signal lands per-event (not per-cron). Verification fires on listener action, not pipeline run. After the migration applies and a fresh listener has played any audio for ≥1 second:

@@ -2,6 +2,50 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Integrator regression awareness landed (Foundation Fix Phase 4 Task 09 — programme COMPLETE)
+
+Phase 4 closes with this PR. The original 8-task Foundation Fix scope completed earlier the same day (Task 08 PR 08c, commit `c4815e1`); Task 09 is post-foundation work added when the 2026-05-12 `[open]` FOLLOWUPS entry "Integrator regression risk" surfaced the dimension-whack-a-mole pattern empirically on the 2026-05-06 magic-mushroom piece (voice 95→92→95 across three rounds — should have shipped as Polished on R1 alone).
+
+**Watch-window stop-condition fired but operator chose Path 2.** The brief named a hard pre-flight gate: query `integrator_decisions` for at least one pass→fail flip in the last 30 days; if none, stop and tell the user. Both gates tripped:
+
+- Regression query returned zero rows (no `overruled → accepted` flips).
+- `multi_round_pieces` count = 0 (table empty for `revision_round >= 1`).
+- Total `integrator_decisions` rows = 0 (table accruing data only since 2026-05-07; today's piece cleared R0 single-round so wrote nothing).
+
+Surfaced both findings to the operator with two paths: (A) defer Task 09 ~2-4 weeks until data accrues, (B) proceed treating the magic-mushroom anecdote as the empirical anchor and rely on post-deploy audit. Operator picked B. Documented in the FOLLOWUPS [observing] entry queued for 30-day post-deploy regression-rate evaluation; if the new prompt+state combination doesn't bite, that follow-up is where escalation lands.
+
+**Fork 1 locked — single last-revision field.** `IntegratorState.lastSnapshot` carries one `IntegratorRoundSnapshot` (pieceId + revisionRound + voice + structure + fact). Map-of-pieces (Fork 1b) was rejected because the per-day DO instance's lifecycle handles cleanup naturally — DO is destroyed when the next day's `integrator-daily-${tomorrow}` instance comes up — and bounded-memory state matches the brief. Two-flat-fields (Fork 1c) was rejected as functionally equivalent but ergonomically worse. The brief said "store last round's audit results in DO state, keyed by piece_id, reset when piece_id changes" — the chosen shape implements that minimally.
+
+**Fork 2 locked — full audit results in previous-round context.** The previous-round block carries `voice/structure/fact` audit objects unchanged (PASS/FAIL + score + closed-enum failureReasons tokens introduced in Task 08 PR 08c). Pass/fail flags only (Fork 2b) was rejected because the regression-prevention signal lives in the specific tokens — "voice was passing at 95; don't reintroduce `tribe_word`" carries the protective instruction. Closed-enum tokens only (Fork 2c) was rejected because Round 0 audit_results pre-Task-08-PR-08c may have NULL failure_reasons, creating a heterogeneous shape with branching. Full payload is ~500 extra tokens against an MDX-sized prompt — rounding error.
+
+**Fork 3 locked — single bundled commit.** Mirrors Task 06's commit shape (which also bundled changes to integrator.ts + integrator-prompt.ts + contract + docs). Splitting contract+codegen-regen into its own commit (Fork 3b) added ceremony without separating reviewer-relevant concerns.
+
+**Fork 4 locked — defer reader-facing surface.** Same posture as Tasks 03/04/05/06/07 deferred surfaces. The data lands going forward; the rendering of pass→fail flip annotations on the made-drawer or admin per-piece deep-dive is content + UI work, not data work. Bundling would have grown scope ~30%. New FOLLOWUPS [deferred] entry queues this work.
+
+**State write is unconditional.** The new `this.setState({...})` call at the end of `revise()` runs regardless of `parseError` or `persistError` — those concern persistence to D1 / response-shape parsing, not the audit results themselves. The audit results are what the next round needs, and they came from in-memory parameters, so the snapshot is always trustworthy. Same posture as Task 06's "verdict computed in-memory before persistence runs."
+
+**State read is keyed by pieceId with lazy reset.** When the next `revise()` call's pieceId differs from the stored snapshot's pieceId, the snapshot is treated as stale and ignored on read. The new piece's first revision sees no previous-round context; the prompt's PRESERVE/FIX framing alone is what protects it. The next setState overwrites the stale snapshot. No explicit clear is needed — the lazy reset matches the brief's "state resets when piece_id differs" rule and avoids race windows around the per-day DO instance lifecycle.
+
+**Two new pure helpers exported at module level.** `buildCurrentRoundFeedback(voice, structure, fact)` always emits all three sections (PASS or FAIL) — replaces the three pre-Task-09 `if (!result.passed)` blocks. `buildPreviousRoundContext(snapshot)` formats the round-N-1 summary block. Both are pure functions exported for unit-test reach (matches the `parseIntegratorEnvelope` precedent landed in Task 06). No verifier script ships in this PR — the helpers' shape is simple template-rendering, and the existing `pnpm verify-contracts-fresh` covers the contract path. A future verifier (`agents/scripts/verify-integrator-prompt.mjs`) can be added if the pre-deploy regression test matures into something automatable.
+
+**System prompt RULES block updated** (`agents/src/integrator-prompt.ts`). The new wording instructs PRESERVE on PASS sections, FIX on FAIL sections, calls out pass→fail flips across rounds as "regression introduced by your last revision," and asks for "smallest edit that resolves each issue." The pre-Task-09 line "If the auditor feedback was empty (no failed gates), return decisions: [] with the unchanged MDX as revisedMdx" was rewritten as "When all three sections are PASS (no FAIL dimensions), return decisions: [] with the unchanged MDX as revisedMdx" — same outcome, different framing under always-three-sections.
+
+**Contract bumped v1.0 → v1.1** (`content/integrator-contract.md`). The "most important rule: don't break what was working" section was rewritten — pre-Task-09 it documented the gap as "queued for Phase 4 Task 09"; post-Task-09 it documents the active rule (always-three-sections + PRESERVE/FIX + DO state). Change-log appended. `pnpm codegen` regenerated `agents/src/shared/generated/contracts.ts` (86514 bytes, +~2100 from v1.0); `pnpm verify-contracts-fresh` ✓.
+
+**No migration. No new D1 table. No site-worker change.** Task 09 is contained to the agents bundle. The verification SQL operates against the existing `integrator_decisions` rows (Task 06 schema, unchanged here).
+
+**Operator queries** in `scripts/integrator-regression-health.sql`: (1) recent_regressions — pre/post comparison via `round_pairs` CTE; (2) multi_round_pieces_count — sample-size gauge; (3) per_piece_regressions — per-piece detail view; (4) round_distribution — sanity check on Director's audit-revise loop separately from Integrator behaviour. RUNBOOK gets a new "Operator queries: Integrator regression health" section.
+
+**Verification.** `pnpm codegen && pnpm verify-contracts-fresh` ✓. agents `tsc --noEmit` clean except 26 pre-existing `src/server.ts` Durable Object errors. Migration count: 38 (unchanged); table count: 26 (unchanged). End-to-end check waits for next ≥10 multi-round pipeline runs (~2-4 weeks at ~1 piece/day, ~50% multi-round rate). The post-deploy audit is queued as a FOLLOWUPS [observing] entry — not blocking the merge, same shape as Task 04's 30-day Learner evaluation entry.
+
+**Files touched.**
+- Code: `agents/src/types.ts` (+IntegratorState +IntegratorRoundSnapshot), `agents/src/integrator.ts` (+state, +helpers, refactored revise() body), `agents/src/integrator-prompt.ts` (RULES block).
+- Contract: `content/integrator-contract.md` v1.0 → v1.1; `agents/src/shared/generated/contracts.ts` regenerated.
+- Operator queries: `scripts/integrator-regression-health.sql` (new).
+- Docs: `CLAUDE.md`, `docs/AGENTS.md`, `docs/DECISIONS.md`, `docs/FOLLOWUPS.md` (close [open], add 3 new entries), `docs/RUNBOOK.md`, `docs/foundation-fix/BOOK-UPDATES.md`, `book/11-quality-gates.md`, `book/99-glossary.md`.
+
+**After this PR ships, the Foundation Fix programme is COMPLETE end to end.** Phase 1 (rule extraction, 8 contracts, 2026-05-03 to 2026-05-10) + Phase 2 (high-severity leaks: Tasks 03/04/05/06/07, 2026-05-06 to 2026-05-07) + Phase 3 (hygiene: Task 08 PR 08a/b/08c, 2026-05-07) + Phase 4 (regression awareness: Task 09, 2026-05-07).
+
 ## 2026-05-07: L24 closed — audit failure_reasons normalised (Foundation Fix Task 08 PR 08c; original 8-task scope COMPLETE)
 
 Companion PR to 08a/b that morning. L24 (audit failure reasons living as JSON-in-TEXT inside `audit_results.notes`, not SQL-queryable) closes here in a separate PR per Fork 2 — the L24 changes are independent prompt + agent + audit-contract work, with no shared infrastructure with run_id threading or the retention worker. Bundling into 08a/b would have produced the largest review unit in the programme; splitting matches the Phase 2 task pattern.
