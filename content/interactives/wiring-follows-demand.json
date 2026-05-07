@@ -1,0 +1,59 @@
+{
+  "slug": "wiring-follows-demand",
+  "type": "quiz",
+  "title": "Wiring Follows Demand",
+  "concept": "When a behavior becomes critical, the brain rebuilds its motor map by growing more connections to the muscles that behavior needs—specialization isn't software, it's physical rewiring.",
+  "interactiveId": "e029317d-7fa8-4b53-aaf6-3e02edf0f2dc",
+  "sourcePieceId": "f100b863-b6fa-4a48-84ec-190d038c5e96",
+  "publishedAt": 1778134598045,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does 'more wiring' in the motor cortex actually mean?",
+        "options": [
+          "More neurons firing at the same time when a movement happens",
+          "More physical connections running from planning regions to the muscles being controlled",
+          "Faster electrical signals traveling through the same pathways",
+          "Stronger memory of how to perform the movement"
+        ],
+        "correctIndex": 1,
+        "explanation": "Expanded wiring means more neurons send physical axons down to the circuits controlling specific muscles—it's added bandwidth, not faster signals or better memory. The first option confuses coordination with connection count."
+      },
+      {
+        "question": "Why would a brain grow extra connections for one type of movement but not others?",
+        "options": [
+          "Because the movement is performed more frequently than others",
+          "Because the movement requires coordinating many muscles in precise timing",
+          "Because the movement is learned rather than instinctive",
+          "Because the movement uses muscles that are farther from the brain"
+        ],
+        "correctIndex": 1,
+        "explanation": "Extra wiring emerges when a behavior demands fine-grained control across multiple muscle groups in tight sequence—frequency alone doesn't trigger specialization, and distance from the brain is irrelevant. The teaching point: complexity of coordination drives structural change."
+      },
+      {
+        "question": "If an animal stops performing a specialized behavior for many generations, what happens to the extra wiring?",
+        "options": [
+          "It stays in place because brain structure is fixed at birth",
+          "It decays within the individual's lifetime as the skill is lost",
+          "Selection pressure removes it over evolutionary time if it's no longer useful",
+          "It gets repurposed for other movements automatically"
+        ],
+        "correctIndex": 2,
+        "explanation": "Wiring changes across generations through selection—if the behavior stops mattering for survival or reproduction, there's no cost to losing the extra connections, so random drift and mutation pressure erode them. Within-lifetime decay happens with skill loss, but structural expansion is inherited, not learned."
+      },
+      {
+        "question": "A child learning piano practices daily for years. Will their motor cortex grow extra wiring for finger control?",
+        "options": [
+          "Yes—practice drives structural growth in the individual brain",
+          "No—motor map expansion only happens across evolutionary time, not during a single lifetime",
+          "Yes, but only if they start before age seven when the brain is still forming",
+          "No—skill improvement comes from refining existing connections, not growing new ones"
+        ],
+        "correctIndex": 0,
+        "explanation": "Practice reshapes the brain structurally within a lifetime—the motor cortex expands its representation of heavily-used body parts, a process called use-dependent plasticity. This is distinct from evolutionary expansion, which is inherited. The fourth option is tempting but wrong: refinement happens, but so does growth of new connections when demand is sustained."
+      }
+    ]
+  }
+}
