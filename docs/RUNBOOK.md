@@ -742,6 +742,33 @@ Idempotent: re-running is safe. Already-categorised pieces are skipped at the ag
 
 Failure surface: an individual piece failure (Claude API blip, GitHub 404 on the re-read) prints a line and continues to the next piece. The tail summary shows `failed: N`. Script exits 1 if any fail. Retry by re-running — idempotence handles the already-done ones.
 
+## One-shot taxonomy cleanup (categoriser-cleanup-plan + categoriser-cleanup-apply)
+
+Two-stage cleanup of the existing category taxonomy when fragmentation surfaces. **Stage A** asks Claude to design a target taxonomy + per-piece reassignments based on the live data + the v1.1 categoriser contract. Output is a JSON plan the operator reviews. **Stage B** reads the (possibly-edited) plan and emits a forward-only migration. The operator applies the migration after a final SQL review.
+
+```bash
+# Stage A — design (no D1 writes; reads prod D1 via wrangler)
+ANTHROPIC_API_KEY=sk-ant-... node scripts/categoriser-cleanup-plan.mjs
+
+# Open the JSON plan and review
+$EDITOR scripts/categoriser-cleanup-plan.json
+
+# Stage B — generate migration SQL (does NOT execute it)
+node scripts/categoriser-cleanup-apply.mjs
+
+# Read the generated migration end-to-end
+$EDITOR migrations/0039_categoriser_cleanup.sql
+
+# Apply against prod D1
+wrangler d1 migrations apply zeemish --remote
+
+# Verify
+wrangler d1 execute zeemish --remote --command \
+  "SELECT slug, name, piece_count FROM categories ORDER BY piece_count DESC"
+```
+
+The scripts are designed for a one-shot cleanup, not recurring use — the live agent is now reading a contract that prevents the same fragmentation pattern (see DECISIONS 2026-05-07 "Categoriser fragmentation fix"). Re-run only when material drift surfaces and the watch-band entries in FOLLOWUPS escalate. Stage A is safe to re-run any number of times (read-only); Stage B regenerates the migration file each invocation, so re-running before applying simply overwrites with the latest plan.
+
 ## Check what agents have been doing
 All three endpoints are admin-only and require `ADMIN_SECRET`.
 ```bash
