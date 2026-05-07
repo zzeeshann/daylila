@@ -49,6 +49,59 @@ When `voiceScore` is missing (a small number of historical pieces predate the sp
 - `qualityFlag = "low"` → Rough.
 - otherwise → Polished. (Historical pieces that passed pre-splice — preserves the original behaviour without a backfill.)
 
+## Voice Auditor failure_reasons enum
+
+Closed enum. Voice Auditor emits ONE token per VIOLATION KIND (not per instance) on rounds that fail. Five "tribe word" violations across the piece collapse to one `tribe_word` token. Pass rounds emit `[]`.
+
+| Token | Meaning |
+|-------|---------|
+| `tribe_word` | Any tribe word from the voice contract (mindfulness, journey, empower, dive in, transform, embrace, etc.). |
+| `long_sentence` | Sentence too long, padded, or with trailing throat-clearing. |
+| `vague_subject` | Passive voice or subject erased (e.g. "it's important to note"). |
+| `no_specific_example` | Abstract claim without a concrete example. |
+| `flattery` | Congratulating the reader, "great job"-style language. |
+| `jargon_without_translation` | Technical term used without immediate plain-English translation. |
+| `unknown` | Forward-compat sentinel. Emitted ONLY by the parser when Claude returns a token outside the closed list — never by Claude directly. Surfaces in operator queries via `failure_reasons LIKE '%unknown%'`. |
+
+Persisted to `audit_results.failure_reasons` as comma-separated tokens (since migration 0038, 2026-05-07). Runtime mirror: `VOICE_FAILURE_REASONS: ReadonlySet<VoiceFailureReason>` in `agents/src/types.ts`.
+
+## Structure Editor failure_reasons enum
+
+Closed enum. Same one-token-per-violation-kind shape. Pass rounds emit `[]`.
+
+| Token | Meaning |
+|-------|---------|
+| `weak_hook` | Hook does not open with the observation that creates the question, or uses a "In this lesson, we'll learn…" opening, or summarises before asking. |
+| `missing_close` | Close summarises, calls to action, congratulates, or rambles past four sentences. |
+| `beat_too_long` | Any beat is padded or carries more than one idea. |
+| `pacing_uneven` | Beats vary wildly in weight; the piece doesn't breathe at a consistent pace. |
+| `wrong_beat_count` | Outside the 3–6 range, or in the 7+ padding zone. |
+| `wrong_word_count` | Outside 1000–1500. |
+| `unknown` | Forward-compat sentinel. Same shape as the voice enum. |
+
+Note that the Structure Editor doesn't have its own contract file — structure rules live in `content/beat-contract.md`. The failure_reasons enum lives here in the audit contract because it governs how audit verdicts are SHAPED, not how pieces are shaped.
+
+Persisted to `audit_results.failure_reasons` since migration 0038. Runtime mirror: `STRUCTURE_FAILURE_REASONS: ReadonlySet<StructureFailureReason>` in `agents/src/types.ts`.
+
+## Fact Checker failure_reasons enum
+
+Closed enum. Tags the SHAPE of the fact-check failure at the audit-summary level. Per-claim status (`verified` / `unverified` / `incorrect`) is recorded separately in `daily_audit_claims` (migration 0028, 2026-04-30) — this enum complements that more granular record. Pass rounds emit `[]`.
+
+| Token | Meaning |
+|-------|---------|
+| `unverified_claim` | At least one claim's status is `unverified` (Claude searched but couldn't confirm). |
+| `contradicted_claim` | At least one claim's status is `incorrect` (Claude found evidence against it). |
+| `missing_source` | At least one claim needed a citation but no search returned a usable source. |
+| `cutoff_confession` | Claude fell back to "I don't know past my cutoff" instead of searching. Direct violation of the fact-check contract's search-first rule. |
+| `search_not_used` | Claude skipped searching for current-event claims that the contract requires verification of. |
+| `unknown` | Forward-compat sentinel. Same shape as the voice + structure enums. |
+
+Persisted to `audit_results.failure_reasons` since migration 0038. Runtime mirror: `FACT_FAILURE_REASONS: ReadonlySet<FactFailureReason>` in `agents/src/types.ts`.
+
+## Audit suggestions count
+
+Migration 0038 also adds `audit_results.suggestions_count INTEGER` — the number of suggestion strings Claude produced this round. Drift detector for "auditor went silent" cases (Claude returning a fail verdict with zero suggestions). For the fact-checker the column counts `claims.length` (every claim is implicitly a suggestion to verify); for voice and structure it counts `suggestions.length` directly.
+
 ## How agents apply this contract
 
 - **Voice Auditor.** Reads the contract via the named constant `VOICE_PASS_THRESHOLD = 85`, injected into its system prompt's JSON-spec line as `"passed": boolean (score >= ${VOICE_PASS_THRESHOLD})`. The auditor's full voice rules come from the voice contract (`${VOICE_CONTRACT}` injection); the threshold here is response-format spec, not rule body.
@@ -60,3 +113,4 @@ When `voiceScore` is missing (a small number of historical pieces predate the sp
 ## Change log
 
 - 2026-05-06 — v1.0 — extracted from `agents/src/voice-auditor-prompt.ts`, `agents/src/voice-auditor.ts`, `agents/src/director.ts`, `agents/src/interactive-generator.ts`, `agents/src/interactive-auditor-prompt.ts`, and `src/lib/audit-tier.ts` (Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Behaviour-preserving — rule values unchanged.
+- 2026-05-07 — v1.1 — added three failure_reasons enum sections (Voice / Structure / Fact) + the audit suggestions count note, alongside Foundation Fix Task 08 PR 08c (closes leak L24). Migration 0038 adds the persistence columns. Each closed-enum token + the per-auditor token list is canonical here; runtime mirrors live in `agents/src/types.ts`.

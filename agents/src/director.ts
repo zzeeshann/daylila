@@ -2000,19 +2000,43 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // Foundation Fix Task 08 (2026-05-07): each audit row also carries
     // run_id (UUID) so multi-piece-per-day runs are forensically
     // traceable end-to-end. Migration 0037.
+    // Foundation Fix Task 08 PR 08c (2026-05-07): also writes
+    // `failure_reasons` (comma-joined closed-enum tokens) +
+    // `suggestions_count` per audit row. Closes leak L24. Closed
+    // enums live in `agents/src/types.ts` and `content/audit-contract.md`.
+    const voiceFailureReasons = (voice.failureReasons ?? []).join(',') || null;
+    const structureFailureReasons = (structure.failureReasons ?? []).join(',') || null;
+    const factFailureReasons = (facts.failureReasons ?? []).join(',') || null;
     try {
       await this.env.DB.batch([
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(crypto.randomUUID(), taskId, draftId, 'voice', voice.passed ? 1 : 0, voice.score, JSON.stringify(voice.violations), now, pieceId, runId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id, failure_reasons, suggestions_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(crypto.randomUUID(), taskId, draftId, 'voice', voice.passed ? 1 : 0, voice.score, JSON.stringify(voice.violations), now, pieceId, runId, voiceFailureReasons, voice.suggestions?.length ?? 0),
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId, runId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id, failure_reasons, suggestions_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(crypto.randomUUID(), taskId, draftId, 'structure', structure.passed ? 1 : 0, null, JSON.stringify(structure.issues), now, pieceId, runId, structureFailureReasons, structure.suggestions?.length ?? 0),
         this.env.DB.prepare(
-          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts), now, pieceId, runId),
+          'INSERT INTO audit_results (id, task_id, draft_id, auditor, passed, score, notes, created_at, piece_id, run_id, failure_reasons, suggestions_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(factAuditId, taskId, draftId, 'fact', facts.passed ? 1 : 0, null, JSON.stringify(facts), now, pieceId, runId, factFailureReasons, facts.claims?.length ?? 0),
       ]);
     } catch { /* audit logging shouldn't break the pipeline */ }
+
+    // Surface parse-error sentinels via Observer (one log per audit
+    // per round if populated). Same drop-with-visibility posture as
+    // Task 06's IntegratorDecision parseError. Fail-open: an Observer
+    // write hiccup cannot block the audit-revise loop.
+    if (voice.parseError) {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      await obs.logError('voice-auditor', round, voice.parseError, pieceId, runId).catch(() => {});
+    }
+    if (structure.parseError) {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      await obs.logError('structure-editor', round, structure.parseError, pieceId, runId).catch(() => {});
+    }
+    if (facts.parseError) {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      await obs.logError('fact-checker', round, facts.parseError, pieceId, runId).catch(() => {});
+    }
 
     // Per-claim breakout into daily_audit_claims (migration 0028).
     // Path A (2026-05-01) dropped per-claim source attribution, so the

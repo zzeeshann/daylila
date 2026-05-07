@@ -355,6 +355,34 @@ Migrations are tracked in the `d1_migrations` table. As of late April 2026 the t
   The result should list every `.sql` file in `migrations/` except the pending one. If rows are missing, the tracker is drifted and `migrations apply` will try to replay everything — likely hitting `duplicate column name` on an `ALTER TABLE ADD COLUMN` that's already live.
 - **If drift is detected:** recovery is to manually `INSERT INTO d1_migrations (name) VALUES ('NNNN_…')` for the already-applied rows the tracker is missing, then re-run `migrations apply`. Full procedure and the specific rows inserted on 2026-04-20 are documented in [DECISIONS.md](DECISIONS.md) 2026-04-20 "Surfacing the learning loop" (operational-notes bullet on the migration-apply snag).
 
+### Verify audit failure_reasons populate (Foundation Fix Task 08 PR 08c, post-cron)
+
+After the next pipeline run with the new auditor prompts live (post PR 08c merge + migration 0038 apply), verify the failure_reasons + suggestions_count columns are populating:
+
+```sql
+-- Recent fail rounds with closed-enum tokens:
+SELECT auditor, failure_reasons, suggestions_count, created_at
+FROM audit_results
+WHERE created_at > unixepoch() * 1000 - 86400000
+  AND passed = 0
+ORDER BY created_at DESC LIMIT 10;
+-- Expect non-NULL failure_reasons (e.g. "tribe_word,long_sentence" for
+-- voice; "weak_hook" for structure; "unverified_claim" for fact) and
+-- non-zero suggestions_count on every row.
+
+-- Fail rounds with empty failure_reasons (drift detector):
+SELECT auditor, COUNT(*) AS empty_rows
+FROM audit_results
+WHERE created_at > unixepoch() * 1000 - 7 * 86400000
+  AND passed = 0
+  AND (failure_reasons IS NULL OR failure_reasons = '')
+GROUP BY auditor;
+-- Expect 0 across all three auditors after the new prompts ship.
+-- Non-zero means an auditor prompt regression.
+```
+
+See `scripts/audit-failure-reasons-health.sql` for the full operator query set (recent breakdowns, top-N tokens via recursive CTE, suggestions-count distribution, unknown-token drift detector). Run it 7 days after first deploy to confirm closed-enum vocabulary is healthy.
+
 ### Verify run_id populates end-to-end (Foundation Fix Task 08, post-cron)
 
 After the next 02:00 UTC publish + 04:00 UTC retention pair runs (live or DRY_RUN), verify run_id threading lands cleanly:

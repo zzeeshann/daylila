@@ -2,6 +2,39 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: L24 closed — audit failure_reasons normalised (Foundation Fix Task 08 PR 08c; original 8-task scope COMPLETE)
+
+Companion PR to 08a/b that morning. L24 (audit failure reasons living as JSON-in-TEXT inside `audit_results.notes`, not SQL-queryable) closes here in a separate PR per Fork 2 — the L24 changes are independent prompt + agent + audit-contract work, with no shared infrastructure with run_id threading or the retention worker. Bundling into 08a/b would have produced the largest review unit in the programme; splitting matches the Phase 2 task pattern.
+
+**Six decisions made up front, captured here so future-me reads them instead of re-litigating.**
+
+**Schema shape — two additive nullable columns; `notes` JSON unchanged.** Migration 0038 adds `failure_reasons TEXT` (comma-separated closed-enum tokens, queryable via `LIKE '%token%'`) + `suggestions_count INTEGER`. Both nullable, forward-only — historical rows stay NULL on both columns. `notes` is preserved unchanged as the source of truth for full audit detail (voice violations, structure issues, fact claims + sources). The new columns are for fast queries; the JSON is for full detail. Site-side consumers (`made.ts:479+503`, `admin/piece/[date]/[slug].astro:397`) parse `notes` as JSON via `parseStringArray` — adding sibling columns doesn't change that parsing. Same forward-only / no-backfill / no-index posture as Task 03's `daily_candidates` schema additions. The brief proposed an index on `failure_reasons`; skipped because year-1 row count is ~3000 and full-scans run in milliseconds.
+
+**Three closed enums in `agents/src/types.ts` — same posture as Tasks 03/05/06/07.** `VoiceFailureReason` carries 6 values (tribe_word, long_sentence, vague_subject, no_specific_example, flattery, jargon_without_translation) + `unknown`. `StructureFailureReason` carries 6 (weak_hook, missing_close, beat_too_long, pacing_uneven, wrong_beat_count, wrong_word_count) + `unknown`. `FactFailureReason` carries 5 (unverified_claim, contradicted_claim, missing_source, cutoff_confession, search_not_used) + `unknown`. Each lives as a typed union + `ReadonlySet` runtime mirror. The `unknown` sentinel is reserved for forward-compat: when Claude emits a token outside the closed Set, the parser persists it as `unknown` rather than silently dropping the row — drift surfaces via the `failure_reasons LIKE '%unknown%'` operator query (script 4 in `audit-failure-reasons-health.sql`). Same drop-with-visibility posture as `AudioIssueType`'s forward-compat slot in Task 05.
+
+**One-token-per-violation-KIND rule, not per instance.** Each prompt explicitly says: "Five tribe_word violations across the piece collapse to ONE `tribe_word` token". This keeps the persisted column compact (typical fail rounds emit 1-3 tokens, never 30+). Operator queries that want per-instance detail still get it from the `notes` JSON. Pass rounds emit `[]` and the column persists as NULL.
+
+**Fork 5 locked — extend `content/audit-contract.md` with three new sections.** Notably there's NO `content/structure-contract.md` — structure rules live in `beat-contract.md` — so audit-contract.md is the natural home for structure failure_reasons too. v1.1 of the contract documents the three closed-enum tables + the audit-suggestions-count note. Regenerated `contracts.ts` via codegen (84403 bytes, +~3400 from v1.0); `pnpm verify-contracts-fresh` ✓.
+
+**Auditor result-shape change — each interface gains `failureReasons` + `parseError`.** Mirrors Task 06's IntegratorDecision result-shape change. Auditors validate each emitted token against their closed Set at parse time; unknowns drop, the count surfaces via `parseError: string | null` sentinel. Director reads each parseError after the audit and fires `observer.logError(<auditor>, round, msg, pieceId, runId)` exactly once per audit when populated — no per-row spam. Fail-open posture: a parse hiccup can't block the audit-revise loop. The verdict (`passed` / `score` / `violations` / `claims` / `issues`) is computed in-memory **before** any closed-enum validation runs.
+
+**Director.saveAuditResults binds the new columns.** `failure_reasons.join(',')` (comma-separated, NULL when empty), `suggestions_count` = `voice.suggestions.length` / `structure.suggestions.length` / `facts.claims.length` (every claim is implicitly a "verify-this" suggestion). Same `this.env.DB.batch()` pattern; the audit row INSERTs gain 2 new columns + 2 new binds each. Three new observer.logError sites (one per auditor) added immediately after the batch — symmetric with the existing pattern in Task 06.
+
+**No reader-facing surface in this PR.** The drawer's "How this was made" section already shows audit verdicts; surfacing the closed-enum tokens vs the JSON-parsed prose is content-design work, deferred. The new columns populate going forward; surfacing them when picked up is consistent with the deferred-surface posture of Tasks 03/04/05/06/07.
+
+**Operator queries** in `scripts/audit-failure-reasons-health.sql`: (1) recent breakdowns by auditor + reason; (2) top-N tokens per auditor via recursive CTE (SQLite has no `string_split`); (3) suggestions-count distribution as the auditor-went-silent detector; (4) unknown-token drift detector. RUNBOOK documents invocation under "Operator queries: Audit failure_reasons health".
+
+**Verification.** `pnpm codegen && pnpm verify-contracts-fresh` ✓. agents `tsc --noEmit` clean except 26 pre-existing `src/server.ts` Durable Object errors. CI green. Migration applies via `wrangler d1 migrations apply zeemish --remote` post-merge (additive nullable; non-destructive). End-to-end check waits for next pipeline run with the new prompts live: at least one fail round should populate `failure_reasons` with closed-enum tokens.
+
+**Files touched.**
+- DB layer: `migrations/0038_audit_failure_reasons.sql`, `scripts/audit-failure-reasons-health.sql` (new).
+- Contract: `content/audit-contract.md` v1.0 → v1.1 (three new sections + change-log entry), `agents/src/shared/generated/contracts.ts` (regenerated).
+- Agent code: `agents/src/types.ts` (3 closed enums + ReadonlySet mirrors), `agents/src/voice-auditor.ts` + `agents/src/voice-auditor-prompt.ts`, `agents/src/structure-editor.ts` + `agents/src/structure-editor-prompt.ts`, `agents/src/fact-checker.ts` + `agents/src/fact-checker-prompt.ts`, `agents/src/director.ts` (saveAuditResults).
+- Operator docs: `CLAUDE.md` (latest-session header at top, migration count 37 → 38), `docs/DECISIONS.md` (this entry), `docs/SCHEMA.md`, `docs/AGENTS.md`, `docs/RUNBOOK.md`, `docs/FOLLOWUPS.md`.
+- Book: `book/99-glossary.md` (Failure reason entry).
+
+**Original 8-task Foundation Fix scope CLOSES with this PR.** Phase 1 (rule extraction) closed 2026-05-10 with eight contracts. Phase 2 (high-severity data leaks) closed 2026-05-07 with Tasks 03/04/05/06/07. Phase 3 (hygiene) closes here with Task 08 (PR 08a/b for L16/L23, PR 08c for L24). Phase 4 Task 09 (Integrator regression awareness) is queued post-foundation with its own 2-4-week watch window after Task 06 — see `docs/foundation-fix/00-MASTER-PLAN.md`.
+
 ## 2026-05-07: L16 + L23 closed — run_id end-to-end + retention worker (Foundation Fix Task 08 PR 08a/b)
 
 PR 08a/b bundles three intertwined Foundation-Fix sub-tasks: run_id end-to-end across the pipeline (L23), the daily retention worker (L16), and the dual-life resolution of `pipeline_log.run_id` (FOLLOWUPS line 1705). L24 (audit failure_reasons normalisation) was deliberately split into PR 08c per Fork 2; the bundling argument from the brief doesn't hold for L24 because it's an independent prompt + agent + audit-contract change with no shared infrastructure.
