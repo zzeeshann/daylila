@@ -2,6 +2,25 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Header wordmark flip `DayLila` → `Daylila` (same-day reversal of PR #14's choice)
+
+Same-day follow-up to PR #14. The operator reviewed the deployed `DayLila` camelCase header on production and decided the form was wrong — standard one-word single-capital `Daylila` reads cleaner and matches the existing internal form everywhere else (code, docs, file names, worker handles, manifest, etc.). The third option from the original audit conversation (rejected at first in favour of camelCase) is the one that lands.
+
+**Doctrine simplifies.** PR #14 introduced a separate camelCase wordmark style on top of the existing one-word/two-word split. This flip eliminates that — there's no more wordmark-as-distinct-form rule. The convention collapses to two cases:
+
+- `Daylila` (one word, single capital) — everywhere except OS-level user-visible surfaces.
+- `Day Lila` (two words) — OS-level user-visible surfaces only: OS app labels (PWA name in `site.webmanifest`), share-card text in the OG card image, future Apple Wallet / Android intent labels if added.
+
+The header used to be in the `Day Lila` two-word category per the pre-PR-14 convention; PR #14 made it camelCase; this flip makes it `Daylila`. The lowercase `daylila` form (the original 2026-05-06 wordmark style) is fully retired. CLAUDE.md naming-convention paragraph in the latest-session entry updated to lock the new simpler form.
+
+**Why the same-day flip rather than waiting.** PR #14 went out unblocking other work; this is a one-line edit (`BaseLayout.astro:301`) plus the convention paragraph. Carrying the camelCase form for any meaningful duration would mean people encountering inconsistent capitalisation in screenshots, social posts, or write-ups while we wait for a rev. Better to flip it on the same day and have one consistent form going forward.
+
+**No retrospective edits.** The PR #14 commit message + DECISIONS entry below stay as written — they're the truthful record of what we shipped at that moment. This entry documents the reversal.
+
+**Files.** `src/layouts/BaseLayout.astro` (one-line wordmark edit), CLAUDE.md (convention paragraph + new fourth follow-up note in the latest-session entry), this entry. Branched off post-merge `main` rather than the now-deleted PR #14 branch.
+
+---
+
 ## 2026-05-07: Post-icon-swap brand audit — header wordmark `daylila` → `DayLila`, EMAIL_FROM hardening, DNS retirement
 
 Third commit in today's brand sequence (after the icon swap and the 1024px source-master delivery). Operator asked for a residual-Zeemish sweep across the codebase to confirm the rebrand is closed.
