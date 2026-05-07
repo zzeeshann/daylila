@@ -1,0 +1,949 @@
+{
+  "old_category_diagnosis": [
+    {
+      "slug": "knowledge-formation",
+      "verdict": "process-level",
+      "reason": "Describes HOW pieces think (accumulation through observation) rather than naming a domain of subjects."
+    },
+    {
+      "slug": "resource-constraints-tradeoffs",
+      "verdict": "process-level",
+      "reason": "Describes a meta-pattern (operating under limits) that could apply to any engineering, biology, or policy piece."
+    },
+    {
+      "slug": "measurement-detection-limits",
+      "verdict": "process-level",
+      "reason": "Describes an intellectual move (where systems stop looking) rather than a territory of phenomena."
+    },
+    {
+      "slug": "chokepoints-and-supply",
+      "verdict": "domain-level",
+      "reason": "Names a geographic and logistical territory — bottlenecks in global trade infrastructure."
+    },
+    {
+      "slug": "infrastructure-technical-debt",
+      "verdict": "domain-level",
+      "reason": "Names critical systems and their upgrade cycles, though the ampersand violates naming rules."
+    },
+    {
+      "slug": "pattern-recognition-sensing",
+      "verdict": "process-level",
+      "reason": "Describes how systems extract information rather than naming biological or computational domains."
+    },
+    {
+      "slug": "policy-design-implementation",
+      "verdict": "process-level",
+      "reason": "Describes how governments structure outcomes rather than naming policy domains or governance fields."
+    },
+    {
+      "slug": "systems-under-stress",
+      "verdict": "process-level",
+      "reason": "Describes adaptation behavior rather than naming ecological, biological, or engineering territories."
+    },
+    {
+      "slug": "commodity-shocks",
+      "verdict": "topic-of-the-week",
+      "reason": "Too narrow — covers price volatility events rather than the broader trade/energy/markets domain."
+    },
+    {
+      "slug": "information-asymmetry-markets",
+      "verdict": "process-level",
+      "reason": "Describes market distortion mechanisms rather than naming finance, economics, or market domains."
+    },
+    {
+      "slug": "state-violence-justice-systems",
+      "verdict": "domain-level",
+      "reason": "Names law enforcement, punishment, and criminal justice territories, though violates naming rules with ampersand."
+    },
+    {
+      "slug": "cartels-coordination-problems",
+      "verdict": "process-level",
+      "reason": "Describes cooperation/defection dynamics rather than naming the cartel/trade/economics territory."
+    },
+    {
+      "slug": "institutional-accountability",
+      "verdict": "process-level",
+      "reason": "Describes responsibility assignment mechanisms rather than naming governance or legal domains."
+    },
+    {
+      "slug": "business-model-disruption",
+      "verdict": "domain-level",
+      "reason": "Names corporate strategy and market competition territory, though could merge into broader business/markets."
+    },
+    {
+      "slug": "competition-and-credit",
+      "verdict": "process-level",
+      "reason": "Describes credit allocation dynamics rather than naming science, academia, or institutional domains."
+    },
+    {
+      "slug": "death-dying-systems",
+      "verdict": "domain-level",
+      "reason": "Names end-of-life medical and cultural territory, though violates naming rules with ampersand."
+    },
+    {
+      "slug": "ecological-systems-invasive-species",
+      "verdict": "domain-level",
+      "reason": "Names ecology and species management territory, though violates naming rules with ampersand and three words."
+    },
+    {
+      "slug": "emergence-and-scale",
+      "verdict": "process-level",
+      "reason": "Describes collective-behavior properties rather than naming physics, complexity science, or systems domains."
+    },
+    {
+      "slug": "judicial-interpretation-institutional-change",
+      "verdict": "process-level",
+      "reason": "Describes court reshaping mechanisms rather than naming law, judiciary, or constitutional domains."
+    },
+    {
+      "slug": "legislative-process",
+      "verdict": "domain-level",
+      "reason": "Names lawmaking mechanics and congressional procedure territory."
+    },
+    {
+      "slug": "legitimacy-contested-authority",
+      "verdict": "process-level",
+      "reason": "Describes authority claims rather than naming governance, state-building, or political domains."
+    },
+    {
+      "slug": "neural-architecture-specialization",
+      "verdict": "topic-of-the-week",
+      "reason": "Too narrow — single piece about brain wiring; would merge into broader neuroscience/brain domain."
+    },
+    {
+      "slug": "organizational-failure-recovery",
+      "verdict": "process-level",
+      "reason": "Describes post-crisis decision-making rather than naming organizational, management, or institutional domains."
+    },
+    {
+      "slug": "path-dependence-lock-in",
+      "verdict": "process-level",
+      "reason": "Describes self-reinforcing choice mechanics rather than naming economics, history, or systems domains."
+    },
+    {
+      "slug": "security-architecture-failure",
+      "verdict": "domain-level",
+      "reason": "Names cybersecurity and infrastructure vulnerability territory, though violates naming rules with ampersand."
+    },
+    {
+      "slug": "trade-policy-mechanics",
+      "verdict": "domain-level",
+      "reason": "Names trade policy instruments and effects territory, though should merge into broader trade domain."
+    },
+    {
+      "slug": "patterns-yet-to-cluster",
+      "verdict": "domain-level",
+      "reason": "Reserved fallback category — correctly configured as operator review queue."
+    }
+  ],
+  "target_categories": [
+    {
+      "slug": "brain",
+      "name": "Brain",
+      "description": "Neuroscience, brain anatomy, neural circuits, learning, memory, and how the nervous system processes signals and adapts structure.",
+      "from_old": [
+        "neural-architecture-specialization",
+        "knowledge-formation",
+        "pattern-recognition-sensing"
+      ]
+    },
+    {
+      "slug": "biology",
+      "name": "Biology",
+      "description": "Cellular biology, genetics, evolution, physiology, immunology, and how living systems function and adapt.",
+      "from_old": [
+        "knowledge-formation",
+        "pattern-recognition-sensing",
+        "resource-constraints-tradeoffs",
+        "systems-under-stress"
+      ]
+    },
+    {
+      "slug": "ecology",
+      "name": "Ecology",
+      "description": "Ecosystems, species interactions, invasive species, environmental adaptation, and how organisms shape and respond to their habitats.",
+      "from_old": [
+        "ecological-systems-invasive-species",
+        "systems-under-stress"
+      ]
+    },
+    {
+      "slug": "trade",
+      "name": "Trade",
+      "description": "International trade, tariffs, supply chains, commodity markets, chokepoints, cartels, and the economics of global commerce.",
+      "from_old": [
+        "chokepoints-and-supply",
+        "commodity-shocks",
+        "trade-policy-mechanics",
+        "cartels-coordination-problems",
+        "information-asymmetry-markets"
+      ]
+    },
+    {
+      "slug": "infrastructure",
+      "name": "Infrastructure",
+      "description": "Critical systems including transportation, utilities, data centers, cybersecurity, and the challenges of maintaining and modernizing essential networks.",
+      "from_old": [
+        "infrastructure-technical-debt",
+        "security-architecture-failure"
+      ]
+    },
+    {
+      "slug": "governance",
+      "name": "Governance",
+      "description": "Policy design, lawmaking, elections, legitimacy, institutional accountability, and how governments structure authority and outcomes.",
+      "from_old": [
+        "policy-design-implementation",
+        "legislative-process",
+        "legitimacy-contested-authority",
+        "judicial-interpretation-institutional-change",
+        "institutional-accountability",
+        "organizational-failure-recovery"
+      ]
+    },
+    {
+      "slug": "justice",
+      "name": "Justice",
+      "description": "Law enforcement, criminal justice, punishment, execution methods, institutional failure in policing and corrections.",
+      "from_old": [
+        "state-violence-justice-systems"
+      ]
+    },
+    {
+      "slug": "business",
+      "name": "Business",
+      "description": "Corporate strategy, business models, market competition, disruption, and how companies adapt to technological and economic change.",
+      "from_old": [
+        "business-model-disruption"
+      ]
+    },
+    {
+      "slug": "medicine",
+      "name": "Medicine",
+      "description": "Diagnosis, treatment, medical systems, end-of-life care, and how healthcare makes decisions under uncertainty.",
+      "from_old": [
+        "measurement-detection-limits",
+        "resource-constraints-tradeoffs",
+        "death-dying-systems"
+      ]
+    },
+    {
+      "slug": "science",
+      "name": "Science",
+      "description": "Scientific discovery, research methods, fossil records, astronomy, physics, paleontology, and basic research findings across disciplines.",
+      "from_old": [
+        "knowledge-formation",
+        "emergence-and-scale",
+        "measurement-detection-limits",
+        "competition-and-credit"
+      ]
+    }
+  ],
+  "piece_reassignments": [
+    {
+      "piece_id": "59a7f53b-9a32-443e-bfa3-27af4471bbff",
+      "headline": "Home shopping network pioneer QVC files for bankruptcy protection",
+      "from": [
+        "business-model-disruption"
+      ],
+      "to": [
+        "business"
+      ],
+      "reason": "Corporate failure due to technological change — core business territory."
+    },
+    {
+      "piece_id": "9ded9bec-1616-4552-b8a5-e69f1e446466",
+      "headline": "Oil prices plunge as Iran says Strait of Hormuz 'open' during ceasefire",
+      "from": [
+        "chokepoints-and-supply"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Geographic bottleneck in global commodity flows — trade infrastructure."
+    },
+    {
+      "piece_id": "b6f857ea-f75a-474d-a933-a029238c05e5",
+      "headline": "Airline industry faces a shakeup as jet fuel hits hard",
+      "from": [
+        "chokepoints-and-supply",
+        "commodity-shocks"
+      ],
+      "to": [
+        "trade",
+        "business"
+      ],
+      "reason": "Commodity price impact on industry — trade shocks and business adaptation."
+    },
+    {
+      "piece_id": "5f45b905-2eff-42ac-84f7-fa8adf41c477",
+      "headline": "Hormuz Shipping Traffic Grinds to a Halt as Tensions Deepen",
+      "from": [
+        "chokepoints-and-supply",
+        "commodity-shocks"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Chokepoint disruption in global shipping — trade infrastructure."
+    },
+    {
+      "piece_id": "ab95f0f8-b419-4e2e-95a8-46ca0290957a",
+      "headline": "Trump administration begins refunding more than $166bn in tariffs",
+      "from": [
+        "trade-policy-mechanics"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Tariff mechanics and trade policy instruments — core trade territory."
+    },
+    {
+      "piece_id": "726b2abf-d4e2-4156-8b66-7c2b9dd2623d",
+      "headline": "$12.5 billion 'down payment' brings air traffic control out of 1990s. Now, more money is needed for new software and AI",
+      "from": [
+        "infrastructure-technical-debt"
+      ],
+      "to": [
+        "infrastructure"
+      ],
+      "reason": "Critical system modernization — infrastructure upgrade cycles."
+    },
+    {
+      "piece_id": "878def34-3407-4bf7-9d1f-93c48511e3ca",
+      "headline": "UK bill bans anyone born after 2008 from ever buying tobacco",
+      "from": [
+        "policy-design-implementation"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Generational policy design — governance territory."
+    },
+    {
+      "piece_id": "c7fb29ed-7a22-47c1-a4a4-a85ac20b77be",
+      "headline": "NASA to create its own Big Bang for Voyager 1 as another instrument is shut down",
+      "from": [
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Managing aging spacecraft — scientific mission under constraint."
+    },
+    {
+      "piece_id": "abf52fe5-de75-4e3a-bba4-6bb98858bc1d",
+      "headline": "Trump administration reclassifies cannabis as less dangerous",
+      "from": [
+        "policy-design-implementation"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Risk classification policy — governance regulatory framework."
+    },
+    {
+      "piece_id": "d047cd76-6e35-42ec-b8ed-35d675c42339",
+      "headline": "Soldier Used Classified Information to Bet on Maduro's Ouster, U.S. Says",
+      "from": [
+        "information-asymmetry-markets"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Information asymmetry in markets — trade/markets domain."
+    },
+    {
+      "piece_id": "71e2f879-0578-4618-8766-33c6f3ce19a8",
+      "headline": "After 2 failed votes, Mike Johnson unveils new plan to extend key U.S. spy powers",
+      "from": [
+        "legislative-process"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Legislative mechanics and vote dynamics — governance lawmaking."
+    },
+    {
+      "piece_id": "06a9524c-115c-4853-9aa3-478b68fcd1dd",
+      "headline": "Maine Gov. Janet Mills vetoes ban on data center construction",
+      "from": [
+        "infrastructure-technical-debt",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "infrastructure",
+        "governance"
+      ],
+      "reason": "Energy grid capacity and policy decision — infrastructure and governance."
+    },
+    {
+      "piece_id": "7eb5f8a3-29d2-4059-94a9-bb88904f3cf7",
+      "headline": "Justice Department to allow firing squads for executions in move to ramp up capital punishment",
+      "from": [
+        "state-violence-justice-systems"
+      ],
+      "to": [
+        "justice"
+      ],
+      "reason": "Execution methods and state punishment — justice systems."
+    },
+    {
+      "piece_id": "264ea451-d3f2-42b2-893f-037af8555ea1",
+      "headline": "Palestinians in West Bank and some in Gaza vote in local elections",
+      "from": [
+        "legitimacy-contested-authority"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Elections under contested control — governance legitimacy."
+    },
+    {
+      "piece_id": "9280146e-16ad-4c7a-977a-1900dc9b3324",
+      "headline": "U.S. Mint Buys Drug Cartel Gold and Sells It as 'American'",
+      "from": [
+        "information-asymmetry-markets",
+        "chokepoints-and-supply"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Supply chain integrity and commodity sourcing — trade territory."
+    },
+    {
+      "piece_id": "cee5e838-4718-4847-a229-b9271b6cb7ea",
+      "headline": "Surviving in a poisoned land: Chernobyl's wildlife is different, but not in the ways you might think",
+      "from": [
+        "systems-under-stress",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "ecology"
+      ],
+      "reason": "Adaptation in hostile environments — ecology under extreme stress."
+    },
+    {
+      "piece_id": "2f1d9adf-66ac-42ac-80c6-230a72bb8fdc",
+      "headline": "Former Sen. Ben Sasse, dying of cancer, reflects on family, faith and the future of America",
+      "from": [
+        "death-dying-systems"
+      ],
+      "to": [
+        "medicine"
+      ],
+      "reason": "End-of-life experience — medicine and mortality."
+    },
+    {
+      "piece_id": "871db594-7344-4fcd-bdaf-d410fa29d73c",
+      "headline": "Brother of suspect in deaths of 2 Tampa doctoral students: 'We tried to warn police in the past'",
+      "from": [
+        "state-violence-justice-systems",
+        "policy-design-implementation"
+      ],
+      "to": [
+        "justice"
+      ],
+      "reason": "Institutional response to threats — justice system failure."
+    },
+    {
+      "piece_id": "e55021d2-da15-4aec-a21b-3c691e62372d",
+      "headline": "Mystery of golden orb found in depths of ocean off Alaska finally solved",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Scientific discovery through observation — science research methods."
+    },
+    {
+      "piece_id": "b4ffbd42-cd10-484e-b92e-3085f2303266",
+      "headline": "UAE leaves OPEC in major blow to global oil producers' group",
+      "from": [
+        "cartels-coordination-problems",
+        "commodity-shocks"
+      ],
+      "to": [
+        "trade"
+      ],
+      "reason": "Cartel coordination failure in commodity markets — trade territory."
+    },
+    {
+      "piece_id": "ad0c68c2-d745-4cde-b776-faf7feb554d0",
+      "headline": "First detailed 'smell maps' reveal how noses track odours",
+      "from": [
+        "pattern-recognition-sensing"
+      ],
+      "to": [
+        "brain"
+      ],
+      "reason": "Sensory processing in nervous system — brain and neuroscience."
+    },
+    {
+      "piece_id": "c0b08dee-c011-44d7-acc2-78ecc3c2f7a6",
+      "headline": "'Suicidal' model of capitalism leading to war and fascism, climate summit told",
+      "from": [
+        "infrastructure-technical-debt",
+        "path-dependence-lock-in"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Economic system critique at policy summit — governance territory."
+    },
+    {
+      "piece_id": "b00d9a30-65e6-4c6e-9b96-da7d8d9dcbe9",
+      "headline": "Indian Tycoon Offers Refuge to Pablo Escobar's Condemned Hippos",
+      "from": [
+        "ecological-systems-invasive-species",
+        "policy-design-implementation"
+      ],
+      "to": [
+        "ecology"
+      ],
+      "reason": "Invasive species management — ecology domain."
+    },
+    {
+      "piece_id": "2fb4bb9e-1918-4a84-8e80-ad1974b8bcf4",
+      "headline": "Supreme Court limits key provision of the landmark Voting Rights Act",
+      "from": [
+        "judicial-interpretation-institutional-change"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Court reshaping law through interpretation — governance institutional change."
+    },
+    {
+      "piece_id": "2aba2c5f-0a3e-4c61-a3e2-8dddfc7945e7",
+      "headline": "J. Craig Venter, Scientist Who Decoded the Human Genome, Dies at 79",
+      "from": [
+        "knowledge-formation",
+        "competition-and-credit"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Scientific achievement and credit allocation — science research territory."
+    },
+    {
+      "piece_id": "5d0918d4-9800-45b1-9e96-17b181a1c3fb",
+      "headline": "Finding 'hidden sperm': New technique offers hope to men previously told they were infertile",
+      "from": [
+        "measurement-detection-limits",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "medicine"
+      ],
+      "reason": "Diagnostic technique improvement — medicine clinical practice."
+    },
+    {
+      "piece_id": "8347b741-20d1-44bf-9d85-f4868d215dd4",
+      "headline": "New Orleans sheriff indicted on charges of failing to prevent jailbreak and escape of 10 inmates",
+      "from": [
+        "state-violence-justice-systems",
+        "institutional-accountability"
+      ],
+      "to": [
+        "justice"
+      ],
+      "reason": "Institutional accountability in corrections — justice system failure."
+    },
+    {
+      "piece_id": "280dc1c7-5a72-4928-aef7-123e19996fb4",
+      "headline": "Training language models to be warm can reduce accuracy and increase sycophancy",
+      "from": [
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "AI research trade-offs — science experimental methods."
+    },
+    {
+      "piece_id": "fd644822-c6c6-4c23-811b-a6cef4e203fc",
+      "headline": "Camp Mystic says it's halting plans to reopen after mounting pressure from parents of campers who died in floods",
+      "from": [
+        "organizational-failure-recovery",
+        "institutional-accountability"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Organizational accountability after catastrophic failure — governance institutional territory."
+    },
+    {
+      "piece_id": "99b4187f-7a66-4a1b-be9c-5d406017c1f2",
+      "headline": "The most severe Linux threat to surface in years catches the world flat-footed",
+      "from": [
+        "infrastructure-technical-debt",
+        "security-architecture-failure"
+      ],
+      "to": [
+        "infrastructure"
+      ],
+      "reason": "Critical cybersecurity vulnerability — infrastructure security."
+    },
+    {
+      "piece_id": "6e55caab-d026-4286-944f-03f30d4bdf76",
+      "headline": "Deadly Israeli strikes on southern Lebanon despite ceasefire",
+      "from": [
+        "information-asymmetry-markets",
+        "cartels-coordination-problems"
+      ],
+      "to": [
+        "governance"
+      ],
+      "reason": "Ceasefire breakdown and compliance — governance coordination."
+    },
+    {
+      "piece_id": "97b506b4-9eab-49bb-a321-5db39790b9cc",
+      "headline": "5 wounded in possible stabbing attack at Washington state high school",
+      "from": [
+        "systems-under-stress",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "justice"
+      ],
+      "reason": "Violence response and institutional triage — justice emergency response."
+    },
+    {
+      "piece_id": "c6cc7d96-9ad5-4622-9666-912fbf9df3f1",
+      "headline": "Researchers try to cut the genetic code from 20 to 19 amino acids",
+      "from": [
+        "systems-under-stress",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "biology"
+      ],
+      "reason": "Genetic code engineering — biology fundamental systems."
+    },
+    {
+      "piece_id": "086ad49c-c549-4931-9a26-244f319ac3df",
+      "headline": "Brain scans reveal 3 ADHD subtypes, including a more extreme form",
+      "from": [
+        "measurement-detection-limits",
+        "knowledge-formation"
+      ],
+      "to": [
+        "brain",
+        "medicine"
+      ],
+      "reason": "Neural diagnostic categories — brain research and medical classification."
+    },
+    {
+      "piece_id": "4151bae5-320c-437d-ad38-b2bb7d003b67",
+      "headline": "A New Type of Neuroplasticity Rewires the Brain After a Single Experience",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "brain"
+      ],
+      "reason": "Neural adaptation and learning — brain plasticity research."
+    },
+    {
+      "piece_id": "62ae4989-cea9-4abc-8696-f554cd78ad95",
+      "headline": "Study: AI models that consider user's feeling are more likely to make errors",
+      "from": [
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "AI system design research — science experimental findings."
+    },
+    {
+      "piece_id": "b77e8406-a000-46ef-8989-dde9bb48a8b4",
+      "headline": "Doctors told her to remove her uterus. The real cause of her pain lay elsewhere.",
+      "from": [
+        "measurement-detection-limits",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "medicine"
+      ],
+      "reason": "Diagnostic uncertainty and medical decision-making — medicine clinical practice."
+    },
+    {
+      "piece_id": "13ba1f76-4494-464f-80e9-59e716541419",
+      "headline": "A Treasure Trove of Cambrian Fossils Rewrites the Story of Early Life",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Fossil record discovery — science paleontology."
+    },
+    {
+      "piece_id": "45fd292c-4e38-4f82-b7af-550faac3aaa4",
+      "headline": "Locked in stone for 210 million years, this newly identified crocodile cousin was built to crush larger prey",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Evolutionary biology from fossil evidence — science paleontology."
+    },
+    {
+      "piece_id": "1837d250-d1bb-4002-9160-40ac0500d673",
+      "headline": "Scientists Develop New Antibody For Virus That Infects 95% of People",
+      "from": [
+        "pattern-recognition-sensing",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "biology"
+      ],
+      "reason": "Immune system research — biology immunology."
+    },
+    {
+      "piece_id": "a204d497-fbcd-480d-ba91-3b1549d534c3",
+      "headline": "The body's most mysterious organ may play a key role in longevity and cancer",
+      "from": [
+        "measurement-detection-limits",
+        "knowledge-formation"
+      ],
+      "to": [
+        "biology",
+        "medicine"
+      ],
+      "reason": "Organ function research — biology and medical science."
+    },
+    {
+      "piece_id": "7b1cddee-d352-4664-a204-f6e49ff966bf",
+      "headline": "The Ethiopian running secret",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Training methodology research — science sports physiology."
+    },
+    {
+      "piece_id": "ee3a82fd-c06a-4557-bfb2-f6b261e6ba07",
+      "headline": "The Hidden Mathematical Dance Inside Plant Cells",
+      "from": [
+        "pattern-recognition-sensing",
+        "resource-constraints-tradeoffs"
+      ],
+      "to": [
+        "biology"
+      ],
+      "reason": "Cellular optimization systems — biology plant physiology."
+    },
+    {
+      "piece_id": "088db2c2-9b0b-4f9e-a0d3-6f7492b6a108",
+      "headline": "Detection of an atmosphere on a trans-Neptunian object beyond Pluto",
+      "from": [
+        "measurement-detection-limits",
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Astronomical discovery — science planetary systems."
+    },
+    {
+      "piece_id": "bb305ff6-936e-4d4f-a0fa-7200787ae669",
+      "headline": "Reality emerges",
+      "from": [
+        "emergence-and-scale"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Physics emergent properties — science fundamental physics."
+    },
+    {
+      "piece_id": "24105499-7103-437c-b231-d40bdaae5bb1",
+      "headline": "Single dose of magic mushroom psychedelic can cause anatomical brain changes, study finds",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "brain"
+      ],
+      "reason": "Neuroplasticity research — brain structural change."
+    },
+    {
+      "piece_id": "45921a12-0156-478f-b8ab-7d9534f87439",
+      "headline": "Scientist accidentally finds shortcut to Mars that could slash travel time in half",
+      "from": [
+        "knowledge-formation"
+      ],
+      "to": [
+        "science"
+      ],
+      "reason": "Serendipitous scientific discovery — science space exploration."
+    },
+    {
+      "piece_id": "f100b863-b6fa-4a48-84ec-190d038c5e96",
+      "headline": "Specific expansion of motor cortical projections in a singing mouse",
+      "from": [
+        "neural-architecture-specialization"
+      ],
+      "to": [
+        "brain"
+      ],
+      "reason": "Neural circuit specialization — brain motor systems."
+    },
+    {
+      "piece_id": "d3f724bd-5933-40a2-b078-0a317d05425b",
+      "headline": "Your heart rate is more uneven than you think. This is what it says about your health",
+      "from": [
+        "knowledge-formation",
+        "pattern-recognition-sensing"
+      ],
+      "to": [
+        "biology",
+        "medicine"
+      ],
+      "reason": "Biological control systems and health indicators — biology and medical diagnostics."
+    }
+  ],
+  "disposition": [
+    {
+      "old_slug": "knowledge-formation",
+      "action": "merge_into",
+      "target": "science"
+    },
+    {
+      "old_slug": "resource-constraints-tradeoffs",
+      "action": "retire",
+      "target": null
+    },
+    {
+      "old_slug": "measurement-detection-limits",
+      "action": "retire",
+      "target": null
+    },
+    {
+      "old_slug": "chokepoints-and-supply",
+      "action": "merge_into",
+      "target": "trade"
+    },
+    {
+      "old_slug": "infrastructure-technical-debt",
+      "action": "merge_into",
+      "target": "infrastructure"
+    },
+    {
+      "old_slug": "pattern-recognition-sensing",
+      "action": "merge_into",
+      "target": "brain"
+    },
+    {
+      "old_slug": "policy-design-implementation",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "systems-under-stress",
+      "action": "merge_into",
+      "target": "ecology"
+    },
+    {
+      "old_slug": "commodity-shocks",
+      "action": "merge_into",
+      "target": "trade"
+    },
+    {
+      "old_slug": "information-asymmetry-markets",
+      "action": "merge_into",
+      "target": "trade"
+    },
+    {
+      "old_slug": "state-violence-justice-systems",
+      "action": "rename_to",
+      "target": "justice"
+    },
+    {
+      "old_slug": "cartels-coordination-problems",
+      "action": "merge_into",
+      "target": "trade"
+    },
+    {
+      "old_slug": "institutional-accountability",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "business-model-disruption",
+      "action": "rename_to",
+      "target": "business"
+    },
+    {
+      "old_slug": "competition-and-credit",
+      "action": "merge_into",
+      "target": "science"
+    },
+    {
+      "old_slug": "death-dying-systems",
+      "action": "merge_into",
+      "target": "medicine"
+    },
+    {
+      "old_slug": "ecological-systems-invasive-species",
+      "action": "rename_to",
+      "target": "ecology"
+    },
+    {
+      "old_slug": "emergence-and-scale",
+      "action": "merge_into",
+      "target": "science"
+    },
+    {
+      "old_slug": "judicial-interpretation-institutional-change",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "legislative-process",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "legitimacy-contested-authority",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "neural-architecture-specialization",
+      "action": "merge_into",
+      "target": "brain"
+    },
+    {
+      "old_slug": "organizational-failure-recovery",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "path-dependence-lock-in",
+      "action": "merge_into",
+      "target": "governance"
+    },
+    {
+      "old_slug": "security-architecture-failure",
+      "action": "merge_into",
+      "target": "infrastructure"
+    },
+    {
+      "old_slug": "trade-policy-mechanics",
+      "action": "merge_into",
+      "target": "trade"
+    },
+    {
+      "old_slug": "patterns-yet-to-cluster",
+      "action": "merge_into",
+      "target": null
+    }
+  ]
+}
