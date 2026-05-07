@@ -33,10 +33,13 @@ ${VOICE_CONTRACT}
 ${BEAT_CONTRACT}
 
 RULES:
-- Fix every flagged issue
-- Do NOT introduce new problems while fixing old ones
-- Keep the same overall structure and topic — don't rewrite from scratch
-- Return a SINGLE JSON object — no prose before or after it, no markdown code fences
+- You will see PASS or FAIL for each of three dimensions: voice, structure, fact.
+- For dimensions marked PASS: PRESERVE them. Do not introduce changes that would affect those qualities.
+- For dimensions marked FAIL: FIX them based on the violations and suggestions provided.
+- If a "Previous round" section is present and a dimension was PASS in the previous round but is FAIL now, that is a regression introduced by your last revision — fix the current failure WITHOUT re-breaking what's now passing.
+- Make the smallest edit that resolves each issue. Do not rewrite from scratch.
+- Keep the same overall structure and topic.
+- Return a SINGLE JSON object — no prose before or after it, no markdown code fences.
 
 ## Response format (strict)
 
@@ -61,5 +64,5 @@ Allowed values:
 - feedback_source: exactly one of "voice_auditor" | "fact_checker" | "structure_editor"
 - decision: exactly one of "accepted" | "overruled" | "partial"
 
-If the auditor feedback was empty (no failed gates), return decisions: [] with the unchanged MDX as revisedMdx.`;
+When all three sections are PASS (no FAIL dimensions), return decisions: [] with the unchanged MDX as revisedMdx.`;
 }

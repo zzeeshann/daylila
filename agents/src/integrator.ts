@@ -1,6 +1,11 @@
 import { Agent } from 'agents';
 import Anthropic from '@anthropic-ai/sdk';
-import type { Env, IntegratorDecisionRecord } from './types';
+import type {
+  Env,
+  IntegratorDecisionRecord,
+  IntegratorState,
+  IntegratorRoundSnapshot,
+} from './types';
 import { INTEGRATOR_DECISIONS, FEEDBACK_SOURCES } from './types';
 import { buildIntegratorSystem } from './integrator-prompt';
 import { extractJson } from './shared/parse-json';
@@ -48,17 +53,26 @@ interface IntegratorRawEnvelope {
  * synthesises it, and revises the draft. Submits back for re-audit.
  * Max 3 revision passes before escalation.
  *
- * Stateless — Director spawns a fresh instance per day
- * (integrator-daily-${today}) so each day's pipeline runs against a
- * clean DO.
+ * Round-aware within a single piece (Foundation Fix Phase 4 Task 09,
+ * 2026-05-07). Durable Object state carries the previous round's
+ * audits via `IntegratorState.lastSnapshot`, keyed by pieceId. Round 2
+ * sees what Round 1 looked like (PASS/FAIL per dimension + scores +
+ * failure tokens) so the prompt can flag pass→fail flips as
+ * regressions to repair. State resets lazily — when the next revise()
+ * call's pieceId differs from the stored snapshot, the snapshot is
+ * ignored on read and overwritten on write. The DO instance is still
+ * per-day (Director spawns `integrator-daily-${today}`); state lives
+ * only within one day's pipeline runs.
  *
- * Foundation Fix Task 06 (L8 + L9): each call now also persists one
- * row to draft_revisions (the revised MDX) and one row per addressed
- * feedback item to integrator_decisions. Persistence is fail-open via
- * the persistError sentinel; the publish path is preserved on D1
- * hiccups. JSON-parse fallback preserves revisedMdx on shape drift.
+ * Foundation Fix Task 06 (L8 + L9): each call also persists one row to
+ * draft_revisions (the revised MDX) and one row per addressed feedback
+ * item to integrator_decisions. Persistence is fail-open via the
+ * persistError sentinel; the publish path is preserved on D1 hiccups.
+ * JSON-parse fallback preserves revisedMdx on shape drift.
  */
-export class IntegratorAgent extends Agent<Env> {
+export class IntegratorAgent extends Agent<Env, IntegratorState> {
+  initialState: IntegratorState = { lastSnapshot: null };
+
   async revise(
     pieceId: string,
     runId: string | null,
@@ -70,29 +84,22 @@ export class IntegratorAgent extends Agent<Env> {
   ): Promise<IntegrationResult> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
 
-    // Collect all feedback. Same shape as before — three sections, one
-    // per failed gate. Integrator's prompt instructs it to fix every
-    // flagged issue and to record its disposition per item.
-    const feedback: string[] = [];
+    // Round-to-round state read. Lazy reset: any snapshot whose
+    // pieceId differs from the current call is treated as stale and
+    // ignored. Round 1 of a fresh piece sees no previous-round
+    // context; the prompt handles that case cleanly.
+    const stored = this.state.lastSnapshot;
+    const previousForPrompt: IntegratorRoundSnapshot | null =
+      stored && stored.pieceId === pieceId ? stored : null;
 
-    if (!voiceResult.passed) {
-      feedback.push('## Voice issues (score: ' + voiceResult.score + '/100)');
-      voiceResult.violations.forEach((v) => feedback.push(`- VIOLATION: ${v}`));
-      voiceResult.suggestions.forEach((s) => feedback.push(`- FIX: ${s}`));
-    }
-
-    if (!structureResult.passed) {
-      feedback.push('## Structure issues');
-      structureResult.issues.forEach((i) => feedback.push(`- ISSUE: ${i}`));
-      structureResult.suggestions.forEach((s) => feedback.push(`- FIX: ${s}`));
-    }
-
-    if (!factResult.passed) {
-      feedback.push('## Fact issues');
-      factResult.claims
-        .filter((c) => c.status !== 'verified')
-        .forEach((c) => feedback.push(`- ${c.status.toUpperCase()}: "${c.claim}" — ${c.note}`));
-    }
+    const previousContext = previousForPrompt
+      ? buildPreviousRoundContext(previousForPrompt) + '\n\n'
+      : '';
+    const currentFeedback = buildCurrentRoundFeedback(
+      voiceResult,
+      structureResult,
+      factResult,
+    );
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
@@ -101,7 +108,7 @@ export class IntegratorAgent extends Agent<Env> {
       messages: [
         {
           role: 'user',
-          content: `## Original draft:\n\n${mdx}\n\n## Feedback from auditors:\n\n${feedback.join('\n')}`,
+          content: `${previousContext}## Original draft:\n\n${mdx}\n\n## Feedback from auditors:\n\n${currentFeedback}`,
         },
       ],
     });
@@ -122,6 +129,21 @@ export class IntegratorAgent extends Agent<Env> {
       revisedMdx,
       decisions,
     );
+
+    // Round-to-round state write. Snapshot what THIS round audited so
+    // the next call (still inside this piece) carries it as previous-
+    // round context. Stored regardless of parseError / persistError —
+    // those concern persistence to D1 / response-shape parsing, not
+    // the audit results themselves which are what next round needs.
+    this.setState({
+      lastSnapshot: {
+        pieceId,
+        revisionRound,
+        voice: voiceResult,
+        structure: structureResult,
+        fact: factResult,
+      },
+    });
 
     return { revisedMdx, decisions, parseError, persistError };
   }
@@ -187,6 +209,109 @@ export class IntegratorAgent extends Agent<Env> {
       return err instanceof Error ? err.message : 'integrator persist failed';
     }
   }
+}
+
+/**
+ * Build the current round's feedback section. Always emits all three
+ * dimensions (Voice / Structure / Fact) marked PASS or FAIL — passing
+ * sections carry an explicit PRESERVE instruction, failing sections
+ * carry the violation/issue/claim detail.
+ *
+ * Foundation Fix Phase 4 Task 09 (2026-05-07). Pre-Task-09 behaviour
+ * was three `if (!result.passed)` blocks that dropped passing audits
+ * before prompt construction; the result was Claude rewriting drafts
+ * without knowing which dimensions were already passing, so its fix
+ * for one dimension could inadvertently re-break another. Always-three
+ * sections + PRESERVE/FIX framing closes that gap.
+ *
+ * Pure — exported for unit testing.
+ */
+export function buildCurrentRoundFeedback(
+  voice: VoiceAuditResult,
+  structure: StructureAuditResult,
+  fact: FactCheckResult,
+): string {
+  const sections: string[] = [];
+
+  // Voice
+  if (voice.passed) {
+    sections.push(
+      `## Voice — PASS (score ${voice.score}/100)\nPRESERVE this dimension. Do not introduce changes that would lower the voice score: no tribe words, no flattery, keep sentences short, keep the specific examples.`,
+    );
+  } else {
+    const tokens = voice.failureReasons?.length
+      ? ' Failure tokens: ' + voice.failureReasons.join(', ') + '.'
+      : '';
+    sections.push(
+      `## Voice — FAIL (score ${voice.score}/100)\nFIX the violations below.${tokens}`,
+    );
+    voice.violations.forEach((v) => sections.push(`- VIOLATION: ${v}`));
+    voice.suggestions.forEach((s) => sections.push(`- SUGGESTED FIX: ${s}`));
+  }
+
+  // Structure
+  if (structure.passed) {
+    sections.push(
+      `## Structure — PASS\nPRESERVE the beat shape (count, hook, close, pacing). Do not introduce changes that would alter the structural skeleton.`,
+    );
+  } else {
+    const tokens = structure.failureReasons?.length
+      ? ' (failure tokens: ' + structure.failureReasons.join(', ') + ')'
+      : '';
+    sections.push(`## Structure — FAIL${tokens}\nFIX the issues below.`);
+    structure.issues.forEach((i) => sections.push(`- ISSUE: ${i}`));
+    structure.suggestions.forEach((s) => sections.push(`- SUGGESTED FIX: ${s}`));
+  }
+
+  // Fact
+  if (fact.passed) {
+    sections.push(
+      `## Fact — PASS\nPRESERVE every factual claim and its sourcing. Do not introduce new claims or rephrase existing ones in ways that change their meaning.`,
+    );
+  } else {
+    const tokens = fact.failureReasons?.length
+      ? ' (failure tokens: ' + fact.failureReasons.join(', ') + ')'
+      : '';
+    sections.push(`## Fact — FAIL${tokens}\nFIX the claim issues below.`);
+    fact.claims
+      .filter((c) => c.status !== 'verified')
+      .forEach((c) => sections.push(`- ${c.status.toUpperCase()}: "${c.claim}" — ${c.note}`));
+  }
+
+  return sections.join('\n');
+}
+
+/**
+ * Build the previous-round context block. Prepended to the user
+ * message when the Integrator's DO state holds a snapshot whose
+ * pieceId matches the current revise() call.
+ *
+ * Carries the full audit results from the previous round (PASS/FAIL +
+ * scores + failure tokens) so Claude can spot pass→fail flips across
+ * rounds and treat them as regressions to repair rather than fresh
+ * problems. Foundation Fix Phase 4 Task 09 (2026-05-07).
+ *
+ * Pure — exported for unit testing.
+ */
+export function buildPreviousRoundContext(prev: IntegratorRoundSnapshot): string {
+  const voiceTokens = prev.voice.failureReasons?.length
+    ? ' — tokens: ' + prev.voice.failureReasons.join(', ')
+    : '';
+  const structureTokens = prev.structure.failureReasons?.length
+    ? ' — tokens: ' + prev.structure.failureReasons.join(', ')
+    : '';
+  const factTokens = prev.fact.failureReasons?.length
+    ? ' — tokens: ' + prev.fact.failureReasons.join(', ')
+    : '';
+
+  return [
+    `## Previous round (round ${prev.revisionRound}) audit summary`,
+    `This is what the audits looked like BEFORE your previous revision. If a dimension was PASS in the previous round and is FAIL this round, that is a regression introduced by your last edit — fix the current failure WITHOUT re-breaking the now-passing dimension.`,
+    '',
+    `- Voice: ${prev.voice.passed ? 'PASS' : 'FAIL'} (score ${prev.voice.score}/100)${voiceTokens}`,
+    `- Structure: ${prev.structure.passed ? 'PASS' : 'FAIL'}${structureTokens}`,
+    `- Fact: ${prev.fact.passed ? 'PASS' : 'FAIL'}${factTokens}`,
+  ].join('\n');
 }
 
 /**

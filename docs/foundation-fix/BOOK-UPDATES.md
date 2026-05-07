@@ -36,6 +36,7 @@ Every task in the programme has at least one book chapter that touches its subje
 | 06 — Draft Revisions | Chapter on the audit-and-revise loop | Every revision now persists with the Integrator's reasoning per feedback item. Explain why this matters: it makes "How this was made" honest. |
 | 07 — Dwell Time | Chapter on reader engagement (if one exists) — or add a paragraph to the closest fit | Audio dwell now flows from frontend to D1. Brief mention. |
 | 08 — Retention + Run ID | Chapter on data and infrastructure | Retention policy live; run_id end-to-end. Explain why retention is honest engineering: keeping data forever isn't a virtue when most of it is process noise. |
+| 09 — Integrator Awareness | Chapter 11 (quality gates) | Integrator now preserves passing dimensions across rounds and remembers the previous round's audits within a piece. Explain why: pieces that whacked-a-mole between dimensions used to ship as Rough; they now have a real chance of landing Solid or Polished. Glossary: add **Regression (in Daylila)**. Phase 4; closes the Foundation Fix programme. |
 
 If a chapter doesn't yet exist for a topic the task touches, the task creates a short addition to the closest existing chapter rather than a new chapter. New chapters come at programme close (see "After the programme" below).
 

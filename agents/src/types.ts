@@ -357,3 +357,34 @@ export interface IntegratorDecisionRecord {
   reasoning?: string;
   resultingChange?: string;
 }
+
+/** Snapshot of one revise() call's audit results. Stored in
+ *  IntegratorState so the next call (still inside the same piece) can
+ *  carry the previous round's audits into the prompt for round-to-round
+ *  regression awareness. Foundation Fix Phase 4 Task 09 (2026-05-07).
+ *
+ *  Carries the full audit results (Fork 2 pick: full payload vs
+ *  pass/fail flags only) so Claude can spot specific re-introduced
+ *  violations like "voice was passing at 95 last round; preserve it."
+ *  pieceId is the keying field — when the next revise() call's pieceId
+ *  differs, the snapshot is treated as stale and ignored (state resets
+ *  cleanly without an explicit clear). Lazy reset matches the brief and
+ *  avoids race windows around the per-day DO instance lifecycle. */
+export interface IntegratorRoundSnapshot {
+  pieceId: string;
+  /** The round just COMPLETED before the current revise() call.
+   *  Round 1 → snapshot.revisionRound=1 stored after Round-1 revise. */
+  revisionRound: number;
+  voice: import('./voice-auditor').VoiceAuditResult;
+  structure: import('./structure-editor').StructureAuditResult;
+  fact: import('./fact-checker').FactCheckResult;
+}
+
+/** IntegratorAgent's Durable Object state. Single-snapshot shape per
+ *  Fork 1 of the Task 09 plan: store only the most-recent revision's
+ *  audits, keyed by pieceId. New piece → snapshot ignored on read,
+ *  overwritten on write. Same posture as the other audit-side agents
+ *  (`AudioAuditorState.lastResult` etc.). */
+export interface IntegratorState {
+  lastSnapshot: IntegratorRoundSnapshot | null;
+}

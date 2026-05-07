@@ -92,6 +92,8 @@ Every term this book uses, in plain English. If you see a word you don't recogni
 
 **R2.** Cloudflare's object storage service. Similar to Amazon S3, but cheaper for streaming because Cloudflare doesn't charge egress fees. Daylila uses it for audio clips. See chapter 4.
 
+**Regression (in Daylila).** A passing audit dimension that becomes failing after a revision round. Voice scored 95 in Round 1, then 92 in Round 2 after the Integrator's edit introduced a banned word while fixing structure — that's a regression. Pre-2026-05-07, the system had no mechanism to prevent these: the Integrator only saw failed-audit feedback, so it didn't know which dimensions were already passing. Since 2026-05-07 (Foundation Fix Phase 4 Task 09) the Integrator sees all three dimensions on every revision marked PASS or FAIL with explicit PRESERVE/FIX framing, and remembers the previous round's audits within a single piece via Durable Object state. Pass→fail flips across rounds now register as regressions to repair, not fresh problems to ignore. The post-deploy regression rate is queryable via `scripts/integrator-regression-health.sql`. See chapter 11.
+
 **Rejection category.** One of eight short labels Daylila's Curator attaches to each candidate it does not pick: off-topic, duplicate, too local, no teaching angle, wrong shape, low signal, tribal framing, already covered. The list is closed — Curator must use one of the eight, never invent a new one. Stored on every rejected candidate's row in `daily_candidates` since 2026-05-06. The top five candidates Curator weighed most seriously also carry a one-sentence reason in plain words. The categories live in `content/curator-contract.md`.
 
 **Repository (repo).** A folder of files plus their full Git history.
