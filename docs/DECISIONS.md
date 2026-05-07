@@ -2,6 +2,12 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Brand-icon source master 1024px landed (closes the open FOLLOWUPS entry from the prior commit)
+
+Follow-up to the brand-icon swap committed minutes earlier. Operator delivered a 1024×1024 PNG of the Day Lila D-mark — matches the deployed `public/icon-512.png` design at 2× resolution. Replaced `design/favicon-source-1024.png` (overwriting the now-stale Zeemish Z source) and mirrored the new master into the archive at `design/brand-handoff/favicon-source-1024.png` so the handoff folder reflects current state. The `[open]` FOLLOWUPS entry opened in the prior commit is now `[resolved]` with a same-day Resolved line. `design/brand-handoff/SPEC.md` updated — the "What did NOT land" section flipped to "Source master" with a one-line note. No code paths affected; `design/` isn't served. Files: 2 brand assets (`design/favicon-source-1024.png` + the brand-handoff mirror), `design/brand-handoff/SPEC.md`, this entry, FOLLOWUPS marker flip.
+
+---
+
 ## 2026-05-07: Brand-icon swap — Zeemish "Z" mark replaced with Day Lila "D" mark
 
 The 2026-05-06 rebrand updated the wordmark in the header (`BaseLayout.astro:300` → "daylila") and the OG card (`og-image.png` → "daylila") but left the icon set on the old Zeemish "Z" glyph — favicon, PWA icons, Apple touch icon. Anyone who bookmarked the site, added it to their home screen, or saw the browser tab still got a Z. This swap closes the gap.

@@ -7,8 +7,8 @@ What landed in `public/`:
 - `apple-touch-icon.png` (180×180), `icon-192.png` (192×192), `icon-512.png` (512×512) — new D-mark PNG set
 - `og-image.png` (1200×630) — bonus delivery, hand-designed with the new D-mark + "Day Lila" wordmark + tagline
 
-What did NOT land:
-- `favicon-source-1024.png` (the design master) — not in delivery zip. The old Zeemish source still sits at `design/favicon-source-1024.png`; flagged in `docs/FOLLOWUPS.md` for replacement when a 1024 master is available.
+Source master:
+- `favicon-source-1024.png` (1024×1024 Day Lila D-mark) — landed in a follow-up delivery same day. Lives at `design/favicon-source-1024.png` and is mirrored in this folder.
 
 The originals below describe the handoff brief that was sent. Kept as-is.
 

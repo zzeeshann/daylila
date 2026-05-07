@@ -13,12 +13,13 @@ Format per entry:
 
 ---
 
-## [open] 2026-05-07: `design/favicon-source-1024.png` shows old Zeemish "Z" — needs replacement with 1024×1024 Day Lila master
+## [resolved] 2026-05-07: `design/favicon-source-1024.png` shows old Zeemish "Z" — needs replacement with 1024×1024 Day Lila master
 
 - **Surfaced:** 2026-05-07 brand-icon swap. The redesigned PNG set (apple-touch-icon, icon-192, icon-512) plus the new favicon.svg landed cleanly, but the delivery zip didn't include a 1024×1024 source master. The old Zeemish Z-mark file at `design/favicon-source-1024.png` is now stale — it shows the previous brand. Not deleted (per `feedback_non_destructive.md`; git preserves history but the live file is misleading to anyone opening it expecting the current brand).
 - **Hypothesis:** None — operational gap. The PNG set in `public/` is fine; this is purely about the design source master used for future regen. When the operator (or designer) generates a 1024×1024 PNG of the new D-mark, replace `design/favicon-source-1024.png` with it. Same teal `#1A6B62` background + cream `#FAF8F4` D-shape + gold `#C49A1A` dot already in the deployed assets.
 - **Investigation hints:** look at `public/icon-512.png` for the current pixel-true reference; the 1024 master should be a 2× upscale of that design (NOT a 2× upscale of the 512 PNG itself — that loses sharpness). If the operator has a Figma/Sketch source, export 1024×1024 from there. If not, hand-design or ask Claude to upscale the 512 PNG with care for the rounded-corner artefacts.
 - **Priority:** low. Doesn't affect anything the reader sees. Only matters when the brand changes again or when someone wants a 1024-px hero icon for press/social.
+- **Resolved:** 2026-05-07 — operator delivered the 1024×1024 Day Lila D-mark PNG (matches the deployed `public/icon-512.png` design at 2× resolution). Replaced both `design/favicon-source-1024.png` and the archived copy in `design/brand-handoff/favicon-source-1024.png`. See DECISIONS entry "Brand-icon source master 1024px landed" same date.
 
 ---
 
