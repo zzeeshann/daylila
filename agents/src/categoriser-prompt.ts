@@ -46,9 +46,9 @@ Return JSON with this exact shape. One of \`categoryId\` or \`newCategory\` must
     },
     {
       "newCategory": {
-        "name": "Short Display Name",
+        "name": "OneWord",
         "slug": "kebab-case-slug",
-        "description": "One sentence about what belongs in this category."
+        "description": "One sentence naming the DOMAIN — subjects, fields, phenomena. Not an intellectual move."
       },
       "confidence": 80,
       "reasoning": "one short sentence — why no existing category fits and this one would be durable"
@@ -66,6 +66,14 @@ export interface CategoryContextRow {
   slug: string;
   description: string | null;
   pieceCount: number;
+  /** Up to 3 most recent piece headlines under this category, newest first.
+   *  Empty for categories that have never been used. Surfaces what the
+   *  bucket actually contains so Claude can spot description-vs-contents
+   *  drift before adding to a dumping ground. */
+  recentHeadlines: string[];
+  /** True iff this category received ≥3 pieces in the last 7 days. Visible
+   *  to Claude as a "this category is filling fast" signal. */
+  recentDensity: boolean;
 }
 
 /** Shape of the piece context fed into the prompt. */
@@ -96,13 +104,23 @@ ${piece.bodyExcerpt}`;
 (None yet — this is the first piece being categorised. Propose ONE new category that captures this piece's underlying subject as a durable, reusable taxonomy node. Returning zero assignments is not allowed.)`
     : `## Existing categories (${existing.length} total — prefer one of these)
 ${existing
-        .map(
-          (c) => `- id: ${c.id}
-  name: "${c.name}"
-  slug: ${c.slug}
-  description: ${c.description ?? '(no description)'}
-  piece_count: ${c.pieceCount}`,
-        )
+        .map((c) => {
+          const headlinesLine = c.recentHeadlines.length === 0
+            ? '  recent_headlines: (none yet)'
+            : `  recent_headlines:\n${c.recentHeadlines.map((h) => `    - "${h}"`).join('\n')}`;
+          const densityLine = c.recentDensity
+            ? '  filling_fast: true (≥3 pieces in the last 7 days — be sure before adding another)'
+            : '';
+          return [
+            `- id: ${c.id}`,
+            `  name: "${c.name}"`,
+            `  slug: ${c.slug}`,
+            `  description: ${c.description ?? '(no description)'}`,
+            `  piece_count: ${c.pieceCount}`,
+            headlinesLine,
+            densityLine,
+          ].filter((l) => l.length > 0).join('\n');
+        })
         .join('\n')}`;
 
   return `${pieceBlock}\n\n${categoriesBlock}`;

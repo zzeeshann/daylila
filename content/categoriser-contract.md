@@ -20,6 +20,15 @@ Strongly prefer reusing an existing category. Before proposing a new one, ask:
 
 If on the fence between reuse and novel: reuse.
 
+### Walk through every existing category before proposing a new one
+
+Before proposing a new category, walk through each existing category in turn. For each, ask:
+
+- Does the candidate piece's underlying subject sit inside this category's stated **domain** (description)?
+- Is it the kind of thing the **recent piece headlines** under this category suggest belongs here?
+
+Only if both signals fail across all existing categories, propose a new one. The description bounds the territory the category *intends* to cover; the recent headlines reveal what *actually landed there*. A mismatch between description and headlines is itself a signal — the category may be drifting, and adding a piece that doesn't match the description but does match the recent drift would deepen the drift, not the bucket. When that mismatch is visible, prefer either (a) a different existing category whose description AND headlines both fit, or (b) a new domain-level category that captures the piece's underlying subject without inheriting the drift.
+
 ## Tiered decision (apply in order — never return zero)
 
 1. **Ideal reuse — confidence 75 or above.** An existing category's description clearly covers this piece's primary underlying subject. Pick it. A second category is allowed if the piece genuinely spans — but only if the second is also at 75 or above.
@@ -27,12 +36,45 @@ If on the fence between reuse and novel: reuse.
 2. **Stretch reuse — confidence 60 to 74.** No existing category fits cleanly, but one is the closest match AND the piece's underlying subject isn't different enough from the existing taxonomy to warrant a brand-new category. Reuse the closest existing — the reasoning sentence MUST name what makes the fit stretchy ("thematic echo, not primary subject" / "adjacent mechanism, not core"). This keeps the taxonomy converging rather than fragmenting.
 
 3. **New category — only if neither tier applies.** The piece's underlying subject is materially absent from the existing list — no existing category fits even at 60. Propose ONE new category. A good new category:
-   - Is a *subject*, not a topic-of-the-week ("Chokepoints & Supply", not "Suez Canal").
-   - Could plausibly hold 10 or more future pieces ("Monetary Policy", not "This Week's Fed Meeting").
-   - Has a one-sentence description that would help another piece's categoriser know whether to put it here.
-   - Has a kebab-case slug derived from the name ("chokepoints-and-supply"). Keep it short — under 4 words in the name.
+   - Names a **domain**, not a topic-of-the-week (`Chokepoints`, not `Suez Canal`).
+   - Could plausibly hold 10 or more future pieces (`Trade`, not `This Week's Tariff Hearing`).
+   - Follows the naming rule (see "Category names" below) and the description rule (see "Category descriptions" below).
 
 **At most one new category per piece.** If two aspects of the piece feel novel, pick the more important one and reuse-or-stretch-reuse the other. The taxonomy converges when novelty is rationed.
+
+## Category names
+
+Category names are **one word**. Two words are allowed only when one word is genuinely ambiguous in the library's context. No ampersands, no `and`, no hyphens, no three-or-more-word names — those signal that two ideas are being yoked together and the category should split or one half should be dropped.
+
+Concrete pairs from this library's history (left = correct, right = the multi-word form that fragmented the taxonomy):
+
+- `Brain` (not `Neural Architecture & Specialization`)
+- `Trade` (not `Resource Constraints & Trade-offs`)
+- `Justice` (not `State Violence & Justice Systems`)
+- `Knowledge` (not `Knowledge Formation`)
+- `Markets` (not `Information Asymmetry & Markets`)
+- `Cartels` (not `Cartels & Coordination Problems`)
+
+`Climate Policy` is an acceptable two-word example — `Climate` alone is too broad given the library's mix of natural-climate pieces and policy pieces. The two-word allowance is the exception, not the default.
+
+The slug is derived from the name in kebab-case: `Brain` → `brain`, `Climate Policy` → `climate-policy`. The slug carries the URL; the name carries the chip-bar label. Both must be readable on their own.
+
+## Category descriptions
+
+A category description names a **domain** — what kinds of subjects, fields, or phenomena belong here. It does NOT describe an intellectual move (knowledge formation, pattern recognition, optimisation, trade-offs). Intellectual moves frame *how* a piece thinks, and almost any piece can be reframed to fit them. That is why such descriptions become dumping grounds — the description is so general that no piece can be excluded from it on its own merits.
+
+A good description names the *territory*. Concrete examples:
+
+- `Brain` → *"Brain anatomy, brain development, neuroscience, cognition, neural learning, and how the nervous system processes signals."* Names the domain. A piece about plant cells doesn't fit, no matter how clever the framing.
+- `Trade` → *"International trade, tariffs, supply chains, commodity markets, chokepoints, and the economics of global commerce."* Names the territory. A piece about brain trade-offs doesn't fit, even though it's about "trade-offs" in the abstract.
+
+Anti-patterns (do not write):
+
+- *"How knowledge accumulates through systematic observation."* — describes a meta-process; admits any science.
+- *"How systems operate under hard limits."* — describes a meta-process; admits any engineering or biology.
+- *"How patterns emerge from noisy data."* — describes a meta-process; admits any biology, finance, ML, or sensor piece.
+
+Self-test before writing: would a reader, browsing the library, expect a different *kind* of piece in this category than in any other? If the description could plausibly cover any technical piece, it's at the wrong level — rewrite to name the territory.
 
 ## Confidence — what the number means
 
@@ -72,4 +114,5 @@ The full response shape lives inline in the Categoriser system prompt's "Respons
 
 ## Change log
 
+- 2026-05-07 — v1.1 — taxonomy-fragmentation rewrite. Triggered by 26-categories-for-49-pieces audit: two dumping grounds (`Knowledge Formation` 12, `Resource Constraints & Trade-offs` 12), thirteen singletons. Diagnosis via prod D1 sampling: the existing taxonomy was organised at the wrong axis (process-level intellectual moves, not domain-level subjects), and both names AND descriptions encoded that wrong axis. Three rule additions: (a) **Category names** section locks single-word naming (two words only when one is ambiguous); no `&`, no `and`, no 3+ words — with concrete pairs pulled from prod (`Brain` not `Neural Architecture & Specialization`, `Trade` not `Resource Constraints & Trade-offs`, etc.). (b) **Category descriptions** section locks domain-level descriptions (names the territory, not the intellectual move) — with concrete examples and anti-patterns (`"How knowledge accumulates..."`, `"How systems operate under hard limits..."`). (c) **Walk through every existing category before proposing a new one** sub-section under "prefer reuse over novelty" — explicit two-signal test (description + recent piece headlines), with description-vs-headlines drift treated as a signal that the bucket is fragmenting. Tier-3 bullets simplified to point at the new sections instead of inlining naming/description rules. Architectural posture: rules live in this contract; agent reads it; code only persists D1 rows and shapes JSON envelopes — no regex validation in `categoriser.ts`, no retry-message branches firing on code-detected violations, no verifier scripts testing qualitative compliance. Same posture as voice / fact-check / audit / interactive contracts. If observed compliance drift becomes material (≥2 violating names or descriptions in any 14-firing window), the unblock path is a CategoriserAuditor agent (deferred).
 - 2026-05-10 — v1.0 — extracted from `agents/src/categoriser-prompt.ts` and the literal SQL strings at `agents/src/director.ts:1697` and `src/pages/api/daily/[date]/made.ts:324` (Foundation Fix Task 02 eighth and final extraction session, branch `foundation-fix-02-extraction-categoriser`). Behaviour-preserving — rule values + canonical phrasings unchanged. The four named constants moved from `categoriser-prompt.ts` into the new `agents/src/shared/categoriser-thresholds.ts`; the site-side `FALLBACK_SLUG` moved from `src/lib/categories.ts` into the new `src/lib/categoriser-thresholds.ts` (re-exported from categories.ts for back-compat). With this entry Phase 1 of Foundation Fix is complete — all eight rule clusters extracted.

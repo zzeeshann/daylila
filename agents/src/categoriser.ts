@@ -20,6 +20,17 @@ import {
  *  that 3 years of backfill runs stay cheap. */
 const BODY_EXCERPT_MAX_CHARS = 2000;
 
+/** How many recent piece headlines per category to surface in the prompt.
+ *  Three is enough to signal "what kind of pieces actually live here"
+ *  without ballooning prompt cost when the taxonomy has 30+ categories. */
+const RECENT_HEADLINES_PER_CATEGORY = 3;
+
+/** Window for the "filling fast" density flag — a category that has
+ *  received ≥3 pieces in the trailing 7 days is flagged in the prompt
+ *  so Claude can hesitate before deepening a possible dumping ground. */
+const RECENT_DENSITY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const RECENT_DENSITY_THRESHOLD = 3;
+
 /** Clamp the LLM's confidence number into the [0, 100] range before
  *  writing. A misbehaving response can't poison the row. */
 function clampConfidence(n: unknown): number {
@@ -274,6 +285,61 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
       );
     }
 
+    // ── 3a. Recent piece headlines per category (Layer 2 signal) ──
+    // Surfaces the 3 most recent piece headlines under each category so
+    // Claude can spot description-vs-contents drift. SQLite window
+    // function (D1 is on a recent SQLite — ROW_NUMBER is supported).
+    // Empty headline arrays are fine (categories with no pieces yet, e.g.
+    // freshly-created in a prior round of the same call).
+    const headlinesRes = await this.env.DB
+      .prepare(
+        `WITH ranked AS (
+           SELECT
+             pc.category_id AS category_id,
+             dp.headline AS headline,
+             dp.published_at AS published_at,
+             ROW_NUMBER() OVER (
+               PARTITION BY pc.category_id ORDER BY dp.published_at DESC
+             ) AS rn
+           FROM piece_categories pc
+           JOIN daily_pieces dp ON dp.id = pc.piece_id
+           WHERE dp.published_at IS NOT NULL
+         )
+         SELECT category_id, headline FROM ranked
+         WHERE rn <= ?
+         ORDER BY category_id ASC, rn ASC`,
+      )
+      .bind(RECENT_HEADLINES_PER_CATEGORY)
+      .all<{ category_id: string; headline: string }>();
+
+    const headlinesByCategoryId = new Map<string, string[]>();
+    for (const row of headlinesRes.results ?? []) {
+      const list = headlinesByCategoryId.get(row.category_id) ?? [];
+      list.push(row.headline);
+      headlinesByCategoryId.set(row.category_id, list);
+    }
+
+    // ── 3b. "Filling fast" density flag — categories that received
+    // RECENT_DENSITY_THRESHOLD or more pieces in the trailing window.
+    // Uses pc.created_at (categorisation time), not dp.published_at, so
+    // the flag tracks Categoriser-side bucket growth even if old pieces
+    // get retroactively reassigned during a future cleanup pass.
+    const densityCutoff = Date.now() - RECENT_DENSITY_WINDOW_MS;
+    const densityRes = await this.env.DB
+      .prepare(
+        `SELECT category_id, COUNT(*) AS n
+         FROM piece_categories
+         WHERE created_at >= ?
+         GROUP BY category_id
+         HAVING n >= ?`,
+      )
+      .bind(densityCutoff, RECENT_DENSITY_THRESHOLD)
+      .all<{ category_id: string; n: number }>();
+
+    const denseCategoryIds = new Set(
+      (densityRes.results ?? []).map((r) => r.category_id),
+    );
+
     const existing: CategoryContextRow[] = catsRes.results
       .filter((r) => r.slug !== CATEGORISER_FALLBACK_SLUG)
       .map((r) => ({
@@ -282,6 +348,8 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
         slug: r.slug,
         description: r.description,
         pieceCount: r.piece_count,
+        recentHeadlines: headlinesByCategoryId.get(r.id) ?? [],
+        recentDensity: denseCategoryIds.has(r.id),
       }));
 
     // ── 4. Ask Claude (with a single retry on empty/all-sub-floor) ─
@@ -512,9 +580,11 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
       }
       existingById.set(newId, {
         id: newId, name, slug: proposedSlug, description, pieceCount: 0,
+        recentHeadlines: [], recentDensity: false,
       });
       existingBySlug.set(proposedSlug, {
         id: newId, name, slug: proposedSlug, description, pieceCount: 0,
+        recentHeadlines: [], recentDensity: false,
       });
       resolved.push({
         categoryId: newId,

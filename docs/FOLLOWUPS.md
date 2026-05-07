@@ -41,7 +41,17 @@ Format per entry:
 
 ---
 
-## [open] 2026-05-07: Categoriser taxonomy fragmentation — `Knowledge Formation` becoming a dumping ground; new categories spawned with `piece_count=1`
+## [in-progress] 2026-05-07: Categoriser taxonomy fragmentation — `Knowledge Formation` becoming a dumping ground; new categories spawned with `piece_count=1`
+
+**2026-05-07 — Layer 1+2 of the fix landed (this commit).** Contract rewrite (naming rule: single-word; description rule: domain-level not process-level; foregrounded reuse-test walk-through), prompt JSON example tweaks, recent-headlines + filling-fast density signal threaded into `buildCategoriserPrompt`. **Architectural posture locked:** rules live in the contract; agent reads it; code only persists D1 rows and shapes JSON envelopes. No regex validation in `categoriser.ts`, no retry-message branches firing on code-detected violations, no verifier scripts testing qualitative compliance — same posture as voice / fact-check / audit / interactive contracts. **Layer 3 cleanup script** (one-shot Claude design + operator-edited JSON → migration) is the next commit; flips this entry to `[resolved]` once it lands. **Why both name AND description rules**: prod D1 sampling confirmed names AND descriptions both encoded a process-level axis (`Knowledge Formation` description: "How knowledge accumulates through systematic observation" — beautifully written, useless as a filter; admits any science). Domain-level rewrite (`Brain` → "Brain anatomy, neuroscience, cognition...") forces the territory framing that lets pieces be excluded on their merits. **Why headlines AND descriptions**: descriptions alone ossify (frozen at creation); headlines alone don't anchor. Together = description bounds territory, headlines reveal drift, mismatch is a signal. **Watch entries** (post-deploy):
+
+- `[observing]` — naming rule compliance over next 14 cron firings (operator spot-checks any new categories; expectation: zero `&` / `and` / 3+-word names since the agent reads a contract that explicitly forbids them with concrete examples).
+- `[observing]` — description rule compliance over next 14 cron firings (operator spot-checks descriptions of newly-created categories; expectation: domain-level shape, no `How ...` openers).
+- `[observing]` — reuse-bias effectiveness over next 14 cron firings (≤1 novel category created across the window).
+- `[observing]` — description-vs-headlines drift over next 30 days (do new pieces landing in a category match its description's stated domain?).
+- `[deferred]` — **CategoriserAuditor agent** as the unblock-when path if observed non-compliance becomes material. Same shape as VoiceAuditor / FactChecker / InteractiveAuditor. Trigger condition: ≥2 contract-violating names or descriptions across any 14-firing window. Until that trigger fires, contract-only enforcement is the right level of investment.
+
+---
 
 - **Surfaced:** 2026-05-07 audit of two consecutive brain-themed pieces, both Categorised within 24h of each other:
   - 2026-05-06 "Single dose of magic mushroom psychedelic can cause anatomical brain changes" → stretched into existing `knowledge-formation` at confidence 78 (just above the 75 floor); the piece is about psilocybin's anatomical mechanism, not epistemics.
