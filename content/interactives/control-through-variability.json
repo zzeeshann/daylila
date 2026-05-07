@@ -1,0 +1,48 @@
+{
+  "slug": "control-through-variability",
+  "type": "quiz",
+  "title": "Control Through Variability",
+  "concept": "Healthy biological control systems maintain balance by constantly adjusting in both directions rather than holding steady—variability signals that opposing forces are both active and responsive.",
+  "interactiveId": "4436cc8b-f575-4431-b1e0-2c408bfa07dc",
+  "sourcePieceId": "d3f724bd-5933-40a2-b078-0a317d05425b",
+  "publishedAt": 1778162855115,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a control system with two opposing forces produce more variation when both forces are working well?",
+        "options": [
+          "Because the forces are fighting each other and creating instability",
+          "Because healthy systems can afford to be inefficient",
+          "Because active adjustment in both directions means the output reflects real-time balance rather than a single dominant force",
+          "Because variation is just random noise that gets filtered out over time"
+        ],
+        "correctIndex": 2,
+        "explanation": "When both opposing forces respond actively to changing conditions, the output jumps around as the system adjusts moment to moment. A steady output often means one force has taken over completely, which looks stable but signals that half the control system stopped working."
+      },
+      {
+        "question": "A thermostat that can only heat will keep a room at 68°F by switching the heater on and off. A system that can both heat and cool will show more temperature swings around 68°F. Which system has better control?",
+        "options": [
+          "The heating-only system, because it produces less variation",
+          "The heating-and-cooling system, because it can respond to changes in either direction",
+          "Both are equally good if they maintain the same average temperature",
+          "Neither—temperature swings always indicate poor control"
+        ],
+        "correctIndex": 1,
+        "explanation": "The system with both forces can respond faster when conditions change. If the room suddenly warms, heating-only can only stop heating and wait. Heating-and-cooling can actively push back. The visible swings show that both mechanisms are working, not that control is worse."
+      },
+      {
+        "question": "Two machines produce parts with the same average diameter. Machine A's output varies by 0.5mm part to part. Machine B's varies by 0.05mm. When does higher variation signal better function?",
+        "options": [
+          "Never—in manufacturing, less variation is always better",
+          "When the variation comes from active correction responding to small changes in material or temperature rather than the machine ignoring them",
+          "When the parts don't need to be precise",
+          "When the machine is older and has more wear"
+        ],
+        "correctIndex": 1,
+        "explanation": "If Machine A adjusts its cutting depth slightly part-to-part based on real-time sensing while Machine B runs blind and happens to get lucky, Machine A's variation shows it's compensating. Machine B's steadiness might just mean conditions haven't changed yet—when they do, it won't respond."
+      }
+    ]
+  }
+}
