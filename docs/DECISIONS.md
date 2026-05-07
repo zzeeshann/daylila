@@ -2,6 +2,18 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-07: Dead-column backfill (reading_minutes wire-up; has_interactive deliberately not touched)
+
+**What:** Wired up `daily_pieces.reading_minutes`, the only dead-instrumentation column on `daily_pieces` with a wired reader and no writer. Director's `INSERT INTO daily_pieces` now writes the value derived as `Math.max(1, Math.round(wordCount / 200))` (200 wpm conservative web-reading rate, with the `max(1, ...)` floor so a 200-word piece reads as "1 min" not "0 min"). Migration `0036_dead_columns_backfill.sql` retroactively populates the same formula on the 48 historical NULL rows via `MAX(1, CAST(ROUND(word_count / 200.0) AS INTEGER))`.
+
+**Why:** Surfaced during the post-Phase-2 audit on 2026-05-07. `src/components/RunBlock.astro:79` reads `piece.readingMinutes ?? <fallback>` and was falling through to a regex parse of `estimatedTime` on every render because no writer existed. The column was scaffolded in migration `0006_daily_pieces.sql` (pre-launch) but the writer was never added. All 48 production rows had `reading_minutes IS NULL`. Two-line fix at the writer + a non-destructive backfill closes the gap.
+
+**The other dead column — `has_interactive` — was deliberately NOT touched.** SCHEMA.md line 239 documents the call: "Deprecated as of migration 0022 … `interactive_id` (below) is the single source of truth for 'does this piece have an interactive'. Column stays physical because SQLite DROP COLUMN would require a `daily_pieces` table rebuild (blast radius too big for hygiene). No writer touches it going forward." Initial draft of this fix wired it up by mistake; reverted on closer reading of the schema doc. The `(interactive_id IS NULL) ↔ (has_interactive = 0)` invariant is enforced not at the schema level but by the design decision to leave `has_interactive` unread.
+
+**Surrounding investigation:** Same audit also surfaced 6 zombie pipeline runs in `pipeline_log` without a corresponding `daily_pieces` row (5 of 6 silent — no observer event), Anthropic 529 frequency of 5 incidents in 10 days (NOT one-off as initially classified), Categoriser taxonomy fragmentation (8 new categories in 8 days, most with `piece_count=1`, `Knowledge Formation` being used as a dumping ground for 11 pieces of disparate topics), and Curator's post-LLM phase taking ~4 minutes (likely Anthropic-side throttling — yellow status icon). Zombies and Categoriser fragmentation are queued in FOLLOWUPS as separate items.
+
+**Files:** `agents/src/director.ts` (1 INSERT line + 1 derivation line + comment), `migrations/0036_dead_columns_backfill.sql` (single UPDATE, idempotent), `docs/SCHEMA.md` (description on `reading_minutes` + migration entry + count 35 → 36), CLAUDE.md (latest-session entry).
+
 ## 2026-05-07: L17 closed — audio dwell time persists per beat per reader (Foundation Fix Task 07, fifth Phase 2 task; Phase 2 closed)
 
 Reader audio dwell was computed for the browser's `mediaSession` lock-screen scrubber and never POSTed back. Every listener-second of attention was lost. Of the 25 audit leaks, L17 was the only one on the reader-signal side — closing it gives the Learner its fourth signal source (reader engagement) at beat-level granularity for the first time. Phase 2 of the Foundation Fix programme closes here; Task 08 (retention + run_id) is Phase 3 and the only remaining task in the original 8-task scope.
