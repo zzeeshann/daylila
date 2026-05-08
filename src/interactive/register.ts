@@ -7,6 +7,7 @@
  */
 import './lesson-beat';
 import './lesson-shell';
+import './lesson-progress';
 import './audio-player';
 import './zita-chat';
 import './made-drawer';

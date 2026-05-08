@@ -6,6 +6,7 @@ import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { isLowQuality, LOW_QUALITY_NOTE, type InteractiveBundle } from '../lib/interactives';
 import { wrapWithResizeProbe } from '../lib/interactive-html';
 import '../styles/beats.css';
+import '../styles/lesson-pagination.css';
 import '../styles/zita.css';
 
 interface Props {
@@ -109,6 +110,15 @@ const quizEntry = interactiveBundle?.quizEntry ?? null;
 const htmlEntry = interactiveBundle?.htmlEntry ?? null;
 const quizContentJson = interactiveBundle?.quizContentJson ?? null;
 const interactiveSlug = primary?.data.slug ?? null;
+
+// Beat-by-beat reading mode flag (C3, 2026-05-08). C4 wires this to
+// `admin_settings.reading_mode` in D1 with fail-open to 'scroll'.
+// During C3 the value is hardcoded to false so the flag is dormant —
+// production rolls out via the admin toggle in C4 once the operator
+// is ready. Manual override for local dev: set to true here for a
+// one-off preview, OR add `?paginated=1` to the URL (the inline
+// script below honours it).
+const paginated = false;
 ---
 
 <BaseLayout
@@ -169,6 +179,27 @@ const interactiveSlug = primary?.data.slug ?? null;
   </p>
 
   {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
+
+  {/*
+    Beat-by-beat reading mode bootstrap (C3, 2026-05-08).
+    Inline script runs synchronously during HTML parsing — must come
+    BEFORE <lesson-progress> + <audio-player> + <slot/> so the data
+    attribute is on :root by the time those elements upgrade. The
+    `?paginated=1` URL escape hatch lets the operator preview the
+    paginated layout on prod without flipping the admin setting.
+  */}
+  <script is:inline define:vars={{ serverPaginated: paginated }}>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const urlOverride = params.get('paginated');
+      const paginated = urlOverride === '1' || (urlOverride !== '0' && serverPaginated);
+      if (paginated) {
+        document.documentElement.setAttribute('data-lesson-paginated', 'true');
+      }
+    })();
+  </script>
+
+  <lesson-progress></lesson-progress>
 
   <div class="mb-8">
     <AudioPlayer audioBeats={audioBeats} pieceTitle={title} />

@@ -2,6 +2,47 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C3: lesson-shell coordinator + lesson-progress dots + paginated CSS
+
+**Context.** Third of six commits. C3 brings the daily piece's beat-by-beat reading mode to life: `<lesson-shell>` becomes a step coordinator, a new `<lesson-progress>` component renders the slim row of dots, audio-player learns to follow stepchange, and `src/styles/lesson-pagination.css` hides non-current beats and step regions. Paginated mode is gated by `:root[data-lesson-paginated="true"]` plus a `data-lesson-hydrated="true"` guard so no-JS readers always get the long-scroll fallback. The flag is currently dormant — `paginated = false` in `LessonLayout.astro` — and a `?paginated=1` URL escape hatch lets the operator preview the new mode locally without flipping any setting. C4 wires the flag to `admin_settings.reading_mode`.
+
+**Decisions.**
+
+1. **`<lesson-shell>` is the source of truth for step state, not `<audio-player>`.** Plan-agent pushback in design review. Two non-audio steps (interactive, quiz) make the audio rail the wrong owner — it would have to know about steps with no clip, mixing audio concerns with layout concerns. Inverting it: lesson-shell owns `currentStep` (a step ID, not a beat name), audio-player listens to `lesson-shell:stepchange` and loads the matching clip if the step has one. This unifies five inputs (initial mount, hash deep-link, dot tap, audio prev/next, clip-end auto-advance) through one method on lesson-shell.
+2. **Source-of-truth flag lives on `:root`, not on `<lesson-shell>`.** Audio-player and lesson-shell both need to read paginated mode. Stamping `data-paginated` on lesson-shell would require threading the runtime value through rehype-beats (the lesson-shell tag is rehype-emitted, not authored in LessonLayout). `:root[data-lesson-paginated]` is set server-side via an Astro inline script that runs before any custom element parses. Custom elements then read from `:root` regardless of where they live in the tree.
+3. **Two `:root` data attributes, not one.** `data-lesson-paginated` is server-set (admin_settings); `data-lesson-hydrated` is client-set inside lesson-shell.connectedCallback after the step list builds successfully. The CSS hide-rule gates on both. No-JS readers never get the hydrated attr → rule never matches → page renders as long-scroll fallback. Mandatory per Q4 of plan review; not negotiable.
+4. **URL hash stripped via `history.replaceState`, not suppressed via `scrollTo`.** First attempt was synchronous `window.scrollTo(0, 0)` plus `requestAnimationFrame(scrollTo)` to override the browser's anchor-scroll. Didn't work — the browser's auto-scroll fires near the load event, after both calls. Stripping the hash via `replaceState` BEFORE the load event means the browser sees no anchor to scroll to. The Resume contract still works: lesson-shell reads the hash into a local variable first, then strips. URL ends up clean (no `#beat-name`); `account.astro` writes a fresh hash next time.
+5. **Audio-player reads initial beat from `<lesson-shell>` in coordinated mode, not from URL hash.** Module-load order in `register.ts` upgrades lesson-shell before audio-player (depends-graph). By the time audio-player connects, lesson-shell has already read AND stripped the hash. So audio-player would read empty hash → fall back to `beatOrder[0]` → audio caption desyncs from body step on resume. Fix: `audio-player.connectedCallback` queries `<lesson-shell>.getCurrentStepId()` in coordinated mode and uses that as the initial beat. Single source of truth (the shell), no race conditions.
+6. **`autoplayOnNextLoad` flag bridges the clip-end → stepchange boundary.** When a clip ends, `audio.paused` becomes true. In coordinated mode, audio-player dispatches `requeststep` and lets lesson-shell drive the next clip via stepchange. By the time stepchange fires, `audio.paused = true`, so a naive "autoplay if was playing" check would wrongly land on paused. The new `autoplayOnNextLoad` flag is set true in `onEnded` (coordinated branch) and consumed by the stepchange listener — preserves the auto-advance UX across the boundary.
+7. **Progress dots are a separate `<lesson-progress>` web component.** Could have been rendered inside lesson-shell, but separation is cleaner: lesson-shell owns state and dispatches events, lesson-progress consumes events and renders DOM. Each is small enough to read end-to-end. Communication via two events: `lesson-shell:ready` (one-shot, carries the step list — for the case where lesson-progress upgrades before lesson-shell finishes setup) and `lesson-shell:stepchange` (continuous, carries the active step ID).
+8. **`lesson-progress:goto` event for dot taps.** Cleaner than calling `<lesson-shell>.goToStep()` directly across components. lesson-shell listens at the document level; any future component that wants to steer the lesson can dispatch the same event.
+9. **CSS hide-rule scoped via descendant from `:root`.** Step regions are SIBLINGS of the article that wraps lesson-shell in DOM. A descendant selector from `lesson-shell` would never reach them. Going up to `:root` lets one rule cover both lesson-beat (deep descendant) and `[data-lesson-step]` regions (cousins). Worked first try; clean.
+10. **`min-height: 60vh` on the active step.** Per plan review's Q6: the very-short close beat (9 words on 2026-04-17) needs SOME min-height to not look broken on a tall viewport. NOT 100vh — operator was explicit that brief said content-sized; 60vh is the band where one-line screens don't read as "did the page break?".
+
+**Alternatives considered.**
+
+- **One large CSS `:has()` rule keeping a wrapper section visible while any child step is current.** Rejected in C2 in favour of two parallel sibling sections. C3 inherits that decision — sibling sections + uniform `[data-lesson-step]:not([data-current])` rule is simpler than `:has()` games.
+- **Driving everything from URL hash + popstate.** Rejected in plan review (Q1.C). Brief explicitly says back button leaves the piece, not cycles through beats.
+- **Always re-fire beat IO observer threshold even when paginated.** Rejected — IO doesn't fire for `display: none` elements. Fired-on-step-change in C5 (next commit) is the right shape.
+
+**Reason — why coordinated mode kicks audio-player out of its own scroll-mode `loadBeat` path.** Two state machines fighting was the explicit Q1 of plan review. Audio-player's `stepBeat` (prev/next click) and `onEnded` (clip end) used to call `loadBeat` directly. In coordinated mode they now dispatch `requeststep` and return; lesson-shell decides what step to move to and dispatches `stepchange`; audio-player's stepchange listener loads the matching clip. Audio-player has zero state-decision logic in coordinated mode; it's purely a slave to the shell. Scroll mode keeps the original behaviour unchanged.
+
+**Verified.**
+
+`npx tsc --noEmit` clean for `src/interactive/audio-player.ts`, `src/interactive/lesson-shell.ts`, `src/interactive/lesson-progress.ts`, `src/layouts/LessonLayout.astro`. Cold-start preview server, navigate to `/daily/2026-05-07/.../?paginated=1#close`:
+
+- URL hash stripped via `history.replaceState` (no `#close` after load).
+- `:root[data-lesson-paginated="true"][data-lesson-hydrated="true"][data-lesson-current-step="close"]`.
+- 8 progress dots (5 beats + interactive + quiz + finish).
+- Active dot = close (last body-beat dot).
+- Only the close beat visible; other beats and step regions hidden.
+- `scrollY = 0` (chrome at top, beat content below).
+- Audio caption: `Beat 5 of 5 · Close` (matches body via shell-driven init).
+
+Subsequent dot taps fire `stepchange` events with correct `{ stepId, kind, index, total }` detail; audio-player follows; navigating to a non-audio step (interactive / quiz) pauses audio and updates the caption to `Step N of M · <stepName>`. Audio prev/next round-trips through `requeststep → goToStep → stepchange → loadBeat` cleanly. No-paginated nav (no `?paginated=1`): no `:root` flags, all beats + step regions visible, 0 progress dots, lesson-progress invisible, audio caption starts on Hook.
+
+**References.** [src/interactive/audio-player.ts](../src/interactive/audio-player.ts) (coordinated mode + stepchange listener + autoplay-on-next-load flag), [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts) (step coordinator), [src/interactive/lesson-progress.ts](../src/interactive/lesson-progress.ts) (NEW), [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css) (NEW), [src/interactive/register.ts](../src/interactive/register.ts) (registers lesson-progress), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (renders lesson-progress + inline script). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C2: LessonLayout step markers + quiz split into its own sibling section
 
 **Context.** Second of six commits for the beat-by-beat reading mode. C2 is a structural rename — adds `data-lesson-step` attributes to the regions the C3 coordinator will hide-and-show, and splits the inline quiz card out of the shared interactive section into its own sibling `<section>`. Zero JS change. Scroll-mode visual is preserved on every existing piece shape.

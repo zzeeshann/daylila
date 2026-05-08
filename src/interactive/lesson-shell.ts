@@ -1,29 +1,60 @@
 /**
- * <lesson-shell> — passive engagement reporter for the single-scroll
- * daily-piece layout (Area 5).
+ * <lesson-shell> — the lesson page coordinator.
  *
- * Pre-Area-5, this component owned a beat-by-beat pagination state
- * machine (Previous / Next / Finish, sessionStorage-restored beat
- * index, hide-all-but-current via [data-visible]). With the conversion
- * to a single scrolling page, all beats are visible always — the
- * component now does three small things:
+ * Dual-mode component. The mode is set at server-render time via the
+ * `data-paginated="true"` attribute (LessonLayout reads
+ * admin_settings.reading_mode and stamps the attribute):
  *
- *   1. Fires `view` on mount.
- *   2. Forwards `audio-player:firstplay` to `audio_play`.
- *   3. Watches the finish-state sentinel and the interactive section
- *      via IntersectionObservers, firing `complete` and
- *      `interactive_offered` once per session each.
+ *   - **Scroll mode (default, no `data-paginated`).** Passive engagement
+ *     reporter. Beats render as continuous prose; IntersectionObservers
+ *     fire `view`, `complete`, `interactive_offered`, and per-beat
+ *     `read` events as the reader scrolls. This is the original Area-5
+ *     behaviour, unchanged.
  *
- * Progressive enhancement: without JS, beats render as continuous
- * prose (the no-JS shape was already the canonical fallback shape).
+ *   - **Paginated mode (`data-paginated="true"`).** Step coordinator.
+ *     Builds a step list from `<lesson-beat>` elements and
+ *     `[data-lesson-step]` regions in DOM order. Owns `currentStep`.
+ *     Listens for `audio-player:requeststep` (clip-end auto-advance,
+ *     prev/next button) and `lesson-progress:goto` (dot tap). On each
+ *     step change, dispatches `lesson-shell:stepchange` for
+ *     `<audio-player>` and `<lesson-progress>` to follow. Hides
+ *     non-current beats and step regions via the CSS rule in
+ *     `src/styles/lesson-pagination.css`, which keys off
+ *     `:root[data-lesson-paginated="true"][data-lesson-hydrated="true"]`
+ *     so no-JS readers always see the long-scroll fallback.
+ *
+ * Pre-Area-5, this component owned a different beat-by-beat pagination
+ * state machine (Previous / Next / Finish UI rendered in shadow DOM,
+ * sessionStorage-restored beat index). Area 5 stripped it. The C3
+ * commit (2026-05-08) brings the coordinator role back, redesigned —
+ * now driven by step IDs (not beat indices), keyed off shell's own
+ * dataset (not external state), and explicitly inverted from the audio
+ * rail (lesson-shell is source of truth, audio-player follows; per
+ * Plan-agent review).
  */
 
+type StepKind = 'beat' | 'interactive' | 'quiz' | 'finish';
+
+interface Step {
+  id: string;
+  kind: StepKind;
+  element: HTMLElement;
+}
+
 class LessonShell extends HTMLElement {
+  // Engagement (scroll-mode) state
   private finishObserver: IntersectionObserver | null = null;
   private interactiveObserver: IntersectionObserver | null = null;
   private beatsObserver: IntersectionObserver | null = null;
   private audioFirstPlayHandler: EventListener | null = null;
   private observedBeats = new Set<string>();
+
+  // Coordinator (paginated-mode) state
+  private steps: Step[] = [];
+  private currentStepId: string | null = null;
+  private requeststepHandler: EventListener | null = null;
+  private gotoHandler: EventListener | null = null;
+  private paginatedActive = false;
 
   /**
    * Extract content info from URL: /daily/{date}/{slug}/.
@@ -45,10 +76,23 @@ class LessonShell extends HTMLElement {
     return null;
   }
 
+  /** True when this page should render as one-step-per-screen. The
+   *  flag lives on :root (LessonLayout's inline script reads
+   *  admin_settings.reading_mode and stamps the attribute before any
+   *  custom element parses). Reading from :root rather than from this
+   *  element is the right scope — paginated mode is a page-level
+   *  setting, not an element-level one — and avoids the rehype-beats
+   *  threading that would otherwise be needed to put a runtime value
+   *  on the rehype-emitted lesson-shell tag. Not reactive to runtime
+   *  attribute changes; the admin toggle is page-reload-gated by
+   *  design. */
+  private get isPaginated(): boolean {
+    return document.documentElement.dataset.lessonPaginated === 'true';
+  }
+
   connectedCallback() {
-    // Engagement: view (fires once per page load).
+    // Engagement: view (fires once per page load) — both modes.
     this.trackEngagement('view');
-    // Per-user-per-piece read record: view event.
     this.trackRead('view');
 
     // Audio first-play forwards to engagement; audio-player owns the
@@ -56,21 +100,11 @@ class LessonShell extends HTMLElement {
     this.audioFirstPlayHandler = () => this.trackEngagement('audio_play');
     window.addEventListener('audio-player:firstplay', this.audioFirstPlayHandler);
 
-    // Finish-state sentinel — when the reader reaches the end of the
-    // page (LessonLayout renders <footer data-lesson-finish>), fire
-    // `complete` once per session per piece.
-    this.observeFinish();
-
-    // Interactive section observer — when the inline interactive
-    // (LessonLayout renders <section data-lesson-interactive
-    // data-interactive-slug="…">) crosses ≥0.5 viewport, fire
-    // `interactive_offered` once per session per slug.
-    this.observeInteractive();
-
-    // Per-beat observer — fires `beat` to /api/reads/track when each
-    // <lesson-beat name="…"> crosses ≥0.5 viewport. Powers Resume's
-    // current_beat anchor.
-    this.observeBeats();
+    if (this.isPaginated) {
+      this.setupPaginated();
+    } else {
+      this.setupScrollMode();
+    }
   }
 
   disconnectedCallback() {
@@ -85,6 +119,31 @@ class LessonShell extends HTMLElement {
     this.beatsObserver?.disconnect();
     this.beatsObserver = null;
     this.observedBeats.clear();
+
+    if (this.requeststepHandler) {
+      window.removeEventListener('audio-player:requeststep', this.requeststepHandler);
+      this.requeststepHandler = null;
+    }
+    if (this.gotoHandler) {
+      document.removeEventListener('lesson-progress:goto', this.gotoHandler);
+      this.gotoHandler = null;
+    }
+    if (this.paginatedActive) {
+      delete document.documentElement.dataset.lessonHydrated;
+      delete document.documentElement.dataset.lessonCurrentStep;
+      // lessonPaginated is server-stamped by LessonLayout — leave it
+      // alone; the hide-rule gates on hydrated which we DO own.
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Scroll mode (original behaviour — IntersectionObservers)
+  // ────────────────────────────────────────────────────────────────
+
+  private setupScrollMode() {
+    this.observeFinish();
+    this.observeInteractive();
+    this.observeBeats();
   }
 
   private observeFinish() {
@@ -175,6 +234,182 @@ class LessonShell extends HTMLElement {
     }, { threshold: [0.5] });
     this.interactiveObserver.observe(section);
   }
+
+  // ────────────────────────────────────────────────────────────────
+  // Paginated mode (step coordinator)
+  // ────────────────────────────────────────────────────────────────
+
+  private setupPaginated() {
+    this.buildSteps();
+    if (this.steps.length === 0) {
+      // No paginatable content (legacy bundle). Fall back to scroll
+      // mode so the page is still readable.
+      this.setupScrollMode();
+      return;
+    }
+
+    // Pick the initial step. URL hash takes precedence (Resume URLs);
+    // otherwise the first step in DOM order (the hook).
+    const hash = window.location.hash.replace(/^#/, '');
+    const matched = hash ? this.steps.find((s) => s.id === hash) : null;
+    const initial = matched ?? this.steps[0];
+
+    // Hide all non-initial steps via the [data-current] mark below.
+    // The CSS hide-rule (src/styles/lesson-pagination.css) gates on
+    // both :root[data-lesson-paginated="true"] (set server-side by
+    // LessonLayout's inline script before any custom element parses)
+    // AND :root[data-lesson-hydrated="true"] (set here, only after
+    // the step list builds successfully). The hydrated guard means
+    // no-JS readers never trigger the hide-rule and the page renders
+    // as the long-scroll fallback.
+    document.documentElement.dataset.lessonHydrated = 'true';
+    this.paginatedActive = true;
+
+    // Suppress the browser's automatic anchor-scroll when resuming
+    // from a hash. The browser's scroll-to-anchor fires near the load
+    // event, AFTER lesson-shell's connectedCallback returns; an
+    // imperative window.scrollTo wouldn't reliably override it. Strip
+    // the hash from the URL via history.replaceState while keeping
+    // the rest intact — once the browser sees no hash, there's no
+    // anchor to scroll to. The Resume contract still works: the hash
+    // was already read above into `matched` and informs the initial
+    // step. The reader lands with the chrome (title, meta, dots,
+    // audio player) at the top and the resumed step below it — the
+    // natural shape of an opened-from-link page.
+    if (matched && typeof history.replaceState === 'function') {
+      const cleanUrl = window.location.pathname + window.location.search;
+      history.replaceState(history.state, '', cleanUrl);
+    }
+
+    this.applyCurrent(initial.id, { dispatchChange: false, scroll: false });
+
+    // Wire input handlers for prev/next requests + dot taps.
+    this.requeststepHandler = (e: Event) => this.handleRequestStep(e as CustomEvent);
+    window.addEventListener('audio-player:requeststep', this.requeststepHandler);
+
+    this.gotoHandler = (e: Event) => this.handleGoto(e as CustomEvent);
+    document.addEventListener('lesson-progress:goto', this.gotoHandler);
+
+    // Tell <lesson-progress> + <audio-player> the step list is ready.
+    document.dispatchEvent(
+      new CustomEvent('lesson-shell:ready', {
+        detail: { steps: this.steps.map((s) => ({ id: s.id, kind: s.kind })) },
+      }),
+    );
+
+    // Fire the initial stepchange so audio-player loads the right
+    // clip on resume + lesson-progress paints the active dot.
+    this.dispatchStepChange(initial);
+  }
+
+  private buildSteps() {
+    // Beats first (DOM order, scoped to this lesson-shell descendants).
+    const beatEls = Array.from(this.querySelectorAll('lesson-beat[name]')) as HTMLElement[];
+    for (const el of beatEls) {
+      const id = el.getAttribute('name');
+      if (id && id.length > 0) {
+        this.steps.push({ id, kind: 'beat', element: el });
+      }
+    }
+    // Then [data-lesson-step] regions in DOM order (siblings of the
+    // article that wraps lesson-shell + beats).
+    const stepEls = Array.from(document.querySelectorAll('[data-lesson-step]')) as HTMLElement[];
+    for (const el of stepEls) {
+      const id = el.dataset.lessonStep;
+      if (!id) continue;
+      const kind = (id === 'interactive' || id === 'quiz' || id === 'finish') ? id : null;
+      if (!kind) continue;
+      this.steps.push({ id, kind, element: el });
+    }
+  }
+
+  /**
+   * Update DOM + dispatch stepchange. Used by initial mount, dot tap,
+   * audio prev/next button, and clip-end auto-advance.
+   *
+   * @param opts.dispatchChange  fire `lesson-shell:stepchange`
+   *                             (initial mount uses dispatchStepChange
+   *                             explicitly; subsequent navigations let
+   *                             goToStep handle it).
+   * @param opts.scroll          smooth-scroll the new step element to
+   *                             top (false on initial mount — would
+   *                             produce a confusing animation).
+   */
+  private applyCurrent(stepId: string, opts: { dispatchChange: boolean; scroll: boolean }) {
+    const step = this.steps.find((s) => s.id === stepId);
+    if (!step) return;
+    if (this.currentStepId === stepId) return;
+
+    if (this.currentStepId) {
+      const prev = this.steps.find((s) => s.id === this.currentStepId);
+      prev?.element.removeAttribute('data-current');
+    }
+
+    this.currentStepId = stepId;
+    step.element.setAttribute('data-current', '');
+    document.documentElement.dataset.lessonCurrentStep = stepId;
+
+    if (opts.scroll) {
+      step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (opts.dispatchChange) {
+      this.dispatchStepChange(step);
+    }
+  }
+
+  private dispatchStepChange(step: Step) {
+    const idx = this.steps.indexOf(step);
+    window.dispatchEvent(
+      new CustomEvent('lesson-shell:stepchange', {
+        detail: {
+          stepId: step.id,
+          kind: step.kind,
+          index: idx,
+          total: this.steps.length,
+        },
+      }),
+    );
+  }
+
+  /** Public: called by `goToStep` from external callers (audio-player
+   *  in coordinated mode could call directly, but uses requeststep
+   *  events for symmetry with lesson-progress). */
+  goToStep(stepId: string) {
+    if (!this.paginatedActive) return;
+    this.applyCurrent(stepId, { dispatchChange: true, scroll: true });
+  }
+
+  /** Public: read by `<lesson-progress>` on connect to render the
+   *  initial dot row. */
+  getSteps(): Array<{ id: string; kind: StepKind }> {
+    return this.steps.map((s) => ({ id: s.id, kind: s.kind }));
+  }
+
+  getCurrentStepId(): string | null {
+    return this.currentStepId;
+  }
+
+  private handleRequestStep(e: CustomEvent) {
+    const detail = e.detail as { direction?: 'prev' | 'next' } | undefined;
+    if (!detail?.direction) return;
+    const idx = this.steps.findIndex((s) => s.id === this.currentStepId);
+    if (idx === -1) return;
+    const targetIdx = detail.direction === 'next' ? idx + 1 : idx - 1;
+    const target = this.steps[targetIdx];
+    if (!target) return;
+    this.goToStep(target.id);
+  }
+
+  private handleGoto(e: CustomEvent) {
+    const detail = e.detail as { stepId?: string } | undefined;
+    if (!detail?.stepId) return;
+    this.goToStep(detail.stepId);
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // Engagement helpers (used by both modes)
+  // ────────────────────────────────────────────────────────────────
 
   /** Fire-and-forget engagement tracking */
   private trackEngagement(eventType: string) {

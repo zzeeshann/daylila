@@ -1,0 +1,110 @@
+/*
+ * Beat-by-beat pagination — standalone (not Tailwind-processed) so the
+ * custom-element + data-attribute selectors are never purged.
+ *
+ * Two-mode page: scroll-mode is the default and this file's rules
+ * never match. Paginated-mode is gated on three :root data attributes:
+ *
+ *   :root[data-lesson-paginated="true"]      ← server-stamped via
+ *                                               admin_settings
+ *                                               (LessonLayout, C4)
+ *   :root[data-lesson-hydrated="true"]       ← set by <lesson-shell>'s
+ *                                               connectedCallback after
+ *                                               the step list builds.
+ *                                               No-JS readers never get
+ *                                               this attribute, so the
+ *                                               hide-rule never matches
+ *                                               and the page renders as
+ *                                               long-scroll fallback.
+ *   :root[data-lesson-current-step="<id>"]   ← updated on every
+ *                                               stepchange.
+ *
+ * Hide-rule: any <lesson-beat> or [data-lesson-step] without a
+ * `data-current` attribute is `display: none`. Lesson-shell sets
+ * `data-current` on whichever element is the active step at any time.
+ *
+ * Step regions are SIBLINGS of the article that wraps lesson-shell, so
+ * a descendant CSS selector won't reach them. The :root-level guards
+ * scope from the document root, which lets the same selectors hit
+ * both lesson-beat (a descendant of lesson-shell) and the [data-lesson-
+ * step] sections (siblings of the article).
+ */
+
+:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-beat:not([data-current]) {
+  display: none;
+}
+
+:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] [data-lesson-step]:not([data-current]) {
+  display: none;
+}
+
+/* Each visible step gets a min-height to avoid one-line screens (the
+ * 9-word close beat on 2026-04-17 is the worst real case). NOT 100vh —
+ * brief explicitly: content-sized, page scrolls vertically when a step
+ * overflows. 60vh is the sweet spot. */
+:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-beat[data-current],
+:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] [data-lesson-step][data-current] {
+  min-height: 60vh;
+}
+
+/* Progress dots — slim row near the top. Hidden in scroll mode (no
+ * :root flag), shown in paginated mode. */
+lesson-progress {
+  display: none;
+}
+
+:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-progress {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.lesson-progress-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.25rem;
+}
+
+.lesson-progress-dot {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The actual coloured pill is a pseudo-element so the tap target is
+ * larger than the visible dot — touch ergonomics on mobile. */
+.lesson-progress-dot::before {
+  content: "";
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgba(26, 107, 98, 0.3); /* zee-primary @ 30% */
+  transition: background-color 120ms ease, width 120ms ease;
+}
+
+.lesson-progress-dot:hover::before,
+.lesson-progress-dot:focus-visible::before {
+  background: rgba(26, 107, 98, 0.6);
+}
+
+.lesson-progress-dot[data-active="true"]::before {
+  width: 1.25rem;
+  border-radius: 999px;
+  background: #1A6B62; /* zee-primary */
+}
+
+.lesson-progress-dot:focus-visible {
+  outline: 2px solid #1A6B62;
+  outline-offset: 2px;
+}
