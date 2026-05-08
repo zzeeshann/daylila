@@ -1,0 +1,59 @@
+{
+  "slug": "measurement-precision-limits",
+  "type": "quiz",
+  "title": "Measurement Precision Limits",
+  "concept": "Some physical quantities resist precise measurement not because our tools are bad, but because the signal we're trying to isolate is overwhelmed by unavoidable interference at the scale we can manipulate.",
+  "interactiveId": "085c7257-e010-4929-ad4e-a29341f7ed80",
+  "sourcePieceId": "376094d7-409c-4433-a244-74da50e043ac",
+  "publishedAt": 1778206249534,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why do some physical measurements stay imprecise even as technology improves?",
+        "options": [
+          "The quantity itself changes randomly over time",
+          "The signal we're measuring is much weaker than the noise we can't remove",
+          "Our measuring instruments aren't sensitive enough yet",
+          "The mathematics describing the quantity is incomplete"
+        ],
+        "correctIndex": 1,
+        "explanation": "When the thing you're trying to measure produces a tiny effect compared to everything else happening in your setup, precision stalls. Better instruments help only if they can separate signal from noise — when the noise is unavoidable physics at your scale, you're stuck."
+      },
+      {
+        "question": "What makes a force difficult to measure in a laboratory?",
+        "options": [
+          "Being weaker than other forces you cannot turn off",
+          "Requiring expensive equipment to detect",
+          "Acting over very large distances",
+          "Changing direction unpredictably"
+        ],
+        "correctIndex": 0,
+        "explanation": "If every other force in the room is a thousand times stronger than the one you care about, isolating your target becomes nearly impossible. It's not about cost or complexity — it's about the ratio between what you want to see and what's already there drowning it out."
+      },
+      {
+        "question": "A scientist measures a quantity to four decimal places in 1800 and to six decimal places today. What does this tell you?",
+        "options": [
+          "The quantity was less stable in 1800",
+          "Modern theory explains the quantity better than old theory did",
+          "The measurement faced a fundamental difficulty that better tools only partially solve",
+          "The 1800 measurement was probably wrong"
+        ],
+        "correctIndex": 2,
+        "explanation": "Slow progress across centuries — despite massive leaps in technology — signals a hard limit in the measurement itself, not the equipment. If tools were the bottleneck, precision would have jumped faster. The 1800 result being close to today's value shows the method worked; gaining only two more digits shows something about the task resists improvement."
+      },
+      {
+        "question": "Why would you care about improving a measurement from four decimal places to five?",
+        "options": [
+          "Academic prestige for the lab that achieves it",
+          "Testing whether the quantity actually stays constant across conditions",
+          "Making existing calculations run faster",
+          "Proving a competing measurement wrong"
+        ],
+        "correctIndex": 1,
+        "explanation": "The fifth decimal place lets you check if the number changes in different environments, at different scales, or over time. Four digits might hide variation that five would catch. The point isn't precision for its own sake — it's whether the thing you're calling a constant really is one everywhere."
+      }
+    ]
+  }
+}
