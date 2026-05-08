@@ -8,6 +8,7 @@
 import './lesson-beat';
 import './lesson-shell';
 import './lesson-progress';
+import './lesson-swipe';
 import './audio-player';
 import './zita-chat';
 import './made-drawer';

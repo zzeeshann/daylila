@@ -2,6 +2,48 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C6: swipe gestures
+
+**Context.** Sixth and final commit of the beat-by-beat reading mode rollout. The brief mentioned swipe alongside tap-to-jump as a way readers should be able to navigate. C3 shipped tap-to-jump dots + audio prev/next coordination; C6 layers swipe on top of the same `audio-player:requeststep` event channel that lesson-shell already handles. No coordinator changes — swipe is just one more input.
+
+**Decisions.**
+
+1. **Swipe dispatches the same event channel as audio prev/next.** A pointerup that meets the swipe heuristics fires `audio-player:requeststep` with `{ direction: 'prev' | 'next' }`. Lesson-shell's existing requeststep handler routes to `goToStep`. Single state-machine entry point — no swipe-specific code in lesson-shell, no parallel state, no race conditions with dot taps.
+2. **Standalone module, not a Web Component.** Swipe doesn't have a DOM presence — it's a global pointer-listener that translates gestures to events. A Web Component would add ceremony (custom-element registration, connect/disconnect lifecycle) without earning anything. The module attaches three document-level pointer listeners on import; passive listeners so they don't block scroll. Imported once via `register.ts`, alongside the other interactive bundles.
+3. **Heuristics tuned to filter false positives, not maximize sensitivity.** Four guards:
+   - **Distance ≥ 50px horizontal** — short drags are tap-misclicks; 50px filters them while still being achievable on a small screen.
+   - **Vertical < 25px** (half the horizontal threshold) — confirms the gesture is mostly horizontal. Diagonal drags read as scroll, not swipe.
+   - **Duration ≤ 600ms** — slow drags read as scroll-attempts (or text selection). Genuine swipes are quick.
+   - **Edge guard 24px from left/right** — iOS uses left-edge swipes for browser back-navigation. Competing with that would be hostile. The 24px guard matches Apple's documented HIG region.
+4. **Touch + pen only — mouse swipes ignored.** A mouse drag should select text (the browser default) or click-and-drag UI, not navigate beats. Pointer-type filter `e.pointerType === 'mouse'` returns early. Touch (mobile, primary target) and pen both trigger swipe.
+5. **Active-only-when-paginated check at pointerdown, not at module load.** Reads `:root[data-lesson-paginated][data-lesson-hydrated]` synchronously on each swipe. Reacts naturally if the page renders in scroll mode (no flag set, swipe never engages). Cheap — a property read on `document.documentElement.dataset`.
+6. **Right-swipe → prev, left-swipe → next.** LTR reading-direction conventions. Daylila ships LTR-only; if RTL ever lands, the direction flip would be a one-line conditional. Left = "swipe to advance through content" matches both Brilliant-style apps and the iOS Photos app.
+
+**Alternatives considered.**
+
+- **Touch-action: pan-x on the lesson body.** Would let the browser handle the swipe natively. Rejected — it interferes with vertical scroll within a long step (the 192-word `infrastructure-trap` beat needs scroll). Letting JS make the decision keeps the body free to scroll vertically while still recognising horizontal swipes as navigation.
+- **Swipe also dispatches `lesson-progress:goto` directly.** Skipped — `requeststep` is the right level of abstraction. Lesson-shell decides what step to move to (clamps at boundaries, knows the step list). Letting swipe make that decision would duplicate logic.
+- **Bake into `<lesson-shell>` itself.** Would have worked but would add a fourth concern to the shell (engagement, step state, audio coordination, gestures). Separating into its own module keeps each file under ~250 lines and reads independently.
+
+**Reason — why land swipe in C6 rather than as a follow-up.** Operator picked C6 in plan review (Q1). The brief explicitly mentioned swipe; deferring would leave the rollout feeling incomplete. C6 is small (~85 lines), independently verifiable via synthetic PointerEvents, and depends on nothing C5 hadn't already shipped.
+
+**Verified.**
+
+End-to-end via cold preview. Navigated to `/daily/2026-05-07/.../?paginated=1`, dispatched synthetic PointerEvents to the document:
+
+- Left-swipe (200→100, ~touch): hook → what-the-motor-cortex-does ✓
+- Another left-swipe: → what-expansion-means ✓
+- Right-swipe (100→200): → what-the-motor-cortex-does ✓
+- Edge swipe (start x=10, under 24px guard): NO change ✓ (correctly skipped)
+- Mouse-type swipe: NO change ✓ (correctly skipped)
+- Vertical-dominant (dy=80, dx=100): NO change ✓ (correctly skipped)
+
+3 `audio-player:requeststep` events captured (`['next', 'next', 'prev']`) — exactly the 3 valid swipes. The 3 invalid swipes correctly produced no events.
+
+`npx tsc --noEmit` clean for `src/interactive/lesson-swipe.ts`.
+
+**References.** [src/interactive/lesson-swipe.ts](../src/interactive/lesson-swipe.ts) (NEW). [src/interactive/register.ts](../src/interactive/register.ts) (registers the module). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C5: engagement semantics under pagination
 
 **Context.** Fifth of six commits. C3 left engagement firing broken in paginated mode — the IntersectionObservers it wired in scroll mode never fire for `display: none` elements, so a paginated reader would have no `beat`, `interactive_offered`, or `complete` events recorded against their reading. C5 wires deterministic step-change firing so the engagement contract is preserved across both modes.
