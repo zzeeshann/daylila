@@ -178,12 +178,13 @@ const interactiveSlug = primary?.data.slug ?? null;
     <slot />
   </article>
 
-  {interactiveBundle && primary && (
+  {interactiveBundle && primary && htmlEntry && htmlEntry.data.content.type === 'html' && (
     <section
       class="lesson-interactive"
       id="interactive"
       data-lesson-interactive
       data-interactive-slug={interactiveSlug}
+      data-lesson-step="interactive"
     >
       <p class="lesson-interactive-eyebrow">Companion interactive</p>
       <h2 class="lesson-interactive-title">{primary.data.title}</h2>
@@ -191,63 +192,77 @@ const interactiveSlug = primary?.data.slug ?? null;
         <p class="lesson-interactive-concept">{primary.data.concept}</p>
       )}
 
-      {htmlEntry && htmlEntry.data.content.type === 'html' && (
-        <div class="lesson-interactive-block">
-          <h3 class="lesson-interactive-subhead">Try the model</h3>
-          {isLowQuality(htmlEntry) && (
-            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
-          )}
-          <interactive-frame
-            data-interactive-id={htmlEntry.data.interactiveId}
-            data-concept={htmlEntry.data.concept}
-          >
-            <iframe
-              class="interactive-frame-iframe"
-              sandbox="allow-scripts"
-              loading="lazy"
-              referrerpolicy="no-referrer"
-              scrolling="no"
-              title={htmlEntry.data.concept}
-              srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
-            ></iframe>
-          </interactive-frame>
-        </div>
-      )}
-
-      {quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
-        <div class="lesson-interactive-block">
-          {htmlEntry && (
-            <h3 class="lesson-interactive-subhead">Then check the pattern</h3>
-          )}
-          {isLowQuality(quizEntry) && (
-            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
-          )}
-          <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
-            <script type="application/json" data-quiz-content set:html={quizContentJson} />
-            <noscript>
-              <ol class="lesson-interactive-noscript">
-                {quizEntry.data.content.questions.map((q) => (
-                  <li>
-                    <p>{q.question}</p>
-                    <ul>
-                      {q.options.map((opt) => (
-                        <li>{opt}</li>
-                      ))}
-                    </ul>
-                    <p class="lesson-interactive-answer">
-                      Answer: {q.options[q.correctIndex]}. {q.explanation}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </noscript>
-          </quiz-card>
-        </div>
-      )}
+      <div class="lesson-interactive-block">
+        <h3 class="lesson-interactive-subhead">Try the model</h3>
+        {isLowQuality(htmlEntry) && (
+          <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+        )}
+        <interactive-frame
+          data-interactive-id={htmlEntry.data.interactiveId}
+          data-concept={htmlEntry.data.concept}
+        >
+          <iframe
+            class="interactive-frame-iframe"
+            sandbox="allow-scripts"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            scrolling="no"
+            title={htmlEntry.data.concept}
+            srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
+          ></iframe>
+        </interactive-frame>
+      </div>
     </section>
   )}
 
-  <footer class="lesson-finish" data-lesson-finish>
+  {interactiveBundle && primary && quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
+    <section
+      class="lesson-interactive"
+      id="quiz"
+      data-lesson-step="quiz"
+      data-interactive-slug={interactiveSlug}
+      {...(!htmlEntry ? { 'data-lesson-interactive': true } : {})}
+    >
+      {!htmlEntry && (
+        <>
+          <p class="lesson-interactive-eyebrow">Companion interactive</p>
+          <h2 class="lesson-interactive-title">{primary.data.title}</h2>
+          {primary.data.concept && (
+            <p class="lesson-interactive-concept">{primary.data.concept}</p>
+          )}
+        </>
+      )}
+
+      <div class="lesson-interactive-block">
+        <h3 class="lesson-interactive-subhead">Then check the pattern</h3>
+        {isLowQuality(quizEntry) && (
+          <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+        )}
+        <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
+          <script type="application/json" data-quiz-content set:html={quizContentJson} />
+          <noscript>
+            <ol class="lesson-interactive-noscript">
+              {quizEntry.data.content.questions.map((q) => (
+                <li>
+                  <p>{q.question}</p>
+                  <ul>
+                    {q.options.map((opt) => (
+                      <li>{opt}</li>
+                    ))}
+                  </ul>
+                  <p class="lesson-interactive-answer">
+                    Answer: {q.options[q.correctIndex]}. {q.explanation}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </noscript>
+        </quiz-card>
+      </div>
+    </section>
+  )}
+
+  <footer class="lesson-finish" data-lesson-finish data-lesson-step="finish">
     <div class="lesson-finish-actions">
       <a class="lesson-finish-link" href="/daily/">Read another <span aria-hidden="true">→</span></a>
       <a class="lesson-finish-link" href="/library/">Browse library <span aria-hidden="true">→</span></a>

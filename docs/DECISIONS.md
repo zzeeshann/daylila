@@ -2,6 +2,29 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C2: LessonLayout step markers + quiz split into its own sibling section
+
+**Context.** Second of six commits for the beat-by-beat reading mode. C2 is a structural rename — adds `data-lesson-step` attributes to the regions the C3 coordinator will hide-and-show, and splits the inline quiz card out of the shared interactive section into its own sibling `<section>`. Zero JS change. Scroll-mode visual is preserved on every existing piece shape.
+
+**Decisions.**
+
+1. **Two parallel sibling sections instead of nested wrapper + children.** The plan's pushback (Plan agent, Q4) was sharp on this: nesting the quiz inside the interactive section means the wrapper has to stay visible on the quiz screen even though `data-lesson-step="interactive"` is no longer current — leading to either (a) `:has()` rules to keep the wrapper visible when any child is current, or (b) JS that toggles a wrapper-visibility attribute. Two siblings collapse the question entirely: each section is its own self-contained region, the hide-rule keys off `[data-lesson-step]:not([data-current])` uniformly, no special parent treatment.
+2. **Conditional chrome on the quiz section.** When a piece has both an HTML interactive AND a quiz (the most common shape), the html section carries the shared chrome (`Companion interactive` eyebrow + bundle title + concept) and the quiz section gets only the `Then check the pattern` subhead — avoids duplicating the same eyebrow on consecutive screens. When a piece has only a quiz (no html), the quiz section becomes the primary interactive surface and gets the full chrome itself. Driven by a `!htmlEntry` conditional in the quiz-section JSX.
+3. **`data-lesson-interactive` attribute follows the primary surface.** The IO observer in `<lesson-shell>` (today's scroll-mode engagement code) queries `[data-lesson-interactive]` to fire `interactive_offered` once per session. With two sibling sections, the attribute lands on whichever section is the primary interactive surface: html section if present, otherwise the quiz section. Same semantic as today (one fire per piece per session); no double-counting risk.
+4. **`data-lesson-step="finish"` on the existing finish footer.** Same shape as the interactive/quiz sections — the C3 coordinator can route the "complete" dwell-gate through the same step-change dispatch.
+5. **`id="quiz"` anchor on the new quiz section.** Same affordance as the existing `id="interactive"` — gives the quiz a hash-deep-link target. Useful for the eventual paginated coordinator's hash-read (resume URL pointing at the quiz step) and for any external link that wants to deep-link directly to the quiz.
+
+**Alternatives considered.**
+
+- **One outer section + inner step-marked divs + `:has()` wrapper hide-rule.** Rejected — `:has()` is widely supported now but adds a CSS selector that's hard to reason about under future maintenance, and creates a one-off treatment for this specific wrapper that doesn't apply to any other step in the system. Two siblings keep the rule uniform.
+- **Always duplicate full chrome on each section.** Considered — would slightly hurt scroll-mode reading (eyebrow + title + concept twice on dual-content pieces). Conditional chrome on the quiz section avoids the repetition while still letting quiz-only pieces look complete.
+
+**Reason — why no JS change in this commit.** Per the small-commit plan: each commit ships safely on its own. C2 is mechanical markup. Today's `<lesson-shell>` observer code keeps using `[data-lesson-interactive]`; today's IntersectionObserver-based engagement firing is unchanged; the new `[data-lesson-step]` attributes have no consumer yet. C3 introduces the coordinator that reads them.
+
+**Verified.** `npx tsc --noEmit` clean for `src/layouts/LessonLayout.astro` (the cluster of D1Database / astro:content errors in tsc-from-root output are pre-existing). Visual diff via local preview server on a piece with both html + quiz (2026-05-07): scroll-mode renders identically to before — eyebrow appears once at the top of the html section, quiz section follows below with just `Then check the pattern`. Footer renders unchanged.
+
+**References.** [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (lines 181–250 region rewrite). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C1: audio-player events + hash-read on mount
 
 **Context.** First of six commits implementing one-beat-per-screen reading for the daily piece (plan: `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`). C1 is infrastructure only — adds two CustomEvents and a hash-read to `<audio-player>`. No visible behaviour change for readers today; lays the wires that the paginated coordinator (C3) will use.
