@@ -43,6 +43,7 @@ class InteractiveFrame extends HTMLElement {
   private startedFired = false;
   private viewObserver: IntersectionObserver | null = null;
   private resizeMessageHandler: ((e: MessageEvent) => void) | null = null;
+  private stepchangeHandler: ((e: Event) => void) | null = null;
 
   connectedCallback() {
     this.interactiveId = this.getAttribute('data-interactive-id') ?? '';
@@ -54,6 +55,7 @@ class InteractiveFrame extends HTMLElement {
 
     this.observeViewport();
     this.listenForResize();
+    this.listenForStepActivation();
   }
 
   disconnectedCallback() {
@@ -64,6 +66,10 @@ class InteractiveFrame extends HTMLElement {
     if (this.resizeMessageHandler) {
       window.removeEventListener('message', this.resizeMessageHandler);
       this.resizeMessageHandler = null;
+    }
+    if (this.stepchangeHandler) {
+      window.removeEventListener('lesson-shell:stepchange', this.stepchangeHandler);
+      this.stepchangeHandler = null;
     }
   }
 
@@ -103,15 +109,48 @@ class InteractiveFrame extends HTMLElement {
     // iframe's first paint on cold loads). The probe inside the
     // sandbox echoes height on `{zeemishFrame:'ping'}`. Retry a
     // couple of times in case the iframe itself is still loading.
-    const ping = () => {
-      const w = iframe.contentWindow;
-      if (!w) return;
-      try { w.postMessage({ zeemishFrame: 'ping' }, '*'); } catch { /* ignore */ }
+    if (iframe.contentWindow) this.pingFrame();
+    iframe.addEventListener('load', () => this.pingFrame(), { once: true });
+    setTimeout(() => this.pingFrame(), 250);
+    setTimeout(() => this.pingFrame(), 1000);
+  }
+
+  /**
+   * Re-ping the iframe whenever the parent step becomes the active
+   * step (paginated mode: section flips from `display: none` to
+   * visible). The iframe is `loading="lazy"` and its parent was
+   * hidden, so the first batch of resize messages from the probe's
+   * `replay()` schedule (50/200/500/1200ms after arm) often fires
+   * BEFORE the body has settled — async font loads, slider widget
+   * initialisation, etc. Result: iframe ends up at a too-short height,
+   * and only when the user touches/scrolls does the body's
+   * ResizeObserver fire a corrected height. Listening to stepchange
+   * lets us re-ping after the section is on-screen + reflowed, so the
+   * probe replies with the settled height.
+   */
+  private listenForStepActivation(): void {
+    const containingStep = this.closest('[data-lesson-step]');
+    if (!(containingStep instanceof HTMLElement)) return;
+    const stepId = containingStep.dataset.lessonStep;
+    if (!stepId) return;
+    this.stepchangeHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { stepId?: string } | undefined;
+      if (detail?.stepId !== stepId) return;
+      // Wait one frame so the display flip has reflowed, then ping.
+      requestAnimationFrame(() => this.pingFrame());
+      // Plus a delayed ping to catch post-display-block reflows
+      // (web-font load, slider widget settle, async chart init).
+      setTimeout(() => this.pingFrame(), 600);
     };
-    if (iframe.contentWindow) ping();
-    iframe.addEventListener('load', ping, { once: true });
-    setTimeout(ping, 250);
-    setTimeout(ping, 1000);
+    window.addEventListener('lesson-shell:stepchange', this.stepchangeHandler);
+  }
+
+  private pingFrame(): void {
+    const iframe = this.querySelector('iframe');
+    if (!(iframe instanceof HTMLIFrameElement)) return;
+    const w = iframe.contentWindow;
+    if (!w) return;
+    try { w.postMessage({ zeemishFrame: 'ping' }, '*'); } catch { /* ignore */ }
   }
 
   private observeViewport(): void {

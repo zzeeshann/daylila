@@ -84,6 +84,7 @@ lesson-progress {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center; /* centred row — easier to scan as a group */
   gap: 0.5rem;
   padding: 0.625rem 0.25rem;
 }
@@ -103,6 +104,17 @@ lesson-progress {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Group separator — extra margin on the first dot of a new kind. The
+ * audio-beat run vs. the interactive/quiz run are different modes
+ * (listening vs. doing); a small visible gap signals the boundary
+ * without needing copy or icons. Triggers only when a beat dot is
+ * IMMEDIATELY followed by a non-beat dot, so a no-companion piece
+ * (beats only) gets no gap, and an interactive→quiz adjacency gets
+ * no extra gap (they're both "doing" mode). */
+.lesson-progress-dot[data-step-kind="beat"] + .lesson-progress-dot:not([data-step-kind="beat"]) {
+  margin-left: 0.75rem;
+}
+
 /* The actual coloured pill is a pseudo-element so the tap target is
  * larger than the visible dot — touch ergonomics on mobile. */
 .lesson-progress-dot::before {
@@ -115,6 +127,13 @@ lesson-progress {
   transition: background-color 120ms ease, width 120ms ease;
 }
 
+/* Non-beat dots (interactive / quiz) are rounded squares instead of
+ * circles. Same colour rhythm — different silhouette signals the
+ * different mode. No copy / no legend needed. */
+.lesson-progress-dot:not([data-step-kind="beat"])::before {
+  border-radius: 2px;
+}
+
 .lesson-progress-dot:hover::before,
 .lesson-progress-dot:focus-visible::before {
   background: rgba(26, 107, 98, 0.6);
@@ -124,6 +143,12 @@ lesson-progress {
   width: 1.25rem;
   border-radius: 999px;
   background: #1A6B62; /* zee-primary */
+}
+
+/* Active non-beat dot keeps its rounded-square shape when expanded —
+ * preserves the silhouette signal even on the active dot. */
+.lesson-progress-dot[data-active="true"]:not([data-step-kind="beat"])::before {
+  border-radius: 3px;
 }
 
 .lesson-progress-dot:focus-visible {

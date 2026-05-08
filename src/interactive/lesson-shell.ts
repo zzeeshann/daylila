@@ -261,7 +261,22 @@ class LessonShell extends HTMLElement {
     }
 
     if (opts.scroll) {
-      step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Scroll to the dot row, NOT the new step's heading. Putting the
+      // step element at viewport top scrolls the dots, audio player,
+      // and meta block off-screen — the reader loses their position
+      // indicator. Anchoring on lesson-progress keeps:
+      //   - dot row at top (knows where they are in the piece)
+      //   - audio chrome just below (when on a beat with audio)
+      //   - new step body below that
+      // all in one viewport on most pieces. Falls back to the step
+      // element if the dot row isn't reachable (defensive — structurally
+      // shouldn't happen since lesson-progress is rendered alongside).
+      const dotRow = document.querySelector('lesson-progress');
+      if (dotRow) {
+        dotRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     // Engagement firing on step-change. The CSS hide-rule means
