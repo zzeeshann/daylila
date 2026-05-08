@@ -2,6 +2,59 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (late): Beat-by-beat reading mode — C8: two paginated-mode bugs fixed (audio chrome on non-audio steps + empty `Step 9 of 9 · Done` finish step)
+
+**Context.** Live testing on `/daily/2026-05-07/your-heart-rate-is-more-uneven-than-you-think-this-is-what-i/` after C7 ([PR #18](https://github.com/zzeeshann/daylila/pull/18), `c29ee55`) surfaced two contradictions between the C1–C6 plan and what shipped:
+
+1. **Audio chrome on non-audio steps.** On the interactive step (and quiz step), the audio-player rendered its full chrome (play button, prev/next, scrubber, "0:00") with the caption "Step 7 of 9 · Interactive" / "Step 8 of 9 · Quiz". The play button did nothing — there was no clip to play. The plan said *"if the step has no audio, audio-player does nothing (caption shows the step name; clip stays empty)"*. Implemented as "render empty chrome + relabel caption" instead of "hide chrome". Reader confusion: chrome implies playable audio.
+2. **`Step 9 of 9 · Done` was its own paginated step.** The finish footer carried `data-lesson-step="finish"` from C2, so it became its own step with its own dot. Tapping the last dot landed on an empty page (title chrome + audio chrome + dot row + finish footer underneath, no body content). The plan said *"finish-state footer is visible only when on the last step (the quiz step, or the interactive step if no quiz, or the close beat if no interactive)"* — the footer should render BELOW the last content step, not as its own paginated step.
+
+Two commits in one PR. C8a contained, audio-player only; C8b coordinator-shape change spanning LessonLayout + lesson-shell + lesson-pagination.css.
+
+### C8a — hide audio chrome on non-audio steps
+
+- `src/interactive/audio-player.ts` `onStepChange`: set `this.style.display = ''` on beat steps (chrome visible) and `this.style.display = 'none'` on non-audio steps (interactive / quiz / finish — chrome hidden). Caption-update branch dropped entirely (no chrome to caption).
+- Default-hidden synchronously at the top of `connectedCallback` so a hash-resumed non-audio step (e.g. `/piece/#interactive`) doesn't flash the audio chrome before the first stepchange runs.
+- Restored to `''` at connect when the initial `shellStep` is a beat with audio. Lesson-shell upgrades before audio-player (per the order in `register.ts`) and dispatches its initial stepchange BEFORE audio-player's listener wires up — without this restore, a beat-step initial mount would leave the chrome hidden after the synchronous `display = 'none'` at the top of connect.
+- Stale-caption side-effect resolved: pre-C8a, navigating from a beat to interactive overwrote the audio-player's caption to "Step 7 of 9 · Interactive"; coming back to the same beat (where `loadBeat` skips because `currentBeat` is unchanged) left the caption stuck. Post-C8a, the caption is never overwritten on non-audio steps → no stale state to recover from when returning to a beat.
+
+### C8b — drop finish step; finish footer renders below the last content step
+
+- `src/layouts/LessonLayout.astro` drops `data-lesson-step="finish"` from the `<footer class="lesson-finish" data-lesson-finish>` element. Kept `data-lesson-finish` (it's the share-button click delegator's marker AND the new CSS rule's target).
+- `src/interactive/lesson-shell.ts` drops `'finish'` from the `StepKind` type union (now `'beat' | 'interactive' | 'quiz'`). `buildSteps` validator drops `finish` from the kind allow-list (defensive — silently skips a mistakenly-stamped footer rather than blowing up the type union).
+- New `isLastStep(step)` helper. Used in two places: `applyCurrent` to set/delete `:root[data-lesson-on-last-step]`, and `fireStepEngagement` to start the 2.5s complete-dwell timer.
+- `applyCurrent` sets `:root[data-lesson-on-last-step="true"]` on the document root when the new step is the last in `this.steps`; deletes the attribute otherwise. `disconnectedCallback` cleans up alongside the existing two `:root` attrs.
+- `fireStepEngagement` shifts the 2.5s complete-dwell trigger from `step.kind === 'finish'` to `this.isLastStep(step)`. Last-step gate runs INDEPENDENTLY of the kind-specific firing above — a beat that's also the last step (no-companion piece, last beat = close) fires both `beat` event AND starts the dwell timer.
+- `src/styles/lesson-pagination.css` adds `:root[data-lesson-hydrated="true"]:not([data-lesson-on-last-step="true"]) [data-lesson-finish] { display: none; }`. Finish footer hidden on every non-last step in JS-paginated mode, visible on the last step. Without JS, neither `data-lesson-hydrated` nor `data-lesson-on-last-step` is ever set → the rule never matches → the footer renders at the bottom of the article in continuous-prose fallback mode (alongside every `<lesson-beat>` + `[data-lesson-step]` region, which are visible because their hide-rule is gated on the same hydrated attribute).
+
+### Decisions
+
+1. **Two commits, one PR — C8a then C8b.** Order doesn't matter for correctness, but C8a first because it's contained (one file, audio-player only) and easier to review. C8b is a coordinator-shape change spanning LessonLayout + lesson-shell + lesson-pagination.css; reviewing it after the contained fix lands keeps the diff legible.
+2. **Drop `'finish'` from `StepKind` cleanly, not as a deprecated value.** No code reachability for `'finish'` after C8b — `buildSteps` only includes `[data-lesson-step]` regions, the LessonLayout footer no longer carries it, and the validator's allow-list excludes it. If a future commit re-introduces a "Done" screen as a deliberate product change, the type can come back too. Dead values pretending to do something are worse than dead values that are gone — same posture as C7's removal of `?paginated=` URL hatches.
+3. **Complete-dwell trigger shifts from kind-based to last-step-based.** Reader-facing meaning preserved: 2.5s on the last step fires complete. For a piece with quiz, that's the quiz step + the finish footer renders directly below it (so the reader sees Read another / Browse library during the dwell). For a piece with interactive but no quiz, the interactive step. For a piece with neither, the close beat. The 2.5s number stays — same misclick-filter justification from C5. Cancel-on-step-change posture preserved verbatim.
+4. **`[data-lesson-finish]` attribute kept, not renamed.** It now serves two purposes — share-button click delegator AND the new CSS rule. Renaming to `[data-lesson-footer]` or splitting into two attributes would touch the share-button code without earning anything; the attribute name's "finish" framing is correct (it IS the finish footer). C7 already documented this dual-purpose pattern.
+5. **No new step-kind validation in code.** The contract-as-truth principle (`docs/SESSION_OPENER.md`, codified after the 2026-05-07 Categoriser session) stays intact — the `buildSteps` validator's role is to SHAPE the parsed step list (skip unknown kinds), not to enforce a contract rule. The actual contract here is "step kinds are beat / interactive / quiz" — documented in the lesson-shell docstring and the StepKind type, not a markdown contract. Adding code-side enforcement of the kind shape would be the same anti-pattern; the type system + the validator's silent-skip already gives the right surface.
+6. **No-JS fallback contract preserved.** Three `:root` attributes now (was two): `data-lesson-hydrated`, `data-lesson-current-step`, `data-lesson-on-last-step`. The new attribute is JS-set (lesson-shell's `applyCurrent`); without JS, never appears, the new finish-footer hide-rule never matches, the footer renders at the bottom of the article. The load-bearing test stays the same: disable JS in DevTools, hard-reload, every `<lesson-beat>` + `[data-lesson-step]` + `[data-lesson-finish]` element renders visibly stacked.
+7. **Initial-mount audio-chrome flash mitigation — `style.display = 'none'` synchronously at the top of `connectedCallback`.** Audio-player's `connectedCallback` runs after lesson-shell has already dispatched the initial stepchange, but the audio-player listener isn't wired yet. If the initial step is non-audio (hash-resume to `#interactive`), the synchronous `display = 'none'` ensures no chrome paint happens. If the initial step is a beat, the explicit `style.display = ''` after `loadBeat` restores the chrome before paint. Either way: no flash.
+
+### Verified end-to-end
+
+- **Test piece (heart-rate, 6 beats + interactive + quiz)**: 8 dots (was 9), last step = quiz, audio hidden on interactive/quiz/finish, finish footer 263px visible on quiz, hidden on every other step, `:root[data-lesson-on-last-step]` set/cleared correctly on each step transition.
+- **Cross-piece**: `2026-04-30/camp-mystic-...` (6 beats + interactive + quiz) → 8 dots, last step = quiz, footer 145px on last. `2026-05-03/locked-in-stone-...` (5 beats + interactive only, no quiz) → 6 dots, last step = interactive, audio hidden, footer 145px on last. `2026-04-20/hormuz-shipping-...` (5 beats + close beat, no companion) → 6 dots, last step = close beat, audio still visible (95px — it's a beat with audio), footer 145px on last.
+- **Engagement gate**: 2.5s dwell on the last step fires all 3 complete endpoints (`/api/engagement/track`, `/api/reads/track`, `/api/progress/complete`); cancellation by tapping any non-last step before 2.5s elapses fires zero complete events.
+- **Hash-resume non-audio**: `#interactive` lands with audio chrome hidden + no flash, current step = interactive.
+- **Auto-advance**: clip-end on the last beat dispatches `audio-player:requeststep` → lesson-shell advances to the next step; if that step is non-audio (interactive), audio chrome hides cleanly.
+- **No-JS load-bearing test**: simulated by deleting both `:root` attributes + every `data-current` mark, then querying DOM heights. All 6 beats visible, both step regions visible (interactive 523px, quiz 624px), finish footer visible (145px). On a piece with no companion (Hormuz), all 6 beats visible + finish footer 145px.
+- `tsc --noEmit` clean across all C8 files.
+
+### Rollback
+
+`git revert <c8b> <c8a>` cleanly reverts both commits. After revert, the empty "Step 9 of 9 · Done" step returns and audio chrome shows on non-audio steps — back to today's bug state, which is shipping in prod and functional (just visually janky). One revert restores either fix independently.
+
+### References
+
+[src/interactive/audio-player.ts](../src/interactive/audio-player.ts) (C8a), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (C8b), [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts) (C8b), [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css) (C8b). Plan file at `~/.claude/plans/c8-paginated-bugs.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C7: dual-mode scaffolding removed; paginated is the only mode
 
 **Context.** C1–C6 ([PR #17](https://github.com/zzeeshann/daylila/pull/17), squash-merged as `8c4e6ab`) shipped paginated mode behind an `admin_settings.reading_mode` flag so the operator could verify in the wild. After verification, C7 collapses the dual-mode runtime + admin scaffolding into the single paginated mode. The codebase is now the size it should be for a single-mode product. No-JS readers continue to see continuous prose; `<lesson-shell>`'s `:root[data-lesson-hydrated]` guard stays as the load-bearing JS-set fallback.
