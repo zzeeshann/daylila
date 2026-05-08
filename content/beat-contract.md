@@ -35,9 +35,9 @@ Heading text is the kebab-case beat name from the brief:
 
 Every published piece's MDX frontmatter must include:
 
-`title`, `date`, `newsSource`, `underlyingSubject`, `estimatedTime`, `beatCount`, `description`.
+`title`, `date`, `underlyingSubject`, `estimatedTime`, `beatCount`, `description`.
 
-Additional fields (`voiceScore`, `qualityFlag`, `audioBeats`, `pieceId`, `publishedAt`, `sourceUrl`, `claimReviews`) are spliced in by Director at publish time and are not the writer's concern.
+Additional fields (`newsSource`, `voiceScore`, `qualityFlag`, `audioBeats`, `pieceId`, `publishedAt`, `sourceUrl`, `claimReviews`) are spliced in by Director at publish time and are not the writer's concern. `newsSource` is the publisher name (e.g. `"CNN"`, `"Nature"`, `"BBC"`) — never a URL. Director sources it from `brief.newsSource` (Curator's pick) and renders verbatim into the piece's meta line as `Source: {newsSource} ↗`. The Drafter does not author this field; if a Drafter draft includes a `newsSource` line, Director's splice replaces it with the canonical value at publish time.
 
 ### SEO meta-description
 
