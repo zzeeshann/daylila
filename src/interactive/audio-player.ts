@@ -14,6 +14,27 @@
  * next clip buttons + a current-beat caption let the reader navigate
  * audio independently of scroll position (Area 5.7).
  *
+ * Events dispatched (window-level CustomEvents):
+ *   - `audio-player:firstplay` — once per page load, when the reader
+ *     first taps play. Powers `audio_play` engagement.
+ *   - `audio-player:ended` — after every clip end (kept for
+ *     back-compat; no consumer in scroll mode).
+ *   - `audio-player:beatchange` — every time `loadBeat` runs, with
+ *     detail `{ beatName, index, total }`. Infrastructure for the
+ *     beat-by-beat reading mode (paginated layout listens to keep the
+ *     body in lockstep with the audio rail).
+ *   - `audio-player:requeststep` — when the reader presses prev / next
+ *     or a clip ends naturally, with detail `{ direction: 'prev' | 'next' }`.
+ *     Infrastructure for the paginated coordinator (<lesson-shell>) to
+ *     own step navigation. Today the player still calls `loadBeat`
+ *     directly after dispatch so existing single-scroll audio works
+ *     unchanged; the paginated coordinator commit will route through
+ *     `lesson-shell:stepchange` instead.
+ *
+ * Hash deep-link: if the URL hash matches a known beat name at mount
+ * time, the player starts on that beat instead of the first one.
+ * Honours the Resume contract written by /api/reads/track.
+ *
  * Progressive enhancement: if JS fails or the data is missing, the
  * server-rendered "Audio unavailable" state stays visible — readers
  * still get the piece as text.
@@ -144,8 +165,12 @@ class AudioPlayer extends HTMLElement {
     this.audio = new Audio();
     this.audio.preload = 'metadata';
 
-    // Start on the first beat in DOM order.
-    this.loadBeat(this.beatOrder[0]);
+    // Start on the beat named in the URL hash if it matches one we
+    // know about (Resume URLs from /account/ have this shape: the row
+    // in user_piece_reads.current_beat is appended as `#beat-name`).
+    // Fall back to the first beat in DOM order otherwise.
+    const initialBeat = this.readHashBeat() ?? this.beatOrder[0];
+    this.loadBeat(initialBeat);
 
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('loadedmetadata', () => this.updateProgress());
@@ -210,6 +235,26 @@ class AudioPlayer extends HTMLElement {
     this.resetProgressUI();
     this.refreshChrome();
     this.refreshMediaSessionMetadata();
+    // Infrastructure for the paginated coordinator (<lesson-shell>)
+    // to follow the audio rail. No consumer in scroll mode today.
+    window.dispatchEvent(
+      new CustomEvent('audio-player:beatchange', {
+        detail: {
+          beatName,
+          index: this.beatOrder.indexOf(beatName),
+          total: this.beatOrder.length,
+        },
+      }),
+    );
+  }
+
+  /** Returns the beat name encoded in `window.location.hash` if it
+   *  matches a known beat in `beatOrder`, else null. Used at mount to
+   *  honour Resume URLs (`/daily/.../#beat-name`). */
+  private readHashBeat(): string | null {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return null;
+    return this.beatOrder.includes(hash) ? hash : null;
   }
 
   /**
@@ -224,6 +269,15 @@ class AudioPlayer extends HTMLElement {
     if (idx === -1) return;
     const target = this.beatOrder[idx + direction];
     if (!target) return;
+    // Announce the navigation intent before performing it. The
+    // paginated coordinator commit will subscribe; today this is a
+    // no-op for any listener and the player still does the work
+    // itself below.
+    window.dispatchEvent(
+      new CustomEvent('audio-player:requeststep', {
+        detail: { direction: direction === 1 ? 'next' : 'prev' },
+      }),
+    );
     const wasPlaying = !!this.audio && !this.audio.paused;
     this.loadBeat(target);
     this.scrollBeatIntoView(target);
@@ -256,6 +310,15 @@ class AudioPlayer extends HTMLElement {
     this.flushDwell('ended');
     const nextBeat = this.nextBeatName();
     if (nextBeat) {
+      // Announce the navigation intent before performing it. Same
+      // shape as stepBeat — the paginated coordinator commit will
+      // route this through <lesson-shell>.goToStep so non-audio
+      // steps (interactive, quiz) sit naturally in the same chain.
+      window.dispatchEvent(
+        new CustomEvent('audio-player:requeststep', {
+          detail: { direction: 'next' },
+        }),
+      );
       this.loadBeat(nextBeat);
       this.scrollBeatIntoView(nextBeat);
       this.audio?.play().catch(() => {

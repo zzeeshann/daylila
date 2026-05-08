@@ -2,6 +2,29 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C1: audio-player events + hash-read on mount
+
+**Context.** First of six commits implementing one-beat-per-screen reading for the daily piece (plan: `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`). C1 is infrastructure only — adds two CustomEvents and a hash-read to `<audio-player>`. No visible behaviour change for readers today; lays the wires that the paginated coordinator (C3) will use.
+
+**Decisions.**
+
+1. **Two new window-level CustomEvents from `<audio-player>`.**
+   - `audio-player:beatchange` — fires at the end of every `loadBeat()` call. Detail: `{ beatName, index, total }`. Lets a coordinator follow the audio rail without needing to reach into the player's private state.
+   - `audio-player:requeststep` — fires from `stepBeat` (prev/next button) and from `onEnded` when there's a next beat. Detail: `{ direction: 'prev' | 'next' }`. Announces the navigation intent before the player performs it. Today the player still calls `loadBeat` directly after dispatch; C3's paginated coordinator will subscribe and route through `<lesson-shell>`.goToStep so non-audio steps (interactive, quiz) sit naturally in the same chain.
+2. **Hash-read on mount.** `connectedCallback` reads `window.location.hash`, strips `#`, and starts on that beat if it matches a beat in `beatOrder`; otherwise falls back to the first beat in DOM order (the existing behaviour). New private `readHashBeat()` returns the matched name or null. Honours the Resume URL contract written by `account.astro` (which constructs `${baseUrl}#${user_piece_reads.current_beat}`) — until now the page browser-scrolled to the `<lesson-beat id>` anchor but the audio player still loaded clip 0, so audio and body fell out of sync on resume. They're aligned now.
+3. **Behaviour-preserving rollout.** `requeststep` has no listeners in C1; the player keeps its direct `loadBeat(target)` call inside `stepBeat` and `onEnded`. Scroll-mode readers see no change. C3 will refactor those direct calls out once the coordinator subscribes.
+
+**Alternatives considered.**
+- **Putting hash-read in `<lesson-shell>` instead of `<audio-player>`.** Rejected: in C1 there's no `<lesson-shell>` coordinator yet; the audio rail is the only thing today that knows which beats exist. C3's coordinator will read the same hash from the lesson-shell side once it owns step state.
+- **Suppressing the browser's automatic anchor-scroll in C1.** Rejected for now: in scroll mode, the browser auto-scrolling to the `<lesson-beat id>` anchor IS the correct visible behaviour — reader sees the resumed beat in view. Suppression only matters in C3 when paginated mode hides all-but-current beats and the browser would otherwise scroll past hidden DOM. C3 adds the suppression alongside the hide-rule.
+- **Dispatching `requeststep` from the prev/next button click handlers directly instead of inside `stepBeat`.** Rejected: keeping the dispatch inside `stepBeat` covers the Media Session API's `previoustrack` / `nexttrack` handlers (lock-screen + headphone buttons) for free, since those also call `stepBeat`.
+
+**Reason — why the events are infrastructure-only and not wired in C1.** Per the small-commit plan: each commit ships safely on its own. C1 changes one file, adds two events that nobody listens to, adds one bit of resume support that strictly improves scroll-mode behaviour. The coordinator review can land in C3 with a clean diff that's purely about coordination, not about adding new event surface alongside the coordinator logic.
+
+**Verified.** `npx tsc --noEmit` clean for `src/interactive/audio-player.ts` (the cluster of D1Database / astro:content / agents-module errors in tsc output are pre-existing across the file tree, unrelated to this change).
+
+**References.** [src/interactive/audio-player.ts](../src/interactive/audio-player.ts) (loadBeat dispatch, stepBeat dispatch, onEnded dispatch, connectedCallback hash-read, readHashBeat helper). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`. FOLLOWUPS entry queued for C7 cleanup.
+
 ## 2026-05-08 (afternoon): Drawer sections collapsible by default — UX polish on top of the morning's narrative-arc commit
 
 Same-day follow-up to commit `7ed8cc3`. The drawer now reads as a clear narrative arc, but it's long: 12 named sections plus the piece-summary header strip. Operator wanted each section collapsible, all collapsed by default, so a reader sees a clean scannable list of section labels and expands what interests them.
