@@ -2,6 +2,42 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (late evening): Daily-piece metadata block — two-row layout (read-time · subtitle / How this was made · Source · Save)
+
+**Context.** Operator surfaced three screenshots of the same metadata-line area on different daily pieces rendering inconsistently — same DOM shape, different visible breaks. Investigation: the pre-existing template at [LessonLayout.astro:135-171](../src/layouts/LessonLayout.astro:135) was a single `<p class="flex flex-wrap items-center gap-x-2 gap-y-1">` containing `time · subject · source · save`, with `<MadeBy>` as a separate block-level component below. Variance was pure flex-wrap behaviour over content of varying width — long-subject pieces had `time` orphaned on line 1, subject on line 2, source+save on line 3; short-subject pieces fit on one line. "How this was made" was always on its own line because `<made-drawer>` is `display: block`.
+
+**Target shape.** Line 1: `read-time · subtitle`. Line 2: `How this was made · Source · Save` (Source omitted gracefully when absent — older pieces without spliced `sourceUrl`/`newsSource`).
+
+**Decisions.**
+
+1. **Two flex containers, not one.** Splitting the meta block into two siblings makes the layout deliberate — line 1 holds the "what + how long" semantic group, line 2 holds the affordances. Line 1 still flex-wraps when the subject is too long for the column width (the May-08 ScienceDaily piece's 17-word subject still wraps to 2 visual lines on desktop), but the wrap stays *within* line 1 — source + save no longer get pushed onto a third visual line as a side effect.
+
+2. **`<div>`, not `<p>`, for both meta lines.** Caught a real bug mid-implementation. The first version used `<p class="flex flex-wrap ...">` for both lines, mirroring the original markup. The DOM eval revealed line 2's `<p>` had only `<made-drawer>` as a child — the HTML5 parser was auto-closing the open `<p>` the moment it encountered `<div class="made-backdrop">` (and later `<aside class="made-panel">`) inside `<made-drawer>`. The `<p>` auto-close rule fires for any block-level element, including the `<div>` and `<aside>` the made-drawer custom element renders. End result: `<span>· · ·</span>`, `<a>Source: …</a>`, and `<button data-save-toggle>` ended up as siblings of `<main>`, completely outside the intended row. Curl-rendered HTML *looked* correct (the source string had them inside the `<p>`); the live DOM didn't, because the parser fix-up happens at parse time, not in the source. **`<div>` has no auto-close rule** — wrapping the row in a `<div>` is structurally safe regardless of what custom elements render inside it. Switched both meta lines to `<div>`. The meta-line content isn't a paragraph of text anyway — it's a horizontal flex row of metadata items.
+
+3. **`<made-drawer>` host flips from `display: block; margin-bottom: 2rem` → `display: inline-flex; align-items: center`.** Composes the host element into the line-2 flex row. The 2rem bottom-margin moves to the line-2 div's `mb-8` (Tailwind = 2rem), preserving the visual gap between the meta block and the lesson-progress dots / audio player below. The made-drawer's positioned panel (`position: fixed`, slide-in) and backdrop (`position: fixed`, full viewport) are unaffected by the host's display flip — they're outside normal flow.
+
+4. **`.made-open` font-size bumped 0.8125rem → 0.875rem.** The original smaller weight made sense as a quiet-affordance *below* the meta line. Once the button sits inline with `text-sm` Source + Save peers, the size mismatch reads as a visual stutter rather than restraint. Unifying to 0.875rem (`text-sm`) gives a consistent baseline across all three line-2 affordances. Color (`#6B6B6B`, matches `text-zee-muted`) was already aligned.
+
+5. **Order on line 2 locked: `How this was made · Source · Save`.** Daylila identity (made-drawer) first — this is a teaching site, not a wire feed; the curiosity exit announces the system's voice. News-source credit second (article attribution). User action third (Save). Rejected `Source · How this was made · Save` (relegates the system's identity behind a wire credit) and `Save · How this was made · Source` (puts a personal action ahead of attribution).
+
+6. **Line-2 div render-gates on `(pieceId || (sourceUrl && newsSource))`.** Legacy pieces without either of these would render an empty `mb-8` div otherwise, padding the page with 2rem of blank space below an already-empty content row. With the gate, those pieces render only line 1; their downstream layout is unaffected. In practice every modern piece has `pieceId`, but the conditional defends against legacy.
+
+7. **No `<made-drawer>` re-parenting refactor.** Considered moving the panel + backdrop OUT of the made-drawer host (so the host could render only the button and be a pure inline-flex item). Rejected as over-scope — the host's `connectedCallback` queries descendants for `[data-made-open]` / `[data-made-close]` / `.made-panel` / `.made-backdrop`. Leaving the panel inside the host keeps the wiring intact; the inline-flex flip on the host is sufficient because the panel + backdrop are positioned (out of flow). Smaller diff, same result.
+
+**Verified end-to-end via cold preview server (Astro dev, port 4321):**
+
+- **Long-subject piece** (`/daily/2026-05-08/scientists-make-stunning-discovery-...`, subject ~17 words): desktop (1280px) line 1 wraps subject to 2 visual rows (height 64px, 3 child elements: time-span + dot-span + subject-span); line 2 single visual row (height 20px, 5 child elements: made-drawer + dot + a + dot + button). Mobile (375px): line 1 wraps to 4 visual rows; line 2 wraps to 2 visual rows (acceptable — `flex-wrap` keeps it readable). Order verified: `How this was made · Source: ScienceDaily ↗ · ☆ Save`.
+- **Medium-subject piece** (`/daily/2026-05-07/your-heart-rate-...`, subject ~9 words, source BBC): desktop line 1 single row (20px); line 2 single row with same 5-child structure (`How this was made · Source: BBC ↗ · ☆ Save`). Mobile: line 1 wraps to 3 rows, line 2 stays one row.
+- **No-source piece** (`/daily/2026-04-18/oil-prices-plunge-...`, no `sourceUrl`/`newsSource`): line 2 has 3 children (made-drawer + dot + button), text `How this was made · ☆ Save`. Source-block correctly omitted.
+- **Made-drawer behavior**: button click → `data-open` set on host, `hidden` removed from panel, `body.made-locked` set, hash → `#made`, panel `transform: translateX(0)` (panel slides in from right). Close button → all of the above reverts, hash cleared. Open/close cycle works identically to pre-change behavior.
+- **Save toggle**: button DOM intact (`[data-save-toggle]` selector still finds the button regardless of which row it's in). Click handler still wires through. Local-dev D1 missing `users` table caused expected optimistic-flip-then-revert; production DB has the table.
+
+`tsc --noEmit` clean across all touched files.
+
+**Rollback.** `git revert <sha>` restores today's content-driven flex-wrap variance — known pre-change state, not a worse one.
+
+**References.** [src/layouts/LessonLayout.astro:135-178](../src/layouts/LessonLayout.astro:135), [src/styles/made.css:24-50](../src/styles/made.css:24).
+
 ## 2026-05-08 (late): Beat-by-beat reading mode — C8: two paginated-mode bugs fixed (audio chrome on non-audio steps + empty `Step 9 of 9 · Done` finish step)
 
 **Context.** Live testing on `/daily/2026-05-07/your-heart-rate-is-more-uneven-than-you-think-this-is-what-i/` after C7 ([PR #18](https://github.com/zzeeshann/daylila/pull/18), `c29ee55`) surfaced two contradictions between the C1–C6 plan and what shipped:

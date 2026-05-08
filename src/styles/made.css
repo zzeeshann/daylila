@@ -16,14 +16,15 @@
  *   </made-drawer>
  */
 
-/* --- Open affordance — small inline link below the meta line --------- */
-/* Reads at roughly the same visual weight as the meta line ("6 min ·
-   subject · Source: …"). Quiet by design — the drawer is a curiosity
-   exit, not a forced step. */
+/* --- Open affordance — small inline link inside the meta line ------- */
+/* Sits on line 2 of the meta block alongside Source + Save (since
+   2026-05-08). Composes into the parent <p>'s flex row via inline-flex
+   on the host element. Bottom-margin moved to the parent <p>'s mb-8.
+   Font-size unified with text-sm peers (Source link, Save button). */
 
 made-drawer {
-  display: block;
-  margin-bottom: 2rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .made-open {
@@ -35,7 +36,7 @@ made-drawer {
   border: 0;
   background: transparent;
   font-family: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 500;
   color: #6B6B6B;
   cursor: pointer;
