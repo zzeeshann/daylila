@@ -12,8 +12,12 @@
  * decides the next step (could be a non-audio step like the
  * interactive widget or quiz), and dispatches
  * `lesson-shell:stepchange`. The player's stepchange listener loads
- * the matching clip if the new step has audio, otherwise pauses and
- * re-labels the caption. The `autoplayOnNextLoad` flag bridges the
+ * the matching clip if the new step has audio, otherwise hides itself
+ * (`style.display = 'none'`) — there's no clip to play, so a relabelled
+ * caption over a dead play button is just visual noise. The chrome is
+ * default-hidden synchronously at the top of `connectedCallback` so a
+ * hash-resumed non-audio step doesn't flash the audio chrome before
+ * the first stepchange runs. The `autoplayOnNextLoad` flag bridges the
  * clip-end → stepchange boundary so auto-advance keeps playing across
  * the request round-trip even though `audio.paused` is true after
  * `ended` fires.
@@ -116,6 +120,13 @@ class AudioPlayer extends HTMLElement {
   private timeEl: HTMLElement | null = null;
 
   connectedCallback() {
+    // Default to hidden synchronously, before the first paint. Resume
+    // URLs that land on a non-audio step (e.g. /piece/#interactive) would
+    // otherwise flash the audio chrome between connect and the first
+    // stepchange listener firing. onStepChange flips display back to ''
+    // when the active step is a beat with audio.
+    this.style.display = 'none';
+
     try {
       const raw = this.getAttribute('data-audio-beats') ?? '{}';
       this.audioBeats = JSON.parse(raw);
@@ -183,6 +194,15 @@ class AudioPlayer extends HTMLElement {
     const shellStep = shellEl?.getCurrentStepId?.();
     const initialBeat = (shellStep && this.audioBeats[shellStep]) ? shellStep : this.beatOrder[0];
     this.loadBeat(initialBeat);
+    // Lesson-shell already dispatched its initial stepchange before our
+    // listener was wired (it runs setupCoordinator() inside its own
+    // connectedCallback, which fires earlier in register.ts). If the
+    // initial step is a beat with audio, restore the chrome here —
+    // otherwise the synchronous `display = 'none'` at the top of
+    // connectedCallback would leave a beat step with no chrome.
+    if (shellStep && this.audioBeats[shellStep]) {
+      this.style.display = '';
+    }
 
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('loadedmetadata', () => this.updateProgress());
@@ -241,16 +261,20 @@ class AudioPlayer extends HTMLElement {
 
   /**
    * Coordinated-mode handler. Fires when <lesson-shell> changes step.
-   * If the new step is a beat with audio, load that clip + maintain
-   * play state across the boundary. Otherwise (interactive / quiz /
-   * finish), pause the audio and update the caption to name the
-   * non-audio step so the chrome stays informative.
+   * If the new step is a beat with audio, restore the chrome (it's
+   * default-hidden in connectedCallback to avoid first-paint flash on
+   * hash-resumed non-audio steps) and load the matching clip. Otherwise
+   * (interactive / quiz), hide the chrome — there's no clip to play, so
+   * a "Step 7 of 9 · Interactive" caption over a dead play button only
+   * adds confusion. The reader sees the body content of the step
+   * directly; chrome reappears the moment they navigate back to a beat.
    */
   private onStepChange(e: CustomEvent) {
     const detail = e.detail as { stepId?: string; kind?: string; index?: number; total?: number } | undefined;
     if (!detail?.stepId) return;
     const isBeat = detail.kind === 'beat' && !!this.audioBeats[detail.stepId];
     if (isBeat) {
+      this.style.display = '';
       const wasPlaying = !!this.audio && !this.audio.paused;
       const shouldAutoplay = wasPlaying || this.autoplayOnNextLoad;
       this.autoplayOnNextLoad = false;
@@ -264,19 +288,10 @@ class AudioPlayer extends HTMLElement {
       }
       return;
     }
-    // Non-audio step. Pause and re-label the caption.
+    // Non-audio step. Hide the chrome, pause whatever was playing.
+    this.style.display = 'none';
     this.audio?.pause();
     this.autoplayOnNextLoad = false;
-    if (this.captionEl) {
-      const human =
-        detail.stepId === 'interactive' ? 'Interactive' :
-        detail.stepId === 'quiz' ? 'Quiz' :
-        detail.stepId === 'finish' ? 'Done' :
-        this.humanise(detail.stepId);
-      const idx = (detail.index ?? 0) + 1;
-      const total = detail.total ?? 0;
-      this.captionEl.textContent = total > 0 ? `Step ${idx} of ${total} · ${human}` : human;
-    }
   }
 
   private loadBeat(beatName: string) {
