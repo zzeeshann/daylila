@@ -1,46 +1,36 @@
 /**
- * <lesson-shell> — the lesson page coordinator.
+ * <lesson-shell> — the lesson page step coordinator.
  *
- * Dual-mode component. The mode is set at server-render time via the
- * `data-paginated="true"` attribute (LessonLayout reads
- * admin_settings.reading_mode and stamps the attribute):
+ * Builds a step list from `<lesson-beat>` elements and
+ * `[data-lesson-step]` regions in DOM order. Owns `currentStep`.
+ * Listens for `audio-player:requeststep` (clip-end auto-advance,
+ * prev/next button) and `lesson-progress:goto` (dot tap). On each
+ * step change, dispatches `lesson-shell:stepchange` for
+ * `<audio-player>` and `<lesson-progress>` to follow. Hides
+ * non-current beats and step regions via the CSS rule in
+ * `src/styles/lesson-pagination.css`, which keys off
+ * `:root[data-lesson-hydrated="true"]` so no-JS readers always see
+ * the long-scroll fallback.
  *
- *   - **Scroll mode (default, no `data-paginated`).** Passive engagement
- *     reporter. Beats render as continuous prose; IntersectionObservers
- *     fire `view`, `complete`, `interactive_offered`, and per-beat
- *     `read` events as the reader scrolls. This is the original Area-5
- *     behaviour, unchanged.
- *
- *   - **Paginated mode (`data-paginated="true"`).** Step coordinator.
- *     Builds a step list from `<lesson-beat>` elements and
- *     `[data-lesson-step]` regions in DOM order. Owns `currentStep`.
- *     Listens for `audio-player:requeststep` (clip-end auto-advance,
- *     prev/next button) and `lesson-progress:goto` (dot tap). On each
- *     step change, dispatches `lesson-shell:stepchange` for
- *     `<audio-player>` and `<lesson-progress>` to follow. Hides
- *     non-current beats and step regions via the CSS rule in
- *     `src/styles/lesson-pagination.css`, which keys off
- *     `:root[data-lesson-paginated="true"][data-lesson-hydrated="true"]`
- *     so no-JS readers always see the long-scroll fallback.
- *
- * Pre-Area-5, this component owned a different beat-by-beat pagination
- * state machine (Previous / Next / Finish UI rendered in shadow DOM,
+ * History: pre-Area-5, this component owned a different beat-by-beat
+ * pagination state machine (Previous / Next / Finish UI in shadow DOM,
  * sessionStorage-restored beat index). Area 5 stripped it. The C3
- * commit (2026-05-08) brings the coordinator role back, redesigned —
- * now driven by step IDs (not beat indices), keyed off shell's own
- * dataset (not external state), and explicitly inverted from the audio
- * rail (lesson-shell is source of truth, audio-player follows; per
- * Plan-agent review).
+ * commit (2026-05-08) brought the coordinator role back, redesigned —
+ * step IDs not beat indices, keyed off shell's own dataset not external
+ * state, audio-player follows lesson-shell rather than the inverse.
+ * C7 (2026-05-08) collapsed the dual-mode dance from C1–C6 into the
+ * single paginated mode below; the legacy IntersectionObserver path
+ * is gone, the admin flag is gone, paginated is the only mode.
  */
 
 type StepKind = 'beat' | 'interactive' | 'quiz' | 'finish';
 
 /** ms a reader must remain on the last step (finish) before `complete`
- *  fires in paginated mode. Calibrated to filter misclicks on the last
- *  progress dot (~1s reflexive back-tap budget) without slowing down
- *  intentional readers (a deliberate landing on the finish step lets
- *  the eye register the Read another / Browse library links in 2-3s).
- *  See DECISIONS 2026-05-08 "C5: engagement semantics under pagination". */
+ *  fires. Calibrated to filter misclicks on the last progress dot
+ *  (~1s reflexive back-tap budget) without slowing down intentional
+ *  readers (a deliberate landing on the finish step lets the eye
+ *  register the Read another / Browse library links in 2-3s). See
+ *  DECISIONS 2026-05-08 "C5: engagement semantics under pagination". */
 const COMPLETE_DWELL_MS = 2500;
 
 interface Step {
@@ -50,23 +40,20 @@ interface Step {
 }
 
 class LessonShell extends HTMLElement {
-  // Engagement (scroll-mode) state
-  private finishObserver: IntersectionObserver | null = null;
-  private interactiveObserver: IntersectionObserver | null = null;
-  private beatsObserver: IntersectionObserver | null = null;
-  private audioFirstPlayHandler: EventListener | null = null;
-  private observedBeats = new Set<string>();
-
-  // Coordinator (paginated-mode) state
   private steps: Step[] = [];
   private currentStepId: string | null = null;
+  private audioFirstPlayHandler: EventListener | null = null;
   private requeststepHandler: EventListener | null = null;
   private gotoHandler: EventListener | null = null;
-  private paginatedActive = false;
   /** Pending complete-on-finish-dwell timer. Set when the reader
    *  enters the last step (typically `finish`); cleared on any
    *  step-change before the dwell elapses. */
   private completeDwellTimer: ReturnType<typeof setTimeout> | null = null;
+  /** True once `setupCoordinator()` finished and `:root[data-lesson-
+   *  hydrated]` was set. Drives disconnectedCallback's :root cleanup
+   *  scope so an early-out (no parseable steps) doesn't try to undo
+   *  state it never set. */
+  private active = false;
 
   /**
    * Extract content info from URL: /daily/{date}/{slug}/.
@@ -88,22 +75,8 @@ class LessonShell extends HTMLElement {
     return null;
   }
 
-  /** True when this page should render as one-step-per-screen. The
-   *  flag lives on :root (LessonLayout's inline script reads
-   *  admin_settings.reading_mode and stamps the attribute before any
-   *  custom element parses). Reading from :root rather than from this
-   *  element is the right scope — paginated mode is a page-level
-   *  setting, not an element-level one — and avoids the rehype-beats
-   *  threading that would otherwise be needed to put a runtime value
-   *  on the rehype-emitted lesson-shell tag. Not reactive to runtime
-   *  attribute changes; the admin toggle is page-reload-gated by
-   *  design. */
-  private get isPaginated(): boolean {
-    return document.documentElement.dataset.lessonPaginated === 'true';
-  }
-
   connectedCallback() {
-    // Engagement: view (fires once per page load) — both modes.
+    // Engagement: view (fires once per page load).
     this.trackEngagement('view');
     this.trackRead('view');
 
@@ -112,11 +85,7 @@ class LessonShell extends HTMLElement {
     this.audioFirstPlayHandler = () => this.trackEngagement('audio_play');
     window.addEventListener('audio-player:firstplay', this.audioFirstPlayHandler);
 
-    if (this.isPaginated) {
-      this.setupPaginated();
-    } else {
-      this.setupScrollMode();
-    }
+    this.setupCoordinator();
   }
 
   disconnectedCallback() {
@@ -124,14 +93,6 @@ class LessonShell extends HTMLElement {
       window.removeEventListener('audio-player:firstplay', this.audioFirstPlayHandler);
       this.audioFirstPlayHandler = null;
     }
-    this.finishObserver?.disconnect();
-    this.finishObserver = null;
-    this.interactiveObserver?.disconnect();
-    this.interactiveObserver = null;
-    this.beatsObserver?.disconnect();
-    this.beatsObserver = null;
-    this.observedBeats.clear();
-
     if (this.requeststepHandler) {
       window.removeEventListener('audio-player:requeststep', this.requeststepHandler);
       this.requeststepHandler = null;
@@ -140,11 +101,9 @@ class LessonShell extends HTMLElement {
       document.removeEventListener('lesson-progress:goto', this.gotoHandler);
       this.gotoHandler = null;
     }
-    if (this.paginatedActive) {
+    if (this.active) {
       delete document.documentElement.dataset.lessonHydrated;
       delete document.documentElement.dataset.lessonCurrentStep;
-      // lessonPaginated is server-stamped by LessonLayout — leave it
-      // alone; the hide-rule gates on hydrated which we DO own.
     }
     if (this.completeDwellTimer) {
       clearTimeout(this.completeDwellTimer);
@@ -153,144 +112,17 @@ class LessonShell extends HTMLElement {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // Scroll mode (original behaviour — IntersectionObservers)
+  // Step coordinator
   // ────────────────────────────────────────────────────────────────
 
-  private setupScrollMode() {
-    this.observeFinish();
-    this.observeInteractive();
-    this.observeBeats();
-  }
-
-  private observeFinish() {
-    const sentinel = document.querySelector('[data-lesson-finish]');
-    if (!(sentinel instanceof Element)) return;
-
-    const info = this.lessonInfo;
-    const dedupKey = this.completeDedupKey();
-    if (!dedupKey || sessionStorage.getItem(dedupKey)) return;
-
-    this.finishObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-          this.fireComplete(info ?? null);
-          this.finishObserver?.disconnect();
-          this.finishObserver = null;
-          break;
-        }
-      }
-    }, { threshold: [0.6] });
-    this.finishObserver.observe(sentinel);
-  }
-
-  /** Shared engagement-fire path for the `complete` event. Used by
-   *  scroll-mode's IO observer (60% finish-footer viewport) AND
-   *  paginated-mode's step-change-to-last-step + 2.5s dwell. Deduped
-   *  per session per piece via sessionStorage. */
-  private fireComplete(info: ReturnType<LessonShell['getLessonInfo']>) {
-    const lessonInfo = info ?? this.lessonInfo;
-    const dedupKey = this.completeDedupKey();
-    if (!dedupKey || sessionStorage.getItem(dedupKey)) return;
-    sessionStorage.setItem(dedupKey, '1');
-    this.trackEngagement('complete');
-    this.trackRead('complete');
-    if (lessonInfo) {
-      fetch('/api/progress/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lessonInfo),
-        keepalive: true,
-      }).catch(() => {});
-    }
-  }
-
-  private completeDedupKey(): string | null {
-    const info = this.lessonInfo;
-    if (info?.piece_id) return `zeemish-completed:${info.piece_id}`;
-    if (info?.piece_date) return `zeemish-completed-date:${info.piece_date}`;
-    return null;
-  }
-
-  /** Public-by-shape getter so `fireComplete` can be reused; matches
-   *  the existing `lessonInfo` private getter shape. */
-  private getLessonInfo() {
-    return this.lessonInfo;
-  }
-
-  private observeBeats() {
-    const info = this.lessonInfo;
-    if (!info?.piece_id) return;
-
-    const beats = document.querySelectorAll('lesson-beat[name]');
-    if (beats.length === 0) return;
-
-    this.beatsObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
-        const target = entry.target;
-        if (!(target instanceof HTMLElement)) continue;
-        const name = target.getAttribute('name');
-        if (!name || this.observedBeats.has(name)) continue;
-        this.observedBeats.add(name);
-        this.trackRead('beat', name);
-      }
-    }, { threshold: [0.5] });
-
-    beats.forEach((beat) => this.beatsObserver?.observe(beat));
-  }
-
-  private observeInteractive() {
-    const section = document.querySelector('[data-lesson-interactive]');
-    if (!(section instanceof HTMLElement)) return;
-
-    const slug = section.dataset.interactiveSlug;
-    if (!slug) return;
-    if (sessionStorage.getItem(`daylila-interactive-offered:${slug}`)) return;
-
-    this.interactiveObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-          this.fireInteractiveOffered(slug);
-          this.interactiveObserver?.disconnect();
-          this.interactiveObserver = null;
-          break;
-        }
-      }
-    }, { threshold: [0.5] });
-    this.interactiveObserver.observe(section);
-  }
-
-  /** Shared engagement-fire path for the `interactive_offered` event.
-   *  Deduped per session per slug via sessionStorage — same key as
-   *  scroll-mode's IO observer, so a session that switches between
-   *  modes (rare but possible during operator testing) doesn't
-   *  double-count. */
-  private fireInteractiveOffered(slug: string) {
-    const dedupKey = `daylila-interactive-offered:${slug}`;
-    if (sessionStorage.getItem(dedupKey)) return;
-    sessionStorage.setItem(dedupKey, '1');
-    fetch('/api/interactive/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        interactive_id: null,
-        interactive_slug: slug,
-        event_type: 'interactive_offered',
-      }),
-      keepalive: true,
-    }).catch(() => {});
-  }
-
-  // ────────────────────────────────────────────────────────────────
-  // Paginated mode (step coordinator)
-  // ────────────────────────────────────────────────────────────────
-
-  private setupPaginated() {
+  private setupCoordinator() {
     this.buildSteps();
     if (this.steps.length === 0) {
-      // No paginatable content (legacy bundle). Fall back to scroll
-      // mode so the page is still readable.
-      this.setupScrollMode();
+      // No paginatable content (legacy bundle with no h2 headings —
+      // rehype-beats wouldn't render <lesson-shell> in that case, so
+      // this is a defensive path). The view + audio_play engagement
+      // wired in connectedCallback above still fires; nothing else to
+      // do here.
       return;
     }
 
@@ -302,14 +134,12 @@ class LessonShell extends HTMLElement {
 
     // Hide all non-initial steps via the [data-current] mark below.
     // The CSS hide-rule (src/styles/lesson-pagination.css) gates on
-    // both :root[data-lesson-paginated="true"] (set server-side by
-    // LessonLayout's inline script before any custom element parses)
-    // AND :root[data-lesson-hydrated="true"] (set here, only after
-    // the step list builds successfully). The hydrated guard means
-    // no-JS readers never trigger the hide-rule and the page renders
-    // as the long-scroll fallback.
+    // :root[data-lesson-hydrated="true"], set here only after the
+    // step list builds successfully. The hydrated guard means no-JS
+    // readers never trigger the hide-rule and the page renders as
+    // continuous prose.
     document.documentElement.dataset.lessonHydrated = 'true';
-    this.paginatedActive = true;
+    this.active = true;
 
     // Suppress the browser's automatic anchor-scroll when resuming
     // from a hash. The browser's scroll-to-anchor fires near the load
@@ -399,14 +229,12 @@ class LessonShell extends HTMLElement {
       step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Engagement firing on step-change (paginated mode only). The
-    // CSS hide-rule means viewport IO never fires for non-current
-    // steps, so we replace the IO observers with deterministic
-    // step-into events. See DECISIONS 2026-05-08 "C5: engagement
-    // semantics under pagination" for the dedup behaviour.
-    if (this.paginatedActive) {
-      this.fireStepEngagement(step);
-    }
+    // Engagement firing on step-change. The CSS hide-rule means
+    // viewport IO never fires for non-current steps, so deterministic
+    // step-into events replace the IO observers. See DECISIONS
+    // 2026-05-08 "C5: engagement semantics under pagination" for the
+    // dedup behaviour.
+    this.fireStepEngagement(step);
 
     if (opts.dispatchChange) {
       this.dispatchStepChange(step);
@@ -420,9 +248,7 @@ class LessonShell extends HTMLElement {
    *     step-into (NOT deduped per session). The reader can navigate
    *     back to a beat by tapping a dot or pressing audio-prev; the
    *     idempotent UPSERT on `current_beat` means D1 always reflects
-   *     the reader's actual position. Deliberate semantic difference
-   *     from scroll mode (which dedups via the observed-beats Set
-   *     because IO doesn't re-fire on scroll-up at the same threshold).
+   *     the reader's actual position.
    *   - **interactive** → `/api/interactive/track` event=
    *     `interactive_offered`. Deduped per session per slug.
    *   - **finish** → start a 2.5s setTimeout. If the reader stays on
@@ -433,9 +259,7 @@ class LessonShell extends HTMLElement {
    *   - **quiz** → no event today. `interactive_offered` already
    *     fired when the reader entered the interactive step (or, on
    *     quiz-only pieces, when they entered the quiz step which
-   *     carries `data-lesson-interactive`). The IO observer in scroll
-   *     mode also fires once per slug, so dedup is consistent across
-   *     modes.
+   *     carries `data-lesson-interactive`). Dedup via the slug key.
    */
   private fireStepEngagement(step: Step) {
     // Always clear any pending finish-dwell timer when leaving any
@@ -487,11 +311,12 @@ class LessonShell extends HTMLElement {
     );
   }
 
-  /** Public: called by `goToStep` from external callers (audio-player
-   *  in coordinated mode could call directly, but uses requeststep
-   *  events for symmetry with lesson-progress). */
+  /** Public: called from `goToStep` for external callers (lesson-
+   *  progress dispatches `lesson-progress:goto`; audio-player dispatches
+   *  `audio-player:requeststep`; lesson-swipe dispatches the same
+   *  requeststep event). */
   goToStep(stepId: string) {
-    if (!this.paginatedActive) return;
+    if (!this.active) return;
     this.applyCurrent(stepId, { dispatchChange: true, scroll: true });
   }
 
@@ -523,8 +348,60 @@ class LessonShell extends HTMLElement {
   }
 
   // ────────────────────────────────────────────────────────────────
-  // Engagement helpers (used by both modes)
+  // Engagement helpers
   // ────────────────────────────────────────────────────────────────
+
+  /** Shared engagement-fire path for the `complete` event. Triggered
+   *  on step-change to the last step + 2.5s dwell. Deduped per session
+   *  per piece via sessionStorage. */
+  private fireComplete(info: ReturnType<LessonShell['getLessonInfo']>) {
+    const lessonInfo = info ?? this.lessonInfo;
+    const dedupKey = this.completeDedupKey();
+    if (!dedupKey || sessionStorage.getItem(dedupKey)) return;
+    sessionStorage.setItem(dedupKey, '1');
+    this.trackEngagement('complete');
+    this.trackRead('complete');
+    if (lessonInfo) {
+      fetch('/api/progress/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lessonInfo),
+        keepalive: true,
+      }).catch(() => {});
+    }
+  }
+
+  private completeDedupKey(): string | null {
+    const info = this.lessonInfo;
+    if (info?.piece_id) return `zeemish-completed:${info.piece_id}`;
+    if (info?.piece_date) return `zeemish-completed-date:${info.piece_date}`;
+    return null;
+  }
+
+  /** Wrapper getter so `fireComplete`'s parameter type can name a
+   *  return shape from a private getter (TypeScript needs the
+   *  intermediary). */
+  private getLessonInfo() {
+    return this.lessonInfo;
+  }
+
+  /** Shared engagement-fire path for the `interactive_offered` event.
+   *  Deduped per session per slug via sessionStorage. */
+  private fireInteractiveOffered(slug: string) {
+    const dedupKey = `daylila-interactive-offered:${slug}`;
+    if (sessionStorage.getItem(dedupKey)) return;
+    sessionStorage.setItem(dedupKey, '1');
+    fetch('/api/interactive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        interactive_id: null,
+        interactive_slug: slug,
+        event_type: 'interactive_offered',
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  }
 
   /** Fire-and-forget engagement tracking */
   private trackEngagement(eventType: string) {

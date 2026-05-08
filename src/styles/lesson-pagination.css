@@ -2,39 +2,37 @@
  * Beat-by-beat pagination — standalone (not Tailwind-processed) so the
  * custom-element + data-attribute selectors are never purged.
  *
- * Two-mode page: scroll-mode is the default and this file's rules
- * never match. Paginated-mode is gated on three :root data attributes:
+ * Single mode (since C7, 2026-05-08). Gated on two :root data
+ * attributes — both JS-set, so no-JS readers never trigger the hide-
+ * rule and the page renders as continuous prose fallback:
  *
- *   :root[data-lesson-paginated="true"]      ← server-stamped via
- *                                               admin_settings
- *                                               (LessonLayout, C4)
  *   :root[data-lesson-hydrated="true"]       ← set by <lesson-shell>'s
  *                                               connectedCallback after
  *                                               the step list builds.
- *                                               No-JS readers never get
- *                                               this attribute, so the
- *                                               hide-rule never matches
- *                                               and the page renders as
- *                                               long-scroll fallback.
+ *                                               THE no-JS guard. Without
+ *                                               JS, never set, hide-rule
+ *                                               never matches.
  *   :root[data-lesson-current-step="<id>"]   ← updated on every
- *                                               stepchange.
+ *                                               stepchange. Informational
+ *                                               (per-element data-current
+ *                                               drives the hide-rule).
  *
  * Hide-rule: any <lesson-beat> or [data-lesson-step] without a
  * `data-current` attribute is `display: none`. Lesson-shell sets
  * `data-current` on whichever element is the active step at any time.
  *
  * Step regions are SIBLINGS of the article that wraps lesson-shell, so
- * a descendant CSS selector won't reach them. The :root-level guards
- * scope from the document root, which lets the same selectors hit
+ * a descendant CSS selector won't reach them. The :root-level guard
+ * scopes from the document root, which lets the same selectors hit
  * both lesson-beat (a descendant of lesson-shell) and the [data-lesson-
  * step] sections (siblings of the article).
  */
 
-:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-beat:not([data-current]) {
+:root[data-lesson-hydrated="true"] lesson-beat:not([data-current]) {
   display: none;
 }
 
-:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] [data-lesson-step]:not([data-current]) {
+:root[data-lesson-hydrated="true"] [data-lesson-step]:not([data-current]) {
   display: none;
 }
 
@@ -42,18 +40,18 @@
  * 9-word close beat on 2026-04-17 is the worst real case). NOT 100vh —
  * brief explicitly: content-sized, page scrolls vertically when a step
  * overflows. 60vh is the sweet spot. */
-:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-beat[data-current],
-:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] [data-lesson-step][data-current] {
+:root[data-lesson-hydrated="true"] lesson-beat[data-current],
+:root[data-lesson-hydrated="true"] [data-lesson-step][data-current] {
   min-height: 60vh;
 }
 
-/* Progress dots — slim row near the top. Hidden in scroll mode (no
- * :root flag), shown in paginated mode. */
+/* Progress dots — slim row near the top. Hidden until lesson-shell
+ * hydrates so no-JS readers never see the empty container. */
 lesson-progress {
   display: none;
 }
 
-:root[data-lesson-paginated="true"][data-lesson-hydrated="true"] lesson-progress {
+:root[data-lesson-hydrated="true"] lesson-progress {
   display: block;
   margin-bottom: 1rem;
 }
