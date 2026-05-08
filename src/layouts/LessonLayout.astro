@@ -132,7 +132,13 @@ const interactiveSlug = primary?.data.slug ?? null;
 
   <h1 class="text-3xl md:text-4xl font-bold mb-4 leading-[1.15] tracking-tight">{title}</h1>
 
-  <p class="text-sm text-zee-muted mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+  {/* Two-row meta block. Rendered as <div>s, not <p>s — line 2 contains
+       <made-drawer>, which itself contains <div class="made-backdrop">
+       + <aside class="made-panel">. The HTML5 parser auto-closes any
+       open <p> when it encounters <div> or <aside>, so wrapping line 2
+       in a <p> would silently break — save + source would land outside
+       the row as siblings of <main>. <div>s have no auto-close rule. */}
+  <div class="text-sm text-zee-muted mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
     <span>{timeDisplay}</span>
     {subject && (
       <>
@@ -140,37 +146,41 @@ const interactiveSlug = primary?.data.slug ?? null;
         <span>{subject}</span>
       </>
     )}
-    {sourceUrl && newsSource && (
-      <>
-        <span class="opacity-40" aria-hidden="true">·</span>
-        <a
-          href={sourceUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
-        >
-          Source: {newsSource} <span class="text-zee-primary" aria-hidden="true">↗</span>
-        </a>
-      </>
-    )}
-    {pieceId && (
-      <>
-        <span class="opacity-40" aria-hidden="true">·</span>
-        <button
-          type="button"
-          data-save-toggle
-          data-piece-id={pieceId}
-          data-saved="false"
-          aria-pressed="false"
-          class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
-        >
-          <span class="text-zee-primary" aria-hidden="true" data-save-glyph>☆</span> <span data-save-label>Save</span>
-        </button>
-      </>
-    )}
-  </p>
+  </div>
 
-  {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
+  {(pieceId || (sourceUrl && newsSource)) && (
+    <div class="text-sm text-zee-muted mb-8 flex flex-wrap items-center gap-x-2 gap-y-1">
+      {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
+      {sourceUrl && newsSource && (
+        <>
+          <span class="opacity-40" aria-hidden="true">·</span>
+          <a
+            href={sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
+          >
+            Source: {newsSource} <span class="text-zee-primary" aria-hidden="true">↗</span>
+          </a>
+        </>
+      )}
+      {pieceId && (
+        <>
+          <span class="opacity-40" aria-hidden="true">·</span>
+          <button
+            type="button"
+            data-save-toggle
+            data-piece-id={pieceId}
+            data-saved="false"
+            aria-pressed="false"
+            class="underline-offset-2 hover:underline hover:text-zee-primary transition-colors"
+          >
+            <span class="text-zee-primary" aria-hidden="true" data-save-glyph>☆</span> <span data-save-label>Save</span>
+          </button>
+        </>
+      )}
+    </div>
+  )}
 
   <lesson-progress></lesson-progress>
 
