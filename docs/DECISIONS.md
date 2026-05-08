@@ -2,6 +2,32 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): newsSource moved into Director's metadata-splice set — closing the last writer-authored frontmatter leak
+
+**Catalyst.** Operator opened the 2026-05-08 morning piece (`/daily/2026-05-08/scientists-make-stunning-discovery-that-could-change-our-und/`) and noticed the meta line displayed the literal URL `https://www.sciencedaily.com/releases/2026/05/260508121045.htm` where every other piece showed a publisher name (e.g. "Source: CNN ↗", "Source: Nature ↗", "Source: BBC ↗"). Asked for a small investigation; do not assume.
+
+**Investigation (verified, not assumed).**
+- `LessonLayout.astro:141-153` renders `Source: {newsSource} ↗` directly from MDX frontmatter using `sourceUrl` as the link `href`. Whatever the Drafter wrote in `newsSource` shows up verbatim.
+- The failing piece's MDX line 4: `newsSource: "https://www.sciencedaily.com/releases/2026/05/260508121045.htm"`.
+- D1 source-of-truth contradicted the MDX: `daily_pieces.source_story = "ScienceDaily"` for this piece (Director bound this from `brief.newsSource` at the publish-step INSERT). The selected `daily_candidates` row has `source = "ScienceDaily"` (correct publisher name) and `url = "https://news.google.com/rss/articles/..."` (Google News redirector, spliced into frontmatter as `sourceUrl`).
+- The fabricated URL `/releases/2026/05/260508121045.htm` does NOT appear anywhere in the candidate row — not in `summary`, not in `url`, not in `headline`. The Drafter authored it.
+- `draft_revisions` round 0 (Drafter) already had the URL in frontmatter; rounds 1 + 2 (Integrator) preserved it. Drafter is the origin, not Integrator.
+- Cross-piece sweep: 49 published pieces, 48 have correct publisher names, 1 had the URL. Stochastic Drafter wobble, not a deterministic regression — no recent code change broke this.
+
+**Why Drafter has the opening.** Every other metadata frontmatter field — `pieceId`, `sourceUrl`, `claimReviews`, `voiceScore`, `qualityFlag`, `audioBeats`, `publishedAt` — is spliced by Director post-Drafter at `agents/src/director.ts:560-588`. `newsSource` was the lone exception: Drafter authored it freehand from a brief-context line (`News: "${brief.headline}" (${brief.newsSource})` in `drafter-prompt.ts`), and the BEAT_CONTRACT just listed it as a required frontmatter field without specifying the value. With the headline carrying a "- ScienceDaily" suffix (Google News convention) and no template precedent for ScienceDaily in the model's training context, Sonnet 4.5 occasionally interprets `newsSource` as "the URL of the source" and fabricates a plausible-shaped article URL. The BEAT_CONTRACT itself documents the splice fields as "spliced in by Director at publish time and are not the writer's concern" — `newsSource` belonged in that set from the start.
+
+**Decision.** Move `newsSource` into the Director-splice set, alongside `sourceUrl`. Backfill the one bad piece (metadata-only edit; covered by the published-pieces-permanent metadata carve-out per CLAUDE.md hard rule).
+
+**Mechanism.** `agents/src/director.ts:565-606` — adjacent to the existing `sourceUrl` splice, two-step pattern: first a strip regex that removes any Drafter-authored `newsSource:` line from inside the frontmatter block, then an insert regex that splices the canonical value from `brief.newsSource` (already in scope). Robust to in-flight Drafter behaviour during deploy — old drafts converge on the canonical value. `content/beat-contract.md` "Required frontmatter" section moves `newsSource` from the writer's required list into the spliced-by-Director list, with a note pinning the value as a publisher name (never a URL) and documenting the splice. Codegenned into `agents/src/shared/generated/contracts.ts` (92528 bytes); `pnpm verify-contracts-fresh` ✓. `agents/src/structure-editor-prompt.ts:26` drops `newsSource` from the frontmatter-missing check list — without this Structure Editor would false-fail every future piece on a now-valid omission.
+
+**Why no code-side validator.** A regex check in code that rejects URL-shaped `newsSource` would re-introduce the exact anti-pattern the operator caught and corrected during the 2026-05-07 Categoriser fragmentation session (codified in `docs/SESSION_OPENER.md`: "Rules live in contracts, not in code. Code persists and shapes — never validates contract rules"). Once the Drafter no longer authors the field, the URL-shaped regression mode is structurally impossible — no validator needed.
+
+**Out of scope (deliberate).** Renaming the field; auditing other 48 pieces (sweep above already verified them all clean — BBC, Nature, NYT, WaPo, Quanta, CNN, Reuters, etc.); changing the rendered display string format.
+
+**Files.** 1 contract (`content/beat-contract.md`), 1 regenerated module (`agents/src/shared/generated/contracts.ts`), 2 agent files (`director.ts` splice, `structure-editor-prompt.ts` check), 1 published-piece metadata edit (`content/daily-pieces/2026-05-08-scientists-make-stunning-discovery-that-could-change-our-und.mdx:4`), CLAUDE.md, AGENTS.md, FOLLOWUPS.md (queued [observing] entry for the next pipeline run), this log.
+
+**Verification.** `pnpm codegen && pnpm verify-contracts-fresh` ✓. `tsc --noEmit` runs via CI on push. Visual spot-check post-deploy: page meta line on the 2026-05-08 ScienceDaily piece should read "Source: ScienceDaily ↗" after CDN cache purge. Live verification on next pipeline run: confirm fresh MDX has `newsSource` line spliced by Director matching `brief.newsSource`; confirm Structure Editor doesn't false-fail on the omission.
+
 ## 2026-05-08 (afternoon): Drawer sections collapsible by default — UX polish on top of the morning's narrative-arc commit
 
 Same-day follow-up to commit `7ed8cc3`. The drawer now reads as a clear narrative arc, but it's long: 12 named sections plus the piece-summary header strip. Operator wanted each section collapsible, all collapsed by default, so a reader sees a clean scannable list of section labels and expands what interests them.

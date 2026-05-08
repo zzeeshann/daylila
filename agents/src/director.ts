@@ -587,6 +587,28 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       }
     }
 
+    // Splice `newsSource` into frontmatter from the brief (Curator's
+    // pick). Per beat-contract.md (2026-05-08), `newsSource` is a
+    // Director-spliced metadata field, not a writer-authored one — the
+    // publisher name lives in `brief.newsSource` (already bound to
+    // daily_pieces.source_story above) and is rendered verbatim in the
+    // meta line as `Source: {newsSource} ↗`. Strip any Drafter-authored
+    // line first so legacy/in-flight drafts converge on the canonical
+    // value. Catalyst: the 2026-05-08 ScienceDaily piece where Drafter
+    // fabricated a plausible-shaped URL into the field. See DECISIONS
+    // 2026-05-08 "newsSource splice — closing the last writer-authored
+    // metadata leak".
+    if (brief.newsSource) {
+      currentMdx = currentMdx.replace(
+        /^(---\n[\s\S]*?)\nnewsSource:[^\n]*\n([\s\S]*?\n---\n)/,
+        '$1\n$2',
+      );
+      currentMdx = currentMdx.replace(
+        /^(---\n[\s\S]*?)(\n---\n)/,
+        `$1\nnewsSource: ${JSON.stringify(brief.newsSource)}$2`,
+      );
+    }
+
     // Splice `claimReviews` into frontmatter (Phase H, 2026-04-30).
     // Just the verified claim text strings — JSON-LD ClaimReview render
     // in BaseLayout consumes them. Path A (2026-05-01) reverted Phase
