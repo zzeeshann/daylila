@@ -248,6 +248,12 @@ class MadeDrawer extends HTMLElement {
       `);
     }
 
+    // --- Final state ---------------------------------------------------
+    // The audit notes above show the journey across rounds; this block
+    // names the destination — what shipped. Reads from the latest round
+    // in env.rounds plus piece-level tier; no new D1 query.
+    html.push(renderFinalState(env));
+
     // --- Rules (voice contract) ---------------------------------------
     html.push(`
       <section class="made-section">
@@ -362,15 +368,23 @@ class MadeDrawer extends HTMLElement {
       `);
     }
 
-    // --- What the system learned from this piece -----------------------
-    // Grouped by source in a fixed order: Drafter's voice first
-    // (narrative first-person), then Learner (terser system-level),
-    // then reader/zita (post-traffic). Absent entirely when no
-    // learnings are pinned to this piece.
+    // --- What the system learned from making this piece ----------------
+    // Visual break + intro paragraph reframe the section as forward-
+    // looking — these notes are patterns for tomorrow's Drafter, not a
+    // verdict on the piece a reader just finished. Grouped by source in
+    // a fixed order: Drafter's reflection first, then Learner producer
+    // patterns, then reader/zita (post-traffic). Absent entirely when
+    // no learnings are pinned to this piece.
     if (env.learnings.length > 0) {
+      const tier = env.piece?.tier ?? auditTier(env.piece?.voiceScore, env.piece?.qualityFlag);
+      const intro = tier === 'rough'
+        ? 'These notes look back at how this piece was made and forward to how the next piece can be better. The piece you just read shipped as Rough; these notes are how the system improves over time.'
+        : 'These notes look back at how this piece was made and forward to how the next piece can be better. They are not a verdict on what you just read — that piece passed its audits and shipped. These are how the system improves over time.';
       html.push(`
+        <div class="made-section-break" aria-hidden="true"></div>
         <section class="made-section">
-          <h3 class="made-section-header">What the system learned from this piece</h3>
+          <h3 class="made-section-header">What the system learned from making this piece</h3>
+          <p class="made-section-note">${escapeHtml(intro)}</p>
           ${renderLearningGroups(env.learnings)}
         </section>
       `);
@@ -456,6 +470,54 @@ function stepDetail(s: MadeEnvelope['timeline'][number]): string {
   }
   if (d.qualityFlag === 'low') parts.push('published with tier <strong>Rough</strong>');
   return parts.join(' · ');
+}
+
+/**
+ * Final-state summary block. Sits between "What the auditors said" and
+ * "Rules applied" in the drawer's render order. Names the destination
+ * — what shipped — so a reader who scrolls past the per-round audit
+ * notes doesn't carry a "this article was bad" impression into the
+ * forward-looking sections below.
+ *
+ * Numerics from the latest round in env.rounds; tier from piece-level
+ * audit-tier helper. Returns empty string for legacy pieces with no
+ * audit_results rows (pre-2026-04 ish) so older drawers degrade
+ * gracefully.
+ */
+function renderFinalState(env: MadeEnvelope): string {
+  if (env.rounds.length === 0 || !env.piece) return '';
+  const final = env.rounds[env.rounds.length - 1];
+  const tier = env.piece.tier ?? auditTier(env.piece.voiceScore, env.piece.qualityFlag);
+  const tierLabel = auditTierLabel(tier);
+  const voiceScore = final.voice.score ?? env.piece.voiceScore;
+  const factsLabel = final.fact.passed ? 'passing' : 'mixed';
+  const structureLabel = final.structure.passed ? 'passing' : 'mixed';
+  const allPassed = final.voice.passed && final.fact.passed && final.structure.passed;
+
+  const headline = tier === 'rough'
+    ? 'shipped as Rough.'
+    : allPassed
+      ? 'passed all three audits.'
+      : `shipped as ${tierLabel}, with mixed signals.`;
+
+  const meta = voiceScore != null
+    ? `Voice ${voiceScore}/100 (${tierLabel}). Facts ${factsLabel}. Structure ${structureLabel}.`
+    : `Facts ${factsLabel}. Structure ${structureLabel}.`;
+
+  const foot = tier === 'rough'
+    ? 'Three rounds didn’t get every gate to pass. The piece shipped anyway because the day’s news doesn’t wait. The audit notes above show what happened.'
+    : 'The piece you just read reflects these results. The audit notes above show how it got here.';
+
+  return `
+    <section class="made-section">
+      <h3 class="made-section-header">Final state</h3>
+      <div class="made-final-state">
+        <p class="made-final-state-headline"><strong>${escapeHtml(`Final state: ${headline}`)}</strong></p>
+        <p class="made-final-state-meta">${escapeHtml(meta)}</p>
+        <p class="made-final-state-foot">${escapeHtml(foot)}</p>
+      </div>
+    </section>
+  `;
 }
 
 function renderRound(r: MadeEnvelope['rounds'][number], isLatest: boolean): string {
@@ -614,8 +676,8 @@ function renderClaims(claims: MadeFactClaim[], sources: string[] | undefined): s
  */
 const LEARNING_SOURCE_ORDER = ['self-reflection', 'producer', 'reader', 'zita'] as const;
 const LEARNING_SOURCE_LABEL: Record<string, string> = {
-  'self-reflection': 'Drafter self-reflection',
-  'producer': 'Learner, producer-side pattern',
+  'self-reflection': 'What the Drafter noted for future pieces',
+  'producer': 'Patterns extracted for tomorrow’s Drafter',
   'reader': 'Reader signal',
   'zita': 'Zita question pattern',
 };
@@ -684,7 +746,7 @@ const DIMENSION_LABEL: Record<string, string> = {
 
 function buildLowNote(failedDimensions: string[]): string {
   if (failedDimensions.length === 0) {
-    return 'The auditor flagged a concern beyond voice across all 3 rounds. The quiz still shipped — readers can try it and judge for themselves.';
+    return 'The auditor flagged a concern beyond voice across all 3 rounds. The quiz is published anyway — early days for the auditor’s interactive judgement, and we trust readers to tell us what works.';
   }
   const labels = failedDimensions.map((d) => DIMENSION_LABEL[d] ?? d);
   const joined = labels.length === 1
@@ -693,7 +755,7 @@ function buildLowNote(failedDimensions: string[]): string {
       ? `${labels[0]} and ${labels[1]}`
       : `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
   const rubricWord = labels.length === 1 ? 'rubric' : 'rubrics';
-  return `The auditor flagged the ${joined} ${rubricWord} across all 3 rounds. The quiz still shipped — readers can try it and judge for themselves.`;
+  return `The auditor flagged the ${joined} ${rubricWord} across all 3 rounds. The quiz is published anyway — early days for the auditor’s interactive judgement, and we trust readers to tell us what works.`;
 }
 
 function renderInteractiveSection(

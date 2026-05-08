@@ -10,6 +10,8 @@
 
 export const LEARNER_POST_PUBLISH_PROMPT = `You analyse the pipeline record of a just-published Daylila daily piece to extract producer-side learnings for future pieces.
 
+The drawer surfaces these to readers under a "Patterns extracted for tomorrow's Drafter" header. Frame each learning as a pattern for future pieces, not a critique of this one. A reader scrolling the drawer should hear forward-looking guidance, not a verdict on the article they just finished.
+
 You see:
 - The piece's metadata (headline, subject, beat count, word count, final voice score, revision rounds).
 - Every audit round's findings — voice violations, structure issues, fact-check claims.
@@ -23,21 +25,23 @@ For interactive engagement, the meaningful ratios are:
 - avgScore (quizzes only) — high score with low starts means the quiz is too easy AND nobody's playing; low score with high starts means readers misread the underlying concept.
 For HTML interactives, views=0 is normal pre-deploy and indicates "not yet measured" rather than "skipped".
 
-Your job is the system's own reflection: what held up, what didn't, what patterns are worth remembering so future pieces go smoother.
+Your job is the system's own reflection — patterns worth remembering so future pieces go smoother.
 
-Good producer-side learnings:
-- "Beat count of 8 required 3 revision rounds; target 4–6 unless the subject genuinely demands more."
-- "Voice auditor repeatedly flagged 'jargon without immediate translation' when the piece taught a named theory (innovator's dilemma). Translate named frameworks on first mention."
-- "Fact-checker web_search returned \`unavailable\` — claims verified against training data only. High-stakes numbers (dollars, dates, headcounts) deserve an explicit sanity check in the brief when this happens."
-- "Hook opened with a specific number (96 million households); zero structure violations on the hook across all rounds. Specific-number hooks held up."
-- "Quizzes on systems-mechanics pieces (chokepoints, cascades, traceability) showed completions/starts ≥0.4; quizzes testing identity/value subjects sat below 0.2. Where the quiz tests a process, completion holds. Where it tests an interpretation, readers bail."
+Good producer-side learnings (all forward-looking, all prescriptive):
+- "Target 4–6 beats unless the subject genuinely demands more — pieces with 8 beats consistently needed three revision rounds."
+- "When a piece teaches a named theory (e.g., innovator's dilemma), translate the framework on first mention — voice auditor repeatedly flags 'jargon without immediate translation' otherwise."
+- "When fact-checker web_search returns \`unavailable\`, treat the brief's high-stakes numbers (dollars, dates, headcounts) as needing an explicit sanity check — claims verified against training data alone are a known failure mode."
+- "Open hooks with a specific number when possible — recent pieces that did showed zero structure violations on the hook across all rounds."
+- "Where a quiz tests a process (chokepoints, cascades, traceability), completion holds; where it tests an interpretation, readers bail. Lean toward process-shape questions on identity/value subjects."
 
 Rules:
 - Return between 0 and 10 learnings. Zero is fine if nothing was notable.
 - Producer signal only — drawn from what the engagement data shows, not speculation about why readers behaved a certain way.
 - No hedging. No "might", "could", "perhaps".
-- Each learning is one sentence, optionally followed by a prescriptive sentence.
+- Each learning is one prescriptive sentence about what future pieces should do, optionally followed by a short evidence clause naming what was observed in this piece. Past-tense observations re-frame easily: "Hook opened with a specific number; zero structure violations" becomes "Open hooks with a specific number — pieces that did showed zero structure violations on the hook." Same evidence, future-facing.
 - Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. Use "engagement" for learnings derived from interactive engagement data; "structure" is fine when in doubt elsewhere.
+
+Self-check before returning: read each observation as if a reader had just finished the piece. Would they hear a critique of what they read, or a pattern for what comes next? Rewrite anything that sounds like the former.
 
 Return JSON (strict, no prose outside the object):
 {
@@ -47,7 +51,9 @@ Return JSON (strict, no prose outside the object):
 }
 `;
 
-export const LEARNER_ZITA_PROMPT = `You analyse Zita chat conversations from readers of a Daylila daily piece to extract learnings about where the piece succeeded and failed as a teaching artifact.
+export const LEARNER_ZITA_PROMPT = `You analyse Zita chat conversations from readers of a Daylila daily piece to extract patterns future pieces can use.
+
+The drawer surfaces these to readers under a forward-looking section. Frame each learning as a pattern for future pieces, not a critique of this one. A reader scrolling the drawer should hear forward-looking guidance, not a verdict on the article they just finished.
 
 You see:
 - The piece's metadata (headline, subject).
@@ -56,18 +62,20 @@ You see:
 
 You do NOT see engagement metrics (views, completions, drop-off) — only the Zita chats. Your job: find the patterns in what readers struggled with, misread, or asked beyond the piece, so future pieces can teach those points more clearly on first pass.
 
-Good Zita-side learnings:
-- "Readers repeatedly inverted the chokepoints framing — the piece called them 'a bug that looks like a feature' but 3 of 4 readers paraphrased it as 'feature'. First-mention phrasing needs to land harder."
-- "Every conversation about the tariff piece eventually asked the same question: 'does the government pass the refund to consumers?' — the piece doesn't answer it. Worth a beat."
-- "Two readers asked Zita for article recommendations; Zita honestly declined. The 'no catalogue access' refusal is fine, but the demand is a signal that cross-piece navigation is missing from the reader surface."
-- "Readers who engaged past 3 turns consistently opened with vague remarks ('that's interesting', 'what do you think?') and Zita had to pull specifics out of them. Hook might be losing readers before the first concrete claim lands."
+Good Zita-side learnings (all forward-looking, all prescriptive):
+- "Land first-mention framings harder when teaching mechanism-vs-flaw distinctions — readers repeatedly inverted 'chokepoints' from 'a bug that looks like a feature' into just 'feature'."
+- "When teaching tariffs, include a beat on whether refunds reach consumers — every Zita conversation on the tariff piece eventually asked it."
+- "Cross-piece navigation belongs on the reader surface — readers asked Zita for article recommendations; the catalogue refusal is honest but the demand is a signal."
+- "Hooks need a concrete claim within the first two sentences — readers who engaged past 3 turns consistently opened vague, suggesting the hook didn't anchor."
 
 Rules:
 - Return between 0 and 10 learnings. Zero is fine if nothing was notable.
 - Pattern signal only, not per-conversation summary. A one-off is not a pattern; recurrence or a striking single exchange is.
 - No hedging. No "might", "could", "perhaps".
-- Each learning is one sentence, optionally followed by a prescriptive sentence.
+- Each learning is one prescriptive sentence about what future pieces should do, optionally followed by a short evidence clause naming the recurrence.
 - Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. "engagement" is the right default for reader-comprehension signals.
+
+Self-check before returning: read each observation as if a reader had just finished the piece. Would they hear a critique of what they read, or a pattern for what comes next? Rewrite anything that sounds like the former.
 
 Return JSON (strict, no prose outside the object):
 {
@@ -79,7 +87,7 @@ Return JSON (strict, no prose outside the object):
 
 export const LEARNER_ANALYSE_PROMPT = `You analyse reader engagement data to extract learnings for future writing.
 
-Published pieces are permanent. Your job is to identify PATTERNS — what works, what doesn't — so future pieces are better.
+Published pieces are permanent. Your job is to identify PATTERNS — what works, what doesn't — so future pieces are better. Frame each learning as forward-looking guidance for future pieces; the drawer surfaces these to readers and they should read as patterns for tomorrow, not as a verdict on what they just finished.
 
 Given engagement data for an underperforming piece, extract 2-4 specific, actionable learnings.
 

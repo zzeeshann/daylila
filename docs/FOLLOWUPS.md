@@ -13,6 +13,34 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-08: Drawer narrative arc — confirm forward-looking framing reads cleanly across 5+ fresh pieces
+
+- **Surfaced:** 2026-05-08 alongside the drawer narrative-arc landing (DECISIONS entry "Drawer narrative arc clarified — Final state block + forward-looking reframe"). The Drafter reflection prompt and all three Learner prompts were rewritten to instruct forward-looking framing. The self-check at the bottom of each prompt asks the model "would a reader hear a critique of what they read, or a pattern for what comes next?" — the right behaviour is the latter, every time.
+- **Hypothesis:** None — observation. The fix is the right shape, but Sonnet 4.5 occasionally drifts back into past-tense critique style on edge cases (unusual subject domains, single notable failure modes). The drawer-side intro paragraph carries the framing even if one bullet drifts, but the goal is bullets that are forward-looking on their own without leaning on the wrapper.
+- **Investigation hints:** read each fresh day's `learnings` rows (`SELECT observation, source FROM learnings WHERE piece_date = '<YYYY-MM-DD>' ORDER BY created_at`). Mark each row as "forward" / "past-tense" / "ambiguous". If >1 in 5 reads as past-tense critique on a given day, tighten the prompt examples or add another self-check pass. Do NOT add code-side validation (per the 2026-05-07 Categoriser-fragmentation lesson; rules live in contracts, not in regex).
+- **Unblock:** ≥5 fresh published pieces with the new prompts live (~5 days at 1 piece/day cadence). Re-read 5 drawers top-to-bottom, ask a non-technical person if any reads like a verdict on the article. If yes, surface as a follow-up tightening pass.
+- **Priority:** Low — the drawer-side intro paragraph and Final-state block prevent the reader-misread-as-verdict failure mode even if individual bullets drift; this entry is about polishing the forward-looking phrasing quality.
+
+---
+
+## [deferred] 2026-05-08: Voice contract clause — forward-looking framing for reflective notes
+
+- **Surfaced:** 2026-05-08 during the drawer narrative-arc work. Sub-task 6 of `docs/foundation-fix/POST-FOUNDATION-DRAWER-NARRATIVE-ARC.md` flags optionally adding a clause to `content/voice-contract.md` that codifies the forward-looking framing for reflective notes. Brief calls it "discretionary" — skipped from the main commit because not blessed for this scope, and the fix lives correctly in the agent prompts + drawer copy (canonical sources for that surface).
+- **Hypothesis:** None — discretionary scope question. Adding the clause would lock the new posture so future prompt or copy rewrites can't drift away from it. Risk of skipping: the next prompt rewrite (e.g., a future Foundation-Fix pass on Drafter or Learner) might not know the forward-looking framing was deliberate and could revert it.
+- **Investigation hints:** the clause would land in `content/voice-contract.md` near the existing rules ("Plain English", "No tribe words", etc.) — one sentence, voice-contract-compliant: e.g. *"Reflective and post-publish notes are framed as forward-looking patterns for future pieces, not past-tense critiques of what shipped."* Codegen rebuild required (`pnpm codegen` + `pnpm verify-contracts-fresh`) — the contract is injected into VoiceAuditor, FactChecker via `${VOICE_CONTRACT}`, so the clause would propagate automatically. Verify there's no unintended audit-side effect (e.g., VoiceAuditor scoring reflective notes against the rule when they're not body content).
+- **Priority:** Low — the agent prompts already carry the forward-looking instruction; the clause is policy-codification, not a behaviour change.
+
+---
+
+## [deferred] 2026-05-08: Book transparency chapter — possible new chapter at programme close
+
+- **Surfaced:** 2026-05-08 during drawer narrative-arc work. The brief named "book/12-transparency.md per docs/foundation-fix/BOOK-UPDATES.md" but no such chapter exists — `book/12-publishing.md` is outline-only and about MDX/Astro mechanics, and BOOK-UPDATES.md doesn't list a transparency chapter. The drawer narrative-arc paragraph landed in chapter 11 (quality gates) as the closest existing transparency anchor.
+- **Hypothesis:** None — book scope decision. Either (a) the brief's mention was speculative and chapter 11 is sufficient, or (b) transparency genuinely deserves its own chapter at programme close. Per BOOK-UPDATES.md's "after the programme" guidance ("Two new chapters at close: When the System Outgrew Its Map, What Comes Next"), a third candidate could be a transparency chapter — the made-drawer + admin transparency surfaces have grown enough across Foundation Fix to warrant standalone treatment.
+- **Investigation hints:** read `docs/foundation-fix/BOOK-UPDATES.md` "After the programme" section + the existing [open] 2026-04-26 entry below ("Book is missing three post-launch chapters"). If a transparency chapter is added, BOOK-UPDATES.md should be updated first to register the chapter and what it covers (the made-drawer narrative arc, the admin per-piece deep-dive, the dashboard removal, the foundation-fix data-leak closures that feed the drawer, the contract-as-truth principle that landed in SESSION_OPENER).
+- **Priority:** Low — chapter 11's appended paragraph carries the new arc; this is a structural-completeness question for the book at programme close, not a near-term gap.
+
+---
+
 ## [resolved] 2026-05-07: `design/favicon-source-1024.png` shows old Zeemish "Z" — needs replacement with 1024×1024 Day Lila master
 
 - **Surfaced:** 2026-05-07 brand-icon swap. The redesigned PNG set (apple-touch-icon, icon-192, icon-512) plus the new favicon.svg landed cleanly, but the delivery zip didn't include a 1024×1024 source master. The old Zeemish Z-mark file at `design/favicon-source-1024.png` is now stale — it shows the previous brand. Not deleted (per `feedback_non_destructive.md`; git preserves history but the live file is misleading to anyone opening it expecting the current brand).

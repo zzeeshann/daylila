@@ -491,6 +491,54 @@ made-drawer[data-open] .made-panel {
   margin: 0.25rem 0 0;
 }
 
+/* --- Final state block --------------------------------------------- */
+/* Mirrors the .made-rules pattern (lighter background, rounded card)
+ * so it reads as a summary destination, not another audit-detail row.
+ * Sits between "What the auditors said" and "Rules applied". */
+
+.made-final-state {
+  background: rgba(232, 228, 222, 0.35);
+  border-radius: 0.75rem;
+  padding: 1rem 1.125rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.made-final-state-headline {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: #1A1A1A;
+}
+
+.made-final-state-headline strong {
+  color: #1A6B62;
+}
+
+.made-final-state-meta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #1A1A1A;
+}
+
+.made-final-state-foot {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #6B6B6B;
+}
+
+/* --- Section break before learning-forward content ----------------- */
+/* Visually separates making-history (timeline, audits, final state,
+ * rules, scanner, audio, categories, interactives, commit) from the
+ * learning-forward section that follows. No header text — the visual
+ * gap plus the rewritten section header carry the framing. */
+
+.made-section-break {
+  height: 0;
+  border-top: 1px solid #E8E4DE;
+  margin: 2rem 0 1rem;
+}
+
 /* --- Rules card ----------------------------------------------------- */
 
 .made-rules {

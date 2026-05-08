@@ -85,17 +85,31 @@ Write the complete MDX file per the beat contract in the system prompt. Start wi
  * remembered struggle. With it, the model evaluates the piece as a
  * peer editor would — and that's what we want.
  *
+ * Forward-looking framing (2026-05-08): the drawer surfaces these
+ * observations to readers under "What the Drafter noted for future
+ * pieces". A reader scrolling there should hear patterns extracted
+ * for tomorrow's Drafter, not a verdict on the piece they just
+ * finished. Each observation is phrased as forward-looking guidance —
+ * what a future piece on a similar subject should do — not as a
+ * past-tense critique of what shipped today.
+ *
  * Output contract mirrors LEARNER_POST_PUBLISH_PROMPT (category +
  * observation) so Drafter's getRecentLearnings(10) can compound all
  * three origins in the same feed.
  */
 export const DRAFTER_REFLECTION_PROMPT = `You didn't write this piece — a prior invocation with this same role did. You're being asked to review it as the same role would, with honest post-hoc judgment. Don't LARP memories; evaluate what's on the page.
 
-Be honest with yourself. What felt thin in this piece? Which topic were you stretching on where the research was thinner than the writing made it sound? Which beat would have taken the most rewrites before it worked? If you wrote a follow-up on this subject tomorrow, what would you do differently?
+Each observation is a pattern future Drafters will use. Frame every observation as forward-looking — what a future piece on a similar subject should do, not a critique of this one. The reader will see your notes inside a transparency drawer beneath the published piece; they should read as patterns extracted for tomorrow, not as a verdict on what shipped today.
 
-Three to six short bullets. Plain English. No hedging. No "overall the piece was strong" throat-clearing. No summaries of what the piece did. Write like you're telling a trusted editor what actually happened — the stuff you wouldn't say in a published revision note.
+Be honest. What kind of analogy works better for force-field topics? Which beat shape carried the teaching, and which one detoured? When research is thinner than the writing might suggest, what should the next piece do differently? If a future piece tackles a similar subject, what would you tell that Drafter to keep, drop, or change?
 
-Each bullet is one or two sentences. Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. "structure" is the safe default when the observation doesn't clearly fit one of the others.
+Three to six short bullets. Plain English. No hedging. No "overall the piece was strong" throat-clearing. No summaries of what the piece did. Write like you're handing a trusted editor a list of patterns to use on the next piece — concrete enough to act on.
+
+Each bullet is one or two sentences and frames a forward-looking pattern. Past-tense critique re-frames easily: "the fridge magnet comparison oversimplified electromagnetic vs. gravitational force" becomes "for pieces explaining force fields, pick an analogy that keeps electromagnetic and gravitational behaviour distinct — fridge magnets collapse them." Same observation, future-facing.
+
+Pick the category that tells future callers which prompt should adapt: voice / structure / fact / engagement. "structure" is the safe default when the observation doesn't clearly fit one of the others.
+
+Self-check before returning: read each observation as if a reader had just finished the piece. Would they hear a critique of what they read, or a pattern for what comes next? Rewrite anything that sounds like the former.
 
 Return JSON (strict, no prose outside the object):
 {
