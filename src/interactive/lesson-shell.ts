@@ -2,15 +2,18 @@
  * <lesson-shell> — the lesson page step coordinator.
  *
  * Builds a step list from `<lesson-beat>` elements and
- * `[data-lesson-step]` regions in DOM order. Owns `currentStep`.
- * Listens for `audio-player:requeststep` (clip-end auto-advance,
- * prev/next button) and `lesson-progress:goto` (dot tap). On each
- * step change, dispatches `lesson-shell:stepchange` for
- * `<audio-player>` and `<lesson-progress>` to follow. Hides
- * non-current beats and step regions via the CSS rule in
- * `src/styles/lesson-pagination.css`, which keys off
- * `:root[data-lesson-hydrated="true"]` so no-JS readers always see
- * the long-scroll fallback.
+ * `[data-lesson-step]` regions in DOM order. Step kinds are
+ * `'beat' | 'interactive' | 'quiz'`. Owns `currentStep`. Listens for
+ * `audio-player:requeststep` (clip-end auto-advance, prev/next button)
+ * and `lesson-progress:goto` (dot tap). On each step change,
+ * dispatches `lesson-shell:stepchange` for `<audio-player>` and
+ * `<lesson-progress>` to follow. Hides non-current beats and step
+ * regions via the CSS rule in `src/styles/lesson-pagination.css`,
+ * which keys off `:root[data-lesson-hydrated="true"]` so no-JS readers
+ * always see the long-scroll fallback. Sets a second flag
+ * `:root[data-lesson-on-last-step="true"]` whenever the active step is
+ * the final entry in `this.steps`; the lesson-pagination CSS rule for
+ * the finish footer keys off the absence of that attribute.
  *
  * History: pre-Area-5, this component owned a different beat-by-beat
  * pagination state machine (Previous / Next / Finish UI in shadow DOM,
@@ -20,17 +23,30 @@
  * state, audio-player follows lesson-shell rather than the inverse.
  * C7 (2026-05-08) collapsed the dual-mode dance from C1–C6 into the
  * single paginated mode below; the legacy IntersectionObserver path
- * is gone, the admin flag is gone, paginated is the only mode.
+ * is gone, the admin flag is gone, paginated is the only mode. C8b
+ * (2026-05-08) dropped the `'finish'` step kind — the finish footer
+ * is no longer a paginated step, instead it renders below the last
+ * content step via the new on-last-step CSS gate above. Complete-dwell
+ * trigger shifted from `kind === 'finish'` to "last step in this.steps"
+ * with the same reader-facing semantic.
  */
 
-type StepKind = 'beat' | 'interactive' | 'quiz' | 'finish';
+type StepKind = 'beat' | 'interactive' | 'quiz';
 
-/** ms a reader must remain on the last step (finish) before `complete`
- *  fires. Calibrated to filter misclicks on the last progress dot
- *  (~1s reflexive back-tap budget) without slowing down intentional
- *  readers (a deliberate landing on the finish step lets the eye
- *  register the Read another / Browse library links in 2-3s). See
- *  DECISIONS 2026-05-08 "C5: engagement semantics under pagination". */
+/** ms a reader must remain on the LAST step in the step list before
+ *  `complete` fires. Calibrated to filter misclicks on the last
+ *  progress dot (~1s reflexive back-tap budget) without slowing down
+ *  intentional readers (a deliberate landing on the last step lets the
+ *  eye register the finish-footer's Read another / Browse library
+ *  links in 2-3s). The trigger shifted from `kind === 'finish'` to
+ *  "current step is the last in this.steps" with C8b (2026-05-08); the
+ *  reader-facing semantic is preserved — for a piece with quiz, the
+ *  last step is the quiz step + the finish footer renders directly
+ *  below it; for a piece with interactive but no quiz, the interactive
+ *  step; for a piece with neither, the close beat. See DECISIONS
+ *  2026-05-08 "C5: engagement semantics under pagination" for the
+ *  original 2.5s justification + "C8b: drop finish step" for the
+ *  trigger shift. */
 const COMPLETE_DWELL_MS = 2500;
 
 interface Step {
@@ -104,6 +120,7 @@ class LessonShell extends HTMLElement {
     if (this.active) {
       delete document.documentElement.dataset.lessonHydrated;
       delete document.documentElement.dataset.lessonCurrentStep;
+      delete document.documentElement.dataset.lessonOnLastStep;
     }
     if (this.completeDwellTimer) {
       clearTimeout(this.completeDwellTimer);
@@ -188,12 +205,17 @@ class LessonShell extends HTMLElement {
       }
     }
     // Then [data-lesson-step] regions in DOM order (siblings of the
-    // article that wraps lesson-shell + beats).
+    // article that wraps lesson-shell + beats). After C8b (2026-05-08)
+    // the finish footer no longer carries data-lesson-step="finish";
+    // only `interactive` and `quiz` are valid step-region kinds. The
+    // `finish` validator branch is retained as a defensive no-op so a
+    // mistakenly-stamped footer is silently skipped rather than blowing
+    // up the type union.
     const stepEls = Array.from(document.querySelectorAll('[data-lesson-step]')) as HTMLElement[];
     for (const el of stepEls) {
       const id = el.dataset.lessonStep;
       if (!id) continue;
-      const kind = (id === 'interactive' || id === 'quiz' || id === 'finish') ? id : null;
+      const kind = (id === 'interactive' || id === 'quiz') ? id : null;
       if (!kind) continue;
       this.steps.push({ id, kind, element: el });
     }
@@ -225,6 +247,19 @@ class LessonShell extends HTMLElement {
     step.element.setAttribute('data-current', '');
     document.documentElement.dataset.lessonCurrentStep = stepId;
 
+    // Mark the document root when the active step is the last in the
+    // list. The lesson-pagination CSS rule keys the finish-footer hide
+    // off the absence of this attribute, so the footer renders only
+    // while the reader is on the last step. Without JS, neither the
+    // hydrated guard nor this attribute is ever set → the rule never
+    // matches → the footer renders at the bottom of the article in
+    // continuous-prose fallback mode. C8b (2026-05-08).
+    if (this.isLastStep(step)) {
+      document.documentElement.dataset.lessonOnLastStep = 'true';
+    } else {
+      delete document.documentElement.dataset.lessonOnLastStep;
+    }
+
     if (opts.scroll) {
       step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -251,18 +286,24 @@ class LessonShell extends HTMLElement {
    *     the reader's actual position.
    *   - **interactive** → `/api/interactive/track` event=
    *     `interactive_offered`. Deduped per session per slug.
-   *   - **finish** → start a 2.5s setTimeout. If the reader stays on
-   *     the finish step that long, fire `complete`. If they leave
-   *     first, the timer is cleared. Deduped per session per piece.
-   *     The dwell gate guards against a misclick on the last dot
-   *     wrongly marking the piece complete.
-   *   - **quiz** → no event today. `interactive_offered` already
-   *     fired when the reader entered the interactive step (or, on
-   *     quiz-only pieces, when they entered the quiz step which
-   *     carries `data-lesson-interactive`). Dedup via the slug key.
+   *   - **quiz** → reuses the interactive_offered firing path when the
+   *     section carries `data-interactive-slug`. fireInteractiveOffered
+   *     dedups so multiple reads of the same slug across the two step
+   *     kinds don't double-count.
+   *   - **last step in list** → start a 2.5s setTimeout. If the reader
+   *     stays on the last step that long, fire `complete`. If they
+   *     leave first, the timer is cleared. Deduped per session per
+   *     piece. The dwell gate guards against a misclick on the last
+   *     dot wrongly marking the piece complete. C8b (2026-05-08)
+   *     shifted this from `kind === 'finish'` to "last step in list"
+   *     because the finish step no longer exists — for a piece with
+   *     quiz the last step is the quiz; for a piece with interactive
+   *     but no quiz, the interactive; for a piece with neither, the
+   *     close beat. Reader-facing meaning preserved (the finish footer
+   *     renders directly below the last step on every shape).
    */
   private fireStepEngagement(step: Step) {
-    // Always clear any pending finish-dwell timer when leaving any
+    // Always clear any pending complete-dwell timer when leaving any
     // step. Per Plan-agent review: a misclick + immediate back-tap
     // before 2.5s elapses MUST NOT fire complete.
     if (this.completeDwellTimer) {
@@ -272,10 +313,7 @@ class LessonShell extends HTMLElement {
 
     if (step.kind === 'beat') {
       this.trackRead('beat', step.id);
-      return;
-    }
-
-    if (step.kind === 'interactive' || step.kind === 'quiz') {
+    } else if (step.kind === 'interactive' || step.kind === 'quiz') {
       // Reuse the same data-interactive-slug attribute the IO observer
       // would have used. Both interactive + quiz sections may carry
       // it — the section that does (the primary surface for that
@@ -284,17 +322,27 @@ class LessonShell extends HTMLElement {
       // step kinds don't double-count.
       const slug = step.element.dataset.interactiveSlug;
       if (slug) this.fireInteractiveOffered(slug);
-      return;
     }
 
-    if (step.kind === 'finish') {
+    // Last-step dwell gate. Independent of the kind-specific firing
+    // above — a beat can be both a `beat` event and the "last step"
+    // dwell trigger when a piece has no companion (just close beat as
+    // the final step).
+    if (this.isLastStep(step)) {
       const info = this.lessonInfo;
       this.completeDwellTimer = setTimeout(() => {
         this.completeDwellTimer = null;
         this.fireComplete(info);
       }, COMPLETE_DWELL_MS);
-      return;
     }
+  }
+
+  /** Whether the given step is the final entry in this.steps. The
+   *  trigger for both the `:root[data-lesson-on-last-step]` finish-
+   *  footer flag and the 2.5s complete-dwell timer. */
+  private isLastStep(step: Step): boolean {
+    if (this.steps.length === 0) return false;
+    return this.steps[this.steps.length - 1].id === step.id;
   }
 
   private dispatchStepChange(step: Step) {

@@ -2,24 +2,44 @@
  * Beat-by-beat pagination — standalone (not Tailwind-processed) so the
  * custom-element + data-attribute selectors are never purged.
  *
- * Single mode (since C7, 2026-05-08). Gated on two :root data
- * attributes — both JS-set, so no-JS readers never trigger the hide-
- * rule and the page renders as continuous prose fallback:
+ * Single mode (since C7, 2026-05-08). Gated on three :root data
+ * attributes — all JS-set, so no-JS readers never trigger the hide-
+ * rules and the page renders as continuous prose fallback:
  *
  *   :root[data-lesson-hydrated="true"]       ← set by <lesson-shell>'s
  *                                               connectedCallback after
  *                                               the step list builds.
  *                                               THE no-JS guard. Without
- *                                               JS, never set, hide-rule
- *                                               never matches.
+ *                                               JS, never set, hide-rules
+ *                                               never match.
  *   :root[data-lesson-current-step="<id>"]   ← updated on every
  *                                               stepchange. Informational
  *                                               (per-element data-current
  *                                               drives the hide-rule).
+ *   :root[data-lesson-on-last-step="true"]   ← set when the active step
+ *                                               is the final entry in
+ *                                               <lesson-shell>'s step
+ *                                               list. Drives the
+ *                                               finish-footer hide-rule
+ *                                               below — footer is hidden
+ *                                               unless this attribute is
+ *                                               present. Added in C8b
+ *                                               (2026-05-08).
  *
- * Hide-rule: any <lesson-beat> or [data-lesson-step] without a
+ * Hide-rule (steps): any <lesson-beat> or [data-lesson-step] without a
  * `data-current` attribute is `display: none`. Lesson-shell sets
  * `data-current` on whichever element is the active step at any time.
+ *
+ * Hide-rule (finish footer): the [data-lesson-finish] footer is
+ * hidden whenever the page is hydrated AND the active step is NOT the
+ * last in the step list. Without JS, the hydrated attribute never
+ * appears → the rule never matches → the footer renders at the bottom
+ * of the article in continuous-prose fallback mode (alongside every
+ * <lesson-beat> + [data-lesson-step] region, which are also visible
+ * because their hide-rule is gated on the same hydrated attribute).
+ * The footer is no longer paginated as its own step (C8b dropped
+ * `data-lesson-step="finish"` from LessonLayout); it renders directly
+ * below whichever step is last on the JS-paginated path.
  *
  * Step regions are SIBLINGS of the article that wraps lesson-shell, so
  * a descendant CSS selector won't reach them. The :root-level guard
@@ -33,6 +53,10 @@
 }
 
 :root[data-lesson-hydrated="true"] [data-lesson-step]:not([data-current]) {
+  display: none;
+}
+
+:root[data-lesson-hydrated="true"]:not([data-lesson-on-last-step="true"]) [data-lesson-finish] {
   display: none;
 }
 
