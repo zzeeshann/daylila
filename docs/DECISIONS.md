@@ -2,6 +2,64 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (night): Paginated UX polish — iframe re-ping + scroll-to-dots + dot row distinction
+
+**Context.** Three small UX issues surfaced after the meta-line PR landed. Each is a different mechanism; bundled in one commit because all three are paginated-reading polish.
+
+### Issue 1 — Interactive iframe sometimes renders at the wrong height
+
+**Cause.** The interactive section is `display: none` while the reader is on a beat step (CSS hide-rule, paginated mode). The iframe inside is `loading="lazy"` so it doesn't load until the parent becomes visible. When the user navigates to the interactive step, the iframe finally loads and the `RESIZE_PROBE` script inside arms — sending heights at [now, on-load, +50ms, +200ms, +500ms, +1200ms]. But this replay schedule often fires BEFORE the iframe body has settled: web fonts loading, slider widgets initialising, async chart layout, etc. Result: parent receives a too-short height, sets `iframe.style.height` accordingly, and only when the user touches/scrolls does the body's `ResizeObserver` re-fire with the correct height. Visually: a sliver of the slider track is cut off at the bottom until the user interacts.
+
+**Fix.** [src/interactive/interactive-frame.ts](../src/interactive/interactive-frame.ts) gains a `lesson-shell:stepchange` listener. When the new step's `stepId` matches the `data-lesson-step` attribute of the section this iframe lives in (resolved via `this.closest('[data-lesson-step]')`), it re-pings the iframe twice: once inside `requestAnimationFrame` (after the display-flip has reflowed) and once at +600ms (catches post-flip web-font / slider-init reflows). The probe inside the iframe responds with the current settled height via the existing `{zeemishFrame:'resize'}` channel; parent updates `iframe.style.height` correctly. Pure parent-side change — no iframe-content modification, no probe-script change.
+
+Extracted the existing `ping()` arrow function into a private `pingFrame()` method so the new step-change listener and the existing on-load / 250ms / 1000ms timers all use the same path.
+
+**Verified.** Pre-fix on `2026-05-07/your-heart-rate` interactive: `iframe.style.height = "238px"` (stale, set by some intermediate event while parent was hidden). Navigate to interactive: post-fix the height jumped to `691px` within 100ms and stayed there (sampled at 100/300/700/1500ms, identical). On `2026-05-03/locked-in-stone` interactive: similar — jumped to `828px` within 100ms.
+
+### Issue 2 — Page scrolls past the dot row on every step change
+
+**Cause.** `lesson-shell.applyCurrent` called `step.element.scrollIntoView({ behavior: 'smooth', block: 'start' })`. That puts the new step's heading at viewport top, scrolling the dot row, source/save links, and audio player off-screen above. Reader loses their position indicator immediately after using it.
+
+**Fix.** [src/interactive/lesson-shell.ts:228-244](../src/interactive/lesson-shell.ts:228) — scroll to the `<lesson-progress>` row instead of the step element. Anchoring on the dot row keeps:
+- Dots at viewport top (knows where they are in the piece)
+- Audio chrome just below (when on a beat with audio)
+- New step body below that
+
+All in one viewport on desktop AND mobile (393px) for typical piece shapes. Falls back to `step.element.scrollIntoView` if the dot row isn't reachable (defensive — structurally shouldn't happen).
+
+The scroll fires on dot tap, audio prev/next, swipe, and clip-end auto-advance — all call `goToStep` → `applyCurrent({ scroll: true })`. Initial mount stays at `scroll: false` (the URL-hash deep-link case is handled separately by `lesson-shell` stripping the hash via `history.replaceState` so the browser doesn't anchor-scroll either way).
+
+**Verified.** Tap dot 4 on heart-rate piece while scrolled to y=1500 → page settles with dot row top at viewport y=-0.5 (effectively 0), audio player at y=59.5, current beat content at y=186. Dot row visible in one viewport pass; reader knows their position.
+
+### Issue 3 — No visual signal that the audio rail ends and interactive/quiz follow
+
+**Cause.** All 8 dots rendered identically. No structural cue that the last beat dot is the end of audio and the next two dots are a different mode.
+
+**Fix.** Three CSS moves at [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css):
+
+1. **Centred the row.** `justify-content: center` on `.lesson-progress-bar` (was left-aligned via flex-start default). Centring reads as "this is a group of related elements" rather than "list of items". Easier to scan.
+2. **Group separator** via the sibling selector `.lesson-progress-dot[data-step-kind="beat"] + .lesson-progress-dot:not([data-step-kind="beat"])` — adds 0.75rem extra `margin-left` on the FIRST dot of a different kind that follows a beat. Triggers only on the audio-rail boundary; a no-companion piece (beats only) gets no gap, and an interactive→quiz adjacency gets no extra gap (both "doing" mode). The `data-step-kind` attribute already exists on every dot (set by [lesson-progress.ts:92](../src/interactive/lesson-progress.ts:92)); the rule is one selector away.
+3. **Shape distinction.** Non-beat dots' `::before` pill flips `border-radius: 999px` → `2px` (rounded square). Active state stays `999px` for beats, `3px` for non-beats — silhouette signal preserved on the active dot. Same teal colour rhythm.
+
+Quiet design move: silhouette + gap together communicate "different category boundary" without needing copy or icons. Considered but rejected: gold tint on non-beat dots (would conflict with the existing gold-for-eyebrows-and-subject-pills rule from CLAUDE.md). Considered but rejected: vertical-line separator in the markup (more DOM, noisier visual).
+
+**Verified.** Heart-rate piece (6 beats + interactive + quiz): 8 dots, first 6 are circles (`border-radius: 999px`), last 2 are rounded squares (`border-radius: 2px`); the 7th dot has `margin-left: 12px` (= 0.75rem extra), the 8th has `0px`. Layout `justify-content: center`. Hormuz no-companion piece (6 beats only): 6 circle dots, no gaps. Locked-in-stone interactive-only piece: 5 circle dots + 1 rounded-square dot with 12px gap.
+
+### Decisions
+
+1. **One commit, three fixes.** All three are UX polish on the paginated reading experience that emerged from real-world testing post-deploy. Splitting into three separate PRs would multiply review/deploy cycles for adjacent fixes that share verification. Reviewers can read the commit message and verify each via the per-issue verification notes.
+2. **No iframe-content change for issue 1.** Considered modifying the `RESIZE_PROBE` script to extend its replay schedule (e.g., add 2000ms / 4000ms / 8000ms timers). Rejected: it would only blunt the symptom (slower-but-eventually-correct). The parent-side step-change re-ping is exact — fires precisely when the parent has just become visible, after the layout reflow has happened. Solves the underlying race.
+3. **No vertical-line separator between dot groups.** Considered adding a thin 1px vertical bar between the last beat dot and the first non-beat dot. Rejected: gap + shape distinction together do the same job with less DOM and less visual noise.
+4. **Scroll-to-dots, not scroll-to-top-of-article.** Considered scrolling to `lesson-shell` (article wrapper) instead — that would put the title at viewport top. Rejected: the title isn't part of the navigation rhythm; the dot row is. Scrolling to the dot row keeps the user oriented in their step progression. The title is one scroll-up away if they want it.
+
+### Rollback
+
+`git revert <sha>` restores today's flexible-but-stale-iframe state, dot row scrolling out of view on step change, and uniform-circle dots. Known pre-change behaviours.
+
+### References
+
+[src/interactive/lesson-shell.ts:228-244](../src/interactive/lesson-shell.ts:228), [src/interactive/interactive-frame.ts](../src/interactive/interactive-frame.ts), [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css).
+
 ## 2026-05-08 (late evening): Daily-piece metadata block — two-row layout (read-time · subtitle / How this was made · Source · Save)
 
 **Context.** Operator surfaced three screenshots of the same metadata-line area on different daily pieces rendering inconsistently — same DOM shape, different visible breaks. Investigation: the pre-existing template at [LessonLayout.astro:135-171](../src/layouts/LessonLayout.astro:135) was a single `<p class="flex flex-wrap items-center gap-x-2 gap-y-1">` containing `time · subject · source · save`, with `<MadeBy>` as a separate block-level component below. Variance was pure flex-wrap behaviour over content of varying width — long-subject pieces had `time` orphaned on line 1, subject on line 2, source+save on line 3; short-subject pieces fit on one line. "How this was made" was always on its own line because `<made-drawer>` is `display: block`.
