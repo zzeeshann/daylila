@@ -2,6 +2,43 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C5: engagement semantics under pagination
+
+**Context.** Fifth of six commits. C3 left engagement firing broken in paginated mode — the IntersectionObservers it wired in scroll mode never fire for `display: none` elements, so a paginated reader would have no `beat`, `interactive_offered`, or `complete` events recorded against their reading. C5 wires deterministic step-change firing so the engagement contract is preserved across both modes.
+
+**Decisions.**
+
+1. **Step-change events replace IO observers in paginated mode, not augment them.** Lesson-shell's `setupPaginated()` already skips the three IO observers (`observeFinish`, `observeBeats`, `observeInteractive`). C5 fills the gap by firing engagement events from `applyCurrent` whenever the active step changes. One source per mode — no double-counting, no two paths racing.
+2. **`beat` event re-fires on every step-into a beat (NOT deduped per session).** Operator-confirmed in plan review (Q5). Scroll-mode dedups via the `observedBeats` Set because IO doesn't re-fire when the reader scrolls UP past a beat that already crossed the 50% threshold; that dedup makes sense there. Paginated mode inverts the navigation model: the reader can deliberately tap back to Beat 2 from Beat 5, and Resume should reflect their *actual* current position. The `/api/reads/track` endpoint UPSERTs `current_beat = ?`, so D1 always holds the latest tap. Future analytics queries that count beat-events per session will see different shapes pre-flip vs post-flip — documented here so the discontinuity isn't surprising.
+3. **`interactive_offered` event fires once per session per slug (deduped — same as scroll mode).** The same sessionStorage key (`daylila-interactive-offered:<slug>`) is used by both modes, so a session that switches modes mid-read (rare but possible during operator testing) doesn't double-count. Fires on step-into the interactive step OR the quiz step — both sections may carry `data-interactive-slug` (only one carries `data-lesson-interactive`, but the slug attribute is on both for the chrome to work). Dedup via the slug key means the second slug-match step is a no-op.
+4. **`complete` event fires after a 2.5s dwell on the last step (paginated mode).** Per plan review's Q3 + operator-approved 2.5s justification. Tap-on-last-dot starts a setTimeout; any subsequent step-change clears it. If the reader stays for 2.5s, three calls fire (matching scroll-mode's behaviour): `/api/engagement/track` event_type=complete + `/api/reads/track` event=complete + `/api/progress/complete`. Same sessionStorage dedup key (`zeemish-completed:<piece-id>`) so a session that switches modes or refreshes mid-piece doesn't double-fire.
+5. **2.5s number — justification (verbatim from plan review).** Accidental tap latency is ~100-300ms; a misclick + reflexive back-tap rarely exceeds 1s; reading the first sentence of the finish-state to register "yes, I'm here" takes 2-3s. 2.5s sits in the band where a deliberate reader has time to land but a misclick can't trigger.
+6. **Cutover marker for analytics queries.** Future analytics queries that compare engagement counts before/after the paginated rollout MUST split at the **flip date** (when the operator changes `admin_settings.reading_mode = 'paginated'` on prod) — NOT at the deploy date of this commit. The deploy date is when the new firing path becomes available; the flip date is when production traffic actually starts using it. The flip-date entry will be appended to DECISIONS as a separate operator-initiated note when it happens. Until then, this code sits dormant on prod (`reading_mode = 'scroll'` is the default).
+7. **Helpers extracted, not duplicated.** Three new helper methods on `<lesson-shell>` (`fireComplete`, `fireInteractiveOffered`, `completeDedupKey`) replace the inline event-firing logic that was in the IO observer callbacks. Both modes share the helpers — same dedup posture, same payloads, same endpoints. Reduces the chance of behaviour drifting between modes during future refactors.
+8. **The `quiz` step has no fresh engagement event.** `interactive_offered` already fires when the reader entered the interactive step (or, on quiz-only pieces, when they entered the quiz step which carries the `data-lesson-interactive` marker). Adding a separate `quiz_offered` event would change the engagement schema — out of scope for C5. Future expansion of engagement events lands in a separate decision.
+
+**Alternatives considered.**
+
+- **Keep IO observers running in paginated mode + skip the dedup check.** Rejected — IO doesn't fire for `display: none` elements at all. The skipped-dedup rewrite wouldn't help because no events would arrive in the first place.
+- **Fire `complete` immediately on step-into the finish step (no dwell).** Rejected per plan review Q3. The semantics shift from "reader actually reached the end" to "reader tapped the last dot", and a misclick on the last dot during dot-row scanning would wrongly mark the piece complete. The 2.5s dwell + cancel-on-leave preserves the original meaning.
+- **Re-fire `interactive_offered` on every step-into (parallel to the beat-event change).** Rejected — `interactive_offered` is a once-per-session signal in the engagement schema (the existing `interactive_engagement` table has unique-like semantics on `(session, slug, event_type)` lookups). Re-firing would either double-count in operator-side counts or require schema changes. Beat events have idempotent UPSERT semantics built in (`current_beat = ?`), so re-firing is genuinely additive.
+
+**Reason — why dedup-per-session for `complete` is preserved across modes.** `complete` is the strongest signal in the engagement set. Doubling it via mode-switch would inflate completion counts on operator dashboards. Keeping the same `zeemish-completed:<piece-id>` sessionStorage key means a session switching from scroll to paginated mid-page (e.g., during operator testing of the flip) doesn't double-fire. Real-world cost is zero — readers don't toggle the mode mid-read.
+
+**Verified.**
+
+End-to-end via cold preview. Cleared sessionStorage, navigated to `/daily/2026-05-07/.../?paginated=1`, tapped each dot in sequence (hook → ... → close → interactive → quiz → finish), waited 3s on finish:
+
+- 4 `beat` POSTs to `/api/reads/track` (one per step-into; hook was the initial state, not stepped-into).
+- 1 `interactive_offered` POST to `/api/interactive/track` (deduped at slug; quiz dot tap was a no-op).
+- After 2.5s dwell on finish: 1 engagement `complete` + 1 reads `complete` + 1 `/api/progress/complete` POST.
+
+Cancellation gate verified: tapped finish, waited 1s, tapped back to quiz (under 2.5s dwell). No `complete` events fired — `cancelled = true`. Misclick protection works.
+
+`npx tsc --noEmit` clean for `src/interactive/lesson-shell.ts`.
+
+**References.** [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts) (`fireStepEngagement` + `fireComplete` + `fireInteractiveOffered` + `completeDedupKey` + `applyCurrent` integration + `COMPLETE_DWELL_MS = 2500` constant). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C4: admin_settings.reading_mode + LessonLayout SSR read + admin toggle
 
 **Context.** Fourth of six commits. C4 wires the paginated mode to a server-controlled flag the operator can flip from the admin dashboard. C3 left the flag hardcoded to false; C4 reads the value from D1 at SSR time and stamps it into the page via the inline script that C3 already added.

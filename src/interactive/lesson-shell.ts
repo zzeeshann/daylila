@@ -35,6 +35,14 @@
 
 type StepKind = 'beat' | 'interactive' | 'quiz' | 'finish';
 
+/** ms a reader must remain on the last step (finish) before `complete`
+ *  fires in paginated mode. Calibrated to filter misclicks on the last
+ *  progress dot (~1s reflexive back-tap budget) without slowing down
+ *  intentional readers (a deliberate landing on the finish step lets
+ *  the eye register the Read another / Browse library links in 2-3s).
+ *  See DECISIONS 2026-05-08 "C5: engagement semantics under pagination". */
+const COMPLETE_DWELL_MS = 2500;
+
 interface Step {
   id: string;
   kind: StepKind;
@@ -55,6 +63,10 @@ class LessonShell extends HTMLElement {
   private requeststepHandler: EventListener | null = null;
   private gotoHandler: EventListener | null = null;
   private paginatedActive = false;
+  /** Pending complete-on-finish-dwell timer. Set when the reader
+   *  enters the last step (typically `finish`); cleared on any
+   *  step-change before the dwell elapses. */
+  private completeDwellTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Extract content info from URL: /daily/{date}/{slug}/.
@@ -134,6 +146,10 @@ class LessonShell extends HTMLElement {
       // lessonPaginated is server-stamped by LessonLayout — leave it
       // alone; the hide-rule gates on hydrated which we DO own.
     }
+    if (this.completeDwellTimer) {
+      clearTimeout(this.completeDwellTimer);
+      this.completeDwellTimer = null;
+    }
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -151,27 +167,13 @@ class LessonShell extends HTMLElement {
     if (!(sentinel instanceof Element)) return;
 
     const info = this.lessonInfo;
-    const dedupKey = info?.piece_id
-      ? `zeemish-completed:${info.piece_id}`
-      : info?.piece_date
-        ? `zeemish-completed-date:${info.piece_date}`
-        : null;
+    const dedupKey = this.completeDedupKey();
     if (!dedupKey || sessionStorage.getItem(dedupKey)) return;
 
     this.finishObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-          sessionStorage.setItem(dedupKey, '1');
-          this.trackEngagement('complete');
-          this.trackRead('complete');
-          if (info) {
-            fetch('/api/progress/complete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(info),
-              keepalive: true,
-            }).catch(() => {});
-          }
+          this.fireComplete(info ?? null);
           this.finishObserver?.disconnect();
           this.finishObserver = null;
           break;
@@ -179,6 +181,40 @@ class LessonShell extends HTMLElement {
       }
     }, { threshold: [0.6] });
     this.finishObserver.observe(sentinel);
+  }
+
+  /** Shared engagement-fire path for the `complete` event. Used by
+   *  scroll-mode's IO observer (60% finish-footer viewport) AND
+   *  paginated-mode's step-change-to-last-step + 2.5s dwell. Deduped
+   *  per session per piece via sessionStorage. */
+  private fireComplete(info: ReturnType<LessonShell['getLessonInfo']>) {
+    const lessonInfo = info ?? this.lessonInfo;
+    const dedupKey = this.completeDedupKey();
+    if (!dedupKey || sessionStorage.getItem(dedupKey)) return;
+    sessionStorage.setItem(dedupKey, '1');
+    this.trackEngagement('complete');
+    this.trackRead('complete');
+    if (lessonInfo) {
+      fetch('/api/progress/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(lessonInfo),
+        keepalive: true,
+      }).catch(() => {});
+    }
+  }
+
+  private completeDedupKey(): string | null {
+    const info = this.lessonInfo;
+    if (info?.piece_id) return `zeemish-completed:${info.piece_id}`;
+    if (info?.piece_date) return `zeemish-completed-date:${info.piece_date}`;
+    return null;
+  }
+
+  /** Public-by-shape getter so `fireComplete` can be reused; matches
+   *  the existing `lessonInfo` private getter shape. */
+  private getLessonInfo() {
+    return this.lessonInfo;
   }
 
   private observeBeats() {
@@ -209,23 +245,12 @@ class LessonShell extends HTMLElement {
 
     const slug = section.dataset.interactiveSlug;
     if (!slug) return;
-    const dedupKey = `daylila-interactive-offered:${slug}`;
-    if (sessionStorage.getItem(dedupKey)) return;
+    if (sessionStorage.getItem(`daylila-interactive-offered:${slug}`)) return;
 
     this.interactiveObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-          sessionStorage.setItem(dedupKey, '1');
-          fetch('/api/interactive/track', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              interactive_id: null,
-              interactive_slug: slug,
-              event_type: 'interactive_offered',
-            }),
-            keepalive: true,
-          }).catch(() => {});
+          this.fireInteractiveOffered(slug);
           this.interactiveObserver?.disconnect();
           this.interactiveObserver = null;
           break;
@@ -233,6 +258,27 @@ class LessonShell extends HTMLElement {
       }
     }, { threshold: [0.5] });
     this.interactiveObserver.observe(section);
+  }
+
+  /** Shared engagement-fire path for the `interactive_offered` event.
+   *  Deduped per session per slug via sessionStorage — same key as
+   *  scroll-mode's IO observer, so a session that switches between
+   *  modes (rare but possible during operator testing) doesn't
+   *  double-count. */
+  private fireInteractiveOffered(slug: string) {
+    const dedupKey = `daylila-interactive-offered:${slug}`;
+    if (sessionStorage.getItem(dedupKey)) return;
+    sessionStorage.setItem(dedupKey, '1');
+    fetch('/api/interactive/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        interactive_id: null,
+        interactive_slug: slug,
+        event_type: 'interactive_offered',
+      }),
+      keepalive: true,
+    }).catch(() => {});
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -353,8 +399,77 @@ class LessonShell extends HTMLElement {
       step.element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Engagement firing on step-change (paginated mode only). The
+    // CSS hide-rule means viewport IO never fires for non-current
+    // steps, so we replace the IO observers with deterministic
+    // step-into events. See DECISIONS 2026-05-08 "C5: engagement
+    // semantics under pagination" for the dedup behaviour.
+    if (this.paginatedActive) {
+      this.fireStepEngagement(step);
+    }
+
     if (opts.dispatchChange) {
       this.dispatchStepChange(step);
+    }
+  }
+
+  /**
+   * Fire the right engagement event(s) for the new active step.
+   *
+   *   - **beat** → `/api/reads/track` event=`beat`. Re-fires on every
+   *     step-into (NOT deduped per session). The reader can navigate
+   *     back to a beat by tapping a dot or pressing audio-prev; the
+   *     idempotent UPSERT on `current_beat` means D1 always reflects
+   *     the reader's actual position. Deliberate semantic difference
+   *     from scroll mode (which dedups via the observed-beats Set
+   *     because IO doesn't re-fire on scroll-up at the same threshold).
+   *   - **interactive** → `/api/interactive/track` event=
+   *     `interactive_offered`. Deduped per session per slug.
+   *   - **finish** → start a 2.5s setTimeout. If the reader stays on
+   *     the finish step that long, fire `complete`. If they leave
+   *     first, the timer is cleared. Deduped per session per piece.
+   *     The dwell gate guards against a misclick on the last dot
+   *     wrongly marking the piece complete.
+   *   - **quiz** → no event today. `interactive_offered` already
+   *     fired when the reader entered the interactive step (or, on
+   *     quiz-only pieces, when they entered the quiz step which
+   *     carries `data-lesson-interactive`). The IO observer in scroll
+   *     mode also fires once per slug, so dedup is consistent across
+   *     modes.
+   */
+  private fireStepEngagement(step: Step) {
+    // Always clear any pending finish-dwell timer when leaving any
+    // step. Per Plan-agent review: a misclick + immediate back-tap
+    // before 2.5s elapses MUST NOT fire complete.
+    if (this.completeDwellTimer) {
+      clearTimeout(this.completeDwellTimer);
+      this.completeDwellTimer = null;
+    }
+
+    if (step.kind === 'beat') {
+      this.trackRead('beat', step.id);
+      return;
+    }
+
+    if (step.kind === 'interactive' || step.kind === 'quiz') {
+      // Reuse the same data-interactive-slug attribute the IO observer
+      // would have used. Both interactive + quiz sections may carry
+      // it — the section that does (the primary surface for that
+      // piece) is the one we trigger from. fireInteractiveOffered
+      // dedups so multiple reads of the same slug across the two
+      // step kinds don't double-count.
+      const slug = step.element.dataset.interactiveSlug;
+      if (slug) this.fireInteractiveOffered(slug);
+      return;
+    }
+
+    if (step.kind === 'finish') {
+      const info = this.lessonInfo;
+      this.completeDwellTimer = setTimeout(() => {
+        this.completeDwellTimer = null;
+        this.fireComplete(info);
+      }, COMPLETE_DWELL_MS);
+      return;
     }
   }
 
