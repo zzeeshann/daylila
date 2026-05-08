@@ -203,7 +203,7 @@ class MadeDrawer extends HTMLElement {
 
     const html: string[] = [];
 
-    // --- Piece summary -------------------------------------------------
+    // --- Piece summary (always visible — orienting header, not a section) -
     if (env.piece) {
       const p = env.piece;
       const tier = p.tier ?? auditTier(p.voiceScore, p.qualityFlag);
@@ -220,44 +220,49 @@ class MadeDrawer extends HTMLElement {
       `);
     }
 
+    // Each named section below is a native <details> wrapped via
+    // renderSection(). All collapsed by default. The summary line carries
+    // the section title plus an at-a-glance hint derived from the envelope
+    // so a reader scanning collapsed labels still sees something useful.
+
     // --- Timeline ------------------------------------------------------
     if (env.timeline.length > 0) {
       const start = env.timeline[0].t;
-      // Each phase logs a 'running' row and a terminal row (done / failed /
-      // skipped). Collapse pairs into one row per phase. Prefer the terminal
-      // row for status, detail, and timestamp; fall back to the running row
-      // when the phase is still in progress.
       const collapsed = collapseTimeline(env.timeline);
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">Timeline</h3>
-          <ol class="made-timeline">
-            ${collapsed.map((s) => renderStep(s, start)).join('')}
-          </ol>
-        </section>
-      `);
+      const lastT = collapsed[collapsed.length - 1]?.t ?? start;
+      const dur = relativeTime(lastT - start).replace(/^\+/, '');
+      const phaseCount = collapsed.length;
+      const hint = `${phaseCount} phase${phaseCount === 1 ? '' : 's'}${dur && dur !== 'start' ? ` · ${dur}` : ''}`;
+      const body = `
+        <ol class="made-timeline">
+          ${collapsed.map((s) => renderStep(s, start)).join('')}
+        </ol>
+      `;
+      html.push(renderSection('Timeline', hint, body));
     }
 
     // --- Rounds --------------------------------------------------------
     if (env.rounds.length > 0) {
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">What the auditors said</h3>
-          ${env.rounds.map((r, i) => renderRound(r, i === env.rounds.length - 1)).join('')}
-        </section>
-      `);
+      const n = env.rounds.length;
+      const hint = `${n} round${n === 1 ? '' : 's'}`;
+      const body = env.rounds.map((r, i) => renderRound(r, i === n - 1)).join('');
+      html.push(renderSection('What the auditors said', hint, body));
     }
 
     // --- Final state ---------------------------------------------------
     // The audit notes above show the journey across rounds; this block
-    // names the destination — what shipped. Reads from the latest round
-    // in env.rounds plus piece-level tier; no new D1 query.
-    html.push(renderFinalState(env));
+    // names the destination — what shipped. The verdict sentence ("passed
+    // all three audits" / "shipped as Rough") is promoted to the section's
+    // <summary> hint so the at-a-glance reader sees the destination even
+    // when collapsed. The expanded body shows the per-gate meta + foot.
+    const fs = buildFinalState(env);
+    if (fs) {
+      html.push(renderSection('Final state', fs.hint, fs.body));
+    }
 
     // --- Rules (voice contract) ---------------------------------------
-    html.push(`
-      <section class="made-section">
-        <h3 class="made-section-header">Rules applied</h3>
+    {
+      const body = `
         <p class="made-section-note">Every piece is held to these. Specific violations for this piece are in "What the auditors said" above.</p>
         <div class="made-rules">
           <p class="made-rules-title">Voice contract — non-negotiables</p>
@@ -272,28 +277,29 @@ class MadeDrawer extends HTMLElement {
             Full contract: <a href="https://github.com/zzeeshann/daylila/blob/main/content/voice-contract.md" target="_blank" rel="noopener">voice-contract.md <span class="made-glyph-teal" aria-hidden="true">↗</span></a>
           </p>
         </div>
-      </section>
-    `);
+      `;
+      html.push(renderSection('Rules applied', null, body));
+    }
 
     // --- Candidates ----------------------------------------------------
     if (env.candidates.total > 0) {
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">What Scanner surfaced</h3>
-          <p class="made-section-note">${env.candidates.total} candidates today. Curator picked the one above. We don't store <em>why</em> — only what was considered.</p>
-          <div class="made-candidates" data-made-candidates>
-            <button class="made-candidates-toggle" type="button" data-made-candidates-toggle>
-              <span>Also considered (${env.candidates.alsoConsidered.length})</span>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
-            <div class="made-candidates-body">
-              ${env.candidates.alsoConsidered.map(renderCandidate).join('')}
-            </div>
+      const total = env.candidates.total;
+      const hint = `${total} candidate${total === 1 ? '' : 's'}`;
+      const body = `
+        <p class="made-section-note">${total} candidates today. Curator picked the one above. We don't store <em>why</em> — only what was considered.</p>
+        <div class="made-candidates" data-made-candidates>
+          <button class="made-candidates-toggle" type="button" data-made-candidates-toggle>
+            <span>Also considered (${env.candidates.alsoConsidered.length})</span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <div class="made-candidates-body">
+            ${env.candidates.alsoConsidered.map(renderCandidate).join('')}
           </div>
-        </section>
-      `);
+        </div>
+      `;
+      html.push(renderSection('What Scanner surfaced', hint, body));
     }
 
     // --- Audio ---------------------------------------------------------
@@ -302,53 +308,52 @@ class MadeDrawer extends HTMLElement {
       const modelLabel = a.model === 'eleven_multilingual_v2'
         ? 'ElevenLabs Multilingual v2'
         : (a.model ?? 'ElevenLabs');
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">Audio</h3>
-          <p class="made-section-note">
-            ${a.beats.length} beat${a.beats.length === 1 ? '' : 's'} narrated by
-            <strong>Frederick Surrey</strong> via ${escapeHtml(modelLabel)} ·
-            ${a.totalCharacters.toLocaleString()} characters
-          </p>
-          <ul class="made-list" style="margin-top:0.5rem">
-            ${a.beats
-              .map(
-                (b) => `<li>${escapeHtml(b.beatName)} — ${b.characterCount.toLocaleString()} chars</li>`,
-              )
-              .join('')}
-          </ul>
-        </section>
-      `);
+      const beatCount = a.beats.length;
+      const hint = `${beatCount} beat${beatCount === 1 ? '' : 's'} · ${formatChars(a.totalCharacters)}`;
+      const body = `
+        <p class="made-section-note">
+          ${beatCount} beat${beatCount === 1 ? '' : 's'} narrated by
+          <strong>Frederick Surrey</strong> via ${escapeHtml(modelLabel)} ·
+          ${a.totalCharacters.toLocaleString()} characters
+        </p>
+        <ul class="made-list" style="margin-top:0.5rem">
+          ${a.beats
+            .map(
+              (b) => `<li>${escapeHtml(b.beatName)} — ${b.characterCount.toLocaleString()} chars</li>`,
+            )
+            .join('')}
+        </ul>
+      `;
+      html.push(renderSection('Audio', hint, body));
     }
 
     // --- Categories Categoriser assigned ------------------------------
     // Categoriser fires 1s after `publishing done`. Empty array = pre-
     // 2026-04-23 piece, declined, or failed — section omits in all cases.
     if (env.categories && env.categories.length > 0) {
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">Filed under</h3>
-          <p class="made-section-note">
-            Categoriser placed this piece in ${env.categories.length} of the library's categories after publish.
-          </p>
-          <div class="made-categories">
-            ${env.categories.map(renderCategory).join('')}
-          </div>
-        </section>
-      `);
+      const hint = env.categories.map((c) => c.name).join(', ');
+      const body = `
+        <p class="made-section-note">
+          Categoriser placed this piece in ${env.categories.length} of the library's categories after publish.
+        </p>
+        <div class="made-categories">
+          ${env.categories.map(renderCategory).join('')}
+        </div>
+      `;
+      html.push(renderSection('Filed under', hint, body));
     }
 
     // --- Interactives (quiz + html, both per piece since Phase 2) ---
     // Two independent sections — quiz from `env.interactive`, html
     // from `env.htmlInteractive`. Either can be null if that path
-    // hasn't run / declined / pre-dates the agent. Both sections share
-    // the same renderer with a per-type kind argument that controls
-    // the section header and CTA wording.
+    // hasn't run / declined / pre-dates the agent.
     if (env.interactive) {
-      html.push(renderInteractiveSection(env.interactive, 'quiz'));
+      const { label, hint, body } = buildInteractiveSection(env.interactive, 'quiz');
+      html.push(renderSection(label, hint, body));
     }
     if (env.htmlInteractive) {
-      html.push(renderInteractiveSection(env.htmlInteractive, 'html'));
+      const { label, hint, body } = buildInteractiveSection(env.htmlInteractive, 'html');
+      html.push(renderSection(label, hint, body));
     }
 
     // --- Commit link ---------------------------------------------------
@@ -356,43 +361,50 @@ class MadeDrawer extends HTMLElement {
       const published = env.piece.publishedAt
         ? new Date(env.piece.publishedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
         : null;
-      html.push(`
-        <section class="made-section">
-          <h3 class="made-section-header">The final commit</h3>
-          <p class="made-commit">
-            ${published ? `Published ${escapeHtml(published)} as ` : 'Published as '}
-            ${env.piece.filePath ? `<code>${escapeHtml(env.piece.filePath)}</code>` : ''}
-            ${env.piece.commitUrl ? ` <a href="${env.piece.commitUrl}" target="_blank" rel="noopener">View commit on GitHub <span class="made-glyph-teal" aria-hidden="true">↗</span></a>` : ''}
-          </p>
-        </section>
-      `);
+      const shortDate = env.piece.publishedAt
+        ? new Date(env.piece.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : null;
+      const hint = shortDate ? `Published ${shortDate}` : null;
+      const body = `
+        <p class="made-commit">
+          ${published ? `Published ${escapeHtml(published)} as ` : 'Published as '}
+          ${env.piece.filePath ? `<code>${escapeHtml(env.piece.filePath)}</code>` : ''}
+          ${env.piece.commitUrl ? ` <a href="${env.piece.commitUrl}" target="_blank" rel="noopener">View commit on GitHub <span class="made-glyph-teal" aria-hidden="true">↗</span></a>` : ''}
+        </p>
+      `;
+      html.push(renderSection('The final commit', hint, body));
     }
 
     // --- What the system learned from making this piece ----------------
     // Visual break + intro paragraph reframe the section as forward-
     // looking — these notes are patterns for tomorrow's Drafter, not a
-    // verdict on the piece a reader just finished. Grouped by source in
-    // a fixed order: Drafter's reflection first, then Learner producer
-    // patterns, then reader/zita (post-traffic). Absent entirely when
-    // no learnings are pinned to this piece.
+    // verdict on the piece a reader just finished. The intro lives INSIDE
+    // the details body so it's the first thing visible on expand;
+    // collapsed, the bullets are hidden so the framing protection isn't
+    // needed at that level.
     if (env.learnings.length > 0) {
       const tier = env.piece?.tier ?? auditTier(env.piece?.voiceScore, env.piece?.qualityFlag);
       const intro = tier === 'rough'
         ? 'These notes look back at how this piece was made and forward to how the next piece can be better. The piece you just read shipped as Rough; these notes are how the system improves over time.'
         : 'These notes look back at how this piece was made and forward to how the next piece can be better. They are not a verdict on what you just read — that piece passed its audits and shipped. These are how the system improves over time.';
-      html.push(`
-        <div class="made-section-break" aria-hidden="true"></div>
-        <section class="made-section">
-          <h3 class="made-section-header">What the system learned from making this piece</h3>
-          <p class="made-section-note">${escapeHtml(intro)}</p>
-          ${renderLearningGroups(env.learnings)}
-        </section>
-      `);
+      const n = env.learnings.length;
+      const hint = `${n} note${n === 1 ? '' : 's'}`;
+      const body = `
+        <p class="made-section-note">${escapeHtml(intro)}</p>
+        ${renderLearningGroups(env.learnings)}
+      `;
+      // Visual break sits between making-history and learning-forward
+      // sections — reads visually even when both are collapsed.
+      html.push(`<div class="made-section-break" aria-hidden="true"></div>`);
+      html.push(renderSection('What the system learned from making this piece', hint, body));
     }
 
     this.bodyEl.innerHTML = html.join('');
 
-    // Wire up candidates toggle
+    // Wire up the Scanner section's "Also considered" sub-collapsible.
+    // The parent <details> for Scanner handles its own expand/collapse via
+    // native browser behaviour; this wires the inner toggle that hides the
+    // 70+ candidate rows even when the Scanner section is open.
     const candToggle = this.bodyEl.querySelector<HTMLButtonElement>('[data-made-candidates-toggle]');
     const candWrap = this.bodyEl.querySelector<HTMLElement>('[data-made-candidates]');
     candToggle?.addEventListener('click', () => {
@@ -407,6 +419,39 @@ class MadeDrawer extends HTMLElement {
 }
 
 // --- Render helpers (pure functions, kept outside the class) ---------
+
+/**
+ * Wrap a section's body in a native <details>/<summary> so it's
+ * collapsible by default. The summary line carries the section title
+ * and an optional at-a-glance hint (e.g., "6 beats · 9.3k chars",
+ * "passed all three audits") derived from the envelope so the
+ * collapsed state is still informative. Caret rotates 90° on open
+ * via CSS — same teal affordance the existing "Also considered"
+ * sub-toggle uses, so visual language stays consistent.
+ *
+ * No JS toggle wiring needed — native <details> handles expand /
+ * collapse plus keyboard (Space, Enter) and screen-reader semantics.
+ */
+function renderSection(label: string, hint: string | null, body: string): string {
+  return `
+    <details class="made-section">
+      <summary class="made-section-summary">
+        <span class="made-section-title">${escapeHtml(label)}</span>
+        ${hint ? `<span class="made-section-hint">${escapeHtml(hint)}</span>` : ''}
+        <svg class="made-section-caret" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </summary>
+      <div class="made-section-body">${body}</div>
+    </details>
+  `;
+}
+
+/** Compact character-count for at-a-glance summary hints. 9342 → "9.3k chars". */
+function formatChars(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k chars`;
+  return `${n} chars`;
+}
 
 /**
  * Collapse paired running/done rows per phase into a single displayable
@@ -473,19 +518,20 @@ function stepDetail(s: MadeEnvelope['timeline'][number]): string {
 }
 
 /**
- * Final-state summary block. Sits between "What the auditors said" and
- * "Rules applied" in the drawer's render order. Names the destination
- * — what shipped — so a reader who scrolls past the per-round audit
- * notes doesn't carry a "this article was bad" impression into the
- * forward-looking sections below.
+ * Build the Final-state block — the destination sentence ("passed all
+ * three audits" / "shipped as Rough") plus per-gate meta and foot copy.
  *
- * Numerics from the latest round in env.rounds; tier from piece-level
- * audit-tier helper. Returns empty string for legacy pieces with no
- * audit_results rows (pre-2026-04 ish) so older drawers degrade
- * gracefully.
+ * The verdict sentence is returned as `hint` and surfaced in the
+ * section's <summary> label so an at-a-glance reader sees the
+ * destination without expanding. The expanded body shows just the
+ * meta + foot so the verdict isn't duplicated.
+ *
+ * Numerics from the latest round in env.rounds; tier from the piece-
+ * level audit-tier helper. Returns null for legacy pieces with no
+ * audit_results rows so the section silently omits.
  */
-function renderFinalState(env: MadeEnvelope): string {
-  if (env.rounds.length === 0 || !env.piece) return '';
+function buildFinalState(env: MadeEnvelope): { hint: string; body: string } | null {
+  if (env.rounds.length === 0 || !env.piece) return null;
   const final = env.rounds[env.rounds.length - 1];
   const tier = env.piece.tier ?? auditTier(env.piece.voiceScore, env.piece.qualityFlag);
   const tierLabel = auditTierLabel(tier);
@@ -494,11 +540,11 @@ function renderFinalState(env: MadeEnvelope): string {
   const structureLabel = final.structure.passed ? 'passing' : 'mixed';
   const allPassed = final.voice.passed && final.fact.passed && final.structure.passed;
 
-  const headline = tier === 'rough'
-    ? 'shipped as Rough.'
+  const verdict = tier === 'rough'
+    ? 'shipped as Rough'
     : allPassed
-      ? 'passed all three audits.'
-      : `shipped as ${tierLabel}, with mixed signals.`;
+      ? 'passed all three audits'
+      : `shipped as ${tierLabel}, with mixed signals`;
 
   const meta = voiceScore != null
     ? `Voice ${voiceScore}/100 (${tierLabel}). Facts ${factsLabel}. Structure ${structureLabel}.`
@@ -508,16 +554,14 @@ function renderFinalState(env: MadeEnvelope): string {
     ? 'Three rounds didn’t get every gate to pass. The piece shipped anyway because the day’s news doesn’t wait. The audit notes above show what happened.'
     : 'The piece you just read reflects these results. The audit notes above show how it got here.';
 
-  return `
-    <section class="made-section">
-      <h3 class="made-section-header">Final state</h3>
-      <div class="made-final-state">
-        <p class="made-final-state-headline"><strong>${escapeHtml(`Final state: ${headline}`)}</strong></p>
-        <p class="made-final-state-meta">${escapeHtml(meta)}</p>
-        <p class="made-final-state-foot">${escapeHtml(foot)}</p>
-      </div>
-    </section>
+  const body = `
+    <div class="made-final-state">
+      <p class="made-final-state-meta">${escapeHtml(meta)}</p>
+      <p class="made-final-state-foot">${escapeHtml(foot)}</p>
+    </div>
   `;
+
+  return { hint: verdict, body };
 }
 
 function renderRound(r: MadeEnvelope['rounds'][number], isLatest: boolean): string {
@@ -758,10 +802,10 @@ function buildLowNote(failedDimensions: string[]): string {
   return `The auditor flagged the ${joined} ${rubricWord} across all 3 rounds. The quiz is published anyway — early days for the auditor’s interactive judgement, and we trust readers to tell us what works.`;
 }
 
-function renderInteractiveSection(
+function buildInteractiveSection(
   i: NonNullable<MadeEnvelope['interactive']>,
   kind: 'quiz' | 'html',
-): string {
+): { label: string; hint: string; body: string } {
   const slug = encodeURIComponent(i.slug);
   const typeLabel = i.type || 'interactive';
   const revisionsLabel = i.revisionCount === 1 ? '1 revision' : `${i.revisionCount} revisions`;
@@ -775,22 +819,29 @@ function renderInteractiveSection(
   // section header (what got built) and CTA verb (what to do with it).
   // Both ship per piece since Phase 2; the drawer differentiates so a
   // reader scanning the section list knows there are two artefacts.
-  const header = kind === 'html'
+  const label = kind === 'html'
     ? 'The interactive model built from this piece'
     : 'The quiz built from this piece';
   const cta = kind === 'html' ? 'Try the model →' : 'Try the quiz →';
-  return `
-    <section class="made-section">
-      <h3 class="made-section-header">${header}</h3>
-      <p class="made-section-note">
-        A ${escapeHtml(typeLabel)} titled "${escapeHtml(i.title)}" · ${meta.join(' · ')}
-      </p>
-      ${lowNote}
-      <a class="made-interactive-cta" href="/interactives/${slug}/">
-        ${cta}
-      </a>
-    </section>
+
+  // Hint surfaces the revision count plus the low-quality marker so a
+  // reader scanning collapsed labels sees the artefact's quality state
+  // at a glance without having to expand.
+  const hint = i.qualityFlag === 'low'
+    ? `${revisionsLabel} · low-quality flag`
+    : revisionsLabel;
+
+  const body = `
+    <p class="made-section-note">
+      A ${escapeHtml(typeLabel)} titled "${escapeHtml(i.title)}" · ${meta.join(' · ')}
+    </p>
+    ${lowNote}
+    <a class="made-interactive-cta" href="/interactives/${slug}/">
+      ${cta}
+    </a>
   `;
+
+  return { label, hint, body };
 }
 
 function renderCandidate(c: MadeEnvelope['candidates']['alsoConsidered'][number]): string {

@@ -2,6 +2,40 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (afternoon): Drawer sections collapsible by default — UX polish on top of the morning's narrative-arc commit
+
+Same-day follow-up to commit `7ed8cc3`. The drawer now reads as a clear narrative arc, but it's long: 12 named sections plus the piece-summary header strip. Operator wanted each section collapsible, all collapsed by default, so a reader sees a clean scannable list of section labels and expands what interests them.
+
+**Mechanism.** Native `<details>` / `<summary>` per section — accessible by default (keyboard Space/Enter, ARIA `expanded` state, screen-reader semantics all native), zero JS toggle wiring, zero state stored. A small new `renderSection(label, hint, body)` helper centralises the wrapper markup; each existing section's body content is unchanged inside.
+
+**At-a-glance hints in every summary label** so the collapsed state is still informative — a reader scanning collapsed labels sees something useful without expanding. Derived from the envelope, no new D1 query:
+- Timeline → `6 phases · 1m 50s` (count + total duration via the existing `relativeTime` helper)
+- What the auditors said → `2 rounds`
+- Final state → tier-aware verdict: `passed all three audits` / `shipped as Solid, with mixed signals` / `shipped as Rough`
+- Rules applied → no hint (always the same set of rules)
+- What Scanner surfaced → `79 candidates`
+- Audio → `6 beats · 9.3k chars` (compact via new `formatChars` helper)
+- Filed under → comma-joined category names
+- Quiz / Interactive → `${revisionsLabel}` plus ` · low-quality flag` when `qualityFlag === 'low'`
+- The final commit → `Published 6 May` (short date format)
+- What the system learned from making this piece → `2 notes`
+
+**Final state's destination role preserved.** The morning's commit gave the Final-state block a prominent bold headline — *"Final state: passed all three audits."* — to make sure a reader scrolling the drawer sees the destination clearly. With the section now collapsible, the verdict sentence is promoted to the section's `<summary>` hint so the at-a-glance reader still sees it (e.g., `FINAL STATE · passed all three audits`). The bold headline inside the body is removed to avoid duplication when expanded; the body now leads with the per-gate meta line + foot copy.
+
+**Piece summary header strip stays always visible.** It's the orienting glance (headline + Voice 92/100 + Polished + 1180 words + 5 beats), not a section in the same sense — keeping it visible means a reader knows what piece they're looking at the moment the drawer opens.
+
+**Visual break stays where it is.** The `<div class="made-section-break">` divider that lands between making-history and learning-forward (just above the learnings section) sits between the closed `<details>` blocks now — reads visually even when everything is collapsed. The "not a verdict on what you just read" intro paragraph for the learnings section sits inside the details body so it's the first thing visible the moment the section is expanded; collapsed, the bullets aren't visible at all so the framing protection isn't needed at that level.
+
+**Existing "Also considered" sub-collapsible inside Scanner stays.** Mild double-nesting (parent `<details>` + inner button toggle) but acceptable — "Also considered" hides 70+ candidate rows that are noise even when the Scanner section is expanded; preserving the sub-collapse keeps the Scanner body short on the kinds of days when many candidates were skipped.
+
+**No animation initially.** Native `<details>` snap. Cleaner, simpler, zero added complexity. The polish path if the snap feels jarring in live use is `interpolate-size: allow-keywords` + `details::details-content` in CSS — modern Chromium + Safari support; can be added without touching markup. Deferred until felt-need.
+
+**No state persistence.** Each drawer open starts with everything collapsed. Drawer is a curiosity exit, not a personalised tool.
+
+**No agent change. No schema. No API. No data flow change. No contract changes** (`agents/src/shared/generated/contracts.ts` unchanged in the diff).
+
+Files: `src/interactive/made-drawer.ts` (new `renderSection` + `formatChars` helpers, refactored `renderFinalState` → `buildFinalState` and `renderInteractiveSection` → `buildInteractiveSection` to be body-only emitters, rewritten `render()` to call `renderSection` per section), `src/styles/made.css` (new `details.made-section > summary` styles, removed default disclosure marker, teal caret, hover + focus-visible states, `.made-section-hint` typography, `.made-section-body` spacing). DECISIONS.md only on the docs side — the change is presentation-only and doesn't affect agent behaviour, schema, or runbook procedures, so AGENTS.md / SCHEMA.md / RUNBOOK.md / book chapters all stay untouched.
+
 ## 2026-05-08: Drawer narrative arc clarified — Final state block + forward-looking reframe
 
 Triggered by post-foundation work brief (`docs/foundation-fix/POST-FOUNDATION-DRAWER-NARRATIVE-ARC.md`). The "How this was made" drawer's bottom sections — Drafter self-reflection and Learner producer-side patterns — were written in past-tense critique language ("the close lands flat", "the fridge magnet comparison oversimplifies"). A reader scrolling to the bottom of a Polished piece's drawer would interpret those notes as a verdict on the article they just finished. They aren't — they're how the system improves over time. The 2026-05-08 D1 dump confirmed the symptom: a Voice 95 piece that shipped clean still had a self-reflection saying "Beat two felt like a detour" and a producer pattern critiquing the close in past-tense. Reader-misinterpretation was a transparency-cost the drawer was paying for honesty without scope framing.

@@ -190,6 +190,71 @@ made-drawer[data-open] .made-panel {
   line-height: 1.6;
 }
 
+/* --- Collapsible section (native <details>/<summary>) -------------- */
+/* Each named section is wrapped in a <details class="made-section">.
+ * Default: collapsed. Click summary to expand; native browser handles
+ * expand/collapse + keyboard (Space, Enter) + screen-reader semantics.
+ * No JS toggle wiring needed.
+ *
+ * Summary line carries the section title (uppercase, letter-spaced —
+ * matches the prior `.made-section-header` typography) plus an at-a-
+ * glance hint derived from the envelope (mixed-case, lighter weight)
+ * plus a teal caret that rotates 90° on open.
+ */
+
+details.made-section > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6B6B6B;
+  transition: color 0.15s ease;
+}
+
+details.made-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.made-section > summary:hover {
+  color: #1A1A1A;
+}
+
+details.made-section > summary:focus-visible {
+  outline: 2px solid #1A6B62;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.made-section-hint {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: #6B6B6B;
+  margin-left: 0.25rem;
+  flex: 1 1 auto;
+}
+
+.made-section-caret {
+  flex-shrink: 0;
+  color: #1A6B62;
+  transition: transform 0.15s ease;
+}
+
+details.made-section[open] > summary .made-section-caret {
+  transform: rotate(90deg);
+}
+
+.made-section-body {
+  margin-top: 0.75rem;
+}
+
 .made-skeleton {
   display: flex;
   flex-direction: column;
