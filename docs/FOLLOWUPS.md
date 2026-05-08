@@ -13,21 +13,6 @@ Format per entry:
 
 ---
 
-## [open] 2026-05-08: C7 cleanup of beat-by-beat reading mode — drop the `reading_mode` flag and the legacy IO observers after one week of stable paginated traffic
-
-- **Surfaced:** 2026-05-08 during planning of the beat-by-beat reading mode (plan file `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`). The rollout ships behind an `admin_settings.reading_mode = 'paginated' | 'scroll'` flag (C4) so the operator can flip it from the admin dashboard after in-the-wild testing. Once paginated has been live for ≥7 days without engagement-data anomalies, the flag and the dual code paths can be dropped.
-- **Hypothesis:** None — operational rollout housekeeping. After C5 ships and the operator flips `reading_mode = 'paginated'` in admin, monitor for one week. If no regressions in `user_piece_reads` (current_beat updates as expected), `engagement` (view/complete/audio_play counts not flat-lined or doubled), `audio_dwell_events` (per-beat dwell rows still arriving), and no operator-reported reader complaints, then C7 cleanup ships.
-- **Scope of C7 cleanup:**
-  1. Drop the `[data-paginated]` attribute gate on `<lesson-shell>`; pagination becomes the only mode.
-  2. Drop the `admin_settings.reading_mode` row + dashboard toggle (forward-only migration: leave the row in DB to preserve audit trail of the rollout, just stop reading it).
-  3. Drop the legacy IntersectionObserver code paths in `<lesson-shell>` (`observeFinish`, `observeBeats`, `observeInteractive`) — replaced by step-change firing in paginated mode.
-  4. Drop the back-compat hash-anchor browser-scroll suppression (no longer needed once pagination owns navigation).
-  5. Confirm no-JS fallback still renders as long scroll (the `[data-hydrated]` CSS guard stays — it's the no-JS contract, not a flag).
-- **Investigation hints:** before dropping, query `SELECT COUNT(*) FROM user_piece_reads WHERE current_beat IS NOT NULL AND last_seen_at > <flip_date_ms>` and confirm the count tracks expected reader traffic. Spot-check engagement counts before/after the flip date for sanity. Read DECISIONS entries for C5 (engagement semantics shift) and the operator-flip entry — they document the cutover date that splits pre/post analytics.
-- **Priority:** Low. Pure cleanup. The flag costs nothing while it's set; only blocks a tiny bit of dead code from removal.
-
----
-
 ## [observing] 2026-05-08: Drawer narrative arc — confirm forward-looking framing reads cleanly across 5+ fresh pieces
 
 - **Surfaced:** 2026-05-08 alongside the drawer narrative-arc landing (DECISIONS entry "Drawer narrative arc clarified — Final state block + forward-looking reframe"). The Drafter reflection prompt and all three Learner prompts were rewritten to instruct forward-looking framing. The self-check at the bottom of each prompt asks the model "would a reader hear a critique of what they read, or a pattern for what comes next?" — the right behaviour is the latter, every time.

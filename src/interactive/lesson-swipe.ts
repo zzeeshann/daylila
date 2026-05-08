@@ -1,16 +1,15 @@
 /**
- * Swipe-to-step gestures for paginated mode (C6, 2026-05-08).
+ * Swipe-to-step gestures (C6 2026-05-08; simplified C7 same day).
  *
  * Listens for horizontal pointer drags on the document and translates
- * them into `audio-player:requeststep` events. Lesson-shell already
- * subscribes to that event (its scroll-mode handler from C3); the
- * swipe is just one more input alongside dot taps + audio prev/next.
+ * them into `audio-player:requeststep` events. Lesson-shell subscribes
+ * to that event (from C3); swipe is just one more input alongside dot
+ * taps + audio prev/next.
  *
- * Active only when paginated mode is hydrated. The check happens at
- * pointerdown rather than mount so the toggle reacts naturally if a
- * single-page reader's session somehow ended up on a piece without
- * the paginated flag (would happen during the brief window between
- * `?paginated=1` URL param and lesson-shell setting hydrated).
+ * Active only when lesson-shell has hydrated. The check happens at
+ * pointerdown rather than mount so a swipe doesn't fire before the
+ * step coordinator is ready (otherwise the requeststep dispatch lands
+ * with no listener).
  *
  * Heuristics:
  *   - horizontal distance ≥ SWIPE_DISTANCE_PX → eligible swipe
@@ -41,10 +40,7 @@ interface SwipeStart {
 let active: SwipeStart | null = null;
 
 function isPaginated(): boolean {
-  return (
-    document.documentElement.dataset.lessonPaginated === 'true' &&
-    document.documentElement.dataset.lessonHydrated === 'true'
-  );
+  return document.documentElement.dataset.lessonHydrated === 'true';
 }
 
 function onPointerDown(e: PointerEvent) {
