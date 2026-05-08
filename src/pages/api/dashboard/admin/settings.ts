@@ -9,7 +9,7 @@ export const prerender = false;
  * admin_settings read/write API.
  *
  * Primary consumer: the admin settings page at
- * `src/pages/dashboard/admin/settings.astro`. Currently handles two
+ * `src/pages/dashboard/admin/settings.astro`. Currently handles three
  * keys; new keys plug in via the dispatch in POST.
  *
  *   - `interval_hours` — multi-piece cadence. Allowed set is the
@@ -29,9 +29,23 @@ export const prerender = false;
  *     fails closed to disabled. POST here writes the canonical
  *     `'true'` / `'false'` string; rejects anything that isn't a
  *     boolean (400).
+ *
+ *   - `reading_mode` — beat-by-beat reading mode flag. String enum
+ *     `'scroll' | 'paginated'` in storage. LessonLayout reads at SSR
+ *     time, stamps `:root[data-lesson-paginated]` via inline script,
+ *     fails open to 'scroll' on any D1 error or unrecognised value.
+ *     POST here rejects anything outside the allowed set (400). C7
+ *     (queued in FOLLOWUPS) drops this key entirely after ~7 days of
+ *     stable paginated traffic.
  */
 
 type AdminSettingsRow = { key: string; value: string; updated_at: number };
+
+/** Allowed values for `reading_mode`. Mirrored in
+ *  `src/layouts/LessonLayout.astro`'s SSR read; both fail open to
+ *  'scroll' on out-of-set values. */
+const ALLOWED_READING_MODES = ['scroll', 'paginated'] as const;
+type ReadingMode = typeof ALLOWED_READING_MODES[number];
 
 /**
  * GET — returns current values + allowed set. Admin-gated.
@@ -51,8 +65,8 @@ export const GET: APIRoute = async ({ locals }) => {
 
   try {
     const rows = await db
-      .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key IN (?, ?)')
-      .bind('interval_hours', 'interactives_html_enabled')
+      .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key IN (?, ?, ?)')
+      .bind('interval_hours', 'interactives_html_enabled', 'reading_mode')
       .all<AdminSettingsRow>();
 
     const byKey = new Map<string, AdminSettingsRow>();
@@ -65,12 +79,20 @@ export const GET: APIRoute = async ({ locals }) => {
     const htmlRow = byKey.get('interactives_html_enabled');
     const htmlEnabled = htmlRow?.value === 'true';
 
+    const readingModeRow = byKey.get('reading_mode');
+    const readingMode: ReadingMode = (ALLOWED_READING_MODES as readonly string[]).includes(readingModeRow?.value ?? '')
+      ? (readingModeRow!.value as ReadingMode)
+      : 'scroll';
+
     return new Response(JSON.stringify({
       interval_hours: intervalHours,
       updated_at: intervalRow?.updated_at ?? null,
       allowed_intervals: ALLOWED_INTERVAL_HOURS,
       interactives_html_enabled: htmlEnabled,
       interactives_html_enabled_updated_at: htmlRow?.updated_at ?? null,
+      reading_mode: readingMode,
+      reading_mode_updated_at: readingModeRow?.updated_at ?? null,
+      allowed_reading_modes: ALLOWED_READING_MODES,
     }), { headers: { 'Content-Type': 'application/json' } });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -132,8 +154,21 @@ export const POST: APIRoute = async ({ locals, request }) => {
     });
   }
 
+  if ('reading_mode' in body) {
+    const raw = body.reading_mode;
+    if (typeof raw !== 'string' || !(ALLOWED_READING_MODES as readonly string[]).includes(raw)) {
+      return new Response(JSON.stringify({
+        error: `reading_mode must be one of: ${ALLOWED_READING_MODES.join(', ')}`,
+      }), { status: 400 });
+    }
+    return writeSetting(db, 'reading_mode', raw, user.email, {
+      noteSuffix: 'Effective: next page render. Visitors with cached HTML may need a refresh.',
+      responseExtra: { reading_mode: raw as ReadingMode },
+    });
+  }
+
   return new Response(JSON.stringify({
-    error: 'Body must include exactly one of: interval_hours, interactives_html_enabled',
+    error: 'Body must include exactly one of: interval_hours, interactives_html_enabled, reading_mode',
   }), { status: 400 });
 };
 

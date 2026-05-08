@@ -14,6 +14,27 @@
  * next clip buttons + a current-beat caption let the reader navigate
  * audio independently of scroll position (Area 5.7).
  *
+ * Events dispatched (window-level CustomEvents):
+ *   - `audio-player:firstplay` — once per page load, when the reader
+ *     first taps play. Powers `audio_play` engagement.
+ *   - `audio-player:ended` — after every clip end (kept for
+ *     back-compat; no consumer in scroll mode).
+ *   - `audio-player:beatchange` — every time `loadBeat` runs, with
+ *     detail `{ beatName, index, total }`. Infrastructure for the
+ *     beat-by-beat reading mode (paginated layout listens to keep the
+ *     body in lockstep with the audio rail).
+ *   - `audio-player:requeststep` — when the reader presses prev / next
+ *     or a clip ends naturally, with detail `{ direction: 'prev' | 'next' }`.
+ *     Infrastructure for the paginated coordinator (<lesson-shell>) to
+ *     own step navigation. Today the player still calls `loadBeat`
+ *     directly after dispatch so existing single-scroll audio works
+ *     unchanged; the paginated coordinator commit will route through
+ *     `lesson-shell:stepchange` instead.
+ *
+ * Hash deep-link: if the URL hash matches a known beat name at mount
+ * time, the player starts on that beat instead of the first one.
+ * Honours the Resume contract written by /api/reads/track.
+ *
  * Progressive enhancement: if JS fails or the data is missing, the
  * server-rendered "Audio unavailable" state stays visible — readers
  * still get the piece as text.
@@ -77,6 +98,16 @@ class AudioPlayer extends HTMLElement {
   private lastTickAt: number | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private pagehideHandler: EventListener | null = null;
+  /** True when `<lesson-shell data-paginated="true">` is in the page —
+   *  the player follows shell's stepchange events and skips its own
+   *  scroll-mode loadBeat calls in stepBeat / onEnded. */
+  private coordinated = false;
+  private stepchangeHandler: EventListener | null = null;
+  /** Set by onEnded when a clip ends; consumed by the next stepchange
+   *  listener entry to autoplay across the boundary. Without this, the
+   *  natural auto-advance reads as paused (audio.paused=true after
+   *  ended fires) and stepchange wouldn't autoplay. */
+  private autoplayOnNextLoad = false;
 
   private playBtn: HTMLButtonElement | null = null;
   private prevBtn: HTMLButtonElement | null = null;
@@ -100,10 +131,19 @@ class AudioPlayer extends HTMLElement {
     // elements live in the same DOM tree and the same build pass.
     // Avoids threading a new prop through LessonLayout / AudioPlayer
     // .astro callers — the DOM lookup matches the same trust boundary.
-    const shellPieceId = document
-      .querySelector('lesson-shell')
-      ?.getAttribute('data-piece-id');
+    const shell = document.querySelector('lesson-shell');
+    const shellPieceId = shell?.getAttribute('data-piece-id');
     this.pieceId = shellPieceId && shellPieceId.length > 0 ? shellPieceId : null;
+    // Coordinated mode is gated on :root[data-lesson-paginated]
+    // (LessonLayout's inline script reads admin_settings.reading_mode
+    // in C4 and stamps it on <html> before any custom element parses).
+    // Reading from :root keeps audio-player and lesson-shell agreeing
+    // on the mode without coupling them to each other's attribute
+    // shape. When coordinated, stepBeat / onEnded dispatch requeststep
+    // but do NOT call loadBeat directly — lesson-shell's stepchange
+    // dispatch comes back here and the listener loads the matching
+    // clip.
+    this.coordinated = document.documentElement.dataset.lessonPaginated === 'true';
 
     if (Object.keys(this.audioBeats).length === 0) return;
 
@@ -144,8 +184,25 @@ class AudioPlayer extends HTMLElement {
     this.audio = new Audio();
     this.audio.preload = 'metadata';
 
-    // Start on the first beat in DOM order.
-    this.loadBeat(this.beatOrder[0]);
+    // Start on the beat named in the URL hash if it matches one we
+    // know about (Resume URLs from /account/ have this shape: the row
+    // in user_piece_reads.current_beat is appended as `#beat-name`).
+    // Fall back to the first beat in DOM order otherwise.
+    //
+    // In coordinated mode, prefer lesson-shell's current step ID —
+    // lesson-shell upgrades before audio-player (per the order in
+    // register.ts) and may have already stripped the URL hash via
+    // history.replaceState; reading from shell keeps us in sync with
+    // a Resume that initialised on a beat the body is already showing.
+    let initialBeat = this.readHashBeat() ?? this.beatOrder[0];
+    if (this.coordinated) {
+      const shellEl = document.querySelector('lesson-shell') as { getCurrentStepId?: () => string | null } | null;
+      const shellStep = shellEl?.getCurrentStepId?.();
+      if (shellStep && this.audioBeats[shellStep]) {
+        initialBeat = shellStep;
+      }
+    }
+    this.loadBeat(initialBeat);
 
     this.audio.addEventListener('timeupdate', () => this.updateProgress());
     this.audio.addEventListener('loadedmetadata', () => this.updateProgress());
@@ -180,6 +237,11 @@ class AudioPlayer extends HTMLElement {
     }, HEARTBEAT_INTERVAL_MS);
     this.pagehideHandler = () => this.flushDwell('pagehide');
     window.addEventListener('pagehide', this.pagehideHandler);
+
+    if (this.coordinated) {
+      this.stepchangeHandler = (e: Event) => this.onStepChange(e as CustomEvent);
+      window.addEventListener('lesson-shell:stepchange', this.stepchangeHandler);
+    }
   }
 
   disconnectedCallback() {
@@ -192,6 +254,50 @@ class AudioPlayer extends HTMLElement {
     if (this.pagehideHandler) {
       window.removeEventListener('pagehide', this.pagehideHandler);
       this.pagehideHandler = null;
+    }
+    if (this.stepchangeHandler) {
+      window.removeEventListener('lesson-shell:stepchange', this.stepchangeHandler);
+      this.stepchangeHandler = null;
+    }
+  }
+
+  /**
+   * Coordinated-mode handler. Fires when <lesson-shell> changes step.
+   * If the new step is a beat with audio, load that clip + maintain
+   * play state across the boundary. Otherwise (interactive / quiz /
+   * finish), pause the audio and update the caption to name the
+   * non-audio step so the chrome stays informative.
+   */
+  private onStepChange(e: CustomEvent) {
+    const detail = e.detail as { stepId?: string; kind?: string; index?: number; total?: number } | undefined;
+    if (!detail?.stepId) return;
+    const isBeat = detail.kind === 'beat' && !!this.audioBeats[detail.stepId];
+    if (isBeat) {
+      const wasPlaying = !!this.audio && !this.audio.paused;
+      const shouldAutoplay = wasPlaying || this.autoplayOnNextLoad;
+      this.autoplayOnNextLoad = false;
+      if (this.currentBeat !== detail.stepId) {
+        this.loadBeat(detail.stepId);
+      }
+      if (shouldAutoplay) {
+        this.audio?.play().catch(() => {
+          // Autoplay blocked — reader can press play manually
+        });
+      }
+      return;
+    }
+    // Non-audio step. Pause and re-label the caption.
+    this.audio?.pause();
+    this.autoplayOnNextLoad = false;
+    if (this.captionEl) {
+      const human =
+        detail.stepId === 'interactive' ? 'Interactive' :
+        detail.stepId === 'quiz' ? 'Quiz' :
+        detail.stepId === 'finish' ? 'Done' :
+        this.humanise(detail.stepId);
+      const idx = (detail.index ?? 0) + 1;
+      const total = detail.total ?? 0;
+      this.captionEl.textContent = total > 0 ? `Step ${idx} of ${total} · ${human}` : human;
     }
   }
 
@@ -210,6 +316,26 @@ class AudioPlayer extends HTMLElement {
     this.resetProgressUI();
     this.refreshChrome();
     this.refreshMediaSessionMetadata();
+    // Infrastructure for the paginated coordinator (<lesson-shell>)
+    // to follow the audio rail. No consumer in scroll mode today.
+    window.dispatchEvent(
+      new CustomEvent('audio-player:beatchange', {
+        detail: {
+          beatName,
+          index: this.beatOrder.indexOf(beatName),
+          total: this.beatOrder.length,
+        },
+      }),
+    );
+  }
+
+  /** Returns the beat name encoded in `window.location.hash` if it
+   *  matches a known beat in `beatOrder`, else null. Used at mount to
+   *  honour Resume URLs (`/daily/.../#beat-name`). */
+  private readHashBeat(): string | null {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return null;
+    return this.beatOrder.includes(hash) ? hash : null;
   }
 
   /**
@@ -224,6 +350,18 @@ class AudioPlayer extends HTMLElement {
     if (idx === -1) return;
     const target = this.beatOrder[idx + direction];
     if (!target) return;
+    // Announce the navigation intent. In coordinated mode this is the
+    // ONLY thing this method does — lesson-shell decides what step to
+    // move to (could be a non-audio step like the interactive widget)
+    // and dispatches stepchange, which loadBeats the new clip via
+    // onStepChange. In scroll mode the player keeps doing the work
+    // itself below.
+    window.dispatchEvent(
+      new CustomEvent('audio-player:requeststep', {
+        detail: { direction: direction === 1 ? 'next' : 'prev' },
+      }),
+    );
+    if (this.coordinated) return;
     const wasPlaying = !!this.audio && !this.audio.paused;
     this.loadBeat(target);
     this.scrollBeatIntoView(target);
@@ -256,11 +394,25 @@ class AudioPlayer extends HTMLElement {
     this.flushDwell('ended');
     const nextBeat = this.nextBeatName();
     if (nextBeat) {
-      this.loadBeat(nextBeat);
-      this.scrollBeatIntoView(nextBeat);
-      this.audio?.play().catch(() => {
-        // Autoplay blocked — reader can press play manually
-      });
+      // Announce the navigation intent. Coordinated mode lets
+      // lesson-shell decide what comes next (clip or interactive or
+      // quiz); the autoplayOnNextLoad flag carries the auto-advance
+      // intent across the boundary so onStepChange resumes playback
+      // even though audio.paused is true post-ended.
+      window.dispatchEvent(
+        new CustomEvent('audio-player:requeststep', {
+          detail: { direction: 'next' },
+        }),
+      );
+      if (this.coordinated) {
+        this.autoplayOnNextLoad = true;
+      } else {
+        this.loadBeat(nextBeat);
+        this.scrollBeatIntoView(nextBeat);
+        this.audio?.play().catch(() => {
+          // Autoplay blocked — reader can press play manually
+        });
+      }
     }
     // Always dispatch — kept for any future listener (no-op today;
     // <lesson-shell> stopped consuming this in Area 5).

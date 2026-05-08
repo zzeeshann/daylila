@@ -2,6 +2,196 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C6: swipe gestures
+
+**Context.** Sixth and final commit of the beat-by-beat reading mode rollout. The brief mentioned swipe alongside tap-to-jump as a way readers should be able to navigate. C3 shipped tap-to-jump dots + audio prev/next coordination; C6 layers swipe on top of the same `audio-player:requeststep` event channel that lesson-shell already handles. No coordinator changes — swipe is just one more input.
+
+**Decisions.**
+
+1. **Swipe dispatches the same event channel as audio prev/next.** A pointerup that meets the swipe heuristics fires `audio-player:requeststep` with `{ direction: 'prev' | 'next' }`. Lesson-shell's existing requeststep handler routes to `goToStep`. Single state-machine entry point — no swipe-specific code in lesson-shell, no parallel state, no race conditions with dot taps.
+2. **Standalone module, not a Web Component.** Swipe doesn't have a DOM presence — it's a global pointer-listener that translates gestures to events. A Web Component would add ceremony (custom-element registration, connect/disconnect lifecycle) without earning anything. The module attaches three document-level pointer listeners on import; passive listeners so they don't block scroll. Imported once via `register.ts`, alongside the other interactive bundles.
+3. **Heuristics tuned to filter false positives, not maximize sensitivity.** Four guards:
+   - **Distance ≥ 50px horizontal** — short drags are tap-misclicks; 50px filters them while still being achievable on a small screen.
+   - **Vertical < 25px** (half the horizontal threshold) — confirms the gesture is mostly horizontal. Diagonal drags read as scroll, not swipe.
+   - **Duration ≤ 600ms** — slow drags read as scroll-attempts (or text selection). Genuine swipes are quick.
+   - **Edge guard 24px from left/right** — iOS uses left-edge swipes for browser back-navigation. Competing with that would be hostile. The 24px guard matches Apple's documented HIG region.
+4. **Touch + pen only — mouse swipes ignored.** A mouse drag should select text (the browser default) or click-and-drag UI, not navigate beats. Pointer-type filter `e.pointerType === 'mouse'` returns early. Touch (mobile, primary target) and pen both trigger swipe.
+5. **Active-only-when-paginated check at pointerdown, not at module load.** Reads `:root[data-lesson-paginated][data-lesson-hydrated]` synchronously on each swipe. Reacts naturally if the page renders in scroll mode (no flag set, swipe never engages). Cheap — a property read on `document.documentElement.dataset`.
+6. **Right-swipe → prev, left-swipe → next.** LTR reading-direction conventions. Daylila ships LTR-only; if RTL ever lands, the direction flip would be a one-line conditional. Left = "swipe to advance through content" matches both Brilliant-style apps and the iOS Photos app.
+
+**Alternatives considered.**
+
+- **Touch-action: pan-x on the lesson body.** Would let the browser handle the swipe natively. Rejected — it interferes with vertical scroll within a long step (the 192-word `infrastructure-trap` beat needs scroll). Letting JS make the decision keeps the body free to scroll vertically while still recognising horizontal swipes as navigation.
+- **Swipe also dispatches `lesson-progress:goto` directly.** Skipped — `requeststep` is the right level of abstraction. Lesson-shell decides what step to move to (clamps at boundaries, knows the step list). Letting swipe make that decision would duplicate logic.
+- **Bake into `<lesson-shell>` itself.** Would have worked but would add a fourth concern to the shell (engagement, step state, audio coordination, gestures). Separating into its own module keeps each file under ~250 lines and reads independently.
+
+**Reason — why land swipe in C6 rather than as a follow-up.** Operator picked C6 in plan review (Q1). The brief explicitly mentioned swipe; deferring would leave the rollout feeling incomplete. C6 is small (~85 lines), independently verifiable via synthetic PointerEvents, and depends on nothing C5 hadn't already shipped.
+
+**Verified.**
+
+End-to-end via cold preview. Navigated to `/daily/2026-05-07/.../?paginated=1`, dispatched synthetic PointerEvents to the document:
+
+- Left-swipe (200→100, ~touch): hook → what-the-motor-cortex-does ✓
+- Another left-swipe: → what-expansion-means ✓
+- Right-swipe (100→200): → what-the-motor-cortex-does ✓
+- Edge swipe (start x=10, under 24px guard): NO change ✓ (correctly skipped)
+- Mouse-type swipe: NO change ✓ (correctly skipped)
+- Vertical-dominant (dy=80, dx=100): NO change ✓ (correctly skipped)
+
+3 `audio-player:requeststep` events captured (`['next', 'next', 'prev']`) — exactly the 3 valid swipes. The 3 invalid swipes correctly produced no events.
+
+`npx tsc --noEmit` clean for `src/interactive/lesson-swipe.ts`.
+
+**References.** [src/interactive/lesson-swipe.ts](../src/interactive/lesson-swipe.ts) (NEW). [src/interactive/register.ts](../src/interactive/register.ts) (registers the module). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
+## 2026-05-08 (evening): Beat-by-beat reading mode — C5: engagement semantics under pagination
+
+**Context.** Fifth of six commits. C3 left engagement firing broken in paginated mode — the IntersectionObservers it wired in scroll mode never fire for `display: none` elements, so a paginated reader would have no `beat`, `interactive_offered`, or `complete` events recorded against their reading. C5 wires deterministic step-change firing so the engagement contract is preserved across both modes.
+
+**Decisions.**
+
+1. **Step-change events replace IO observers in paginated mode, not augment them.** Lesson-shell's `setupPaginated()` already skips the three IO observers (`observeFinish`, `observeBeats`, `observeInteractive`). C5 fills the gap by firing engagement events from `applyCurrent` whenever the active step changes. One source per mode — no double-counting, no two paths racing.
+2. **`beat` event re-fires on every step-into a beat (NOT deduped per session).** Operator-confirmed in plan review (Q5). Scroll-mode dedups via the `observedBeats` Set because IO doesn't re-fire when the reader scrolls UP past a beat that already crossed the 50% threshold; that dedup makes sense there. Paginated mode inverts the navigation model: the reader can deliberately tap back to Beat 2 from Beat 5, and Resume should reflect their *actual* current position. The `/api/reads/track` endpoint UPSERTs `current_beat = ?`, so D1 always holds the latest tap. Future analytics queries that count beat-events per session will see different shapes pre-flip vs post-flip — documented here so the discontinuity isn't surprising.
+3. **`interactive_offered` event fires once per session per slug (deduped — same as scroll mode).** The same sessionStorage key (`daylila-interactive-offered:<slug>`) is used by both modes, so a session that switches modes mid-read (rare but possible during operator testing) doesn't double-count. Fires on step-into the interactive step OR the quiz step — both sections may carry `data-interactive-slug` (only one carries `data-lesson-interactive`, but the slug attribute is on both for the chrome to work). Dedup via the slug key means the second slug-match step is a no-op.
+4. **`complete` event fires after a 2.5s dwell on the last step (paginated mode).** Per plan review's Q3 + operator-approved 2.5s justification. Tap-on-last-dot starts a setTimeout; any subsequent step-change clears it. If the reader stays for 2.5s, three calls fire (matching scroll-mode's behaviour): `/api/engagement/track` event_type=complete + `/api/reads/track` event=complete + `/api/progress/complete`. Same sessionStorage dedup key (`zeemish-completed:<piece-id>`) so a session that switches modes or refreshes mid-piece doesn't double-fire.
+5. **2.5s number — justification (verbatim from plan review).** Accidental tap latency is ~100-300ms; a misclick + reflexive back-tap rarely exceeds 1s; reading the first sentence of the finish-state to register "yes, I'm here" takes 2-3s. 2.5s sits in the band where a deliberate reader has time to land but a misclick can't trigger.
+6. **Cutover marker for analytics queries.** Future analytics queries that compare engagement counts before/after the paginated rollout MUST split at the **flip date** (when the operator changes `admin_settings.reading_mode = 'paginated'` on prod) — NOT at the deploy date of this commit. The deploy date is when the new firing path becomes available; the flip date is when production traffic actually starts using it. The flip-date entry will be appended to DECISIONS as a separate operator-initiated note when it happens. Until then, this code sits dormant on prod (`reading_mode = 'scroll'` is the default).
+7. **Helpers extracted, not duplicated.** Three new helper methods on `<lesson-shell>` (`fireComplete`, `fireInteractiveOffered`, `completeDedupKey`) replace the inline event-firing logic that was in the IO observer callbacks. Both modes share the helpers — same dedup posture, same payloads, same endpoints. Reduces the chance of behaviour drifting between modes during future refactors.
+8. **The `quiz` step has no fresh engagement event.** `interactive_offered` already fires when the reader entered the interactive step (or, on quiz-only pieces, when they entered the quiz step which carries the `data-lesson-interactive` marker). Adding a separate `quiz_offered` event would change the engagement schema — out of scope for C5. Future expansion of engagement events lands in a separate decision.
+
+**Alternatives considered.**
+
+- **Keep IO observers running in paginated mode + skip the dedup check.** Rejected — IO doesn't fire for `display: none` elements at all. The skipped-dedup rewrite wouldn't help because no events would arrive in the first place.
+- **Fire `complete` immediately on step-into the finish step (no dwell).** Rejected per plan review Q3. The semantics shift from "reader actually reached the end" to "reader tapped the last dot", and a misclick on the last dot during dot-row scanning would wrongly mark the piece complete. The 2.5s dwell + cancel-on-leave preserves the original meaning.
+- **Re-fire `interactive_offered` on every step-into (parallel to the beat-event change).** Rejected — `interactive_offered` is a once-per-session signal in the engagement schema (the existing `interactive_engagement` table has unique-like semantics on `(session, slug, event_type)` lookups). Re-firing would either double-count in operator-side counts or require schema changes. Beat events have idempotent UPSERT semantics built in (`current_beat = ?`), so re-firing is genuinely additive.
+
+**Reason — why dedup-per-session for `complete` is preserved across modes.** `complete` is the strongest signal in the engagement set. Doubling it via mode-switch would inflate completion counts on operator dashboards. Keeping the same `zeemish-completed:<piece-id>` sessionStorage key means a session switching from scroll to paginated mid-page (e.g., during operator testing of the flip) doesn't double-fire. Real-world cost is zero — readers don't toggle the mode mid-read.
+
+**Verified.**
+
+End-to-end via cold preview. Cleared sessionStorage, navigated to `/daily/2026-05-07/.../?paginated=1`, tapped each dot in sequence (hook → ... → close → interactive → quiz → finish), waited 3s on finish:
+
+- 4 `beat` POSTs to `/api/reads/track` (one per step-into; hook was the initial state, not stepped-into).
+- 1 `interactive_offered` POST to `/api/interactive/track` (deduped at slug; quiz dot tap was a no-op).
+- After 2.5s dwell on finish: 1 engagement `complete` + 1 reads `complete` + 1 `/api/progress/complete` POST.
+
+Cancellation gate verified: tapped finish, waited 1s, tapped back to quiz (under 2.5s dwell). No `complete` events fired — `cancelled = true`. Misclick protection works.
+
+`npx tsc --noEmit` clean for `src/interactive/lesson-shell.ts`.
+
+**References.** [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts) (`fireStepEngagement` + `fireComplete` + `fireInteractiveOffered` + `completeDedupKey` + `applyCurrent` integration + `COMPLETE_DWELL_MS = 2500` constant). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
+## 2026-05-08 (evening): Beat-by-beat reading mode — C4: admin_settings.reading_mode + LessonLayout SSR read + admin toggle
+
+**Context.** Fourth of six commits. C4 wires the paginated mode to a server-controlled flag the operator can flip from the admin dashboard. C3 left the flag hardcoded to false; C4 reads the value from D1 at SSR time and stamps it into the page via the inline script that C3 already added.
+
+**Decisions.**
+
+1. **Migration 0041 seeds `reading_mode = 'scroll'` (forward-only).** Default off so the existing single-scroll layout stays the operator's reading experience after migration applies. Idempotent `INSERT OR IGNORE` matches the pattern from 0016 and the 0024/0025 follow-ups (`interactives_html_enabled`). Operator flips to `'paginated'` from `/dashboard/admin/settings/` once they're ready to test in the wild.
+2. **Closed enum `ALLOWED_READING_MODES = ['scroll', 'paginated']`** in the API. Same posture as `ALLOWED_INTERVAL_HOURS` — the writer rejects out-of-set values with 400; the SSR reader fails open to `'scroll'` on any unrecognised value. Drift surfaces as a 400 from the admin form, not as a silent UI mode flip.
+3. **`writeSetting` helper extended (no other branch changes).** The existing dispatch in POST got a third branch for `reading_mode`. The shared `writeSetting` function (handles UPSERT + observer event + JSON response) covers it without modification. Audit trail shape stays uniform: every `reading_mode` change writes an `admin_settings_changed` observer event with `prior` + `next` + `changedBy`.
+4. **LessonLayout SSR read with try/catch fail-open.** `await db.prepare('SELECT value FROM admin_settings WHERE key = ?').bind('reading_mode').first()`. On any throw — DB wedged, table missing, network blip — the catch sets `paginated = false` and the page renders as scroll mode. Reader sees a working long-scroll page; never a blank page or error overlay. Same pattern the settings.astro page already uses for its own read (line 42's `catch { /* fall through */ }`).
+5. **Effective-on-next-page-render.** Settings doc copy says it explicitly: "Effective: next page render. Visitors with cached HTML may need a refresh." Cloudflare prerender + 1-year audio cache are unaffected; only the SSR'd LessonLayout reads the flag. CDN cache eviction may be needed after the operator flips it on prod (same caveat as the existing per-piece audio regen note in CLAUDE.md "Remaining minor items").
+6. **Settings UI is a `<select>` not a checkbox.** Two values today (`scroll` / `paginated`), but a select scales cleanly if a third reading mode (e.g. side-by-side audio + text) ever lands. Matches the visual shape of the cadence selector. Both options have descriptive labels: `scroll — single-page (current default)` and `paginated — one beat per screen`.
+
+**Alternatives considered.**
+
+- **Single boolean `paginated_enabled` instead of an enum.** Rejected — the enum lets future modes plug in without a name change. `reading_mode = 'sidebyside'` reads naturally; `paginated_enabled = false` for a sidebyside mode does not.
+- **Site-side mirror of the allowed set in `src/lib/`** (parallel to the `ALLOWED_INTERVAL_HOURS` mirror in `cadence.ts`). Skipped — the agents worker has zero need for `reading_mode`; it's purely a site-render concern. The site-side helper (`ALLOWED_READING_MODES` in `settings.ts`) and the LessonLayout's literal `'paginated'` check are the only places that need it. Single source of truth.
+
+**Verified.**
+
+`npx wrangler d1 migrations apply zeemish --local` applied 0041 cleanly. Local D1 SELECT confirmed the seeded row (`reading_mode = 'scroll'`). Updated to `'paginated'` via D1 console; `curl` of the daily-piece page rendered the inline script with `serverPaginated = true;`, which activates paginated mode without `?paginated=1`. Reset back to `'scroll'`; subsequent fetches confirm `serverPaginated = false;`. Admin form code in `settings.astro` and the API endpoint pass TS check (the pre-existing `D1Database` tsc-from-root error in `writeSetting` is unrelated and was present in the file at HEAD before this commit).
+
+**References.** [migrations/0041_reading_mode_setting.sql](../migrations/0041_reading_mode_setting.sql), [src/pages/api/dashboard/admin/settings.ts](../src/pages/api/dashboard/admin/settings.ts) (GET reads + POST writes the new key), [src/pages/dashboard/admin/settings.astro](../src/pages/dashboard/admin/settings.astro) (new section + form handler), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (SSR D1 read + fail-open). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
+## 2026-05-08 (evening): Beat-by-beat reading mode — C3: lesson-shell coordinator + lesson-progress dots + paginated CSS
+
+**Context.** Third of six commits. C3 brings the daily piece's beat-by-beat reading mode to life: `<lesson-shell>` becomes a step coordinator, a new `<lesson-progress>` component renders the slim row of dots, audio-player learns to follow stepchange, and `src/styles/lesson-pagination.css` hides non-current beats and step regions. Paginated mode is gated by `:root[data-lesson-paginated="true"]` plus a `data-lesson-hydrated="true"` guard so no-JS readers always get the long-scroll fallback. The flag is currently dormant — `paginated = false` in `LessonLayout.astro` — and a `?paginated=1` URL escape hatch lets the operator preview the new mode locally without flipping any setting. C4 wires the flag to `admin_settings.reading_mode`.
+
+**Decisions.**
+
+1. **`<lesson-shell>` is the source of truth for step state, not `<audio-player>`.** Plan-agent pushback in design review. Two non-audio steps (interactive, quiz) make the audio rail the wrong owner — it would have to know about steps with no clip, mixing audio concerns with layout concerns. Inverting it: lesson-shell owns `currentStep` (a step ID, not a beat name), audio-player listens to `lesson-shell:stepchange` and loads the matching clip if the step has one. This unifies five inputs (initial mount, hash deep-link, dot tap, audio prev/next, clip-end auto-advance) through one method on lesson-shell.
+2. **Source-of-truth flag lives on `:root`, not on `<lesson-shell>`.** Audio-player and lesson-shell both need to read paginated mode. Stamping `data-paginated` on lesson-shell would require threading the runtime value through rehype-beats (the lesson-shell tag is rehype-emitted, not authored in LessonLayout). `:root[data-lesson-paginated]` is set server-side via an Astro inline script that runs before any custom element parses. Custom elements then read from `:root` regardless of where they live in the tree.
+3. **Two `:root` data attributes, not one.** `data-lesson-paginated` is server-set (admin_settings); `data-lesson-hydrated` is client-set inside lesson-shell.connectedCallback after the step list builds successfully. The CSS hide-rule gates on both. No-JS readers never get the hydrated attr → rule never matches → page renders as long-scroll fallback. Mandatory per Q4 of plan review; not negotiable.
+4. **URL hash stripped via `history.replaceState`, not suppressed via `scrollTo`.** First attempt was synchronous `window.scrollTo(0, 0)` plus `requestAnimationFrame(scrollTo)` to override the browser's anchor-scroll. Didn't work — the browser's auto-scroll fires near the load event, after both calls. Stripping the hash via `replaceState` BEFORE the load event means the browser sees no anchor to scroll to. The Resume contract still works: lesson-shell reads the hash into a local variable first, then strips. URL ends up clean (no `#beat-name`); `account.astro` writes a fresh hash next time.
+5. **Audio-player reads initial beat from `<lesson-shell>` in coordinated mode, not from URL hash.** Module-load order in `register.ts` upgrades lesson-shell before audio-player (depends-graph). By the time audio-player connects, lesson-shell has already read AND stripped the hash. So audio-player would read empty hash → fall back to `beatOrder[0]` → audio caption desyncs from body step on resume. Fix: `audio-player.connectedCallback` queries `<lesson-shell>.getCurrentStepId()` in coordinated mode and uses that as the initial beat. Single source of truth (the shell), no race conditions.
+6. **`autoplayOnNextLoad` flag bridges the clip-end → stepchange boundary.** When a clip ends, `audio.paused` becomes true. In coordinated mode, audio-player dispatches `requeststep` and lets lesson-shell drive the next clip via stepchange. By the time stepchange fires, `audio.paused = true`, so a naive "autoplay if was playing" check would wrongly land on paused. The new `autoplayOnNextLoad` flag is set true in `onEnded` (coordinated branch) and consumed by the stepchange listener — preserves the auto-advance UX across the boundary.
+7. **Progress dots are a separate `<lesson-progress>` web component.** Could have been rendered inside lesson-shell, but separation is cleaner: lesson-shell owns state and dispatches events, lesson-progress consumes events and renders DOM. Each is small enough to read end-to-end. Communication via two events: `lesson-shell:ready` (one-shot, carries the step list — for the case where lesson-progress upgrades before lesson-shell finishes setup) and `lesson-shell:stepchange` (continuous, carries the active step ID).
+8. **`lesson-progress:goto` event for dot taps.** Cleaner than calling `<lesson-shell>.goToStep()` directly across components. lesson-shell listens at the document level; any future component that wants to steer the lesson can dispatch the same event.
+9. **CSS hide-rule scoped via descendant from `:root`.** Step regions are SIBLINGS of the article that wraps lesson-shell in DOM. A descendant selector from `lesson-shell` would never reach them. Going up to `:root` lets one rule cover both lesson-beat (deep descendant) and `[data-lesson-step]` regions (cousins). Worked first try; clean.
+10. **`min-height: 60vh` on the active step.** Per plan review's Q6: the very-short close beat (9 words on 2026-04-17) needs SOME min-height to not look broken on a tall viewport. NOT 100vh — operator was explicit that brief said content-sized; 60vh is the band where one-line screens don't read as "did the page break?".
+
+**Alternatives considered.**
+
+- **One large CSS `:has()` rule keeping a wrapper section visible while any child step is current.** Rejected in C2 in favour of two parallel sibling sections. C3 inherits that decision — sibling sections + uniform `[data-lesson-step]:not([data-current])` rule is simpler than `:has()` games.
+- **Driving everything from URL hash + popstate.** Rejected in plan review (Q1.C). Brief explicitly says back button leaves the piece, not cycles through beats.
+- **Always re-fire beat IO observer threshold even when paginated.** Rejected — IO doesn't fire for `display: none` elements. Fired-on-step-change in C5 (next commit) is the right shape.
+
+**Reason — why coordinated mode kicks audio-player out of its own scroll-mode `loadBeat` path.** Two state machines fighting was the explicit Q1 of plan review. Audio-player's `stepBeat` (prev/next click) and `onEnded` (clip end) used to call `loadBeat` directly. In coordinated mode they now dispatch `requeststep` and return; lesson-shell decides what step to move to and dispatches `stepchange`; audio-player's stepchange listener loads the matching clip. Audio-player has zero state-decision logic in coordinated mode; it's purely a slave to the shell. Scroll mode keeps the original behaviour unchanged.
+
+**Verified.**
+
+`npx tsc --noEmit` clean for `src/interactive/audio-player.ts`, `src/interactive/lesson-shell.ts`, `src/interactive/lesson-progress.ts`, `src/layouts/LessonLayout.astro`. Cold-start preview server, navigate to `/daily/2026-05-07/.../?paginated=1#close`:
+
+- URL hash stripped via `history.replaceState` (no `#close` after load).
+- `:root[data-lesson-paginated="true"][data-lesson-hydrated="true"][data-lesson-current-step="close"]`.
+- 8 progress dots (5 beats + interactive + quiz + finish).
+- Active dot = close (last body-beat dot).
+- Only the close beat visible; other beats and step regions hidden.
+- `scrollY = 0` (chrome at top, beat content below).
+- Audio caption: `Beat 5 of 5 · Close` (matches body via shell-driven init).
+
+Subsequent dot taps fire `stepchange` events with correct `{ stepId, kind, index, total }` detail; audio-player follows; navigating to a non-audio step (interactive / quiz) pauses audio and updates the caption to `Step N of M · <stepName>`. Audio prev/next round-trips through `requeststep → goToStep → stepchange → loadBeat` cleanly. No-paginated nav (no `?paginated=1`): no `:root` flags, all beats + step regions visible, 0 progress dots, lesson-progress invisible, audio caption starts on Hook.
+
+**References.** [src/interactive/audio-player.ts](../src/interactive/audio-player.ts) (coordinated mode + stepchange listener + autoplay-on-next-load flag), [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts) (step coordinator), [src/interactive/lesson-progress.ts](../src/interactive/lesson-progress.ts) (NEW), [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css) (NEW), [src/interactive/register.ts](../src/interactive/register.ts) (registers lesson-progress), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (renders lesson-progress + inline script). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
+## 2026-05-08 (evening): Beat-by-beat reading mode — C2: LessonLayout step markers + quiz split into its own sibling section
+
+**Context.** Second of six commits for the beat-by-beat reading mode. C2 is a structural rename — adds `data-lesson-step` attributes to the regions the C3 coordinator will hide-and-show, and splits the inline quiz card out of the shared interactive section into its own sibling `<section>`. Zero JS change. Scroll-mode visual is preserved on every existing piece shape.
+
+**Decisions.**
+
+1. **Two parallel sibling sections instead of nested wrapper + children.** The plan's pushback (Plan agent, Q4) was sharp on this: nesting the quiz inside the interactive section means the wrapper has to stay visible on the quiz screen even though `data-lesson-step="interactive"` is no longer current — leading to either (a) `:has()` rules to keep the wrapper visible when any child is current, or (b) JS that toggles a wrapper-visibility attribute. Two siblings collapse the question entirely: each section is its own self-contained region, the hide-rule keys off `[data-lesson-step]:not([data-current])` uniformly, no special parent treatment.
+2. **Conditional chrome on the quiz section.** When a piece has both an HTML interactive AND a quiz (the most common shape), the html section carries the shared chrome (`Companion interactive` eyebrow + bundle title + concept) and the quiz section gets only the `Then check the pattern` subhead — avoids duplicating the same eyebrow on consecutive screens. When a piece has only a quiz (no html), the quiz section becomes the primary interactive surface and gets the full chrome itself. Driven by a `!htmlEntry` conditional in the quiz-section JSX.
+3. **`data-lesson-interactive` attribute follows the primary surface.** The IO observer in `<lesson-shell>` (today's scroll-mode engagement code) queries `[data-lesson-interactive]` to fire `interactive_offered` once per session. With two sibling sections, the attribute lands on whichever section is the primary interactive surface: html section if present, otherwise the quiz section. Same semantic as today (one fire per piece per session); no double-counting risk.
+4. **`data-lesson-step="finish"` on the existing finish footer.** Same shape as the interactive/quiz sections — the C3 coordinator can route the "complete" dwell-gate through the same step-change dispatch.
+5. **`id="quiz"` anchor on the new quiz section.** Same affordance as the existing `id="interactive"` — gives the quiz a hash-deep-link target. Useful for the eventual paginated coordinator's hash-read (resume URL pointing at the quiz step) and for any external link that wants to deep-link directly to the quiz.
+
+**Alternatives considered.**
+
+- **One outer section + inner step-marked divs + `:has()` wrapper hide-rule.** Rejected — `:has()` is widely supported now but adds a CSS selector that's hard to reason about under future maintenance, and creates a one-off treatment for this specific wrapper that doesn't apply to any other step in the system. Two siblings keep the rule uniform.
+- **Always duplicate full chrome on each section.** Considered — would slightly hurt scroll-mode reading (eyebrow + title + concept twice on dual-content pieces). Conditional chrome on the quiz section avoids the repetition while still letting quiz-only pieces look complete.
+
+**Reason — why no JS change in this commit.** Per the small-commit plan: each commit ships safely on its own. C2 is mechanical markup. Today's `<lesson-shell>` observer code keeps using `[data-lesson-interactive]`; today's IntersectionObserver-based engagement firing is unchanged; the new `[data-lesson-step]` attributes have no consumer yet. C3 introduces the coordinator that reads them.
+
+**Verified.** `npx tsc --noEmit` clean for `src/layouts/LessonLayout.astro` (the cluster of D1Database / astro:content errors in tsc-from-root output are pre-existing). Visual diff via local preview server on a piece with both html + quiz (2026-05-07): scroll-mode renders identically to before — eyebrow appears once at the top of the html section, quiz section follows below with just `Then check the pattern`. Footer renders unchanged.
+
+**References.** [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (lines 181–250 region rewrite). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
+## 2026-05-08 (evening): Beat-by-beat reading mode — C1: audio-player events + hash-read on mount
+
+**Context.** First of six commits implementing one-beat-per-screen reading for the daily piece (plan: `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`). C1 is infrastructure only — adds two CustomEvents and a hash-read to `<audio-player>`. No visible behaviour change for readers today; lays the wires that the paginated coordinator (C3) will use.
+
+**Decisions.**
+
+1. **Two new window-level CustomEvents from `<audio-player>`.**
+   - `audio-player:beatchange` — fires at the end of every `loadBeat()` call. Detail: `{ beatName, index, total }`. Lets a coordinator follow the audio rail without needing to reach into the player's private state.
+   - `audio-player:requeststep` — fires from `stepBeat` (prev/next button) and from `onEnded` when there's a next beat. Detail: `{ direction: 'prev' | 'next' }`. Announces the navigation intent before the player performs it. Today the player still calls `loadBeat` directly after dispatch; C3's paginated coordinator will subscribe and route through `<lesson-shell>`.goToStep so non-audio steps (interactive, quiz) sit naturally in the same chain.
+2. **Hash-read on mount.** `connectedCallback` reads `window.location.hash`, strips `#`, and starts on that beat if it matches a beat in `beatOrder`; otherwise falls back to the first beat in DOM order (the existing behaviour). New private `readHashBeat()` returns the matched name or null. Honours the Resume URL contract written by `account.astro` (which constructs `${baseUrl}#${user_piece_reads.current_beat}`) — until now the page browser-scrolled to the `<lesson-beat id>` anchor but the audio player still loaded clip 0, so audio and body fell out of sync on resume. They're aligned now.
+3. **Behaviour-preserving rollout.** `requeststep` has no listeners in C1; the player keeps its direct `loadBeat(target)` call inside `stepBeat` and `onEnded`. Scroll-mode readers see no change. C3 will refactor those direct calls out once the coordinator subscribes.
+
+**Alternatives considered.**
+- **Putting hash-read in `<lesson-shell>` instead of `<audio-player>`.** Rejected: in C1 there's no `<lesson-shell>` coordinator yet; the audio rail is the only thing today that knows which beats exist. C3's coordinator will read the same hash from the lesson-shell side once it owns step state.
+- **Suppressing the browser's automatic anchor-scroll in C1.** Rejected for now: in scroll mode, the browser auto-scrolling to the `<lesson-beat id>` anchor IS the correct visible behaviour — reader sees the resumed beat in view. Suppression only matters in C3 when paginated mode hides all-but-current beats and the browser would otherwise scroll past hidden DOM. C3 adds the suppression alongside the hide-rule.
+- **Dispatching `requeststep` from the prev/next button click handlers directly instead of inside `stepBeat`.** Rejected: keeping the dispatch inside `stepBeat` covers the Media Session API's `previoustrack` / `nexttrack` handlers (lock-screen + headphone buttons) for free, since those also call `stepBeat`.
+
+**Reason — why the events are infrastructure-only and not wired in C1.** Per the small-commit plan: each commit ships safely on its own. C1 changes one file, adds two events that nobody listens to, adds one bit of resume support that strictly improves scroll-mode behaviour. The coordinator review can land in C3 with a clean diff that's purely about coordination, not about adding new event surface alongside the coordinator logic.
+
+**Verified.** `npx tsc --noEmit` clean for `src/interactive/audio-player.ts` (the cluster of D1Database / astro:content / agents-module errors in tsc output are pre-existing across the file tree, unrelated to this change).
+
+**References.** [src/interactive/audio-player.ts](../src/interactive/audio-player.ts) (loadBeat dispatch, stepBeat dispatch, onEnded dispatch, connectedCallback hash-read, readHashBeat helper). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`. FOLLOWUPS entry queued for C7 cleanup.
+
 ## 2026-05-08 (evening): newsSource moved into Director's metadata-splice set — closing the last writer-authored frontmatter leak
 
 **Catalyst.** Operator opened the 2026-05-08 morning piece (`/daily/2026-05-08/scientists-make-stunning-discovery-that-could-change-our-und/`) and noticed the meta line displayed the literal URL `https://www.sciencedaily.com/releases/2026/05/260508121045.htm` where every other piece showed a publisher name (e.g. "Source: CNN ↗", "Source: Nature ↗", "Source: BBC ↗"). Asked for a small investigation; do not assume.

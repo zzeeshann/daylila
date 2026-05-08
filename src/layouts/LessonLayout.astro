@@ -6,6 +6,7 @@ import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { isLowQuality, LOW_QUALITY_NOTE, type InteractiveBundle } from '../lib/interactives';
 import { wrapWithResizeProbe } from '../lib/interactive-html';
 import '../styles/beats.css';
+import '../styles/lesson-pagination.css';
 import '../styles/zita.css';
 
 interface Props {
@@ -109,6 +110,25 @@ const quizEntry = interactiveBundle?.quizEntry ?? null;
 const htmlEntry = interactiveBundle?.htmlEntry ?? null;
 const quizContentJson = interactiveBundle?.quizContentJson ?? null;
 const interactiveSlug = primary?.data.slug ?? null;
+
+// Beat-by-beat reading mode flag (C4, 2026-05-08). Read from D1
+// `admin_settings.reading_mode`. Fail-open to 'scroll' on any DB
+// error or unrecognised value — a wedged DB never blocks reading.
+// Operator flips via /dashboard/admin/settings/. URL escape hatch
+// `?paginated=1` (or `?paginated=0`) overrides the server value
+// at runtime via the inline script below; useful for previewing
+// without flipping the admin setting.
+let paginated = false;
+try {
+  const db = Astro.locals.runtime.env.DB;
+  const row = await db
+    .prepare('SELECT value FROM admin_settings WHERE key = ?')
+    .bind('reading_mode')
+    .first<{ value: string }>();
+  paginated = row?.value === 'paginated';
+} catch {
+  // fall through with paginated=false (scroll mode)
+}
 ---
 
 <BaseLayout
@@ -170,6 +190,27 @@ const interactiveSlug = primary?.data.slug ?? null;
 
   {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
 
+  {/*
+    Beat-by-beat reading mode bootstrap (C3, 2026-05-08).
+    Inline script runs synchronously during HTML parsing — must come
+    BEFORE <lesson-progress> + <audio-player> + <slot/> so the data
+    attribute is on :root by the time those elements upgrade. The
+    `?paginated=1` URL escape hatch lets the operator preview the
+    paginated layout on prod without flipping the admin setting.
+  */}
+  <script is:inline define:vars={{ serverPaginated: paginated }}>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const urlOverride = params.get('paginated');
+      const paginated = urlOverride === '1' || (urlOverride !== '0' && serverPaginated);
+      if (paginated) {
+        document.documentElement.setAttribute('data-lesson-paginated', 'true');
+      }
+    })();
+  </script>
+
+  <lesson-progress></lesson-progress>
+
   <div class="mb-8">
     <AudioPlayer audioBeats={audioBeats} pieceTitle={title} />
   </div>
@@ -178,12 +219,13 @@ const interactiveSlug = primary?.data.slug ?? null;
     <slot />
   </article>
 
-  {interactiveBundle && primary && (
+  {interactiveBundle && primary && htmlEntry && htmlEntry.data.content.type === 'html' && (
     <section
       class="lesson-interactive"
       id="interactive"
       data-lesson-interactive
       data-interactive-slug={interactiveSlug}
+      data-lesson-step="interactive"
     >
       <p class="lesson-interactive-eyebrow">Companion interactive</p>
       <h2 class="lesson-interactive-title">{primary.data.title}</h2>
@@ -191,63 +233,77 @@ const interactiveSlug = primary?.data.slug ?? null;
         <p class="lesson-interactive-concept">{primary.data.concept}</p>
       )}
 
-      {htmlEntry && htmlEntry.data.content.type === 'html' && (
-        <div class="lesson-interactive-block">
-          <h3 class="lesson-interactive-subhead">Try the model</h3>
-          {isLowQuality(htmlEntry) && (
-            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
-          )}
-          <interactive-frame
-            data-interactive-id={htmlEntry.data.interactiveId}
-            data-concept={htmlEntry.data.concept}
-          >
-            <iframe
-              class="interactive-frame-iframe"
-              sandbox="allow-scripts"
-              loading="lazy"
-              referrerpolicy="no-referrer"
-              scrolling="no"
-              title={htmlEntry.data.concept}
-              srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
-            ></iframe>
-          </interactive-frame>
-        </div>
-      )}
-
-      {quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
-        <div class="lesson-interactive-block">
-          {htmlEntry && (
-            <h3 class="lesson-interactive-subhead">Then check the pattern</h3>
-          )}
-          {isLowQuality(quizEntry) && (
-            <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
-          )}
-          <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
-            <script type="application/json" data-quiz-content set:html={quizContentJson} />
-            <noscript>
-              <ol class="lesson-interactive-noscript">
-                {quizEntry.data.content.questions.map((q) => (
-                  <li>
-                    <p>{q.question}</p>
-                    <ul>
-                      {q.options.map((opt) => (
-                        <li>{opt}</li>
-                      ))}
-                    </ul>
-                    <p class="lesson-interactive-answer">
-                      Answer: {q.options[q.correctIndex]}. {q.explanation}
-                    </p>
-                  </li>
-                ))}
-              </ol>
-            </noscript>
-          </quiz-card>
-        </div>
-      )}
+      <div class="lesson-interactive-block">
+        <h3 class="lesson-interactive-subhead">Try the model</h3>
+        {isLowQuality(htmlEntry) && (
+          <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+        )}
+        <interactive-frame
+          data-interactive-id={htmlEntry.data.interactiveId}
+          data-concept={htmlEntry.data.concept}
+        >
+          <iframe
+            class="interactive-frame-iframe"
+            sandbox="allow-scripts"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            scrolling="no"
+            title={htmlEntry.data.concept}
+            srcdoc={wrapWithResizeProbe(htmlEntry.data.content.html)}
+          ></iframe>
+        </interactive-frame>
+      </div>
     </section>
   )}
 
-  <footer class="lesson-finish" data-lesson-finish>
+  {interactiveBundle && primary && quizEntry && quizEntry.data.content.type === 'quiz' && quizContentJson && (
+    <section
+      class="lesson-interactive"
+      id="quiz"
+      data-lesson-step="quiz"
+      data-interactive-slug={interactiveSlug}
+      {...(!htmlEntry ? { 'data-lesson-interactive': true } : {})}
+    >
+      {!htmlEntry && (
+        <>
+          <p class="lesson-interactive-eyebrow">Companion interactive</p>
+          <h2 class="lesson-interactive-title">{primary.data.title}</h2>
+          {primary.data.concept && (
+            <p class="lesson-interactive-concept">{primary.data.concept}</p>
+          )}
+        </>
+      )}
+
+      <div class="lesson-interactive-block">
+        <h3 class="lesson-interactive-subhead">Then check the pattern</h3>
+        {isLowQuality(quizEntry) && (
+          <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
+        )}
+        <quiz-card data-interactive-id={quizEntry.data.interactiveId}>
+          <script type="application/json" data-quiz-content set:html={quizContentJson} />
+          <noscript>
+            <ol class="lesson-interactive-noscript">
+              {quizEntry.data.content.questions.map((q) => (
+                <li>
+                  <p>{q.question}</p>
+                  <ul>
+                    {q.options.map((opt) => (
+                      <li>{opt}</li>
+                    ))}
+                  </ul>
+                  <p class="lesson-interactive-answer">
+                    Answer: {q.options[q.correctIndex]}. {q.explanation}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </noscript>
+        </quiz-card>
+      </div>
+    </section>
+  )}
+
+  <footer class="lesson-finish" data-lesson-finish data-lesson-step="finish">
     <div class="lesson-finish-actions">
       <a class="lesson-finish-link" href="/daily/">Read another <span aria-hidden="true">→</span></a>
       <a class="lesson-finish-link" href="/library/">Browse library <span aria-hidden="true">→</span></a>
