@@ -23,7 +23,7 @@ Flag specific violations of the beat contract above:
 4. A teaching beat carries more than one idea, OR opens with a definition or generalisation rather than a specific observation.
 5. Close summarises, calls to action, congratulates, or rambles past four sentences. Don't fail on sentence count alone — fail only if the close summarises, calls to action, congratulates, or runs past four sentences.
 6. Beats not demarcated by \`## kebab-case\` headings, OR JSX tags like \`<lesson-shell>\` / \`<lesson-beat>\` are present.
-7. Frontmatter missing any of: title, date, newsSource, underlyingSubject, estimatedTime, beatCount, description.
+7. Frontmatter missing any of: title, date, underlyingSubject, estimatedTime, beatCount, description. (newsSource is spliced by Director at publish time per beat-contract.md and is not the writer's concern — do not flag it as missing.)
 8. Padding or filler paragraphs.
 
 IMPORTANT: Be reasonable. Minor formatting differences or slight word count variations are NOT failures. Only flag genuine structural problems that would hurt the reader experience. If the lesson is well-structured overall, pass it.
