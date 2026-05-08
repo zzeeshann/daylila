@@ -111,14 +111,24 @@ const htmlEntry = interactiveBundle?.htmlEntry ?? null;
 const quizContentJson = interactiveBundle?.quizContentJson ?? null;
 const interactiveSlug = primary?.data.slug ?? null;
 
-// Beat-by-beat reading mode flag (C3, 2026-05-08). C4 wires this to
-// `admin_settings.reading_mode` in D1 with fail-open to 'scroll'.
-// During C3 the value is hardcoded to false so the flag is dormant —
-// production rolls out via the admin toggle in C4 once the operator
-// is ready. Manual override for local dev: set to true here for a
-// one-off preview, OR add `?paginated=1` to the URL (the inline
-// script below honours it).
-const paginated = false;
+// Beat-by-beat reading mode flag (C4, 2026-05-08). Read from D1
+// `admin_settings.reading_mode`. Fail-open to 'scroll' on any DB
+// error or unrecognised value — a wedged DB never blocks reading.
+// Operator flips via /dashboard/admin/settings/. URL escape hatch
+// `?paginated=1` (or `?paginated=0`) overrides the server value
+// at runtime via the inline script below; useful for previewing
+// without flipping the admin setting.
+let paginated = false;
+try {
+  const db = Astro.locals.runtime.env.DB;
+  const row = await db
+    .prepare('SELECT value FROM admin_settings WHERE key = ?')
+    .bind('reading_mode')
+    .first<{ value: string }>();
+  paginated = row?.value === 'paginated';
+} catch {
+  // fall through with paginated=false (scroll mode)
+}
 ---
 
 <BaseLayout

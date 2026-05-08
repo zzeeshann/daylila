@@ -2,6 +2,30 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C4: admin_settings.reading_mode + LessonLayout SSR read + admin toggle
+
+**Context.** Fourth of six commits. C4 wires the paginated mode to a server-controlled flag the operator can flip from the admin dashboard. C3 left the flag hardcoded to false; C4 reads the value from D1 at SSR time and stamps it into the page via the inline script that C3 already added.
+
+**Decisions.**
+
+1. **Migration 0041 seeds `reading_mode = 'scroll'` (forward-only).** Default off so the existing single-scroll layout stays the operator's reading experience after migration applies. Idempotent `INSERT OR IGNORE` matches the pattern from 0016 and the 0024/0025 follow-ups (`interactives_html_enabled`). Operator flips to `'paginated'` from `/dashboard/admin/settings/` once they're ready to test in the wild.
+2. **Closed enum `ALLOWED_READING_MODES = ['scroll', 'paginated']`** in the API. Same posture as `ALLOWED_INTERVAL_HOURS` — the writer rejects out-of-set values with 400; the SSR reader fails open to `'scroll'` on any unrecognised value. Drift surfaces as a 400 from the admin form, not as a silent UI mode flip.
+3. **`writeSetting` helper extended (no other branch changes).** The existing dispatch in POST got a third branch for `reading_mode`. The shared `writeSetting` function (handles UPSERT + observer event + JSON response) covers it without modification. Audit trail shape stays uniform: every `reading_mode` change writes an `admin_settings_changed` observer event with `prior` + `next` + `changedBy`.
+4. **LessonLayout SSR read with try/catch fail-open.** `await db.prepare('SELECT value FROM admin_settings WHERE key = ?').bind('reading_mode').first()`. On any throw — DB wedged, table missing, network blip — the catch sets `paginated = false` and the page renders as scroll mode. Reader sees a working long-scroll page; never a blank page or error overlay. Same pattern the settings.astro page already uses for its own read (line 42's `catch { /* fall through */ }`).
+5. **Effective-on-next-page-render.** Settings doc copy says it explicitly: "Effective: next page render. Visitors with cached HTML may need a refresh." Cloudflare prerender + 1-year audio cache are unaffected; only the SSR'd LessonLayout reads the flag. CDN cache eviction may be needed after the operator flips it on prod (same caveat as the existing per-piece audio regen note in CLAUDE.md "Remaining minor items").
+6. **Settings UI is a `<select>` not a checkbox.** Two values today (`scroll` / `paginated`), but a select scales cleanly if a third reading mode (e.g. side-by-side audio + text) ever lands. Matches the visual shape of the cadence selector. Both options have descriptive labels: `scroll — single-page (current default)` and `paginated — one beat per screen`.
+
+**Alternatives considered.**
+
+- **Single boolean `paginated_enabled` instead of an enum.** Rejected — the enum lets future modes plug in without a name change. `reading_mode = 'sidebyside'` reads naturally; `paginated_enabled = false` for a sidebyside mode does not.
+- **Site-side mirror of the allowed set in `src/lib/`** (parallel to the `ALLOWED_INTERVAL_HOURS` mirror in `cadence.ts`). Skipped — the agents worker has zero need for `reading_mode`; it's purely a site-render concern. The site-side helper (`ALLOWED_READING_MODES` in `settings.ts`) and the LessonLayout's literal `'paginated'` check are the only places that need it. Single source of truth.
+
+**Verified.**
+
+`npx wrangler d1 migrations apply zeemish --local` applied 0041 cleanly. Local D1 SELECT confirmed the seeded row (`reading_mode = 'scroll'`). Updated to `'paginated'` via D1 console; `curl` of the daily-piece page rendered the inline script with `serverPaginated = true;`, which activates paginated mode without `?paginated=1`. Reset back to `'scroll'`; subsequent fetches confirm `serverPaginated = false;`. Admin form code in `settings.astro` and the API endpoint pass TS check (the pre-existing `D1Database` tsc-from-root error in `writeSetting` is unrelated and was present in the file at HEAD before this commit).
+
+**References.** [migrations/0041_reading_mode_setting.sql](../migrations/0041_reading_mode_setting.sql), [src/pages/api/dashboard/admin/settings.ts](../src/pages/api/dashboard/admin/settings.ts) (GET reads + POST writes the new key), [src/pages/dashboard/admin/settings.astro](../src/pages/dashboard/admin/settings.astro) (new section + form handler), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro) (SSR D1 read + fail-open). Plan file at `~/.claude/plans/beat-by-beat-reading-mode-linear-clover.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C3: lesson-shell coordinator + lesson-progress dots + paginated CSS
 
 **Context.** Third of six commits. C3 brings the daily piece's beat-by-beat reading mode to life: `<lesson-shell>` becomes a step coordinator, a new `<lesson-progress>` component renders the slim row of dots, audio-player learns to follow stepchange, and `src/styles/lesson-pagination.css` hides non-current beats and step regions. Paginated mode is gated by `:root[data-lesson-paginated="true"]` plus a `data-lesson-hydrated="true"` guard so no-JS readers always get the long-scroll fallback. The flag is currently dormant — `paginated = false` in `LessonLayout.astro` — and a `?paginated=1` URL escape hatch lets the operator preview the new mode locally without flipping any setting. C4 wires the flag to `admin_settings.reading_mode`.
