@@ -111,24 +111,6 @@ const htmlEntry = interactiveBundle?.htmlEntry ?? null;
 const quizContentJson = interactiveBundle?.quizContentJson ?? null;
 const interactiveSlug = primary?.data.slug ?? null;
 
-// Beat-by-beat reading mode flag (C4, 2026-05-08). Read from D1
-// `admin_settings.reading_mode`. Fail-open to 'scroll' on any DB
-// error or unrecognised value — a wedged DB never blocks reading.
-// Operator flips via /dashboard/admin/settings/. URL escape hatch
-// `?paginated=1` (or `?paginated=0`) overrides the server value
-// at runtime via the inline script below; useful for previewing
-// without flipping the admin setting.
-let paginated = false;
-try {
-  const db = Astro.locals.runtime.env.DB;
-  const row = await db
-    .prepare('SELECT value FROM admin_settings WHERE key = ?')
-    .bind('reading_mode')
-    .first<{ value: string }>();
-  paginated = row?.value === 'paginated';
-} catch {
-  // fall through with paginated=false (scroll mode)
-}
 ---
 
 <BaseLayout
@@ -189,25 +171,6 @@ try {
   </p>
 
   {date && pieceId && <MadeBy date={date} pieceId={pieceId} />}
-
-  {/*
-    Beat-by-beat reading mode bootstrap (C3, 2026-05-08).
-    Inline script runs synchronously during HTML parsing — must come
-    BEFORE <lesson-progress> + <audio-player> + <slot/> so the data
-    attribute is on :root by the time those elements upgrade. The
-    `?paginated=1` URL escape hatch lets the operator preview the
-    paginated layout on prod without flipping the admin setting.
-  */}
-  <script is:inline define:vars={{ serverPaginated: paginated }}>
-    (function () {
-      const params = new URLSearchParams(window.location.search);
-      const urlOverride = params.get('paginated');
-      const paginated = urlOverride === '1' || (urlOverride !== '0' && serverPaginated);
-      if (paginated) {
-        document.documentElement.setAttribute('data-lesson-paginated', 'true');
-      }
-    })();
-  </script>
 
   <lesson-progress></lesson-progress>
 

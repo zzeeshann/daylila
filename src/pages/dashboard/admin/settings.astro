@@ -23,14 +23,11 @@ let intervalHours = 24;
 let updatedAt: number | null = null;
 let htmlEnabled = false;
 let htmlEnabledUpdatedAt: number | null = null;
-type ReadingMode = 'scroll' | 'paginated';
-let readingMode: ReadingMode = 'scroll';
-let readingModeUpdatedAt: number | null = null;
 
 try {
   const rows = await db
-    .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key IN (?, ?, ?)')
-    .bind('interval_hours', 'interactives_html_enabled', 'reading_mode')
+    .prepare('SELECT key, value, updated_at FROM admin_settings WHERE key IN (?, ?)')
+    .bind('interval_hours', 'interactives_html_enabled')
     .all<Row>();
   for (const r of rows.results ?? []) {
     if (r.key === 'interval_hours') {
@@ -40,12 +37,9 @@ try {
     } else if (r.key === 'interactives_html_enabled') {
       htmlEnabled = r.value === 'true';
       htmlEnabledUpdatedAt = r.updated_at;
-    } else if (r.key === 'reading_mode') {
-      readingMode = r.value === 'paginated' ? 'paginated' : 'scroll';
-      readingModeUpdatedAt = r.updated_at;
     }
   }
-} catch { /* fall through with defaults (24 / false / scroll) */ }
+} catch { /* fall through with defaults (24 / false) */ }
 
 function formatTs(ts: number | null): string {
   if (!ts) return '—';
@@ -179,54 +173,6 @@ function describeInterval(h: number): string {
     <p id="html-status" class="mt-4 text-sm" aria-live="polite"></p>
   </section>
 
-  <section class="rounded-xl border border-zee-border p-6 mb-8">
-    <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-3">
-      Reading mode
-    </h2>
-    <p class="text-sm text-zee-muted mb-5 leading-relaxed">
-      How the daily piece body lays out. <strong>Scroll</strong> is the
-      original single-page reading experience: every beat visible,
-      audio auto-advances on the same page. <strong>Paginated</strong>
-      shows one beat per screen with a slim row of progress dots near
-      the top — the body follows the audio rail. Effective on the next
-      page render; visitors with cached HTML may need a hard refresh.
-    </p>
-
-    <form id="reading-form" class="flex flex-col sm:flex-row gap-3 sm:items-end" novalidate>
-      <label class="flex-1 min-w-0">
-        <span class="block text-xs text-zee-muted mb-1">reading_mode</span>
-        <select
-          id="reading-select"
-          name="reading_mode"
-          class="w-full px-3 py-2 rounded-lg border border-zee-border bg-zee-bg text-zee-text focus:outline-none focus:ring-2 focus:ring-zee-primary/30"
-        >
-          <option value="scroll" selected={readingMode === 'scroll'}>scroll — single-page (current default)</option>
-          <option value="paginated" selected={readingMode === 'paginated'}>paginated — one beat per screen</option>
-        </select>
-      </label>
-      <button
-        id="reading-save"
-        type="submit"
-        class="px-5 py-2 rounded-lg bg-zee-primary text-white font-medium text-sm whitespace-nowrap hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        Save
-      </button>
-    </form>
-
-    <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-      <div>
-        <p class="text-xs text-zee-muted mb-1">Current value</p>
-        <p class="font-medium" id="reading-current">{readingMode}</p>
-      </div>
-      <div>
-        <p class="text-xs text-zee-muted mb-1">Last updated</p>
-        <p class="font-medium" id="reading-updated">{formatTs(readingModeUpdatedAt)}</p>
-      </div>
-    </div>
-
-    <p id="reading-status" class="mt-4 text-sm" aria-live="polite"></p>
-  </section>
-
   <p class="text-xs text-zee-muted leading-relaxed">
     Every change writes an <code>admin_settings_changed</code> observer
     event. See the <a href="/dashboard/admin/" class="text-zee-primary hover:underline">admin dashboard</a> Observer feed for the audit trail.
@@ -282,47 +228,6 @@ function describeInterval(h: number): string {
           status.className = 'mt-4 text-sm text-red-600';
         } finally {
           btn.disabled = false;
-        }
-      });
-    }
-
-    // Reading mode form.
-    const readingForm = document.getElementById('reading-form') as HTMLFormElement | null;
-    const readingSelect = document.getElementById('reading-select') as HTMLSelectElement | null;
-    const readingBtn = document.getElementById('reading-save') as HTMLButtonElement | null;
-    const readingStatus = document.getElementById('reading-status');
-    const readingCurrent = document.getElementById('reading-current');
-    const readingUpdated = document.getElementById('reading-updated');
-    if (readingForm && readingSelect && readingBtn && readingStatus && readingCurrent && readingUpdated) {
-      readingForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const value = readingSelect.value;
-        readingBtn.disabled = true;
-        readingStatus.textContent = 'Saving…';
-        readingStatus.className = 'mt-4 text-sm text-zee-muted';
-        try {
-          const res = await fetch('/api/dashboard/admin/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reading_mode: value }),
-          });
-          const data = await res.json() as { ok?: boolean; reading_mode?: string; updated_at?: number; error?: string };
-          if (!res.ok || !data.ok) {
-            readingStatus.textContent = data.error ?? `Save failed (${res.status})`;
-            readingStatus.className = 'mt-4 text-sm text-red-600';
-            return;
-          }
-          const mode = data.reading_mode ?? value;
-          readingCurrent.textContent = mode;
-          if (data.updated_at) readingUpdated.textContent = fmtTs(data.updated_at);
-          readingStatus.textContent = `Saved. Effective next page render.`;
-          readingStatus.className = 'mt-4 text-sm text-green-700';
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Network error';
-          readingStatus.textContent = msg;
-          readingStatus.className = 'mt-4 text-sm text-red-600';
-        } finally {
-          readingBtn.disabled = false;
         }
       });
     }

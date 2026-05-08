@@ -2,6 +2,46 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-08 (evening): Beat-by-beat reading mode — C7: dual-mode scaffolding removed; paginated is the only mode
+
+**Context.** C1–C6 ([PR #17](https://github.com/zzeeshann/daylila/pull/17), squash-merged as `8c4e6ab`) shipped paginated mode behind an `admin_settings.reading_mode` flag so the operator could verify in the wild. After verification, C7 collapses the dual-mode runtime + admin scaffolding into the single paginated mode. The codebase is now the size it should be for a single-mode product. No-JS readers continue to see continuous prose; `<lesson-shell>`'s `:root[data-lesson-hydrated]` guard stays as the load-bearing JS-set fallback.
+
+Two commits in one PR, in this order — reverse would silently regress prod (admin removal first would leave `lesson-shell.isPaginated` returning false → scroll mode would re-engage for everyone).
+
+### C7a — single-mode runtime
+
+- `src/interactive/lesson-shell.ts` shrinks 566 → 360 lines. Drops `isPaginated` getter, `setupScrollMode` method, the three IO observers (`observeFinish`, `observeBeats`, `observeInteractive`), and the related fields (`finishObserver`, `beatsObserver`, `interactiveObserver`, `observedBeats` Set). Renames `paginatedActive` → `active` (thinner — gates `disconnectedCallback`'s `:root` cleanup scope so an early-out doesn't try to undo state it never set). Single connectedCallback path: view + audio_play engagement, then `setupCoordinator()`.
+- `src/interactive/audio-player.ts` shrinks 739 → 541 lines. Drops the `coordinated` flag, the if-coordinated branches in `stepBeat` + `onEnded`, the `readHashBeat` method (lesson-shell drives initial step via `getCurrentStepId` now), and the now-dead `scrollBeatIntoView` + `cssEscape` helpers (lesson-shell handles the scroll). `stepBeat` becomes a single `requeststep` dispatch. `onEnded` sets `autoplayOnNextLoad` + dispatches `requeststep`, no fallback path.
+- `src/interactive/lesson-swipe.ts` `isPaginated()` simplifies to one attribute check (`data-lesson-hydrated` only).
+- `src/styles/lesson-pagination.css` replaces `:root[data-lesson-paginated][data-lesson-hydrated]` with `:root[data-lesson-hydrated]` in five places.
+
+### C7b — admin scaffolding + URL hatches + docs sync
+
+- `src/layouts/LessonLayout.astro` drops the SSR D1 read for `reading_mode` and the inline script that set `:root[data-lesson-paginated]`. The `?paginated=1` / `?paginated=0` URL escape hatches go with the script.
+- `src/pages/api/dashboard/admin/settings.ts` drops the `reading_mode` GET response field, the `ALLOWED_READING_MODES` const, the `ReadingMode` type, and the POST dispatch branch. Catch-all error message updated to remove `reading_mode` from the "exactly one of" list.
+- `src/pages/dashboard/admin/settings.astro` drops the third `<section>` (the `reading_mode` select + Save + status), the SSR read for the row, the `ReadingMode` type, and the form-handler JS for `#reading-form`.
+- Migration 0041 stays in history; the `admin_settings.reading_mode = 'scroll'` D1 row stays inert (no consumer). SCHEMA.md gets a one-line "now inert" note.
+- FOLLOWUPS.md: the `[open]` C7 entry is removed (TODO → done; the entry was a marker, not a record).
+
+**Decisions.**
+
+1. **No-JS fallback contract preserved exactly.** The CSS hide-rule still gates on a JS-set attribute (`:root[data-lesson-hydrated="true"]`, set by `lesson-shell.connectedCallback` after the step list builds). Without JS, lesson-shell never connects, the attribute never appears, the rule never matches, every `<lesson-beat>` renders → continuous prose. Same shape as today, one fewer attribute. The brief's load-bearing requirement — "if your plan suggests removing all JS-set guards, push back on yourself" — confirmed. Verified live by inspecting the rendered HTML: only `:root[data-lesson-hydrated="true"]` and `:root[data-lesson-current-step]` are referenced; no `[data-lesson-paginated]` outside the historical comment in CSS docstring.
+2. **`admin_settings.reading_mode` row left inert; no `0042` migration to drop it.** Matches `feedback_non_destructive.md` ("filter over delete, migrations add not drop"). The row is harmless data — one row, no consumer — and a useful audit trail showing the flag existed during the rollout. If a future reading-mode toggle ever returns, the row is still seeded. SCHEMA.md gets a one-line "now inert" note. Operator pick from the plan; the alternative (drop via migration) was considered and rejected as marginal cleanup gain that closes off a one-line revert path.
+3. **`?paginated=1` / `?paginated=0` URL escape hatches removed.** Their job was to preview the new mode while default-was-scroll, and to force scroll for comparison. After C7 every page is paginated → `paginated=1` is a no-op, `paginated=0` can't do anything (scroll mode doesn't exist as a code path). Dead code that pretends to do something is worse than dead code that's gone.
+4. **`lesson-shell`'s `history.replaceState` hash-strip stays.** The C7 FOLLOWUPS entry mentioned "back-compat hash-anchor browser-scroll suppression" could be dropped. That referred to **audio-player's `readHashBeat`** (now redundant since lesson-shell drives the initial step) — confirmed for removal in C7a. **Lesson-shell's hash-strip is NOT redundant**: the browser still tries to anchor-scroll to a `<lesson-beat id>` even in paginated mode, landing the reader at scrollY ≈ 572 instead of 0. The strip prevents that. Stays.
+5. **Audio-player without `<lesson-shell>` is an unsupported state.** Audio-player now relies on lesson-shell's `lesson-shell:stepchange` to load clips. If a piece somehow ships with audio but no `##` headings (no rehype-beats output, no lesson-shell rendered), audio-player would subscribe to events that never fire and prev/next would dispatch into a void. **Audit:** all 49 currently published pieces have both. The combination is structurally absent. Not adding a fallback — the simpler codebase is worth the constraint, and if a future piece somehow ships without h2s the audio rail breaks loudly (silent navigation, no caption updates), not silently.
+6. **Order matters; locked C7a before C7b.** C7a flips the runtime to single-mode without changing chrome (admin still has the toggle but the runtime ignores its result). C7b removes the now-pointless toggle. Reverse order would silently regress prod between deploys.
+
+**Verified end-to-end.**
+
+- C7a: set local D1 `admin_settings.reading_mode = 'scroll'` (the pre-C7 "off" value), navigated to `/daily/2026-05-07/.../` with no `?paginated=` URL param. Page paginated anyway (`currentStep=hook`, 8 dots rendered, only hook beat visible, audio caption matches). Dot tap → step changes (`afterDotTap = 'close'`). Audio prev button → step changes (`afterAudioPrev = 'when-brains-specialize'`). Synthetic touch swipe within viewport bounds → step changes (`captured: ['next']`). 2.5s dwell on finish step → all three complete endpoints fire (`/api/engagement/track` + `/api/reads/track` + `/api/progress/complete`). Server-rendered CSS contains zero references to `data-lesson-paginated` outside the historical comment in CSS docstring.
+- C7b: rendered HTML has zero matches for `data-lesson-paginated` (full removal — the inline-script reference is gone). `/api/dashboard/admin/settings` GET response includes only `interval_hours` + `interactives_html_enabled` (no `reading_mode`, no `allowed_reading_modes`). POST with `{ reading_mode: 'paginated' }` returns 400 with the new error: "Body must include exactly one of: interval_hours, interactives_html_enabled". `/dashboard/admin/settings/` page renders only two sections.
+- `npx tsc --noEmit` clean across all C7 files. The pre-existing `D1Database` tsc-from-root noise in settings.ts unchanged.
+
+**Rollback.** `git revert <c7b> <c7a>` cleanly reverts both commits. The `admin_settings.reading_mode` row is still in D1 (inert under post-C7 code, but the reverted code re-reads it). One revert restores dual-mode behaviour; the operator can flip the toggle back to `paginated` to keep the new mode running while the regression is investigated.
+
+**References.** [src/interactive/lesson-shell.ts](../src/interactive/lesson-shell.ts), [src/interactive/audio-player.ts](../src/interactive/audio-player.ts), [src/interactive/lesson-swipe.ts](../src/interactive/lesson-swipe.ts), [src/styles/lesson-pagination.css](../src/styles/lesson-pagination.css), [src/layouts/LessonLayout.astro](../src/layouts/LessonLayout.astro), [src/pages/api/dashboard/admin/settings.ts](../src/pages/api/dashboard/admin/settings.ts), [src/pages/dashboard/admin/settings.astro](../src/pages/dashboard/admin/settings.astro). Plan file at `~/.claude/plans/c7-cleanup-paginated-only.md`.
+
 ## 2026-05-08 (evening): Beat-by-beat reading mode — C6: swipe gestures
 
 **Context.** Sixth and final commit of the beat-by-beat reading mode rollout. The brief mentioned swipe alongside tap-to-jump as a way readers should be able to navigate. C3 shipped tap-to-jump dots + audio prev/next coordination; C6 layers swipe on top of the same `audio-player:requeststep` event channel that lesson-shell already handles. No coordinator changes — swipe is just one more input.
