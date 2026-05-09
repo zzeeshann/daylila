@@ -535,7 +535,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // Drafter uses for `date`.
     currentMdx = currentMdx.replace(
       /^(---\n[\s\S]*?)(\n---\n)/,
-      `$1\nvoiceScore: ${lastVoiceScore}$2`,
+      (_m, p1, p2) => `${p1}\nvoiceScore: ${lastVoiceScore}${p2}`,
     );
 
     // publishedAt captured here (BEFORE the frontmatter splice + publish
@@ -546,7 +546,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const publishedAtMs = Date.now();
     currentMdx = currentMdx.replace(
       /^(---\n[\s\S]*?)(\n---\n)/,
-      `$1\npublishedAt: ${publishedAtMs}$2`,
+      (_m, p1, p2) => `${p1}\npublishedAt: ${publishedAtMs}${p2}`,
     );
 
     // Splice `pieceId` into frontmatter. Required by the content schema
@@ -557,9 +557,18 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // the same UUID that drives the daily_pieces INSERT below so the
     // two sources agree on identity. See DECISIONS 2026-04-22
     // "writeLearning piece_id extension".
+    // Callback form (here and in every splice below): `String.prototype.replace`
+    // interprets `$1`, `$2`, `$&`, etc. inside a string-template replacement as
+    // capture-group backreferences. Any `$N` that lands in a splice payload —
+    // most realistically a dollar amount inside a verified claim like
+    // `"$1,000 to $5,000"` — would expand into capture group 1 (the entire
+    // frontmatter prefix), corrupting the MDX. The callback form returns a
+    // plain string and is exempt from that interpretation. Caught after
+    // 2026-05-09 PM piece's `claimReviews` splice corrupted its frontmatter
+    // and four deploys failed in a row. See DECISIONS 2026-05-09 entry.
     currentMdx = currentMdx.replace(
       /^(---\n[\s\S]*?)(\n---\n)/,
-      `$1\npieceId: "${pieceId}"$2`,
+      (_m, p1, p2) => `${p1}\npieceId: "${pieceId}"${p2}`,
     );
 
     // Splice `sourceUrl` into frontmatter from the picked candidate.
@@ -576,9 +585,10 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           .first<{ url: string | null }>();
         const sourceUrl = sourceUrlRow?.url?.trim();
         if (sourceUrl) {
+          const sourceUrlJson = JSON.stringify(sourceUrl);
           currentMdx = currentMdx.replace(
             /^(---\n[\s\S]*?)(\n---\n)/,
-            `$1\nsourceUrl: ${JSON.stringify(sourceUrl)}$2`,
+            (_m, p1, p2) => `${p1}\nsourceUrl: ${sourceUrlJson}${p2}`,
           );
         }
       } catch {
@@ -601,11 +611,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     if (brief.newsSource) {
       currentMdx = currentMdx.replace(
         /^(---\n[\s\S]*?)\nnewsSource:[^\n]*\n([\s\S]*?\n---\n)/,
-        '$1\n$2',
+        (_m, p1, p2) => `${p1}\n${p2}`,
       );
+      const newsSourceJson = JSON.stringify(brief.newsSource);
       currentMdx = currentMdx.replace(
         /^(---\n[\s\S]*?)(\n---\n)/,
-        `$1\nnewsSource: ${JSON.stringify(brief.newsSource)}$2`,
+        (_m, p1, p2) => `${p1}\nnewsSource: ${newsSourceJson}${p2}`,
       );
     }
 
@@ -622,9 +633,10 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .filter((s): s is string => typeof s === 'string' && s.length > 0)
         .slice(0, 20);
       if (verifiedClaims.length > 0) {
+        const claimReviewsJson = JSON.stringify(verifiedClaims);
         currentMdx = currentMdx.replace(
           /^(---\n[\s\S]*?)(\n---\n)/,
-          `$1\nclaimReviews: ${JSON.stringify(verifiedClaims)}$2`,
+          (_m, p1, p2) => `${p1}\nclaimReviews: ${claimReviewsJson}${p2}`,
         );
       }
     }
@@ -636,7 +648,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // admin/operator tooling.
       currentMdx = currentMdx.replace(
         /^(---\n[\s\S]*?)(\n---\n)/,
-        `$1\nqualityFlag: "low"$2`,
+        (_m, p1, p2) => `${p1}\nqualityFlag: "low"${p2}`,
       );
       // Log escalation — Zishan still needs to know when a piece shipped
       // low. Publisher runs after this so the Observer entry exists
