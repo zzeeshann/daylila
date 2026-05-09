@@ -2,6 +2,47 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09 (late evening): PR #27 widget rebalance — Drafter scans for earning moments before deciding zero
+
+**Symptom.** Today's Mars/Psyche piece ([content/daily-pieces/2026-05-09-a-close-brush-with-mars-...mdx](content/daily-pieces/2026-05-09-a-close-brush-with-mars-will-reshape-nasa-s-psyche-journey-i.mdx)) shipped clean end-to-end after the PR #29 streaming fix — 7 beats, dot row correct, Lab named, simulation interactive, quiz rendered, audio generated — but with **zero `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>` widgets across all 7 beats**. Pure prose throughout, despite multiple beat-shapes that PR #27 explicitly designed widgets for. Beat 3 (`how-velocity-transfer-works`) has the textbook two-frame contrast: *"From the planet's perspective… the same speed. But from the Sun's perspective…"* — exactly what `<lesson-compare>` was added for. Beat 1 (`hook`) closes with a think-for-two-seconds question that fits `<lesson-reveal>`. Beat 5 (`why-missions-use-this`) is a mission catalogue (Voyager / Cassini / New Horizons) that fits `<lesson-callout>`.
+
+**Investigation flow.** Three hypotheses, in order:
+
+1. **Widgets absent from MDX source.** Confirmed. The Drafter wrote zero widget tags. Not a downstream stripping bug.
+2. **Widgets present but not rendering.** Eliminated. [src/interactive/register.ts:20-22](src/interactive/register.ts:20) imports all three components; [src/lib/rehype-beats.ts](src/lib/rehype-beats.ts) is pass-through for child content (only wraps `## ` headings into `<lesson-beat>`); custom HTML elements survive MDX → DOM untouched.
+3. **Infrastructure shipped incomplete in PR #27.** Eliminated. [content/beat-contract.md:22-50](content/beat-contract.md:22) whitelists all three tags; [agents/src/audio-producer.ts:110-138](agents/src/audio-producer.ts:110) has per-tag TTS extraction; codegenned contracts.ts current; Drafter prompt has the worked-examples section.
+
+**Diagnosis: prompt over-anchored "default to zero".** Re-reading `agents/src/drafter-prompt.ts:28-118`, the rhetorical pressure was asymmetric:
+
+- **Line 30** stacked three "default zero" signals in one paragraph: *"EARNED, not BUDGETED. Default is no widget. Most beats stay pure prose. **A piece with zero widgets is a healthy outcome.** Never decorate."*
+- **Line 32** carried a one-directional deletion heuristic: *"if the widget can be deleted and the same lesson lands, delete it."* No symmetric **insertion** heuristic — nothing prompted the Drafter to scan beats for earning moments.
+- **3 positive + 3 negative examples** carried equal weight. Negatives anchored "this is wrong"; positives demonstrated shape but didn't survive as a scanning prompt.
+- **Audit feedback loop reinforced this.** Drafter writes a widget that wasn't earned → Structure Editor flags `widget_without_purpose` → revision required. Drafter writes zero widgets → no failure mode catches "should have used one here." The rational LLM strategy under that asymmetry is "default to zero." The contract was correct (zero IS a healthy outcome); the prompt framing made zero the path of least audit-resistance.
+
+**Fix.** Surgical edit at [agents/src/drafter-prompt.ts:28-118](agents/src/drafter-prompt.ts:28). Reordered so the scan-for-earning-moments instruction comes BEFORE the deletion heuristic. Two new paragraphs inserted between line 30 (the unchanged "earned, not budgeted" framing) and the original deletion heuristic:
+
+1. **Scanning prompt.** *"Before finalising, scan once for earning moments. Walk back through the beats you've drafted and ask:"* followed by three concrete shape-questions, one per widget tag — two states / numbers / perspectives across paragraphs (`<lesson-compare>`), think-for-two-seconds question with click-shaped answer (`<lesson-reveal>`), term referenced twice in same beat (`<lesson-callout type="define">`). Each question names the shape and the reason. Closes with: *"If you find such a moment, write the widget. If you don't, ship pure prose."*
+2. **Topic-shape permission.** *"On physics, mechanisms, side-by-side comparisons, definitions of terms — the typical piece has one widget. On opinion, news-summary, personal-finance explainer, or 'what just happened' shapes — zero is normal. The topic's shape decides whether the moment exists; you do not invent moments to fill a budget."*
+
+**What deliberately stays.** The "EARNED, not BUDGETED. Default is no widget. … A piece with zero widgets is a healthy outcome. Never decorate." paragraph is unchanged. All 6 worked examples (3 positive + 3 negative) are unchanged. The voice-rules-apply-inside-widgets paragraph is unchanged. The deletion heuristic is unchanged in wording — it just moves to AFTER the scan-and-permission block. The rebalance adds a counter-anchor; it doesn't replace the existing one.
+
+**No contract change.** The beat contract at [content/beat-contract.md:38-50](content/beat-contract.md:38) stays canonical. The contract's "When a beat earns a widget" section is the rule; the Drafter prompt's prose extends it with operational scanning instructions — same posture as voice-contract.md → drafter-prompt.ts (extra voice guidance lives in the prompt, not the contract). Codegen ran clean (`pnpm codegen` + `pnpm verify-contracts-fresh` ✓); contracts.ts unchanged at 98029 bytes since the BEAT_CONTRACT didn't move.
+
+**Why no Structure-Editor counter-token.** The audit asymmetry that creates the under-use bias (`widget_without_purpose` flags over-use; nothing flags under-use) is real, but adding a `widget_under_used` token to Structure Editor would re-introduce the regression operator caught during 2026-05-07 Categoriser fragmentation: enforcement-by-auditor that doesn't read like a clean rule. The earning of a widget isn't checkable mechanically — Structure Editor would have to LLM-judge each beat's prose for missed contrast moments, which is the same judgment the Drafter just made. Cleaner to fix the Drafter's framing first and observe.
+
+**Empirical caveat: N=1.** The Mars piece is the first widget-eligible piece since PR #27 deployed. Both other 2026-05-09 pieces (AM lost-script, PM fake-citations) shipped before PR #27 was on prod. The fix is a prompt rebalance based on one observation; the rate of widget appearance is what the watch tracks.
+
+**Forks NOT taken.**
+- **Soft modal target ("the typical piece has one widget").** Considered as an alternative to "topic-shape permission." Rejected because anchoring a number could push toward decoration on opinion / news-summary shapes where zero is correct. The shape-based phrasing keeps "earned" as the gate.
+- **Add a `widget_under_used` Structure-Editor failure-reason token.** See above.
+- **Update beat-contract.md to add the scan instruction.** Considered. Rejected because contracts are canonical narrative; operational scanning prompts live in agent prompts, where they extend the contract for the agent that needs the operational view (Drafter). Same posture as voice-contract.md vs voice-auditor-prompt.ts.
+
+**Standing rule applied.** The user's new "verify a piece publishes end-to-end after multi-PR sequences touching the agents pipeline" rule (added to CLAUDE.md the same day after the PR #29 emergency) is the reason this issue surfaced this evening rather than going unnoticed for ~30 days. The Mars piece IS the verification — it shipped clean technically; the widget-zero observation falls out of reading the published page, not the pipeline state. **Verification of this fix waits for tomorrow's 02:00 UTC cron** (operator's directive — no manual retrigger). If the next 5 widget-eligible pieces (~5 days at 1/day, allowing for some unsuitable shapes) show ≥2 with at least one widget each, the rebalance is working.
+
+**Files (1 + 3 docs).** [agents/src/drafter-prompt.ts](agents/src/drafter-prompt.ts) only; CLAUDE.md (this session entry), DECISIONS.md (this entry), FOLLOWUPS.md (new `[observing]` entry queued for the 14-day watch). No migration. No contract change. No regenerated contracts.ts (codegen was idempotent — no input changed). Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+---
+
 ## 2026-05-09 (evening): Curator 124s 499 timeout regression — streaming for all >3k-output Anthropic calls
 
 **Symptom.** Operator clicked admin retrigger ~21:02 UTC. Pipeline started run `e081385a-4fa8-489e-805d-188e61d4adee` (piece `4dd16528-...`), Scanner cleanly returned 74 candidates in 7s, then Curator wedged silently in `curating: running` state for 15+ minutes while burning $0.54 in Anthropic API charges with zero observer events and zero progression. Admin UI polled the zombie state.
