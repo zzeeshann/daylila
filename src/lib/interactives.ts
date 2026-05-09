@@ -25,10 +25,10 @@ export interface InteractiveBundle {
   quizContentJson: string | null;
 }
 
-/** A flagged-low interactive shipped with auditor concerns; surface
+/** A flagged-low lab shipped with auditor concerns; surface
  *  the same hairline note copy on every render site. */
 export const LOW_QUALITY_NOTE =
-  "This interactive didn't pass all auditor gates. Kept live so nothing goes dark, but it may have rough edges.";
+  "This lab didn't pass all auditor gates. Kept live so nothing goes dark, but it may have rough edges.";
 
 export function isLowQuality(entry: InteractiveEntry): boolean {
   return entry.data.qualityFlag === 'low';

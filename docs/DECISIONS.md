@@ -2,6 +2,45 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09: PR #4 — Cosmetic rename "interactive" → "lab" in user-facing copy
+
+**Symptom.** Operator's directive: "the html interactive I would like to call it model from now on as it is big comprehensive etc." The standalone HTML companion piece is a *model* of the underlying concept; the word "interactive" should be free to describe the smaller in-beat MDX widgets PR #3 just added.
+
+**Why "lab" over "model".** Operator's earlier review surfaced that "model" is overloaded — AI model, 3D model, model student. Ambiguous in a learning product. Three alternatives surfaced (lab / playground / sandbox); operator picked **lab**. "Open the lab" / "Try the lab" reads cleanly for non-tech readers and matches the explore-and-tweak affordance — these standalone HTML pieces are mini-experiments where the reader changes one variable and sees what happens. Sandbox is engineer-jargon; playground is toy-coded.
+
+**What this PR does NOT do.** It does NOT rename the state-bearing tier:
+- D1 tables: `interactives`, `interactive_engagement`, `interactive_audit_results`
+- D1 column: `daily_pieces.interactive_id`
+- API endpoint: `/api/interactive/track` (request body fields `interactive_id` / `interactive_slug`)
+- Public URL: `/interactives/<slug>/` (bookmark-stability)
+- Stored event-type strings: `interactive_offered` / `interactive_started` / etc.
+- Content collection: `content/interactives/`
+- Frontmatter field: `interactiveId`
+- Custom-element class: `<interactive-frame>`
+- postMessage protocol marker: `zeemishFrame`
+- ~263 internal references in `agents/src/` — variable names, types, prompts, file names, CSS classes
+
+Same non-destructive precedent as the 2026-05-07 brand rename leaving worker / D1 / R2 names internally as `zeemish-*` even though the brand flipped to `daylila`: state-migration risk for cosmetic reward.
+
+**What deliberately stays as "interactive" in agent prompts.** [agents/src/interactive-generator-prompt.ts](agents/src/interactive-generator-prompt.ts) and [agents/src/interactive-auditor-prompt.ts](agents/src/interactive-auditor-prompt.ts) carry strings like "an interactive that lets the reader manipulate information distribution…" These are technical instructions Claude reads to know what kind of artifact to build — internal vocabulary, not reader-visible copy. The reader never sees these strings (Claude generates HTML based on them; the HTML is what readers see). Renaming risks Claude getting confused mid-prompt. Same posture for the technical descriptions in CLAUDE.md / AGENTS.md / ARCHITECTURE.md that name the agents (InteractiveGenerator, InteractiveAuditor) and table columns.
+
+**What changed.**
+- [src/layouts/LessonLayout.astro](src/layouts/LessonLayout.astro) eyebrow `Companion interactive` → `Companion lab` (both render sites — html-bearing AND quiz-only branches); subhead `Try the model` → `Try the lab`.
+- [src/pages/interactives/[slug].astro](src/pages/interactives/[slug].astro) eyebrow `Interactive` → `Lab`; subhead `Try the model` → `Try the lab`.
+- [src/lib/interactives.ts](src/lib/interactives.ts) `LOW_QUALITY_NOTE`: "This interactive…" → "This lab…" (renders as a hairline note on flagged-low pieces).
+
+**Naming convention locked.** `lab` is the user-facing name for the standalone HTML companion artifact. `interactive` is the canonical internal-technical term — used in D1 schema, API endpoints, public URLs (kept for bookmark-stability), agent code, agent prompts (Claude's internal vocabulary), TS types, CSS classes, frontmatter field names, postMessage protocol, event-type strings. The two refer to the same artifact at different layers. The word "interactive" is also free for use in NEW user-facing contexts to describe the in-beat MDX widgets PR #3 added — `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>` ARE interactive in the small sense; the lab IS interactive in the comprehensive sense — both true, the layer disambiguates.
+
+**Phase 2 (deferred indefinitely).** A future PR could add a URL alias `/labs/<slug>/` 301-redirecting to `/interactives/<slug>/`, plus a dual API endpoint `/api/lab/track`. Not pursued now — the URL stays canonical for SEO + bookmarks. After ~30 days of zero traffic on alternative URLs, it'd be safe to deprecate the alias plan entirely.
+
+**Phase 3 (never).** D1 column / event-type renames carry migration risk for zero reader-visible value. Documented in SCHEMA.md; we move on.
+
+**Files (3 + 4 docs).** LessonLayout.astro, interactives/[slug].astro, interactives.ts + CLAUDE / DECISIONS / AGENTS / ARCHITECTURE. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+**Sequence complete.** PR #0 (drift fix) + PR #1 (sources) + PR #2 (drafting shape) + PR #3 (widgets) + PR #4 (rename) ship together as five independently revertable PRs in a stack from `main`. The four-PR scope from the original plan, plus PR #0 which surfaced mid-plan, redesigns Daylila's editorial input (sources), shape (drafting), engagement primitives (widgets), and naming layer (lab) all on the same day.
+
+---
+
 ## 2026-05-09: PR #3 — In-beat MDX widgets: `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>`, earned not budgeted
 
 **Symptom.** Operator's directive after the 2026-05-09 source-mix audit: "Beats are pure prose. Wants in-beat MDX widgets — but only where they earn their place, not as decoration." Original framing was "every beat can have small things like button or whatever ballon whatever." Counter-proposal — adopted by operator as a deliberate flip — is "earned, not budgeted": most beats stay pure prose, a beat earns a widget only when prose alone teaches less than prose+widget, a piece with zero widgets is healthy.

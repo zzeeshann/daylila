@@ -201,14 +201,14 @@ const interactiveSlug = primary?.data.slug ?? null;
       data-interactive-slug={interactiveSlug}
       data-lesson-step="interactive"
     >
-      <p class="lesson-interactive-eyebrow">Companion interactive</p>
+      <p class="lesson-interactive-eyebrow">Companion lab</p>
       <h2 class="lesson-interactive-title">{primary.data.title}</h2>
       {primary.data.concept && (
         <p class="lesson-interactive-concept">{primary.data.concept}</p>
       )}
 
       <div class="lesson-interactive-block">
-        <h3 class="lesson-interactive-subhead">Try the model</h3>
+        <h3 class="lesson-interactive-subhead">Try the lab</h3>
         {isLowQuality(htmlEntry) && (
           <p class="lesson-interactive-low">{LOW_QUALITY_NOTE}</p>
         )}
@@ -240,7 +240,7 @@ const interactiveSlug = primary?.data.slug ?? null;
     >
       {!htmlEntry && (
         <>
-          <p class="lesson-interactive-eyebrow">Companion interactive</p>
+          <p class="lesson-interactive-eyebrow">Companion lab</p>
           <h2 class="lesson-interactive-title">{primary.data.title}</h2>
           {primary.data.concept && (
             <p class="lesson-interactive-concept">{primary.data.concept}</p>
