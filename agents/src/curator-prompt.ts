@@ -59,12 +59,13 @@ Return JSON:
     // to fewer if the principle lands with less.
   ],
   "rejections": [
-    { "id": "<uuid copied verbatim from the candidate's id: field>", "rejectionCategory": "<one of the 8 enum values from the contract>", "rejectionReason": "<one sentence — only on the top 5 candidates you weighed most seriously; omit on the rest>" }
+    { "id": "<uuid copied verbatim from the candidate's id: field>", "rejectionCategory": "<one of the 8 enum values from the contract>", "rejectionReason": "<one sentence — only on the TOP 10 candidates you weighed most seriously; omit on the rest>" }
     // ... one entry per non-picked candidate. The id MUST be the exact UUID
     // shown in the candidate list — do not invent, truncate, guess, or
     // substitute a list position. Same verbatim-UUID rule as
     // selectedCandidateId. rejectionReason is OPTIONAL — present on the
-    // top 5 only.
+    // top 10 only (was 5; raised 2026-05-09 to give the operator a
+    // fuller audit trail of the candidates Curator actually weighed).
   ]
 }
 

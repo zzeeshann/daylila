@@ -90,12 +90,18 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       }
       const loadedLearningIds = learnings.map((l) => l.id);
 
-      const response = await client.messages.create({
+      // Streaming, not messages.create. ~2.7k output tokens at ~70s
+      // generation is borderline against the CF Workers ~125s
+      // subrequest idle limit; an outlier draft (longer beats, more
+      // examples) puts it past the wall. See DECISIONS 2026-05-09
+      // "Curator 124s 499 timeout regression" for the Curator failure
+      // that prompted this defense-in-depth conversion.
+      const response = await client.messages.stream({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 8000,
         system: DRAFTER_PROMPT,
         messages: [{ role: 'user', content: buildDrafterPrompt(brief, VOICE_CONTRACT, learnings) }],
-      });
+      }).finalMessage();
 
       let mdx = response.content[0].type === 'text' ? response.content[0].text : '';
       // Force correct date in frontmatter (Claude may generate a different date)

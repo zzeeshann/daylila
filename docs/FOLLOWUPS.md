@@ -13,6 +13,22 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-09: Streaming-conversion regression watch — Curator + Drafter + Integrator + InteractiveGenerator HTML
+
+- **Surfaced:** 2026-05-09 evening, alongside the Curator 124s 499 timeout fix (DECISIONS entry of same date). Six call sites moved from `client.messages.create({...})` to `await client.messages.stream({...}).finalMessage()`. The SDK contract guarantees a `Message` return type from `.finalMessage()` matching `messages.create`, but a regression could surface as: parse failures (the stream returns truncated content), `.usage` field missing or zeroed (cost-tracking goes blind), prefill-discontinuation (HTML methods rely on `{ role: 'assistant', content: '{' }` prefill — the stream must preserve continuation-only content), or Anthropic-side error-shape change between create and stream paths.
+- **Hypothesis:** None — observation. Watching for any of the four regression modes above on the next 14 days of cron firings. The watch ends 2026-05-23.
+- **Investigation hints:**
+  - Look for any `parse_error` or `client_error` observer events in the curator/drafter/integrator/interactive-generator domains.
+  - Token usage on `observer_events.body` ("Tokens: in=X out=Y") should remain populated — if `.usage` returns null on streaming, those numbers go to 0 or vanish entirely.
+  - Cost dashboard (Anthropic console) — daily token cost should drop slightly (no more 3× retry billing on Curator failures, plus summary-truncation savings). If costs SPIKE instead, something's wrong.
+  - InteractiveGenerator HTML prefill — the JSON envelope's first `{` is added back at parse time via `'{' + continuation`. If streaming returns the full message including the prefilled `{`, double-`{` corrupts the parser. Spot-check one HTML output post-deploy.
+- **Unblock:** Either:
+  - 14 calendar days of clean streaming operation across cron firings (≥10 pipeline runs without regression) → flip to [resolved] with the post-deploy SHA.
+  - Any single regression instance → flip to [open] with the failure mode named, prep for partial revert.
+- **Priority:** Medium — defense in depth, not active rescue. Watching for tail risks.
+
+---
+
 ## [deferred] 2026-05-09: Widget engagement signals to LearnerAgent (PR #3 Phase 2)
 
 - **Surfaced:** 2026-05-09 PR #3. Phase 1 landed three in-beat MDX widgets (`<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>`) plus the engagement-track event types (`widget_reveal_opened` / `widget_compare_viewed` / `widget_callout_seen`) plus migration 0043 adding three counter columns on `engagement`. Lesson-shell forwards widget events; the endpoint UPSERTs the counters. Today's LearnerAgent reads four signal sources (producer post-publish, Drafter self-reflection, reader engagement, producer-vs-reader implicit gap). Widget events become a fifth source: which widgets readers actually open vs which sit unused — a `<lesson-reveal>` that nobody opens after 30 days is decoration in disguise; a `<lesson-callout>` that everyone scrolls past silently is fine (it's an aside, not a click target).

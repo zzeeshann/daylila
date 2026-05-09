@@ -111,7 +111,7 @@ If the most natural lens isn't one of the ten, return the closest fit — Direct
 
 For every rejected candidate, assign a **`rejectionCategory`** from the closed enum below. Exactly one category per rejection. Do not invent new categories.
 
-For the **top 5 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining ~74 rejections get only the category (token cost on full reasoning would multiply by ~16× per run for marginal value).
+For the **top 10 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining ~63 rejections get only the category. Raised 5 → 10 on 2026-05-09: the operator reviews up to ~10 in practice, and the audit-trail value of seeing the top 10 by hand outweighs the small token delta. Going past 10 doesn't help — the further down the list, the less Curator weighed the candidate, and the reason rapidly collapses to the category alone.
 
 ### Rejection category enum
 
