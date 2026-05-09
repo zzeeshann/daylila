@@ -1,0 +1,59 @@
+{
+  "slug": "momentum-transfer-in-gravity-assists",
+  "type": "quiz",
+  "title": "Momentum Transfer in Gravity Assists",
+  "concept": "A spacecraft can steal speed from a planet's orbital motion by threading through its gravity well at the right angle—the planet pulls the spacecraft forward as it swings by, transferring momentum without burning fuel.",
+  "interactiveId": "2e6e0b03-a1d6-40c1-ac85-221b98956b6b",
+  "sourcePieceId": "5cb63863-58b8-451e-9e0b-e2db5e373509",
+  "publishedAt": 1778363282848,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a spacecraft leave a planetary flyby moving faster than it arrived, even though the planet's gravity pulls it in and then releases it?",
+        "options": [
+          "The planet's gravity compresses the spacecraft's trajectory, converting distance into speed",
+          "The spacecraft steals momentum from the planet's orbital motion around the Sun",
+          "The planet's atmosphere creates drag that accelerates the spacecraft forward",
+          "The spacecraft's engines fire briefly during closest approach to amplify the gravity effect"
+        ],
+        "correctIndex": 1,
+        "explanation": "The spacecraft approaches from behind the planet relative to its orbit. As it falls toward the planet, the planet's motion drags it forward—the spacecraft gains the planet's orbital speed. The planet loses a tiny, unmeasurable amount of momentum. Gravity alone doesn't create speed—it borrows it from the planet's motion around the Sun."
+      },
+      {
+        "question": "What makes fuel the hard limit for deep-space missions that gravity assists help solve?",
+        "options": [
+          "Fuel degrades over long missions, losing effectiveness after a few years in space",
+          "Every kilogram of fuel you carry requires more fuel to accelerate, creating a compounding mass problem",
+          "Fuel tanks are the largest physical constraint on spacecraft size",
+          "Fuel burns less efficiently in the vacuum of space than in atmosphere"
+        ],
+        "correctIndex": 1,
+        "explanation": "Adding fuel adds mass. Accelerating that mass requires more fuel. That fuel adds more mass. The problem compounds—small payload increases balloon into huge fuel requirements. Gravity assists break the loop by changing speed without burning propellant. The planet's motion does the work instead of fuel."
+      },
+      {
+        "question": "How do mission planners control where a spacecraft goes after a flyby when you can't steer in space like a car?",
+        "options": [
+          "They adjust the spacecraft's solar panel angle to create tiny course corrections over time",
+          "They choose the flyby distance and approach angle to bend the trajectory toward the destination",
+          "They fire thrusters at the moment of closest approach to redirect the gravity pull",
+          "They time the flyby to when the planet's magnetic field is strongest"
+        ],
+        "correctIndex": 1,
+        "explanation": "You steer by threading through gravitational fields at precise distances and angles. Passing closer bends the path more sharply. Approaching from different angles sends you toward different destinations. The geometry of the flyby determines the exit trajectory—it's orbital choreography, not mechanical steering."
+      },
+      {
+        "question": "Why does the planet lose an undetectable amount of speed when the spacecraft gains momentum?",
+        "options": [
+          "The planet's atmosphere absorbs the momentum loss through turbulence",
+          "The momentum transfers back to the planet through gravitational waves after the flyby",
+          "The planet's mass is so much larger than the spacecraft's that the speed change is infinitesimal",
+          "The planet's rotation compensates for the orbital speed loss"
+        ],
+        "correctIndex": 2,
+        "explanation": "Momentum conserves—the spacecraft's gain is the planet's loss. But a planet might be a trillion trillion times more massive than the spacecraft. The speed change is real but unmeasurably small—like a person jumping off a cargo ship. The ship slows, but the effect is invisible."
+      }
+    ]
+  }
+}
