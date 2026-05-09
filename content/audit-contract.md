@@ -73,10 +73,10 @@ Closed enum. Same one-token-per-violation-kind shape. Pass rounds emit `[]`.
 |-------|---------|
 | `weak_hook` | Hook does not open with the observation that creates the question, or uses a "In this lesson, we'll learn…" opening, or summarises before asking. |
 | `missing_close` | Close summarises, calls to action, congratulates, or rambles past four sentences. |
-| `beat_too_long` | Any beat is padded or carries more than one idea. |
+| `beat_too_long` | Any beat is padded or carries more than one idea, or runs past 200 words. |
 | `pacing_uneven` | Beats vary wildly in weight; the piece doesn't breathe at a consistent pace. |
-| `wrong_beat_count` | Outside the 3–6 range, or in the 7+ padding zone. |
-| `wrong_word_count` | Outside 1000–1500. |
+| `wrong_beat_count` | Outside the 5–8 range, or in the 9+ padding zone (6–8 is target). |
+| `wrong_word_count` | Outside 900–1100. |
 | `unknown` | Forward-compat sentinel. Same shape as the voice enum. |
 
 Note that the Structure Editor doesn't have its own contract file — structure rules live in `content/beat-contract.md`. The failure_reasons enum lives here in the audit contract because it governs how audit verdicts are SHAPED, not how pieces are shaped.

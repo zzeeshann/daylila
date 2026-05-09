@@ -6,9 +6,11 @@ Every published piece's shape — its word count, its number of beats, the forma
 
 ## The shape
 
-Total length across all beats: **1000–1500 words.**
+Total length across all beats: **900–1100 words.**
 
-Target **5–6 beats per piece.** 3–6 is acceptable. 7+ is the padding zone — if a piece needs a seventh beat, the principle has already landed and you're restating it. Cut, don't add.
+Target **6–8 beats per piece.** 5–8 is acceptable. 9+ is the padding zone — if a piece needs a ninth beat, the principle has already landed and you're restating it. Cut, don't add.
+
+**Per-beat sizing.** Hook ≈ 80 words. Teaching beats 80–140 words typical, 200 hard maximum. Close 1–4 sentences (≈ 50 words). Beats are paginated single-screen units in the reader UI — a beat that runs past 200 words forces a mid-beat scroll and breaks the "one beat = one screen" affordance.
 
 - **Hook:** One screen of text. Open with the observation that creates the question; let the question follow. Never summarise the situation before asking. No "In this lesson, we'll learn about..." — ever.
 - **Teaching:** One idea per beat. Open each beat with a specific observation — a fact, a moment, a number. The principle follows from it. Never start with a definition or a generalisation. Start from the reader's own experience, build outward.

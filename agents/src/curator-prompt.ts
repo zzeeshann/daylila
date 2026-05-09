@@ -50,7 +50,13 @@ Return JSON:
     { "name": "hook", "type": "hook", "description": "..." },
     { "name": "teaching-1", "type": "teaching", "description": "..." },
     { "name": "teaching-2", "type": "teaching", "description": "..." },
+    { "name": "teaching-3", "type": "teaching", "description": "..." },
+    { "name": "teaching-4", "type": "teaching", "description": "..." },
     { "name": "close", "type": "close", "description": "..." }
+    // 6-8 beats per piece per the beat contract (5-8 acceptable, 9+ padding).
+    // Hook + close + 4-6 teaching beats. Add more teaching beats up to 6 if
+    // the underlying system has multiple distinct moves to teach; collapse
+    // to fewer if the principle lands with less.
   ],
   "rejections": [
     { "id": "<uuid copied verbatim from the candidate's id: field>", "rejectionCategory": "<one of the 8 enum values from the contract>", "rejectionReason": "<one sentence — only on the top 5 candidates you weighed most seriously; omit on the rest>" }
