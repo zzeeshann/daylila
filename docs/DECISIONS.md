@@ -28,6 +28,20 @@ Append-only. Never edit old entries. Entries below from before 2026-05-06 refere
 
 ---
 
+## 2026-05-09 (evening, follow-up): Mirror the splice fix to `publisher.ts` + extend `verify-splice.mjs`
+
+Same-session follow-up to the entry below. After the prod fix landed, audited the rest of the codebase for the same bug class. Found it in [agents/src/publisher.ts:303](../agents/src/publisher.ts:303) `spliceAudioBeats` — same `\.replace(regex, ` + '`' + `$1${block}$2` + '`' + `)` shape. Payload (R2 audio URLs + beat keys) is structurally safe today (UUIDs + path segments don't contain `$`), but the foot-gun is identical. Converted to the function-callback form for symmetry with Director and to make the bug class structurally impossible regardless of payload.
+
+[agents/scripts/verify-splice.mjs](../agents/scripts/verify-splice.mjs) gained two regressions:
+- **Case 5** — splice an `audioBeats` URL containing literal `$1` / `$2`; assert it round-trips unchanged. Would fail loudly if anyone reverts the publisher fix.
+- **Static check** — read `agents/src/director.ts`, strip comments, scan `.replace(...)` call windows for backtick strings starting with `$1` or `$2`. Asserts zero hits. Closes the bug class at the file the originating bug lived in.
+
+Both pass green. The first replace inside `spliceAudioBeats` (line 294 — strips an existing audioBeats block) is intentionally left as the string-template form because `'$1'` there IS a deliberate backreference to a captured `\n`, not a payload — the foot-gun only fires when the replacement template contains user-controlled content.
+
+Files: 1 agent file (`agents/src/publisher.ts`), 1 verifier (`agents/scripts/verify-splice.mjs`), DECISIONS. No migration. No new D1 row. No contract change.
+
+---
+
 ## 2026-05-09 (evening): PM piece's frontmatter corrupted by `$1` regex backreference; four deploys failed silently
 
 **Symptom.** Operator opened today's `/daily/` and could see only the AM piece (`a-lost-ancient-script-reveals-how-writing-as-we-know-it-real`). The PM piece (`surge-in-fake-citations-uncovered-by-audit-of-2-5-million-bi`) was missing from the public site, but the admin pipeline log showed it ran successfully.
