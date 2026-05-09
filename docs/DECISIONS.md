@@ -2,6 +2,66 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09 (evening): PM piece's frontmatter corrupted by `$1` regex backreference; four deploys failed silently
+
+**Symptom.** Operator opened today's `/daily/` and could see only the AM piece (`a-lost-ancient-script-reveals-how-writing-as-we-know-it-real`). The PM piece (`surge-in-fake-citations-uncovered-by-audit-of-2-5-million-bi`) was missing from the public site, but the admin pipeline log showed it ran successfully.
+
+**Investigation.** D1 confirmed both `daily_pieces` rows landed cleanly (PM piece id `955100a7-9500-4f26-87a8-cfd02c20789e`, voice 92, `has_audio=1`). MDX files for both pieces were present on disk and committed to `main`. The PM piece URL returned `HTTP 404` on prod; the `/daily/` index only linked the AM piece. `gh run list` surfaced the real failure: **four consecutive `Deploy` workflow failures** since commit `d90da0e` (the PM piece itself), all at the `astro build` content-sync step:
+
+```
+missed comma between flow collection entries
+Location: content/daily-pieces/2026-05-09-surge-in-fake-citations-...mdx:14:8
+```
+
+The four red commits were: PM piece (`d90da0e`), its companion interactive (`013c8cf`), the interactive HTML follow-up (`325f5c6`), and the audio commit (`d039217`). All consumed the broken file in their builds. The last green deploy was the AM piece's interactive at `06:15Z` — exactly why prod froze in the AM-only state.
+
+**Root cause.** Line 13 of the PM piece's frontmatter was:
+
+```
+claimReviews: ["...", "...", "Paper mills charge fees often ---
+title: "When Scientific Citations Point to Papers That Don't Exist"
+date: "2026-05-09"
+[entire frontmatter prefix duplicated verbatim]
+newsSource: "Nature",000 to $5,000 for authorship on fabricated papers", "...", ...]
+```
+
+This is a textbook `String.prototype.replace` regex-backreference bug. The Director's `claimReviews` splice at [agents/src/director.ts:625](../agents/src/director.ts:625) was:
+
+```ts
+currentMdx = currentMdx.replace(
+  /^(---\n[\s\S]*?)(\n---\n)/,
+  `$1\nclaimReviews: ${JSON.stringify(verifiedClaims)}$2`,
+);
+```
+
+JS interprets `$1`, `$2`, `$&`, `$$`, `` $` ``, `$'` inside a string-template replacement as capture-group references. Today's Drafter wrote a verified claim reading `"Paper mills charge fees often $1,000 to $5,000 for authorship on fabricated papers"`. Once `JSON.stringify` serialised that into the replacement template, the literal `$1` inside the string got expanded into capture group 1 — which is the entire frontmatter prefix `^---\n...newsSource: "Nature"`. Result: the prefix duplicated mid-claim, the `$1` itself disappeared (so `$1,000` became `[duplicated frontmatter],000`), and the file was no longer valid YAML.
+
+**Why this is the first time this fired.** The same pattern lives in five Director frontmatter splices (`pieceId` / `sourceUrl` / `newsSource` / `claimReviews` / `qualityFlag`), plus `voiceScore` and `publishedAt` two more — seven total. Six of the seven have payloads that structurally cannot contain `$N` (UUIDs, URLs without query-string `$N`, publisher names, integer scores, integer timestamps, the literal `"low"`). `claimReviews` is the only splice whose payload is unstructured Drafter text, and the audit-tier rule that produces it (verbatim claim text) inevitably surfaces dollar amounts at some cadence. Sweep of all 49 published pieces' `claimReviews` arrays for `$1[^0-9]` / `$2[^0-9]` / `$&` / `$$` returned **zero** prior hits — the PM piece is the first claim list to land a triggering token. Higher tokens like `$12.5` are safe by JS replace semantics (`$12` looks for capture group 12, falls back to literal when not defined; only `$1`/`$2` etc. that match an existing group cause expansion).
+
+**Fix.** Two parts in one commit, gated by the metadata carve-out (no body content touched):
+
+1. **Restore the corrupted frontmatter** at [content/daily-pieces/2026-05-09-surge-in-fake-citations-uncovered-by-audit-of-2-5-million-bi.mdx:13](../content/daily-pieces/2026-05-09-surge-in-fake-citations-uncovered-by-audit-of-2-5-million-bi.mdx) — collapse the duplicated frontmatter, restore claim 3 to its original `"Paper mills charge fees often $1,000 to $5,000 for authorship on fabricated papers"`. Validated locally with `js-yaml` — 9 claims parsed, 7 audio beats parsed, `newsSource: "Nature"`, item 3 round-trips intact.
+
+2. **Convert all seven Director frontmatter splices to the callback form** at [agents/src/director.ts](../agents/src/director.ts) (`voiceScore` / `publishedAt` / `pieceId` / `sourceUrl` / `newsSource` strip / `newsSource` insert / `claimReviews` / `qualityFlag`):
+
+   ```ts
+   currentMdx.replace(regex, (_m, p1, p2) => `${p1}\n...${p2}`);
+   ```
+
+   The function-callback form returns a plain string and is documented (MDN, ECMA-262) as **not** subject to `$N` interpretation. This makes the bug class structurally impossible regardless of what payload a future splice handles. A single block comment above the first splice explains the why so the next person adding a splice doesn't reach for the string-template form.
+
+**Why callback form over `$$` escaping.** The alternative — escape `$` to `$$` in every payload — works but requires every future splice author to remember the escape. Callback form is enforced by syntax: you literally cannot write `$N` at the call site because there's no replacement template. Defense-in-depth at zero ongoing cost.
+
+**Verification.**
+- `js-yaml` parse on the restored MDX: 9 claims, 7 beats, all values clean.
+- Whole-codebase grep for `\.replace\(...,\s*['"\`]?\$[12]` in `agents/src/` and `src/`: zero remaining matches outside the new explanatory comment.
+- All 49 prior published pieces sweep for `$1[^0-9]` / `$2[^0-9]` / `$&` / `$$` in `claimReviews`: zero hits → no other corrupted-on-disk file to repair.
+- Production state pre-fix: AM piece HTTP 200, `/daily/` index links AM only, PM piece HTTP 404 — exactly matches the four-failed-deploys narrative. Re-verify post-deploy: both URLs HTTP 200, `/daily/` index links both, PM piece body matches D1.
+
+**Files.** 1 site MDX (metadata-only, carve-out), 1 agent file (`agents/src/director.ts`), CLAUDE / DECISIONS. No migration. No new D1 row. No contract change.
+
+**Migration count: 41 (unchanged). Table count: 26 (unchanged).**
+
 ## 2026-05-08 (night): Paginated UX polish — iframe re-ping + scroll-to-dots + dot row distinction
 
 **Context.** Three small UX issues surfaced after the meta-line PR landed. Each is a different mechanism; bundled in one commit because all three are paginated-reading polish.
