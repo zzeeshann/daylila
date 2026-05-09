@@ -2,6 +2,30 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09: PR #2 — Drafting shape: 900–1100 words, 6–8 beats, per-beat 80–140 typical / 200 hard max
+
+**Symptom.** Operator's directive after the 2026-05-09 source-mix audit: "Pieces feel long. Wants shorter overall, fewer words per beat, possibly more beats." Empirical word counts of last 10 pieces: 779 / 903 / 964 / 969 / 976 / 1031 / 1042 / 1096 / 1119 / 1277. Median ~970 — already below the old contract floor of 1000. Beats from a sample piece ran 78 / 116 / 130 / 189 / 59. Range 30–190 per beat.
+
+**Constraint.** Brand promise is "10 minutes a day." 900–1100 words at 200 wpm = 4.5–5.5 minutes pure reading; with audio overlay (~7–10 min listening) and the optional widget interaction (PR #3, ~30s/widget) and the standalone quiz (~2 min), the piece lands at ~10 minutes total attention. Operator chose path B1a from the plan: 900–1100 — "preserve the 10-minute reading promise; don't bend it as a side-effect of a contract update."
+
+**Why per-beat sizing matters now.** Paginated mode is the only reading mode since the C7 cleanup 2026-05-08; each beat is a single-screen viewport step. A beat past ~200 words forces a mid-beat scroll on mobile (393px) and breaks the "one beat = one screen" affordance the dot-row navigation depends on. Pre-paginated, beat length was a soft pacing concern; post-paginated, it's a UX-affordance concern.
+
+**Fix.**
+
+- [content/beat-contract.md](content/beat-contract.md): total length `1000–1500` → `900–1100`; beat count `5–6 (3–6 ok)` → `6–8 (5–8 ok)`; new "Per-beat sizing" paragraph: hook ~80, teaching 80–140 typical / 200 hard max, close ~50.
+- [content/audit-contract.md](content/audit-contract.md) failure-reasons enum: `wrong_word_count` description updated, `wrong_beat_count` description updated, `beat_too_long` description grew "or runs past 200 words" clause.
+- [agents/src/structure-editor-prompt.ts](agents/src/structure-editor-prompt.ts): synced both the audit-rules paragraph and the failure-reasons enum bullets to the new numbers.
+- [content/curator-contract.md](content/curator-contract.md): `DEPTH POTENTIAL` selection criterion updated; `wrong_shape` rejection category description updated.
+- [agents/src/curator-prompt.ts](agents/src/curator-prompt.ts): beat-plan response template expanded from 4 beats to 6, with an inline comment naming the 6–8 target.
+
+**Heterogeneous library** — old pieces (5 beats) render as 5 dots; new pieces (up to 8) render as 8 dots. Dot-row CSS is `justify-content: center` flex (set 2026-05-08) and scales cleanly through ~10 dots at desktop + 393px mobile per spot-check; gates merge if browser verification surfaces a regression. Old pieces stay as-is per the permanence rule.
+
+**No code-side validation added.** Rules live in the contracts; agents read them. The SESSION_OPENER prohibits adding regex over MDX or threshold values in code. The numbers in `agents/src/structure-editor-prompt.ts` and `agents/src/curator-prompt.ts` are prompt copy, not enforcement code — they restate what's in the contract for the LLM at the system-prompt position, same posture as every other prompt-contract injection since Foundation Fix Phase 1.
+
+**Files.** 3 contracts (beat / audit / curator), 2 prompt files (structure-editor / curator), regenerated contracts.ts + CLAUDE / DECISIONS / SCHEMA / FOLLOWUPS. Migration count: 42 (unchanged). Table count: 26 (unchanged). PR #2 of the four-PR sequence.
+
+---
+
 ## 2026-05-09: PR #1 — Source mix widened; Curator self-classifies into 10-domain enum
 
 **Symptom.** Library audit on 2026-05-09 — last 30 days' picks: ~29% hard science, ~23% policy, ~12% business, ~10% human-interest. **Zero entertainment, sports, food, fashion, music, lifestyle, personal finance.** The Curator contract at [content/curator-contract.md:9](content/curator-contract.md:9) explicitly invites "celebrity scandal" and the 10-domain TEACHABILITY taxonomy at lines 19-28 names "Skills and craft" (cooking, sport, games), "Expression" (art, music, film), "Body and health" (medicine, nutrition). The contract is breadth-aware. The candidate pool wasn't.

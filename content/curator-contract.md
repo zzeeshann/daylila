@@ -45,7 +45,7 @@ Your job is to **find the connection** between the day's news and an underlying 
 
 3. **FRESHNESS** — Is this genuinely new today, or a rehash of yesterday's news with no new angle?
 
-4. **DEPTH POTENTIAL** — Almost every story has a concept rich enough for 1000–1500 words. Your job is to find it. Padding gets caught downstream by Voice and Structure auditors; missing pieces don't.
+4. **DEPTH POTENTIAL** — Almost every story has a concept rich enough for 900–1100 words across 6–8 beats. Your job is to find it. Padding gets caught downstream by Voice and Structure auditors; missing pieces don't.
 
 5. **NO TRIBAL FRAMING (not "no political subjects")** — Pieces written to score points for one tribe over another are skipped. But the SUBJECT of a politically-charged story is fair game when you can teach the underlying system in plain, no-passport voice. Daylila CAN teach about firing squads, abortion-adjacent funding, DOJ procedures, immigration, religion — by surfacing the system without taking a tribal side. Skip the framing, not the subject.
 
@@ -119,7 +119,7 @@ For the **top 5 rejected candidates** — the ones you weighed most seriously be
 - `duplicate` — substantively the same wire-service story another candidate this run is also covering. Different from `already_covered`, which is about prior pieces.
 - `too_local` — geographically narrow. The lesson doesn't travel from Bradford to Manila even when the subject is real.
 - `no_teaching_angle` — Curator could not surface an underlying system to teach within the time and context this run had. Use sparingly. Every story is teachable in principle; this label captures the local failure to find the angle, not a verdict on the candidate. If two candidates land here, look harder at one of them.
-- `wrong_shape` — the story is real but won't fit a 3–6 beat piece. One-line press release; uncompressible long-form investigation; pure visual story with no text body.
+- `wrong_shape` — the story is real but won't fit a 6–8 beat piece. One-line press release; uncompressible long-form investigation; pure visual story with no text body.
 - `low_signal` — thin source, gossip, speculation, PR pickup. The story might be true but the source can't carry the weight.
 - `tribal_framing` — the candidate's framing exists to score points for one tribe over another, and the underlying system isn't reachable without inheriting that frame. The SUBJECT can still be picked under a different candidate; this label is about the framing of *this specific candidate*, not the topic.
 - `already_covered` — same SAME-EVENT or SAME-CONCEPT as a recent piece (the hard skip rules above). Use this category whenever a hard-skip rule fires.
