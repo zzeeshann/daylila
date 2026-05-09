@@ -235,8 +235,8 @@ Published daily teaching pieces.
 | headline | TEXT | The teaching piece title |
 | underlying_subject | TEXT | What it teaches about |
 | source_story | TEXT | Original news source |
-| word_count | INTEGER | |
-| beat_count | INTEGER | |
+| word_count | INTEGER | **Inert since PR #0 (2026-05-09).** Held Drafter's pre-revision word count, drifted from the final published MDX. Site-worker readers now derive from MDX via `src/lib/piece-stats.ts`. Director no longer writes the column at INSERT. Queued for removal in a future migration (FOLLOWUPS [deferred] 2026-05-09 "Drop daily_pieces.word_count + beat_count columns"). |
+| beat_count | INTEGER | **Inert since PR #0 (2026-05-09).** Held `brief.beats?.length` (Curator's plan), which often differed from the actual `## ` heading count in the published MDX (drawer would say "4 beats" while the dot row showed 6). Same fix shape as `word_count` above. |
 | voice_score | INTEGER | |
 | fact_check_passed | INTEGER | |
 | has_interactive | INTEGER | **Deprecated as of migration 0022.** Scaffolded in 0006, never read or written by any code path, always 0 in production. `interactive_id` (below) is the single source of truth for "does this piece have an interactive". Column stays physical because SQLite DROP COLUMN would require a `daily_pieces` table rebuild (blast radius too big for hygiene). No writer touches it going forward. |

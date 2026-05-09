@@ -7,6 +7,7 @@ import { getUser } from '../../../../../lib/db';
 import { auditTier, auditTierLabel } from '../../../../../lib/audit-tier';
 import { pipelineStepLabel } from '../../../../../lib/pipeline-steps';
 import { deriveSlug, pieceUrl } from '../../../../../lib/slug';
+import { computePieceStats } from '../../../../../lib/piece-stats';
 
 const db = Astro.locals.runtime.env.DB;
 const userId = Astro.locals.userId;
@@ -36,8 +37,6 @@ type Piece = {
   voice_score: number | null;
   fact_check_passed: number | null;
   quality_flag: 'low' | null;
-  word_count: number | null;
-  beat_count: number | null;
   reading_minutes: number | null;
   has_audio: number | null;
   interactive_id: string | null;
@@ -507,10 +506,14 @@ const totalAudioChars = audioRows.reduce((sum, r) => sum + r.character_count, 0)
 // other state (partial rows, failed step, zero rows, stalled with no
 // error) means a retry affordance should be visible.
 const audioComplete = piece?.has_audio === 1;
-// Expected beat count for the piece. beat_count on daily_pieces is the
-// Drafter's declared value; fall back to row count if unset (older
-// pieces from before beat_count was populated).
-const expectedBeats = piece?.beat_count ?? audioRows.length;
+// Word + beat count derived from the published MDX (single source of
+// truth as of PR #0, 2026-05-09). The previous daily_pieces.word_count
+// + beat_count columns were brief-time values that drifted from the
+// final piece. Both columns are inert; queued for removal in a future
+// migration. Fallback to audio-row count when entry/body unreachable
+// — pre-Phase-7 historical pieces or rebuild lag.
+const pieceStats = entry?.body ? computePieceStats(entry.body) : null;
+const expectedBeats = pieceStats?.beatCount ?? audioRows.length;
 
 // Compact summary values — computed once, consumed in the top stat row
 // and in each collapsible section's <summary> so the operator can scan
@@ -567,8 +570,8 @@ function publishedDisplay(): string {
         )}
         <p class="text-sm text-zee-muted flex flex-wrap items-center gap-x-2 gap-y-1">
           {piece.voice_score != null && <><span>Voice {piece.voice_score}/100</span><span class="opacity-40">·</span></>}
-          {piece.word_count != null && <><span>{piece.word_count} words</span><span class="opacity-40">·</span></>}
-          {piece.beat_count != null && <><span>{piece.beat_count} beats</span><span class="opacity-40">·</span></>}
+          {pieceStats != null && <><span>{pieceStats.wordCount} words</span><span class="opacity-40">·</span></>}
+          {pieceStats != null && <><span>{pieceStats.beatCount} beats</span><span class="opacity-40">·</span></>}
           {rounds.length > 0 && <><span>{rounds.length} round{rounds.length === 1 ? '' : 's'}</span><span class="opacity-40">·</span></>}
           {piece.fact_check_passed != null && <><span>Facts {piece.fact_check_passed ? 'passed' : 'failed'}</span><span class="opacity-40">·</span></>}
           <span>Audio {audioStatusLabel}</span>

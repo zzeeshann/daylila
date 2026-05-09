@@ -2,6 +2,32 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09: PR #0 — Beat-count + word-count drift fix; single source of truth = MDX
+
+**Symptom.** Operator screenshotted the 2026-05-09 fake-citations piece. The dot row showed 7 beat dots; the "How this was made" drawer said `4 beats · 555 words`. The file on disk has 7 `## ` headings; `computePieceStats` returns 905 body words (post-frontmatter-strip + tag-strip). Two visible numbers, neither correct in the drawer.
+
+**Investigation.** Three numbers floated through the system, only one reflected reality:
+
+- **Curator's brief plan** (`brief.beats.length`) → written to `daily_pieces.beat_count` at [agents/src/director.ts:692](agents/src/director.ts:692). The brief plans 4 beats; Drafter expands to 7. Drawer reads this column and shows the brief number.
+- **Drafter's pre-revision word count** → written to `daily_pieces.word_count` at the same INSERT. Integrator may have rewritten the prose across 1–2 audit rounds since; the column never updates.
+- **Actual `## ` heading count + word count of the published MDX** → what readers see on the page; what dots count via [src/lib/rehype-beats.ts](src/lib/rehype-beats.ts).
+
+**Spread.** Five site-worker readers showed the stale brief numbers: drawer ([src/pages/api/daily/[date]/made.ts](src/pages/api/daily/[date]/made.ts)), daily index card ([src/pages/daily/index.astro](src/pages/daily/index.astro)), admin pieces list ([src/pages/dashboard/admin.astro](src/pages/dashboard/admin.astro)), admin per-piece header ([src/pages/dashboard/admin/piece/[date]/[slug].astro](src/pages/dashboard/admin/piece/[date]/[slug].astro)) and its `expectedBeats` calculation. One agents-worker reader carried them as decoration in the post-publish prompt: [agents/src/learner.ts](agents/src/learner.ts) — voice score + audit rounds + engagement carry the actual learning signal; word/beat count are ambient context.
+
+**Fix.** New helper [src/lib/piece-stats.ts](src/lib/piece-stats.ts) exports `computePieceStats(body)` returning `{ wordCount, beatCount }`. Beat count via `^## ` regex matching what rehype-beats sees; word count via whitespace-split with HTML/markdown stripping. All five site-worker readers now derive on read from `entry.body` via `getCollection('dailyPieces')`. Director drops `word_count` + `beat_count` from the daily_pieces INSERT (columns nullable; new rows leave them NULL). Learner drops them from its SELECT and from the prompt-context block.
+
+**No migration this PR.** Both columns become inert. Queued for removal in FOLLOWUPS [deferred] 2026-05-09 entry with calendar trigger 2026-06-09 (≥30 days clean operation post-deploy with no operator surface noticing missing data + zero bulk-query usage discovered post-deploy). Same non-destructive precedent as `admin_settings.reading_mode` after the C7 cleanup (DECISIONS 2026-05-08): row preserved as audit trail, one-line revert path if the column ever earns its keep again.
+
+**Why before the four-PR sequence.** The pending PR #2 raises beat count from 5–6 to 6–8. Curator's brief will plan one number and Drafter will write a different one *more often than today* under the new contract — the drift gets louder. Fixing the read path now means new contracts arrive into a working drawer rather than amplifying an already-broken one.
+
+**Visible-on-prod number changes after deploy** (the fix landing, not regression). Every existing piece's drawer / index card / admin page will now show the correct word and beat counts derived from MDX, which are typically larger than what was shown yesterday — Curator's brief planned fewer beats and Drafter's pre-revision count was lower than the final MDX. The 2026-05-09 fake-citations piece shifts from "4 beats · 555 words" to "7 beats · 905 words". Pieces themselves are unchanged on disk; only the read path changed. The commit message body explicitly calls this out so a reader who notices doesn't think the piece changed.
+
+**Why no caching yet.** Drawer endpoint p95 latency is invisible at today's traffic; iterating the content collection ~50 times per request is cheap. Premature optimisation. FOLLOWUPS [deferred] 2026-05-09 entry documents the cache option (keyed by piece-id; invalidate on rebuild) for later if drawer-open p95 ever exceeds ~150ms or daily-piece traffic crosses ~50 RPS.
+
+**Files.** 1 new helper, 4 site files, 2 agent files, 4 docs (CLAUDE / DECISIONS / SCHEMA / FOLLOWUPS). Migration count: 41 (unchanged). Table count: 26 (unchanged). Plan file at `~/.claude/plans/now-i-would-like-jazzy-fountain.md` carries the longer four-PR sequence (Sources → Drafting shape → Widgets → Rename Phase 1) which Zi has approved at the question level but is not in this commit.
+
+---
+
 ## 2026-05-09 (evening): PM piece's frontmatter corrupted by `$1` regex backreference; four deploys failed silently
 
 **Symptom.** Operator opened today's `/daily/` and could see only the AM piece (`a-lost-ancient-script-reveals-how-writing-as-we-know-it-real`). The PM piece (`surge-in-fake-citations-uncovered-by-audit-of-2-5-million-bi`) was missing from the public site, but the admin pipeline log showed it ran successfully.
