@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**26 tables across 42 migrations.**
+**26 tables across 43 migrations.**
 
 ## Reader-side tables
 
@@ -139,8 +139,11 @@ Reader engagement metrics, aggregated per piece per day.
 | avg_time_seconds | INTEGER | |
 | drop_off_beat | TEXT | Most common drop-off point |
 | audio_plays | INTEGER | Default 0 |
+| widget_reveal_opens | INTEGER | Default 0. Counter for `<lesson-reveal>` widget first-opens per-piece-per-day. Added migration 0043 (PR #3, 2026-05-09). Phase 1 (this PR) lands the writes; Phase 2 (FOLLOWUPS [deferred] 2026-05-09) extends LearnerAgent to read. |
+| widget_compare_views | INTEGER | Default 0. Counter for `<lesson-compare>` first-viewport-entries per-piece-per-day. Added migration 0043. |
+| widget_callouts_seen | INTEGER | Default 0. Counter for `<lesson-callout>` first-viewport-entries per-piece-per-day. Added migration 0043. |
 
-PK: **(piece_id, course_id, date)** since migration 0017. Indexes: `idx_engagement_course` on `course_id`, `idx_engagement_date` on `date`, `idx_engagement_piece` on `piece_id`. Migrations: `0003_engagement_learnings.sql` (initial), `0017_engagement_piece_id.sql` (PK rebuild + backfill).
+PK: **(piece_id, course_id, date)** since migration 0017. Indexes: `idx_engagement_course` on `course_id`, `idx_engagement_date` on `date`, `idx_engagement_piece` on `piece_id`. Migrations: `0003_engagement_learnings.sql` (initial), `0017_engagement_piece_id.sql` (PK rebuild + backfill), `0043_engagement_widget_counters.sql` (3 widget counters).
 
 ### learnings
 Cross-agent learnings database — patterns that work or don't. Drafter reads the 10 most recent rows (across all sources / categories) at runtime and includes them in its prompt — the loop the system uses to improve on itself.

@@ -25,6 +25,7 @@ Flag specific violations of the beat contract above:
 6. Beats not demarcated by \`## kebab-case\` headings, OR JSX tags like \`<lesson-shell>\` / \`<lesson-beat>\` are present.
 7. Frontmatter missing any of: title, date, underlyingSubject, estimatedTime, beatCount, description. (newsSource is spliced by Director at publish time per beat-contract.md and is not the writer's concern — do not flag it as missing.)
 8. Padding or filler paragraphs.
+9. A widget (\`<lesson-reveal>\` / \`<lesson-compare>\` / \`<lesson-callout>\`) that doesn't earn its place — i.e. deleting the widget would leave the same lesson landing equally well. The beat contract requires widgets to be earned, not budgeted. Apply the heuristic: if the widget can be deleted and the same lesson lands, delete it. If the widget can be replaced by a sentence and the same lesson lands, write the sentence. Only when neither — the widget earned its place. Decoration / reader-praise inside widget bodies fails this rule.
 
 IMPORTANT: Be reasonable. Minor formatting differences or slight word count variations are NOT failures. Only flag genuine structural problems that would hurt the reader experience. If the lesson is well-structured overall, pass it.
 
@@ -43,6 +44,7 @@ The failure_reasons array uses ONLY these closed-enum tokens (never invent new t
 - "pacing_uneven" — beats vary wildly in weight; the piece doesn't breathe at a consistent pace
 - "wrong_beat_count" — outside the 5-8 range, or in the 9+ padding zone
 - "wrong_word_count" — outside 900-1100
+- "widget_without_purpose" — a <lesson-reveal> / <lesson-compare> / <lesson-callout> that decorates rather than teaches. Apply the heuristic: deletable without losing the lesson, or replaceable with a sentence — fail.
 
 Emit one token per VIOLATION KIND, not per instance. Three "beat_too_long" issues collapse to one token. If passed=true, return an empty array []. If a violation truly doesn't fit any token above, omit it from failure_reasons (it still goes in issues[] for human review).
 

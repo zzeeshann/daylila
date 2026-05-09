@@ -95,6 +95,58 @@ interface AudioProducerState {
 const BYTES_PER_SECOND_AT_96KBPS = 12_000;
 
 /**
+ * Widget-aware TTS preparation (PR #3, 2026-05-09). Translates the
+ * three in-beat widget tags into narratable prose BEFORE the generic
+ * HTML/MDX strip in `prepareForTTS`. Exported for unit-testability
+ * and for the future verifier script.
+ *
+ * Per-tag narration rules — see prepareForTTS doc-comment for the full
+ * spec. Anything not matching a widget pattern is left untouched and
+ * falls through to the generic strip.
+ */
+export function expandWidgetsForTTS(text: string): string {
+  let out = text;
+
+  // <lesson-reveal prompt="..."> body </lesson-reveal>
+  // → narrate the prompt, skip the body.
+  out = out.replace(
+    /<lesson-reveal\s+prompt="([^"]*)"[^>]*>[\s\S]*?<\/lesson-reveal>/gi,
+    (_m, prompt) => `\n${prompt.trim()}\n`,
+  );
+
+  // <lesson-compare> ... <lesson-state label="X">body</lesson-state> ... </lesson-compare>
+  // → narrate "X: body. Y: body." in sequence. Discard the outer wrapper.
+  out = out.replace(
+    /<lesson-compare[^>]*>([\s\S]*?)<\/lesson-compare>/gi,
+    (_m, inner) => {
+      const states: string[] = [];
+      const stateRe = /<lesson-state\s+label="([^"]*)"[^>]*>([\s\S]*?)<\/lesson-state>/gi;
+      let m: RegExpExecArray | null;
+      while ((m = stateRe.exec(inner)) !== null) {
+        const label = m[1].trim();
+        // Strip any nested HTML/markdown out of body before narration.
+        const body = m[2].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        if (label && body) states.push(`${label}: ${body}`);
+      }
+      return states.length === 0 ? '' : `\n${states.join('. ')}.\n`;
+    },
+  );
+
+  // <lesson-callout type="aside"> body </lesson-callout>  → skip
+  // <lesson-callout type="..."> body </lesson-callout>    → narrate body
+  out = out.replace(
+    /<lesson-callout(\s+[^>]*)?>([\s\S]*?)<\/lesson-callout>/gi,
+    (_m, attrs, body) => {
+      const isAside = /\btype\s*=\s*"aside"/i.test(attrs ?? '');
+      if (isAside) return '';
+      return `\n${body.trim()}\n`;
+    },
+  );
+
+  return out;
+}
+
+/**
  * Thrown when a piece's total character count exceeds the budget.
  * Director catches this, skips the audio phase (text is already
  * published), and escalates to Observer. Producer refuses to spend
@@ -292,9 +344,30 @@ export class AudioProducerAgent extends Agent<Env, AudioProducerState> {
    * cleanup is specific to the producer's input shape; the normaliser
    * deals only with plain prose so it can be reused by any future TTS
    * provider.
+   *
+   * Widget-aware extraction (PR #3, 2026-05-09): the three in-beat
+   * widget tags get translated to narratable prose BEFORE the generic
+   * tag strip. Per-tag rules:
+   *
+   *   <lesson-reveal prompt="..."> body </lesson-reveal>
+   *     → narrate the prompt, skip the body. Reader does the
+   *       thinking step on the page; audio doesn't ruin it.
+   *
+   *   <lesson-compare>
+   *     <lesson-state label="A">body A</lesson-state>
+   *     <lesson-state label="B">body B</lesson-state>
+   *   </lesson-compare>
+   *     → narrate "A: body A. B: body B." in sequence. Each state's
+   *       label cues the listener to the contrast.
+   *
+   *   <lesson-callout type="aside"> body </lesson-callout>
+   *     → skipped from audio (type="aside" only).
+   *   <lesson-callout type="define|note"> body </lesson-callout>
+   *     → narrate the body inline.
    */
   private prepareForTTS(text: string): string {
-    const stripped = text
+    const widgetExpanded = expandWidgetsForTTS(text);
+    const stripped = widgetExpanded
       .replace(/^---[\s\S]*?---/m, '')
       .replace(/<[^>]+>/g, '')
       .replace(/#{1,6}\s/g, '')

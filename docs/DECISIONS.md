@@ -2,6 +2,34 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09: PR #3 — In-beat MDX widgets: `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>`, earned not budgeted
+
+**Symptom.** Operator's directive after the 2026-05-09 source-mix audit: "Beats are pure prose. Wants in-beat MDX widgets — but only where they earn their place, not as decoration." Original framing was "every beat can have small things like button or whatever ballon whatever." Counter-proposal — adopted by operator as a deliberate flip — is "earned, not budgeted": most beats stay pure prose, a beat earns a widget only when prose alone teaches less than prose+widget, a piece with zero widgets is healthy.
+
+**Why "earned not budgeted" beats "every beat gets one".** Three reasons. (1) Voice contract Rule 6 ("Trust the reader. Don't over-explain.") fights "every beat needs a widget" — most beats don't. (2) Audio rail is load-bearing; every widget complicates narration. (3) Defaulting to "no widget" keeps the cost of widget-ness honest — Drafter has to defend the choice each time, which is what the heuristic enforces ("if the widget can be deleted and the same lesson lands, delete it; if it can be replaced by a sentence and the same lesson lands, write the sentence; only when neither — earned").
+
+**Three widget tags, no more.** Per the plan and operator confirmation: `<lesson-reveal>` (tap to reveal — earns its place when reader can plausibly guess before reading on), `<lesson-compare>` (side-by-side two-state — earns its place when contrast IS the lesson and prose would force working-memory load across paragraphs), `<lesson-callout>` (sidebar / definition / aside — earns its place when an inline parenthetical breaks the sentence rhythm). `<choice>` from the earlier draft was cut: too close in shape to the standalone quiz at piece end.
+
+**Family-prefix naming.** All three use the `lesson-` prefix to satisfy customElements requirement (custom-element names MUST contain a hyphen). Same family pattern as `<lesson-beat>` / `<lesson-shell>` / `<lesson-progress>` / `<lesson-swipe>`. Drafter MDX uses these names verbatim.
+
+**Implementation shape.**
+
+- New components: [src/interactive/reveal.ts](src/interactive/reveal.ts), [compare.ts](src/interactive/compare.ts), [callout.ts](src/interactive/callout.ts). Each registers a `lesson-*` custom element. Each emits a one-shot CustomEvent on first interaction (reveal: `<details>` toggle to open; compare: 0.5 viewport-intersection; callout: 0.5 viewport-intersection).
+- New stylesheet: [src/styles/widgets.css](src/styles/widgets.css), imported via [LessonLayout.astro](src/layouts/LessonLayout.astro). No-JS fallbacks render readable HTML for each widget.
+- Beat contract at [content/beat-contract.md](content/beat-contract.md) lifts the JSX prohibition for the 3 whitelisted tags only; `<lesson-shell>` / `<lesson-beat>` / `<beat>` / `<section>` stay banned (audio split-on-h2 invariant). New "When a beat earns a widget" section names the heuristic + the voice-rule constraint (no flattery copy inside widgets).
+- Drafter prompt at [agents/src/drafter-prompt.ts](agents/src/drafter-prompt.ts) gains a long worked-examples section: 3 positive + 3 negative anchors, each with explicit "why this earned" / "why this is wrong" rationales. Negative anchors matter — without them, LLMs default to either decorating everything or using none.
+- Audio Producer at [agents/src/audio-producer.ts](agents/src/audio-producer.ts) gets a new exported `expandWidgetsForTTS(text)` helper that translates each widget tag to narratable prose BEFORE the generic HTML strip. Per-tag rules: reveal narrates prompt only; compare narrates "label: body" sequence; callout narrates body inline (or skipped if `type="aside"`). Smoke-tested locally — narration is clean.
+- Structure Editor at [agents/src/structure-editor-prompt.ts](agents/src/structure-editor-prompt.ts) gains a `widget_without_purpose` failure-reason token. Same closed-enum posture as the other 6 structure tokens: typed in [agents/src/types.ts](agents/src/types.ts) `StructureFailureReason` + `STRUCTURE_FAILURE_REASONS` ReadonlySet, documented in [content/audit-contract.md](content/audit-contract.md), validated at the persistence path. The auditor applies the deletability heuristic from the contract; this is the one place enforcement lives, per SESSION_OPENER ("if enforcement beyond the agent reading the contract is needed, the answer is another agent, not regex").
+- Engagement at [src/pages/api/engagement/track.ts](src/pages/api/engagement/track.ts) accepts three new event types. Lesson-shell at [src/interactive/lesson-shell.ts](src/interactive/lesson-shell.ts) forwards bubbled CustomEvents (`widget:reveal-opened` / `widget:compare-viewed` / `widget:callout-seen`) into the endpoint. Migration 0043 adds three counter columns to `engagement` — same per-piece-per-day shape as the existing `views` / `completions` / `audio_plays`.
+
+**No code-side validation of widget shape.** Drafter writes the widgets; Structure Editor reads them via the contract. The components themselves only validate at runtime (custom-element upgrade fails if attributes are wrong, but doesn't gate publication). Per SESSION_OPENER: rules live in contracts, not in code.
+
+**FOLLOWUPS [deferred] 2026-05-09** queues Phase 2 — extending LearnerAgent's post-publish prompt to read the new widget engagement counters, compute open-rate vs view-count, fold into Drafter's getRecentLearnings(10) feed. Trigger: ≥30 days × ≥30 widget-bearing pieces. The read-side closure makes "earned not budgeted" self-tuning over time — without it, the rule is enforced only by Structure-Editor's static heuristic.
+
+**Files (10 + 4 docs).** 3 new components, 1 new stylesheet, register.ts, LessonLayout, lesson-shell engagement wiring, audio-producer (expandWidgetsForTTS + prepareForTTS hook), drafter-prompt (worked examples), structure-editor-prompt + audit-contract + types (failure-reason), beat-contract (widget allowance), engagement/track.ts + new migration 0043, regenerated contracts.ts + CLAUDE / DECISIONS / SCHEMA / FOLLOWUPS. Codegen + verify-fresh ✓; astro build ✓. Migration count: 43 (was 42). Table count: 26 (unchanged). PR #3 of the four-PR sequence.
+
+---
+
 ## 2026-05-09: PR #2 — Drafting shape: 900–1100 words, 6–8 beats, per-beat 80–140 typical / 200 hard max
 
 **Symptom.** Operator's directive after the 2026-05-09 source-mix audit: "Pieces feel long. Wants shorter overall, fewer words per beat, possibly more beats." Empirical word counts of last 10 pieces: 779 / 903 / 964 / 969 / 976 / 1031 / 1042 / 1096 / 1119 / 1277. Median ~970 — already below the old contract floor of 1000. Beats from a sample piece ran 78 / 116 / 130 / 189 / 59. Range 30–190 per beat.

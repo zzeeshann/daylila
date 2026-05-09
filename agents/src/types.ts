@@ -304,6 +304,7 @@ export type StructureFailureReason =
   | 'pacing_uneven'
   | 'wrong_beat_count'
   | 'wrong_word_count'
+  | 'widget_without_purpose'
   | 'unknown';
 
 export const STRUCTURE_FAILURE_REASONS: ReadonlySet<StructureFailureReason> = new Set<StructureFailureReason>([
@@ -313,6 +314,7 @@ export const STRUCTURE_FAILURE_REASONS: ReadonlySet<StructureFailureReason> = ne
   'pacing_uneven',
   'wrong_beat_count',
   'wrong_word_count',
+  'widget_without_purpose',
   'unknown',
 ]);
 

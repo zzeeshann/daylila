@@ -1,0 +1,142 @@
+/**
+ * In-beat widget styles (PR #3, 2026-05-09).
+ *
+ * <lesson-reveal> / <lesson-compare> / <lesson-callout> are the three
+ * earned-not-budgeted widgets a beat may carry. See drafter-prompt.ts
+ * "When a beat earns a widget" for usage rules.
+ *
+ * Styling intent:
+ * - Quiet, reader-respectful. Widgets sit inside prose, not over it.
+ * - No animations beyond the native <details> open/close.
+ * - Contrast against beat body via the same teal/cream palette as
+ *   the rest of the lesson chrome.
+ * - Mobile-respectable at 393px.
+ */
+
+/* ───── lesson-reveal ─────────────────────────────────────────── */
+
+lesson-reveal {
+  display: block;
+  margin: 1.25rem 0;
+}
+
+lesson-reveal .widget-reveal {
+  border: 1px solid color-mix(in oklch, var(--zee-border, #e6dfd3) 60%, transparent);
+  border-radius: 0.5rem;
+  padding: 0;
+  background: color-mix(in oklch, var(--zee-bg-card, #faf8f4) 60%, transparent);
+}
+
+lesson-reveal summary {
+  cursor: pointer;
+  padding: 0.875rem 1rem;
+  font-weight: 500;
+  color: var(--zee-text, #1f1d18);
+  list-style: none;
+  position: relative;
+}
+
+lesson-reveal summary::-webkit-details-marker {
+  display: none;
+}
+
+lesson-reveal summary::after {
+  content: '↓';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--zee-primary, #1A6B62);
+  transition: transform 0.15s ease;
+  font-weight: 600;
+}
+
+lesson-reveal details[open] summary::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+lesson-reveal .widget-reveal-body {
+  padding: 0 1rem 1rem 1rem;
+  color: var(--zee-text, #1f1d18);
+}
+
+lesson-reveal .widget-reveal-body :first-child { margin-top: 0; }
+lesson-reveal .widget-reveal-body :last-child  { margin-bottom: 0; }
+
+/* No-JS fallback — bare lesson-reveal renders as a flow container with
+   the prompt and body visible. */
+lesson-reveal:not([data-upgraded]) {
+  display: block;
+  border: 1px solid color-mix(in oklch, var(--zee-border, #e6dfd3) 60%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  margin: 1.25rem 0;
+}
+lesson-reveal:not([data-upgraded])::before {
+  content: attr(prompt);
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+/* ───── lesson-compare ────────────────────────────────────────── */
+
+lesson-compare {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  margin: 1.25rem 0;
+}
+
+@media (min-width: 600px) {
+  lesson-compare {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+lesson-state {
+  display: block;
+  padding: 0.875rem 1rem;
+  border: 1px solid color-mix(in oklch, var(--zee-border, #e6dfd3) 60%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in oklch, var(--zee-bg-card, #faf8f4) 60%, transparent);
+}
+
+lesson-state .widget-compare-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--zee-muted, #67645a);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+lesson-state .widget-compare-body {
+  color: var(--zee-text, #1f1d18);
+}
+
+lesson-state .widget-compare-body :first-child { margin-top: 0; }
+lesson-state .widget-compare-body :last-child  { margin-bottom: 0; }
+
+/* ───── lesson-callout ────────────────────────────────────────── */
+
+lesson-callout {
+  display: block;
+  margin: 1.25rem 0;
+  padding: 0.875rem 1rem;
+  border-left: 3px solid var(--zee-primary, #1A6B62);
+  background: color-mix(in oklch, var(--zee-bg-card, #faf8f4) 50%, transparent);
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+lesson-callout[data-callout-type="aside"] {
+  border-left-color: var(--zee-muted, #67645a);
+  font-style: italic;
+}
+
+lesson-callout[data-callout-type="note"] {
+  border-left-color: var(--zee-gold, #C49A1A);
+}
+
+lesson-callout :first-child { margin-top: 0; }
+lesson-callout :last-child  { margin-bottom: 0; }

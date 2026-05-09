@@ -103,6 +103,40 @@ export const POST: APIRoute = async ({ locals, request }) => {
         )
         .bind(piece_id, lesson_id, course_id, today)
         .run();
+    } else if (event_type === 'widget_reveal_opened') {
+      // PR #3 (2026-05-09) — in-beat widget engagement signals. Counter
+      // columns added migration 0043. Same per-piece-per-day shape as
+      // views / completions / audio_plays. Phase 2 (FOLLOWUPS [deferred]
+      // 2026-05-09) reads these into Learner.
+      await db
+        .prepare(
+          `INSERT INTO engagement (piece_id, lesson_id, course_id, date, widget_reveal_opens)
+           VALUES (?, ?, ?, ?, 1)
+           ON CONFLICT (piece_id, course_id, date)
+           DO UPDATE SET widget_reveal_opens = widget_reveal_opens + 1`,
+        )
+        .bind(piece_id, lesson_id, course_id, today)
+        .run();
+    } else if (event_type === 'widget_compare_viewed') {
+      await db
+        .prepare(
+          `INSERT INTO engagement (piece_id, lesson_id, course_id, date, widget_compare_views)
+           VALUES (?, ?, ?, ?, 1)
+           ON CONFLICT (piece_id, course_id, date)
+           DO UPDATE SET widget_compare_views = widget_compare_views + 1`,
+        )
+        .bind(piece_id, lesson_id, course_id, today)
+        .run();
+    } else if (event_type === 'widget_callout_seen') {
+      await db
+        .prepare(
+          `INSERT INTO engagement (piece_id, lesson_id, course_id, date, widget_callouts_seen)
+           VALUES (?, ?, ?, ?, 1)
+           ON CONFLICT (piece_id, course_id, date)
+           DO UPDATE SET widget_callouts_seen = widget_callouts_seen + 1`,
+        )
+        .bind(piece_id, lesson_id, course_id, today)
+        .run();
     }
   } catch {
     // Engagement tracking should never break the reader experience
