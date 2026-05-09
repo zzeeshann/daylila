@@ -1,0 +1,32 @@
+-- 0042_daily_pieces_pick_domain — adds pick_domain column for Curator
+-- self-classification into the 10-domain teachability taxonomy.
+--
+-- PR #1 (2026-05-09). Closes the upstream-feed-bias root cause from
+-- the 2026-05-09 source-mix audit: the 10-domain taxonomy lives at
+-- content/curator-contract.md:19-28 (inner-life / meaning / expression
+-- / language / science / body / how-humans-live / skills / technology
+-- / time-and-place) but the Curator had no per-pick domain signal —
+-- only post-publish CategoriserAgent's library categories (Science,
+-- Governance, etc.) which run on a separate axis. Without a per-pick
+-- domain record, Curator's recent-domain soft preference fires against
+-- a phantom.
+--
+-- Curator now self-classifies its pick at decision time and writes
+-- the domain enum value here. Director's next run reads
+-- daily_pieces.pick_domain over the trailing 30 days, surfaces counts
+-- to Curator alongside the existing recent-category-concentration block.
+--
+-- Closed enum mirrored in agents/src/types.ts as PickDomain +
+-- PICK_DOMAINS (ReadonlySet). Drift surfaces via
+--   SELECT pick_domain, COUNT(*) FROM daily_pieces
+--   WHERE pick_domain = 'unknown' GROUP BY 1
+-- (same pattern as the audit_results.failure_reasons unknown-token
+-- detector since 0038).
+--
+-- Forward-only, additive, nullable. Existing rows have NULL until the
+-- one-shot backfill (scripts/backfill-pick-domain.mjs) re-classifies
+-- the last 30 published pieces from headline + underlying_subject.
+-- Backfill is a separate operator step and not blocking; without it,
+-- Curator's domain-concentration signal is weak for the first ~30 days
+-- after deploy.
+ALTER TABLE daily_pieces ADD COLUMN pick_domain TEXT;

@@ -266,7 +266,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     }
 
     const recentCategoryCounts = await this.getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS);
-    const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts);
+    const recentDomainCounts = await this.getRecentDomainCounts(CURATOR_RECENT_WINDOW_DAYS);
+    const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts, recentDomainCounts);
 
     if (curatorResult.skip) {
       await this.logStep(today, pieceId, runId,'skipped', 'done', { reason: curatorResult.reason });
@@ -684,13 +685,19 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // it's a derived display field already and rough enough that brief-vs-
     // final-piece drift doesn't affect the rounded "X min" reading.
     const readingMinutes = Math.max(1, Math.round(wordCount / 200));
+    // pick_domain — Curator's self-classification into the 10-domain
+    // teachability taxonomy (PR #1, 2026-05-09). Closed enum validated
+    // upstream in CuratorAgent; null when the brief came from a skip
+    // path or a pre-PR-#1 deploy. Migration 0042 added the column;
+    // historical rows are NULL until the backfill script runs.
+    const pickDomain = curatorResult.pickDomain ?? null;
     await this.env.DB
       .prepare(
-        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, voice_score, fact_check_passed, quality_flag, reading_minutes, published_at, created_at, run_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, voice_score, fact_check_passed, quality_flag, reading_minutes, pick_domain, published_at, created_at, run_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(pieceId, today, brief.headline, brief.underlyingSubject, brief.newsSource ?? '',
-        lastVoiceScore, factsPassed, qualityFlag, readingMinutes, publishedAtMs, publishedAtMs, runId)
+        lastVoiceScore, factsPassed, qualityFlag, readingMinutes, pickDomain, publishedAtMs, publishedAtMs, runId)
       .run().catch(() => {});
 
     await this.logStep(today, pieceId, runId,'publishing', 'done', { commitUrl: publishResult.commitUrl, filePath: publishResult.filePath, qualityFlag });
@@ -1994,6 +2001,38 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .bind(since.toISOString().slice(0, 10), CATEGORISER_FALLBACK_SLUG)
         .all<{ name: string; count: number }>();
       return result.results.map((r) => ({ name: r.name, count: Number(r.count) }));
+    } catch { return []; }
+  }
+
+  /** Recent domain concentration — Curator's self-classification of
+   *  picks into the 10-domain teachability taxonomy. Distinct from
+   *  category concentration above (CategoriserAgent's library taxonomy
+   *  assigned post-publish). Same shape: trailing 30-day window, fail-
+   *  quiet on D1 errors, sorted DESC by count. Excludes 'unknown' so
+   *  the soft-preference signal isn't anchored to drift cases.
+   *
+   *  PR #1 (2026-05-09). Closes the architectural gap where Curator's
+   *  contract advertises a 10-domain breadth taxonomy but had no
+   *  per-pick domain record to read against. */
+  private async getRecentDomainCounts(
+    days: number,
+  ): Promise<Array<{ domain: string; count: number }>> {
+    try {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const result = await this.env.DB
+        .prepare(
+          `SELECT pick_domain AS domain, COUNT(*) AS count
+             FROM daily_pieces
+            WHERE date >= ?
+              AND pick_domain IS NOT NULL
+              AND pick_domain != 'unknown'
+            GROUP BY pick_domain
+            ORDER BY count DESC, pick_domain ASC`,
+        )
+        .bind(since.toISOString().slice(0, 10))
+        .all<{ domain: string; count: number }>();
+      return result.results.map((r) => ({ domain: r.domain, count: Number(r.count) }));
     } catch { return []; }
   }
 

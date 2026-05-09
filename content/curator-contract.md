@@ -92,6 +92,23 @@ Every Curator run leaves a complete record of what was considered, what was pick
 
 For the picked candidate, write a **`pickReasoning`** of 1–3 sentences explaining *why this candidate is the most teachable today*. Name the underlying system the piece will teach and the link from today's news to it. Plain English. The reader of this record is a future Learner reading hundreds of past picks at once, not a colleague over coffee — so be specific over general.
 
+For the picked candidate, also assign a **`pickDomain`** from the 10-value closed enum mirroring the TEACHABILITY taxonomy bullet list above. Exactly one domain per pick. The domain is the LENS that does the most teaching work — the SUBJECT-of-the-teaching domain, not the surface category of the news. A Taylor Swift tour-economics piece is `expression` or `how-humans-live`, not `business` just because money is involved. A neuroscience paper that teaches memory consolidation is `inner-life`, not `science`, when the lens is "how the brain works for you." A new fossil discovery is `science` when the lens is "how knowledge accumulates." Director persists this to `daily_pieces.pick_domain` (migration 0042) so the next Curator run sees trailing-30-day domain concentration alongside the existing category-concentration block — the "9 hard-science / 0 expression" pattern from the 2026-05-09 source-mix audit becomes visible to Curator before it picks.
+
+### Pick domain enum
+
+- `inner-life` — psychology, cognitive science, neuroscience, mental health, child development, aging
+- `meaning` — meaning and belief: philosophy, spirituality and religion, death and grief, ritual, ethics in practice
+- `expression` — art and art history, music, literature, film and theatre, architecture, design, photography
+- `language` — language and thought: linguistics, etymology, translation, rhetoric, writing as craft
+- `science` — physics, chemistry, biology, mathematics, astronomy, earth science, ecology beyond invasive species (science as discovery, not as crisis)
+- `body` — body and health: medicine, nutrition and food science, sleep, exercise physiology, sex and reproduction, everyday public health
+- `how-humans-live` — actual history, anthropology, sociology, everyday economics, education, everyday law, cities, migration
+- `skills` — skills and craft: cooking, gardening and farming, building and repair, sport, games and play, money in practice
+- `technology` — technology beyond crisis: how computers work, the internet at adult level, AI substance, cryptography, energy beyond grid strain, everyday transportation
+- `time-and-place` — geography beyond chokepoints, geology, long-version climate, astronomy of the everyday
+
+If the most natural lens isn't one of the ten, return the closest fit — Director defensively maps unrecognised tokens to `unknown` so drift surfaces via the operator query rather than dropping the row. The enum stays closed by design; adding a domain requires a contract change AND mirroring `agents/src/types.ts` `PickDomain` + `PICK_DOMAINS`. The codegen step (`pnpm verify-contracts-fresh`) refuses to build when the contract enum and the TS enum disagree.
+
 For every rejected candidate, assign a **`rejectionCategory`** from the closed enum below. Exactly one category per rejection. Do not invent new categories.
 
 For the **top 5 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining ~74 rejections get only the category (token cost on full reasoning would multiply by ~16× per run for marginal value).

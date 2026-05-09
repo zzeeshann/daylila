@@ -7,7 +7,9 @@ import type {
   CuratorRejection,
   DailyCandidate,
   DailyPieceBrief,
+  PickDomain,
 } from './types';
+import { PICK_DOMAINS } from './types';
 import { CURATOR_PROMPT, buildCuratorPrompt } from './curator-prompt';
 import { extractJson } from './shared/parse-json';
 
@@ -33,6 +35,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
     candidates: DailyCandidate[],
     recentPieces: Array<{ headline: string; underlyingSubject: string }>,
     recentCategoryCounts: Array<{ name: string; count: number }> = [],
+    recentDomainCounts: Array<{ domain: string; count: number }> = [],
   ): Promise<CuratorResult> {
     this.setState({ ...this.state, status: 'curating', error: null });
 
@@ -51,7 +54,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         // negligible.
         max_tokens: 8000,
         system: CURATOR_PROMPT,
-        messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces, recentCategoryCounts) }],
+        messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces, recentCategoryCounts, recentDomainCounts) }],
       });
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
@@ -60,6 +63,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         reason?: string;
         selectedCandidateId?: string;
         pickReasoning?: string;
+        pickDomain?: string;
         rejections?: Array<{ id: string; rejectionCategory: string; rejectionReason?: string }>;
       }>(text);
 
@@ -73,6 +77,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         reason: _reason,
         selectedCandidateId,
         pickReasoning,
+        pickDomain: rawDomain,
         rejections: rawRejections,
         ...brief
       } = parsed;
@@ -98,6 +103,19 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
             }))
         : [];
 
+      // Validate pickDomain against the closed enum. Drift (Claude
+      // returning a domain not in the bullet list at curator-contract.md
+      // lines 19-28) falls to 'unknown' so it's queryable post-deploy
+      // rather than dropping the row. Director persists the result;
+      // missing values stay null. Same fence-at-the-writer posture as
+      // RejectionCategory.
+      const pickDomain: PickDomain | undefined =
+        typeof rawDomain === 'string' && PICK_DOMAINS.has(rawDomain as PickDomain)
+          ? (rawDomain as PickDomain)
+          : typeof rawDomain === 'string' && rawDomain.trim() !== ''
+            ? 'unknown'
+            : undefined;
+
       this.setState({
         ...this.state,
         status: 'idle',
@@ -109,6 +127,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         brief: brief as DailyPieceBrief,
         selectedCandidateId,
         pickReasoning: typeof pickReasoning === 'string' && pickReasoning.trim() !== '' ? pickReasoning : undefined,
+        pickDomain,
         rejections,
       };
     } catch (err) {
