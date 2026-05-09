@@ -299,9 +299,14 @@ function spliceAudioBeats(mdx: string, audioBeats: Record<string, string>): stri
   const block = `\naudioBeats:\n${lines.join('\n')}`;
 
   // Splice before the closing `---` of the frontmatter. Same regex
-  // Drafter + Director use for other frontmatter inserts.
+  // Drafter + Director use for other frontmatter inserts. Callback
+  // form (returning a plain string) so any `$N` token that ever lands
+  // in `block` (audio URL, key) cannot expand into a capture-group
+  // backreference. See DECISIONS 2026-05-09 — that exact failure mode
+  // corrupted the PM piece's frontmatter via the Director's claimReviews
+  // splice; mirrored here defensively.
   return withoutExisting.replace(
     /^(---\n[\s\S]*?)(\n---\n)/,
-    `$1${block}$2`,
+    (_m, p1, p2) => `${p1}${block}${p2}`,
   );
 }
