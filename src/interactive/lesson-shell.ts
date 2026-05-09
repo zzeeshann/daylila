@@ -61,6 +61,9 @@ class LessonShell extends HTMLElement {
   private audioFirstPlayHandler: EventListener | null = null;
   private requeststepHandler: EventListener | null = null;
   private gotoHandler: EventListener | null = null;
+  private widgetRevealHandler: EventListener | null = null;
+  private widgetCompareHandler: EventListener | null = null;
+  private widgetCalloutHandler: EventListener | null = null;
   /** Pending complete-on-finish-dwell timer. Set when the reader
    *  enters the last step (typically `finish`); cleared on any
    *  step-change before the dwell elapses. */
@@ -101,6 +104,20 @@ class LessonShell extends HTMLElement {
     this.audioFirstPlayHandler = () => this.trackEngagement('audio_play');
     window.addEventListener('audio-player:firstplay', this.audioFirstPlayHandler);
 
+    // In-beat widget engagement (PR #3, 2026-05-09). The three widgets
+    // (<lesson-reveal> / <lesson-compare> / <lesson-callout>) each fire
+    // a one-shot CustomEvent on first interaction or first viewport entry.
+    // Lesson-shell catches the bubbled event and forwards as a typed
+    // engagement_track row so the LearnerAgent can later read widget-
+    // density signals (FOLLOWUPS [deferred] 2026-05-09 entry queues that
+    // Phase 2 read-side work — Phase 1 here lands the writes only).
+    this.widgetRevealHandler = () => this.trackEngagement('widget_reveal_opened');
+    this.widgetCompareHandler = () => this.trackEngagement('widget_compare_viewed');
+    this.widgetCalloutHandler = () => this.trackEngagement('widget_callout_seen');
+    this.addEventListener('widget:reveal-opened', this.widgetRevealHandler);
+    this.addEventListener('widget:compare-viewed', this.widgetCompareHandler);
+    this.addEventListener('widget:callout-seen', this.widgetCalloutHandler);
+
     this.setupCoordinator();
   }
 
@@ -116,6 +133,18 @@ class LessonShell extends HTMLElement {
     if (this.gotoHandler) {
       document.removeEventListener('lesson-progress:goto', this.gotoHandler);
       this.gotoHandler = null;
+    }
+    if (this.widgetRevealHandler) {
+      this.removeEventListener('widget:reveal-opened', this.widgetRevealHandler);
+      this.widgetRevealHandler = null;
+    }
+    if (this.widgetCompareHandler) {
+      this.removeEventListener('widget:compare-viewed', this.widgetCompareHandler);
+      this.widgetCompareHandler = null;
+    }
+    if (this.widgetCalloutHandler) {
+      this.removeEventListener('widget:callout-seen', this.widgetCalloutHandler);
+      this.widgetCalloutHandler = null;
     }
     if (this.active) {
       delete document.documentElement.dataset.lessonHydrated;

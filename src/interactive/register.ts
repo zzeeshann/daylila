@@ -14,3 +14,9 @@ import './zita-chat';
 import './made-drawer';
 import './quiz-card';
 import './interactive-frame';
+// In-beat MDX widgets (PR #3, 2026-05-09). Drafter uses these only
+// when the beat earns a widget — most beats stay pure prose. See the
+// "When a beat earns a widget" section in agents/src/drafter-prompt.ts.
+import './reveal';
+import './compare';
+import './callout';

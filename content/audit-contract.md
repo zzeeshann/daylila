@@ -77,6 +77,7 @@ Closed enum. Same one-token-per-violation-kind shape. Pass rounds emit `[]`.
 | `pacing_uneven` | Beats vary wildly in weight; the piece doesn't breathe at a consistent pace. |
 | `wrong_beat_count` | Outside the 5–8 range, or in the 9+ padding zone (6–8 is target). |
 | `wrong_word_count` | Outside 900–1100. |
+| `widget_without_purpose` | A `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>` widget that decorates rather than teaches — deletable without losing the lesson, or replaceable with a sentence. Per the beat contract's earned-not-budgeted rule (PR #3, 2026-05-09). |
 | `unknown` | Forward-compat sentinel. Same shape as the voice enum. |
 
 Note that the Structure Editor doesn't have its own contract file — structure rules live in `content/beat-contract.md`. The failure_reasons enum lives here in the audit contract because it governs how audit verdicts are SHAPED, not how pieces are shaped.

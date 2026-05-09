@@ -19,9 +19,11 @@ Target **6–8 beats per piece.** 5–8 is acceptable. 9+ is the padding zone �
 
 ## The format
 
-### No JSX tags
+### Beat heading + allowed widget tags
 
-Beats are demarcated by `## kebab-case` markdown headings only. No `<lesson-shell>` / `<lesson-beat>` / `<beat>` / `<section>` JSX tags. Downstream renderers and the audio producer both split on `## ` — any other syntax silently breaks beat navigation and audio generation.
+Beats are demarcated by `## kebab-case` markdown headings only. No `<lesson-shell>` / `<lesson-beat>` / `<beat>` / `<section>` JSX tags — these break beat navigation and audio generation, both of which split on `## `.
+
+Three widget tags ARE allowed inside a beat: `<lesson-reveal>`, `<lesson-compare>`, `<lesson-callout>`. They earn their place sparingly — see "When a beat earns a widget" below. The audio producer has widget-aware text extraction so narration stays clean (it narrates a `<lesson-reveal>` prompt and skips the body, narrates both halves of a `<lesson-compare>`, narrates a `<lesson-callout>` body inline). No other JSX tags are permitted.
 
 Heading text is the kebab-case beat name from the brief:
 
@@ -32,6 +34,20 @@ Heading text is the kebab-case beat name from the brief:
     ## what-is-a-chokepoint
 
     Body of next beat...
+
+### When a beat earns a widget
+
+Most teaching beats are best as prose. A widget earns its place only when it makes the teaching land harder than prose alone would. Default is no widget. **A piece with zero widgets is a healthy outcome.** Never decorate.
+
+Heuristic: if the widget can be deleted and the same lesson still lands, delete it. If the widget can be replaced by a sentence and the same lesson still lands, write the sentence. If neither — the widget earned its place.
+
+The three widgets:
+
+- **`<lesson-reveal prompt="...">body</lesson-reveal>`** — "tap to reveal" expandable. Earns its place when the reader can plausibly *guess* before reading on. Skip when the answer needs specialist knowledge — that's just hiding the lesson behind a tap.
+- **`<lesson-compare><lesson-state label="...">…</lesson-state><lesson-state label="...">…</lesson-state></lesson-compare>`** — side-by-side two states. Earns its place when contrast IS the lesson (before/after, with/without) and prose would force working-memory load across paragraphs.
+- **`<lesson-callout type="define|aside|note">body</lesson-callout>`** — sidebar / definition / aside. Earns its place when an inline parenthetical breaks the sentence rhythm. Skip when the inline form reads cleanly — most do.
+
+Widget copy is governed by the voice contract — same rules as beat prose. **No reader-praise inside widgets** ("Great job!", "You got it!"). The voice rule against flattery applies inside widget bodies same as outside.
 
 ### Required frontmatter
 

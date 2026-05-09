@@ -25,6 +25,98 @@ ${BEAT_CONTRACT}
 - The strongest Closes echo the news hook, apply the teaching to the reader's world, or both.
 - Same voice contract: plain English, no jargon, no tribe words, short sentences. (The voice contract is in your user message.)
 
+## When a beat earns a widget
+
+The beat contract permits three widget tags inside a beat: \`<lesson-reveal>\`, \`<lesson-compare>\`, \`<lesson-callout>\`. They are EARNED, not BUDGETED. Default is no widget. Most beats stay pure prose. **A piece with zero widgets is a healthy outcome.** Never decorate.
+
+Heuristic: if the widget can be deleted and the same lesson lands, delete it. If the widget can be replaced by a sentence and the same lesson lands, write the sentence. If neither — the widget earned its place.
+
+### POSITIVE — \`<lesson-reveal>\` earned its place
+
+Beat: how-the-moon-keeps-its-phase
+
+The Moon doesn't make light. It reflects whatever the Sun gives it — which is half the lit hemisphere, always.
+
+\`\`\`mdx
+<lesson-reveal prompt="If half the Moon is always lit, why aren't all the phases just 'half'?">
+We see different fractions of that lit half as the Moon orbits Earth. The Sun keeps lighting the same half; our viewing angle changes.
+</lesson-reveal>
+\`\`\`
+
+Why this earned: the question has an actual think-for-two-seconds shape, and reading the answer feels like a click rather than just another paragraph.
+
+### NEGATIVE — same beat, prose was the right call
+
+Beat: how-the-moon-keeps-its-phase (rewritten badly)
+
+The Moon doesn't make light.
+
+\`\`\`mdx
+<lesson-reveal prompt="Where does the Moon's light come from?">
+It reflects sunlight.
+</lesson-reveal>
+\`\`\`
+
+The Sun lights half the hemisphere at any moment. We see different fractions of that lit half as the Moon orbits Earth.
+
+Why this is wrong: the prompt has a one-word answer the reader already knows. Hiding it just adds a tap-step. The widget is decoration. Delete it; restore the prose.
+
+### POSITIVE — \`<lesson-compare>\` earned its place
+
+Beat: insulation-and-heat
+
+\`\`\`mdx
+<lesson-compare>
+<lesson-state label="Without insulation">House loses 60% of heat through the roof in winter.</lesson-state>
+<lesson-state label="With insulation">Heat loss drops to roughly 15%.</lesson-state>
+</lesson-compare>
+\`\`\`
+
+Why this earned: the contrast IS the lesson. Two numbers side-by-side land in one glance; in prose the reader has to hold the first number while reading the second.
+
+### NEGATIVE — \`<lesson-compare>\` adds nothing
+
+Beat: photosynthesis-basics
+
+\`\`\`mdx
+<lesson-compare>
+<lesson-state label="Day">Plants photosynthesise.</lesson-state>
+<lesson-state label="Night">Plants don't photosynthesise.</lesson-state>
+</lesson-compare>
+\`\`\`
+
+Why this is wrong: "Plants photosynthesise during the day, not at night" is one short sentence. The compare adds visual weight without adding teaching.
+
+### POSITIVE — \`<lesson-callout>\` earned its place
+
+Beat: how-muscles-fire (introducing acetylcholine for the first time)
+
+\`\`\`mdx
+The signal travels down the nerve and hits the muscle as a chemical pulse — acetylcholine.
+
+<lesson-callout type="define">
+*Acetylcholine* — the neurotransmitter your muscles listen for.
+</lesson-callout>
+
+The muscle fibre reads that pulse and contracts.
+\`\`\`
+
+Why this earned: a definition the reader will reference twice in this beat works better as a sidebar than as a parenthetical that breaks the sentence rhythm.
+
+### NEGATIVE — \`<lesson-callout>\` is decoration
+
+\`\`\`mdx
+<lesson-callout type="aside">
+This is interesting!
+</lesson-callout>
+\`\`\`
+
+Why this is wrong: no information; reader-praise-adjacent ("interesting" is a hedge). Either teach something or don't include the callout.
+
+### Voice rules apply inside widgets
+
+Same voice contract for widget body copy as for beat prose: short sentences, no flattery ("Great job!", "You got it!" — never), no tribe words, plain English.
+
 Return complete MDX with frontmatter. Start with --- delimiter. No explanation before or after.`;
 
 export function buildDrafterPrompt(

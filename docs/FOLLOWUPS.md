@@ -13,6 +13,16 @@ Format per entry:
 
 ---
 
+## [deferred] 2026-05-09: Widget engagement signals to LearnerAgent (PR #3 Phase 2)
+
+- **Surfaced:** 2026-05-09 PR #3. Phase 1 landed three in-beat MDX widgets (`<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>`) plus the engagement-track event types (`widget_reveal_opened` / `widget_compare_viewed` / `widget_callout_seen`) plus migration 0043 adding three counter columns on `engagement`. Lesson-shell forwards widget events; the endpoint UPSERTs the counters. Today's LearnerAgent reads four signal sources (producer post-publish, Drafter self-reflection, reader engagement, producer-vs-reader implicit gap). Widget events become a fifth source: which widgets readers actually open vs which sit unused — a `<lesson-reveal>` that nobody opens after 30 days is decoration in disguise; a `<lesson-callout>` that everyone scrolls past silently is fine (it's an aside, not a click target).
+- **Hypothesis:** None — observation. Phase 2 work: extend LearnerAgent's post-publish prompt to include a "widget engagement rates" block reading from `engagement.widget_reveal_opens / widget_compare_views / widget_callouts_seen` joined with widget-presence in MDX. Output learnings like "widget X had Y% open rate against Z views" per piece, fed back into the Drafter's getRecentLearnings(10) loop so future Drafters know which widget shapes earn their place vs which decorate.
+- **Investigation hints:** start by reading [agents/src/learner.ts](agents/src/learner.ts) `analysePiecePostPublish` — same shape as the other engagement reads. Need a per-piece widget count from MDX (parse `<lesson-reveal>` / `<lesson-compare>` / `<lesson-callout>` count via the same parser the audio producer uses; see `expandWidgetsForTTS` in `agents/src/audio-producer.ts`). The interesting metric is OPEN-RATE not COUNT (1 reveal opened by 5 of 10 viewers = 50%; 5 reveals each opened by 1 of 10 viewers = 10% — different signals).
+- **Unblock:** ≥30 days × ≥30 pieces with widgets in the wild. Calendar trigger: 2026-06-09 + however long it takes for 30 pieces to ship widgets (Drafter using widgets sparingly per "earned not budgeted" — could be slower than 1/day).
+- **Priority:** Medium — widgets are useless without a feedback loop telling future Drafters which kinds earned their place. Without this, the "earned not budgeted" rule is enforced only by Structure-Editor's static heuristic; the read-side loop is what makes the rule self-tuning over time.
+
+---
+
 ## [observing] 2026-05-09: Entertainment / Sports feed rejection-rate watch (PR #1)
 
 - **Surfaced:** 2026-05-09 PR #1. Replaced 11 narrow-academic breadth feeds with 4 broader Google News feeds (ENTERTAINMENT, SPORTS, food-cooking-search, personal-finance-search). The Entertainment topic feed is heavily gossip-shaped at top of stream; Sports is heavily score-recap shaped. Curator filters via `low_signal` / `tribal_framing` / `no_teaching_angle` rejection categories. Pre-deploy verification (live RSS fetch on 2026-05-09) showed each feed returning a mix where the teachable ~30% is exactly the Inner-life / Skills / Expression / How-humans-live content the library was missing.
