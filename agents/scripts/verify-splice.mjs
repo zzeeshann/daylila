@@ -21,7 +21,7 @@ function spliceAudioBeats(mdx, audioBeats) {
   const block = `\naudioBeats:\n${lines.join('\n')}`;
   return withoutExisting.replace(
     /^(---\n[\s\S]*?)(\n---\n)/,
-    `$1${block}$2`,
+    (_m, p1, p2) => `${p1}${block}${p2}`,
   );
 }
 
@@ -143,6 +143,75 @@ audioBeats:
     'beat-1': 'https://r2.example/new1.mp3',
   });
   assertEq('Case 4: audioBeats followed by another key — strips block, keeps sibling key', actual, expected);
+}
+
+// ─── Case 5: payload contains literal `$1` → must NOT expand into
+//     capture group 1. The 2026-05-09 corruption case in reverse:
+//     Director's claimReviews splice used a string-template
+//     replacement which interpreted `$N` in the JSON payload as
+//     backreferences. publisher.ts uses the same regex shape, so a
+//     URL or key with `$1` would corrupt the same way. The callback
+//     form (functions don't interpret `$` patterns) makes this safe.
+//     See DECISIONS 2026-05-09. ────
+{
+  const input = `---
+title: "Test"
+---
+
+# body
+`;
+  const expected = `---
+title: "Test"
+audioBeats:
+  beat-1: "https://r2.example/path-with-$1-and-$2-tokens.mp3"
+---
+
+# body
+`;
+  const actual = spliceAudioBeats(input, {
+    'beat-1': 'https://r2.example/path-with-$1-and-$2-tokens.mp3',
+  });
+  assertEq('Case 5: payload with literal $1/$2 does not expand into capture groups', actual, expected);
+}
+
+// ─── Static check: agents/src/director.ts must not reintroduce the
+//     string-template form for any of its 7 frontmatter splices. The
+//     2026-05-09 corruption proved that the string-template form is a
+//     foot-gun whenever the payload comes from unstructured Drafter
+//     text. Callback form is the only safe shape. See DECISIONS
+//     2026-05-09. ────
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const url = await import('node:url');
+  const here = path.dirname(url.fileURLToPath(import.meta.url));
+  const directorPath = path.join(here, '..', 'src', 'director.ts');
+  const src = fs.readFileSync(directorPath, 'utf8');
+  // Strip line comments + block comments before scanning (the fix
+  // commit added a block comment that legitimately contains `$1`).
+  const stripped = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  // String-template `$1` or `$2` inside a `.replace(...)` call's
+  // second argument. The pattern `currentMdx.replace(\n…\n  `$1...`)`
+  // wraps across lines, so we look for the `replace(` opening and
+  // scan ~200 chars forward for a backtick string starting with `$1`
+  // or `$2`.
+  const lines = stripped.split('\n');
+  let firstHit = null;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/\.replace\(/.test(lines[i])) continue;
+    const window = lines.slice(i, i + 5).join('\n');
+    if (/`\$[12][^`]*`/.test(window)) {
+      firstHit = `line ${i + 1}: ${lines[i].trim()}`;
+      break;
+    }
+  }
+  assertEq(
+    'Static: director.ts has zero string-template `$1`/`$2` replacements',
+    firstHit,
+    null,
+  );
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
