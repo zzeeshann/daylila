@@ -101,7 +101,12 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
       factResult,
     );
 
-    const response = await client.messages.create({
+    // Streaming, not messages.create. Output sizes mirror Drafter
+    // (full revised MDX) plus a structured-decisions JSON envelope —
+    // recently observed at 3,123 output tokens. Same CF Workers ~125s
+    // subrequest idle reasoning as Curator + Drafter. See DECISIONS
+    // 2026-05-09 "Curator 124s 499 timeout regression".
+    const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 8000,
       system: buildIntegratorSystem(),
@@ -111,7 +116,7 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
           content: `${previousContext}## Original draft:\n\n${mdx}\n\n## Feedback from auditors:\n\n${currentFeedback}`,
         },
       ],
-    });
+    }).finalMessage();
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '';
 

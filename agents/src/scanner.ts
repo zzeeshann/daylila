@@ -182,7 +182,15 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
           headline: this.cleanHtml(title),
           source: source || category,
           category,
-          summary: this.cleanHtml(description || '').slice(0, 500),
+          // 250-char cap (was 500). Each candidate's summary feeds into
+          // Curator's prompt verbatim; at ~80 candidates this halves
+          // ~7k input tokens per Curator call. Google News RSS
+          // descriptions are auto-generated leads — the first ~250
+          // chars carry the headline angle and the lede sentence,
+          // which is what Curator needs to judge teachability.
+          // Reverting requires bumping Curator's max_tokens headroom.
+          // See DECISIONS 2026-05-09 "Curator 124s 499 timeout regression".
+          summary: this.cleanHtml(description || '').slice(0, 250),
           url: link || '',
         });
       }

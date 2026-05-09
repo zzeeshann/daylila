@@ -42,20 +42,21 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
     try {
       const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
 
-      const response = await client.messages.create({
+      // Streaming, not messages.create. Cloudflare Workers' fetch
+      // subrequest closes after ~125s of idle (no body bytes received).
+      // Curator's ~4.8k output tokens take ~120s of Sonnet 4.5
+      // generation; non-streaming holds the whole response until done,
+      // CF sees nothing during that window, sends 499 Client
+      // disconnected, SDK retries 3× × $0.18 = $0.54 burned per click.
+      // Streaming receives tokens incrementally so the connection
+      // never goes idle. See DECISIONS 2026-05-09 "Curator 124s 499
+      // timeout regression".
+      const response = await client.messages.stream({
         model: 'claude-sonnet-4-5-20250929',
-        // Bumped 3000 -> 8000 in Foundation Fix Task 03 (2026-05-06) when
-        // the response shape grew to include a per-candidate rejections
-        // array. ~80 candidates × ~35 tokens (UUID + category) ≈ 2.8k +
-        // 5 × one-sentence reason ≈ 150 + pickReasoning ≈ 120 + existing
-        // brief shape ≈ 600 ≈ 3.7k. 3000 truncates; 8000 matches the
-        // Drafter + Integrator precedent and gives 2× headroom. Curator
-        // runs once per pipeline trigger so the output-token cost is
-        // negligible.
         max_tokens: 8000,
         system: CURATOR_PROMPT,
         messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces, recentCategoryCounts, recentDomainCounts) }],
-      });
+      }).finalMessage();
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
       const parsed = extractJson<DailyPieceBrief & {

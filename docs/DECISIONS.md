@@ -2,6 +2,62 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09 (evening): Curator 124s 499 timeout regression — streaming for all >3k-output Anthropic calls
+
+**Symptom.** Operator clicked admin retrigger ~21:02 UTC. Pipeline started run `e081385a-4fa8-489e-805d-188e61d4adee` (piece `4dd16528-...`), Scanner cleanly returned 74 candidates in 7s, then Curator wedged silently in `curating: running` state for 15+ minutes while burning $0.54 in Anthropic API charges with zero observer events and zero progression. Admin UI polled the zombie state.
+
+**Smoking gun (Anthropic console log, surfaced by operator):** three identical Curator calls at 21:05:11 / 21:06:16 / 21:08:22 UTC, each with `35,835 input tokens / ~4,800 output tokens / 124.5 second latency / { "client_error": true, "code": 499, "detail": "Client disconnected" }`. The 499 means OUR side closed the TCP connection before Anthropic finished delivering the response. Anthropic was generating tokens but couldn't ship them.
+
+**Mechanism.** Cloudflare Workers' fetch subrequest enforces a "no body bytes received" idle limit around ~125s. Sonnet 4.5 generating 4,800 output tokens at typical loaded speed (~40 tok/sec) takes ~120s. Non-streaming `client.messages.create({...})` holds the whole response server-side until generation completes, then ships it as one chunk; CF Workers see no body bytes during that window, hits the idle limit, sends 499. Anthropic SDK retries with default `maxRetries: 2` (3 attempts total) — same outcome each time. Three full ~$0.18 calls billed before the SDK gives up.
+
+**Why it became visible today, not earlier.** Today's morning four-PR sequence (#25–#28) materially grew Curator's I/O:
+- PR #25 widened sources: per-feed cap 6 → 8 → ~80 candidates (was ~50). +14k input tokens.
+- PR #25 bumped Curator's `max_tokens` 3000 → 8000 to fit a per-candidate `rejections` array spanning every non-picked candidate. +2k expected output tokens.
+- PR #26 grew beats 5–6 → 6–8. Marginal output growth.
+
+Combined: input 11k → 35k tokens, output 2.7k → 4.8k tokens. The 14:00 UTC PM pipeline run squeaked under the limit (~2.7k output, ~70s). Admin retrigger at full breadth crossed the wall.
+
+**Empirical input-token breakdown (real, measured against the failing run, not estimated).**
+
+| Component | Chars | ≈ Tokens |
+|---|---|---|
+| 74 candidates × 614 chars/candidate (id + headline + source + 500-char summary) | 45,446 | ~14k |
+| `CURATOR_CONTRACT` codegenned | 18,168 | ~6k |
+| `CURATOR_PROMPT` inline (Daylila Protocol + JSON spec) | 7,813 | ~2.5k |
+| 53 recent pieces × 160 chars | 8,560 | ~3k |
+| Recent categories + recent domains + structural | ~2,000 | ~1k |
+| Anthropic tokenizer overhead on UUIDs / punctuation | — | ~9k |
+| **Total** | ~82,000 | **~35k** ✓ |
+
+**Decision.** One PR, one merge, before tomorrow's 02:00 UTC cron. Six bundled changes:
+
+1. **Streaming for Curator** — `client.messages.create({...})` becomes `await client.messages.stream({...}).finalMessage()`. `MessageStreamParams` body shape equals `MessageCreateParamsBase`; `.finalMessage()` returns the same `Message` type. Tokens flow continuously, CF subrequest never goes idle, the 124s wall vanishes. Same parser. ([agents/src/curator.ts:45](agents/src/curator.ts:45))
+
+2. **Streaming for Drafter (main draft only)** at [agents/src/drafter.ts:93](agents/src/drafter.ts:93). Recently observed at ~2.7k output / ~70s — borderline against operator's >3k-output OR >80s rule. Defense in depth, not active rescue. The reflection call at [drafter.ts:189](agents/src/drafter.ts:189) (`max_tokens: 1500`, ~400 out, ~13s) stays on `messages.create`.
+
+3. **Streaming for Integrator** at [agents/src/integrator.ts:104](agents/src/integrator.ts:104). Observed 3,123 output tokens at 14:11 UTC during today's PM run — over operator's 3k threshold.
+
+4. **Streaming for InteractiveGenerator's three HTML methods** at [agents/src/interactive-generator.ts:1427 / 1495 / 1552](agents/src/interactive-generator.ts:1427) (`produceHtml` / `reviseHtml` / `repairHtml`, all `max_tokens: 16000`). Observed 4.2–7.2k output tokens at 57–156s wall-clock — squarely in the danger zone. The three quiz methods at lines 1281/1327/1375 (`max_tokens: 3000`, observed 1k–2k out, 30–50s) stay on `messages.create` per the rule.
+
+5. **Scanner summary truncation 500 → 250 chars** at [agents/src/scanner.ts:185](agents/src/scanner.ts:185). Saves ~7k input tokens per Curator call (74 × 250 chars halved). Google News RSS descriptions are auto-generated leads; the first ~250 chars carry headline angle + lede sentence, which is what Curator needs to judge teachability. Reverting requires bumping Curator's `max_tokens` headroom back.
+
+6. **Director try/catch around `curator.curate()`** at [agents/src/director.ts:270](agents/src/director.ts:270). On Curator throw, writes `curating: failed` to pipeline_log with the error message, fires `observer.logError('curator', 0, msg, pieceId, runId)`, calls `exitToIdle()`, returns null. Admin UI now sees the failed row instead of a zombie running state. Scoped to Curator only — Drafter / Integrator / InteractiveGenerator have their own structured-error returns.
+
+**Curator-contract change.** [content/curator-contract.md:114](content/curator-contract.md:114) raises the `rejectionReason` count from top 5 to top 10 of the candidates Curator weighed. The remaining 63 still record `id + rejectionCategory` so the audit trail and learning signal are preserved on every candidate. Mirrored at [agents/src/curator-prompt.ts](agents/src/curator-prompt.ts). Regenerated `agents/src/shared/generated/contracts.ts`; `pnpm verify-contracts-fresh` ✓.
+
+**Per-feed cap (8 → 6) deliberately NOT reverted.** Operator's call: PR #25 lifted that cap on purpose for breadth (Entertainment / Sports / food-cooking / personal-finance feeds — the diversity fix), and reversing within 24 hours undoes that. Streaming + summary truncation + rejection cap carry the cost reduction without giving up breadth.
+
+**Forks NOT taken.**
+- Reduce `max_tokens` from 8000 → 5000 for Curator. Tempting but fragile — outliers exist (Curator generating one extra brief field, or audit message bloat). Streaming makes the choice irrelevant.
+- Increase Anthropic SDK `maxRetries` to compensate for transient errors. The 3-retry default is fine; the issue was that each retry was hitting the same systemic CF idle limit, not transient failure. Streaming addresses the cause.
+- Move CURATOR_CONTRACT rule body into a Tier-2 reference. Worth considering later but separate concern from the timeout fix.
+
+**Standing rule added to CLAUDE.md.** "After any PR sequence touching the agents pipeline, run one full pipeline via admin retrigger BEFORE declaring the sequence done. Verify a piece publishes end-to-end. This is verification, not approval. Would have caught the 35k-input timeout before any money burned."
+
+**Cost reality.** $49.23 tokens + $3.67 web search = $52.90 month-to-date. PR #25 already cut steady-state vs the May 01–03 spikes ($15 / $8 / $6); the 35k bloat was a regression from today's morning sequence, not the trajectory. Today's spend (~$4) includes the AM + PM successful pipeline runs plus the ~$0.54 wasted on the failed retrigger.
+
+**End-to-end check.** Operator must perform one admin retrigger after merge but before tomorrow's 02:00 UTC cron — per the new standing rule above. If the run reaches `publishing: done` end-to-end, the fix is verified.
+
 ## 2026-05-09: PR #4 — Cosmetic rename "interactive" → "lab" in user-facing copy
 
 **Symptom.** Operator's directive: "the html interactive I would like to call it model from now on as it is big comprehensive etc." The standalone HTML companion piece is a *model* of the underlying concept; the word "interactive" should be free to describe the smaller in-beat MDX widgets PR #3 just added.

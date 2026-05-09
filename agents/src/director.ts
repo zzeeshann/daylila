@@ -267,7 +267,28 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     const recentCategoryCounts = await this.getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS);
     const recentDomainCounts = await this.getRecentDomainCounts(CURATOR_RECENT_WINDOW_DAYS);
-    const curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts, recentDomainCounts);
+    // Try/catch around curator.curate so a Curator throw (Anthropic
+    // 5xx, CF Workers fetch error, JSON parse fail) writes
+    // `curating: failed` to pipeline_log + an observer.logError row,
+    // instead of leaving the run stuck at `curating: running` forever
+    // with the admin UI polling a zombie state. The 2026-05-09 Curator
+    // 124s 499 timeout regression silently wedged the admin UI for
+    // 15+ minutes because the only logged step was the
+    // `curating: running` row at start. Closing this for Curator only;
+    // Drafter / Integrator / InteractiveGenerator have their own
+    // structured-error returns. See DECISIONS 2026-05-09 "Curator
+    // 124s 499 timeout regression".
+    let curatorResult: Awaited<ReturnType<typeof curator.curate>>;
+    try {
+      curatorResult = await curator.curate(candidatesForCurator, recentPieces, recentCategoryCounts, recentDomainCounts);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Curator threw a non-Error value';
+      await this.logStep(today, pieceId, runId, 'curating', 'failed', { error: message });
+      const observer = await this.subAgent(ObserverAgent, 'observer');
+      await observer.logError('curator', 0, message, pieceId, runId);
+      this.exitToIdle();
+      return null;
+    }
 
     if (curatorResult.skip) {
       await this.logStep(today, pieceId, runId,'skipped', 'done', { reason: curatorResult.reason });

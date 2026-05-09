@@ -1419,7 +1419,12 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     cacheReadTokens: number;
   }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
+    // Streaming, not messages.create. HTML output ranges 4.2k–7.2k
+    // tokens (observed prod), ~57–156s wall-clock — already in the
+    // CF Workers ~125s subrequest idle danger zone. Streaming keeps
+    // bytes flowing so the connection never goes silent. See
+    // DECISIONS 2026-05-09 "Curator 124s 499 timeout regression".
+    const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       // 16k tokens accommodates a 50 KB HTML file (≈12.5K tokens) plus
       // the small JSON envelope overhead. The validator's size-cap rule
@@ -1439,7 +1444,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         // correct continuation anchor for both shapes.
         { role: 'assistant', content: '{' },
       ],
-    });
+    }).finalMessage();
 
     const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
@@ -1486,7 +1491,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       concept: previous.concept,
       html: previous.html,
     };
-    const response = await client.messages.create({
+    // Streaming — see produceHtml for the CF Workers idle-timeout reasoning.
+    const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 16000,
       system: [
@@ -1511,7 +1517,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         // See produceQuiz for the prefill rationale.
         { role: 'assistant', content: '{' },
       ],
-    });
+    }).finalMessage();
 
     const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
@@ -1542,7 +1548,8 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
     cacheReadTokens: number;
   }> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
+    // Streaming — see produceHtml for the CF Workers idle-timeout reasoning.
+    const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 16000,
       system: [
@@ -1560,7 +1567,7 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
         // See produceQuiz for the prefill rationale.
         { role: 'assistant', content: '{' },
       ],
-    });
+    }).finalMessage();
 
     const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
