@@ -1,0 +1,59 @@
+{
+  "slug": "sensor-fusion-and-recalibration",
+  "type": "quiz",
+  "title": "Sensor Fusion and Recalibration",
+  "concept": "Your brain combines inputs from multiple sources to build one coherent picture of the world, and when one source degrades, the system compensates by trusting the degraded source less—slowing down to rely on the sources that still work.",
+  "interactiveId": "8de66b93-0256-4e48-905a-6eece1b37074",
+  "sourcePieceId": "b943056e-10e5-4470-86a6-f27f4a10e728",
+  "publishedAt": 1778365577504,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does 'sensor fusion' mean in a biological system?",
+        "options": [
+          "One dominant sensor overrides all others when signals conflict",
+          "The brain combines inputs from different sources into a single unified picture",
+          "Multiple sensors send the same signal to confirm accuracy",
+          "Backup sensors activate only when the primary sensor fails completely"
+        ],
+        "correctIndex": 1,
+        "explanation": "Sensor fusion means the brain integrates data from separate streams—like vision, touch, and internal position sense—into one coherent understanding of the environment. It's not a winner-takes-all hierarchy or a backup system; all sources contribute weight to the final picture."
+      },
+      {
+        "question": "When one input source becomes unreliable, why does the brain reduce its weight in the combined picture rather than ignore it entirely?",
+        "options": [
+          "Because partial information is still better than no information",
+          "Because shutting off a source completely would require more energy",
+          "Because all sources must contribute equally for the system to function",
+          "Because the brain can't detect which source is degraded until it fails fully"
+        ],
+        "correctIndex": 0,
+        "explanation": "Even noisy data contains some signal. The brain downgrades unreliable inputs instead of discarding them because a degraded source still narrows the range of possible states—better than guessing blindly. Equal contribution isn't required, and the brain can detect gradual degradation through conflict between sources."
+      },
+      {
+        "question": "A robot uses a camera and a gyroscope to navigate. The gyroscope starts drifting. Which recalibration strategy matches how biological systems handle degraded inputs?",
+        "options": [
+          "Switch entirely to camera-based navigation and disable the gyroscope",
+          "Keep both active but trust the camera more and move more cautiously",
+          "Increase the gyroscope's weight to compensate for the drift",
+          "Alternate between camera and gyroscope every few seconds"
+        ],
+        "correctIndex": 1,
+        "explanation": "Biological recalibration shifts weight toward reliable sources while retaining degraded ones at lower influence—and slows down to reduce risk when confidence drops. Switching entirely discards useful residual signal; increasing a drifting source's weight compounds error; alternating doesn't reflect continuous fusion."
+      },
+      {
+        "question": "Why does compensating for one degraded input often show up as slowed movement rather than just changed posture?",
+        "options": [
+          "Because slower movement gives the remaining reliable sources more time to sample and cross-check",
+          "Because muscle strength declines proportionally with sensor degradation",
+          "Because the brain can only process one source at a time when fusion fails",
+          "Because slowing is a learned behavior taught through early falls"
+        ],
+        "correctIndex": 0,
+        "explanation": "Speed reduction buys time—more sampling windows for vision and position sensors to confirm orientation before committing to the next step. It's a precision-versus-speed trade-off. Muscle strength and sensor quality are independent; fusion doesn't collapse to single-source; and the strategy emerges from risk minimization, not learned association."
+      }
+    ]
+  }
+}
