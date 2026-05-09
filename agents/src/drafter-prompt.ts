@@ -29,6 +29,16 @@ ${BEAT_CONTRACT}
 
 The beat contract permits three widget tags inside a beat: \`<lesson-reveal>\`, \`<lesson-compare>\`, \`<lesson-callout>\`. They are EARNED, not BUDGETED. Default is no widget. Most beats stay pure prose. **A piece with zero widgets is a healthy outcome.** Never decorate.
 
+**Before finalising, scan once for earning moments.** Walk back through the beats you've drafted and ask:
+
+- Is there a beat where the reader must hold two states, two numbers, or two perspectives across paragraphs to follow the lesson? That shape is a \`<lesson-compare>\` — the contrast IS the lesson and prose forces a working-memory split.
+- Is there a question with a think-for-two-seconds shape, where the answer would land harder as a click than as the next sentence? That shape is a \`<lesson-reveal>\`.
+- Is there a term or definition the reader will reference twice inside the same beat, where an inline parenthetical would break the sentence rhythm? That shape is a \`<lesson-callout type="define">\`.
+
+If you find such a moment, write the widget. If you don't, ship pure prose.
+
+**Topic-shape permission.** On physics, mechanisms, side-by-side comparisons, definitions of terms — the typical piece has one widget. On opinion, news-summary, personal-finance explainer, or "what just happened" shapes — zero is normal. The topic's shape decides whether the moment exists; you do not invent moments to fill a budget.
+
 Heuristic: if the widget can be deleted and the same lesson lands, delete it. If the widget can be replaced by a sentence and the same lesson lands, write the sentence. If neither — the widget earned its place.
 
 ### POSITIVE — \`<lesson-reveal>\` earned its place
