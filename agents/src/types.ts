@@ -147,6 +147,49 @@ export interface CuratorRejection {
   rejectionReason?: string;
 }
 
+/** Closed enum of teachability-taxonomy domains. One value per Curator
+ *  pick — Curator self-classifies the story it picked into the domain
+ *  whose lens does the most teaching work. Persisted to
+ *  daily_pieces.pick_domain (migration 0042) so Director can supply
+ *  trailing-30-day domain concentration to the next Curator run.
+ *
+ *  Tokens MUST match the bullet list at content/curator-contract.md:19-28.
+ *  The codegen step asserts exact-match — drift between contract and
+ *  enum fails build. Add a domain by editing the contract first; codegen
+ *  will then refuse to build until this enum is updated to match.
+ *
+ *  Same closed-enum posture as RejectionCategory + AudioIssueType +
+ *  IntegratorDecision — defensive validation at the writer; unknown
+ *  values fall to `unknown` and surface via operator query.
+ *
+ *  PR #1 (2026-05-09). */
+export type PickDomain =
+  | 'inner-life'
+  | 'meaning'
+  | 'expression'
+  | 'language'
+  | 'science'
+  | 'body'
+  | 'how-humans-live'
+  | 'skills'
+  | 'technology'
+  | 'time-and-place'
+  | 'unknown';
+
+export const PICK_DOMAINS: ReadonlySet<PickDomain> = new Set<PickDomain>([
+  'inner-life',
+  'meaning',
+  'expression',
+  'language',
+  'science',
+  'body',
+  'how-humans-live',
+  'skills',
+  'technology',
+  'time-and-place',
+  'unknown',
+]);
+
 /** Result of Curator picking a story (or deciding to skip) */
 export type CuratorResult =
   | {
@@ -154,6 +197,7 @@ export type CuratorResult =
       brief: DailyPieceBrief;
       selectedCandidateId?: string;
       pickReasoning?: string;
+      pickDomain?: PickDomain;
       rejections?: CuratorRejection[];
     }
   | { skip: true; reason: string };

@@ -36,6 +36,7 @@ Return JSON:
 {
   "selectedCandidateId": "<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-2d1e-4f9a-b7c8-1e2d3f4a5b6c>",
   "pickReasoning": "<1-3 sentences explaining why this candidate is the most teachable today — see 'What to record' in the contract>",
+  "pickDomain": "<one of: inner-life | meaning | expression | language | science | body | how-humans-live | skills | technology | time-and-place — the teachability-taxonomy domain whose lens does the most teaching work for this pick. Same names as the bullet list under 'TEACHABILITY' in the contract above. Pick the SUBJECT-of-the-teaching domain, not the surface category of the news (a Taylor Swift tour-economics piece is 'expression' or 'how-humans-live', not 'business' just because it's about money).>",
   "date": "YYYY-MM-DD",
   "headline": "the news headline",
   "newsSource": "source name",
@@ -69,6 +70,7 @@ export function buildCuratorPrompt(
   candidates: DailyCandidate[],
   recentPieces: Array<{ headline: string; underlyingSubject: string }>,
   recentCategoryCounts: Array<{ name: string; count: number }> = [],
+  recentDomainCounts: Array<{ domain: string; count: number }> = [],
 ): string {
   const recentBlock = recentPieces.length > 0
     ? recentPieces
@@ -86,6 +88,20 @@ export function buildCuratorPrompt(
         .map((c) => `- ${c.name}: ${c.count} ${c.count === 1 ? 'piece' : 'pieces'}`)
         .join('\n')
     : 'None yet.';
+  // Domain concentration — Curator's self-classification pick_domain
+  // (PR #1, 2026-05-09). Distinct from category concentration above:
+  // CATEGORY = library taxonomy assigned post-publish by CategoriserAgent
+  // (Science / Governance / Trade / etc.); DOMAIN = the 10-domain
+  // teachability taxonomy from the Curator contract (inner-life / meaning
+  // / expression / etc.) classified by Curator itself at pick time.
+  // The domain signal lets Curator notice "9 hard-science picks in 30 days
+  // and 0 expression picks" — exactly the pattern that the upstream feed
+  // expansion of 2026-05-01 produced.
+  const domainBlock = recentDomainCounts.length > 0
+    ? recentDomainCounts
+        .map((d) => `- ${d.domain}: ${d.count} ${d.count === 1 ? 'piece' : 'pieces'}`)
+        .join('\n')
+    : 'None yet.';
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
@@ -99,7 +115,12 @@ ${categoryBlock}
 
 Apply the recent-category soft preference from your system prompt against this distribution.
 
+## Recent domain concentration (last 30 days)
+${domainBlock}
+
+Apply the recent-domain soft preference from your system prompt against this distribution. The 10-domain taxonomy is breadth-showing — if 3+ recent picks have landed in one domain (e.g. science) and another domain (e.g. expression / skills / how-humans-live) sits at zero, prefer a candidate whose teaching lens lands in the thinner domain — unless the news event genuinely demands the fuller one.
+
 Pick the most teachable story and create a brief. Two pieces about the same news event or teaching the same concept on the same day is a failure state.
 
-Return JSON only. The "selectedCandidateId" field MUST be the exact UUID copied verbatim from the chosen candidate's "id:" field above — do not invent, truncate, guess, or substitute a list position number.`;
+Return JSON only. The "selectedCandidateId" field MUST be the exact UUID copied verbatim from the chosen candidate's "id:" field above — do not invent, truncate, guess, or substitute a list position number. The "pickDomain" field MUST be one of the 10 enum values listed in the system prompt — do not invent new domains.`;
 }

@@ -13,6 +13,27 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-09: Entertainment / Sports feed rejection-rate watch (PR #1)
+
+- **Surfaced:** 2026-05-09 PR #1. Replaced 11 narrow-academic breadth feeds with 4 broader Google News feeds (ENTERTAINMENT, SPORTS, food-cooking-search, personal-finance-search). The Entertainment topic feed is heavily gossip-shaped at top of stream; Sports is heavily score-recap shaped. Curator filters via `low_signal` / `tribal_framing` / `no_teaching_angle` rejection categories. Pre-deploy verification (live RSS fetch on 2026-05-09) showed each feed returning a mix where the teachable ~30% is exactly the Inner-life / Skills / Expression / How-humans-live content the library was missing.
+- **Hypothesis:** None — observation. The feeds will produce candidates whose teachable density differs from Google News topic feeds (TOP / SCIENCE / HEALTH / etc.). If Curator's rejection rate on Entertainment or Sports candidates runs >80% sustained, that's wasted candidate budget — the per-feed cap (8) is being filled mostly by candidates Curator immediately rejects.
+- **Investigation hints:** weekly query against `daily_candidates` keyed by `category` field (Scanner stamps the feed key here):
+  ```
+  SELECT category,
+         COUNT(*) AS total,
+         SUM(CASE WHEN rejection_category IS NOT NULL THEN 1 ELSE 0 END) AS rejected,
+         SUM(CASE WHEN selected = 1 THEN 1 ELSE 0 END) AS picked
+    FROM daily_candidates
+   WHERE created_at > strftime('%s','now','-14 days')*1000
+     AND category IN ('ENTERTAINMENT','SPORTS','FOOD_COOKING','PERSONAL_FINANCE')
+   GROUP BY category;
+  ```
+  If `rejected/total > 0.8` for a feed sustained over 2 weeks, swap the feed query to a narrower one (e.g. `entertainment industry analysis` instead of the topic feed; `sports tactics analysis` instead of the SPORTS topic). The swap is a one-line change in `agents/src/scanner.ts` `RSS_FEEDS` map.
+- **Unblock:** ≥14 days of post-deploy data. Calendar trigger: 2026-05-23.
+- **Priority:** Medium — high rejection rate is wasted Anthropic spend on the Curator prompt (each rejection still costs the rejection_reason token writeback). Not breaking anything; just inefficient.
+
+---
+
 ## [deferred] 2026-05-09: Drop `daily_pieces.word_count` + `beat_count` columns
 
 - **Surfaced:** 2026-05-09 PR #0 made both columns inert. Director no longer writes them; all five site-worker readers derive from the published MDX via `src/lib/piece-stats.ts`; Learner dropped them from its post-publish prompt (voice score + audit rounds + engagement carry the learning signal — word/beat count were ambient context). Today's writes leave the columns NULL; historical values are stale brief-time numbers no longer relied upon. See DECISIONS 2026-05-09 "PR #0 — Beat-count + word-count drift fix".

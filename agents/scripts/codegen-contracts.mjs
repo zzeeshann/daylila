@@ -113,7 +113,72 @@ export function buildContractsTs() {
   return `${HEADER}\n${blocks.join('\n')}`;
 }
 
+/**
+ * Build-time assertion: PickDomain enum in agents/src/types.ts matches
+ * the bullet list under "### Pick domain enum" in
+ * content/curator-contract.md. Fails build if drift detected.
+ *
+ * Per Zi's PR #1 directive (2026-05-09): "Worth a quick assertion in
+ * the codegen step that the enum values still match the contract list,
+ * so the two stay locked." This is a developer-build consistency check
+ * between two intentionally-mirrored sources, not contract-rule
+ * enforcement in code (which would violate the rule from
+ * docs/SESSION_OPENER.md).
+ *
+ * Both sources include `unknown` in the TS enum as a forward-compat
+ * sentinel not appearing in the contract bullet list — the assertion
+ * compares against the 10 real domain slugs only.
+ */
+function assertPickDomainEnumMatchesContract() {
+  const CONTRACT = readFileSync(
+    resolve(__dirname, '../../content/curator-contract.md'),
+    'utf8',
+  );
+  const TYPES = readFileSync(
+    resolve(__dirname, '../src/types.ts'),
+    'utf8',
+  );
+
+  // Parse contract: lines starting with `- \`<slug>\`` under the Pick
+  // domain enum section. Stop at the next heading (### or ##).
+  const sectionStart = CONTRACT.indexOf('### Pick domain enum');
+  if (sectionStart === -1) {
+    throw new Error('codegen-contracts assertion: "### Pick domain enum" section missing from curator-contract.md');
+  }
+  const sectionAfter = CONTRACT.slice(sectionStart);
+  const sectionEnd = sectionAfter.search(/\n##+ /m); // next heading
+  const section = sectionEnd === -1 ? sectionAfter : sectionAfter.slice(0, sectionEnd);
+  const contractSlugs = [...section.matchAll(/^- `([a-z][a-z0-9-]*)`/gm)].map((m) => m[1]);
+
+  // Parse types.ts: lines like `  | 'inner-life'` inside `export type PickDomain`.
+  const typeStart = TYPES.indexOf('export type PickDomain');
+  if (typeStart === -1) {
+    throw new Error('codegen-contracts assertion: PickDomain type missing from agents/src/types.ts');
+  }
+  const typeBody = TYPES.slice(typeStart, TYPES.indexOf(';', typeStart));
+  const tsSlugs = [...typeBody.matchAll(/'([a-z][a-z0-9-]*)'/g)]
+    .map((m) => m[1])
+    .filter((s) => s !== 'unknown');
+
+  const contractSorted = [...contractSlugs].sort();
+  const tsSorted = [...tsSlugs].sort();
+  if (contractSorted.length !== tsSorted.length || contractSorted.some((v, i) => v !== tsSorted[i])) {
+    throw new Error(
+      `codegen-contracts assertion FAILED: PickDomain enum drift.
+  contract (curator-contract.md): ${JSON.stringify(contractSorted)}
+  types.ts (agents/src/types.ts):  ${JSON.stringify(tsSorted)}
+Edit one to match the other before continuing.`,
+    );
+  }
+  if (contractSlugs.length !== 10) {
+    throw new Error(
+      `codegen-contracts assertion: expected exactly 10 domain slugs in contract, found ${contractSlugs.length}: ${JSON.stringify(contractSlugs)}`,
+    );
+  }
+}
+
 function main() {
+  assertPickDomainEnumMatchesContract();
   const body = buildContractsTs();
   mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
   writeFileSync(OUTPUT_PATH, body, 'utf8');

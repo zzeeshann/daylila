@@ -2,7 +2,7 @@
 
 Database: `zeemish` (Cloudflare D1, SQLite)
 Database ID: `f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4`
-**26 tables across 40 migrations.**
+**26 tables across 42 migrations.**
 
 ## Reader-side tables
 
@@ -244,10 +244,11 @@ Published daily teaching pieces.
 | quality_flag | TEXT | NULL = normal, 'low' = audit failed after max revisions |
 | has_audio | INTEGER | 0 or 1. Flipped to 1 by `Publisher.publishAudio` when the audio second-commit succeeds. Never set by Producer or Auditor. |
 | interactive_id | TEXT | `interactives.id` (UUID) for the 1:1 interactive generated for this piece. NULL = no interactive. Set by InteractiveGeneratorAgent's final publish step (sub-task 4.4). Nullable, non-enforced FK, consistent with codebase convention. Indexed via `idx_daily_pieces_interactive`. Added migration 0022. |
+| pick_domain | TEXT | Curator's self-classification of the picked story into the 10-domain teachability taxonomy at `content/curator-contract.md` lines 19-28. Closed enum mirrored in `agents/src/types.ts` as `PickDomain` + `PICK_DOMAINS`; codegen step asserts the two stay in sync (drift fails build). Director reads trailing-30-day domain counts via `getRecentDomainCounts` and surfaces them to the next Curator run alongside the existing recent-category-concentration block. NULL on rows pre-PR #1 (2026-05-09) until backfill via `scripts/backfill-pick-domain.mjs` runs. Added migration 0042. |
 | published_at | INTEGER | |
 | created_at | INTEGER | |
 
-Migrations: `0006_daily_pieces.sql`, `0009_quality_flag.sql`, `0010_audio_pipeline.sql` (added `has_audio`), `0022_interactives.sql` (added `interactive_id`; deprecated `has_interactive`), `0036_dead_columns_backfill.sql` (backfilled `reading_minutes` from word_count; the only dead-instrumentation column with a wired reader and no writer)
+Migrations: `0006_daily_pieces.sql`, `0009_quality_flag.sql`, `0010_audio_pipeline.sql` (added `has_audio`), `0022_interactives.sql` (added `interactive_id`; deprecated `has_interactive`), `0036_dead_columns_backfill.sql` (backfilled `reading_minutes` from word_count; the only dead-instrumentation column with a wired reader and no writer), `0042_daily_pieces_pick_domain.sql` (added `pick_domain`)
 
 ### daily_piece_audio
 Per-beat audio rows — one row per `<lesson-beat>` per piece. Producer writes; Auditor reads; Publisher reads for the second-commit frontmatter splice; transparency drawer + admin deep-dive page render from this.

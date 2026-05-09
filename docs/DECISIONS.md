@@ -2,6 +2,40 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-09: PR #1 — Source mix widened; Curator self-classifies into 10-domain enum
+
+**Symptom.** Library audit on 2026-05-09 — last 30 days' picks: ~29% hard science, ~23% policy, ~12% business, ~10% human-interest. **Zero entertainment, sports, food, fashion, music, lifestyle, personal finance.** The Curator contract at [content/curator-contract.md:9](content/curator-contract.md:9) explicitly invites "celebrity scandal" and the 10-domain TEACHABILITY taxonomy at lines 19-28 names "Skills and craft" (cooking, sport, games), "Expression" (art, music, film), "Body and health" (medicine, nutrition). The contract is breadth-aware. The candidate pool wasn't.
+
+**Investigation.** Scanner's 17 RSS feeds since 2026-05-01 included 11 "breadth feeds" added to surface underserved domains. 7 of 11 were explicitly hard-science publications (QUANTA, JSTOR_DAILY, PHYS_ORG, LIVE_SCIENCE, NEW_SCIENTIST, KNOWABLE, TECH_REVIEW) — well-intentioned breadth, executed narrowly. Curator's pure LLM-judgment selection ([agents/src/curator.ts:32-119](agents/src/curator.ts:32)) cannot pick a celebrity / sport / food candidate from a pool that contains zero of them.
+
+**Architectural gap.** Curator's recent-category-concentration soft preference (added 2026-05-01 against post-publish CategoriserAgent's library taxonomy: Science, Governance, Trade, etc.) operates on a different axis than the 10-domain TEACHABILITY taxonomy in the contract. There was no per-pick record of which DOMAIN the lens landed in — so even if the pool had been balanced, Curator had no signal "9 hard-science picks in 30 days, 0 expression picks."
+
+**Fix — two coupled changes in one PR.**
+
+1. **Feed list rebuilt** at [agents/src/scanner.ts:39-61](agents/src/scanner.ts:39):
+   - Kept: TOP, TECHNOLOGY, SCIENCE, BUSINESS, HEALTH, WORLD (the original 6 Google News topic feeds)
+   - Removed: AEON, QUANTA, JSTOR_DAILY, ATLAS_OBSCURA, NAUTILUS, PHYS_ORG, LIVE_SCIENCE, NEW_SCIENTIST, KNOWABLE, SMITHSONIAN, TECH_REVIEW (the 11 narrow breadth feeds)
+   - Added: ENTERTAINMENT topic, SPORTS topic, food-cooking-science search, personal-finance search (4 new Google News feeds, all live-verified by HEAD-fetch + content sniff before commit)
+   - Per-feed cap lifted 6 → 8 (10 feeds × 8 = 80 candidates pre-dedup, ~60-70 after dedup, well under GLOBAL_CAP=80)
+
+2. **Curator self-classifies into a 10-domain enum.** Closed enum `PickDomain` in [agents/src/types.ts](agents/src/types.ts) mirrors the contract's bullet list exactly (10 real domains + `unknown` forward-compat sentinel). Curator's prompt at [agents/src/curator-prompt.ts](agents/src/curator-prompt.ts) gains a `pickDomain` field with explicit "lens-of-the-teaching, not surface-of-the-news" guidance (Taylor Swift tour-economics piece is `expression` not `business`). Parser validates via `PICK_DOMAINS` ReadonlySet; drift falls to `'unknown'`. Director's new `getRecentDomainCounts(days)` queries trailing-30-day domain distribution and passes it to Curator alongside the existing recent-category-concentration block.
+
+**Why category AND domain.** They're different axes: category = library-taxonomy assignment post-publish (Science / Governance / Trade); domain = teaching-lens classification at pick time (inner-life / expression / how-humans-live). Both signals carry breadth information. The category signal works as designed; the domain signal closes the architectural gap where the contract names a taxonomy nothing was reading against.
+
+**Migration 0042** adds `daily_pieces.pick_domain TEXT` — nullable, additive, forward-only. Same shape as Foundation Fix migrations 0033 (audio_audit_results) / 0034 (draft_revisions / integrator_decisions): closed-enum column, ReadonlySet runtime mirror in types.ts, drift visible via operator query.
+
+**Codegen assertion** at [agents/scripts/codegen-contracts.mjs](agents/scripts/codegen-contracts.mjs) — build-time check parses the contract's bullet list AND the `PickDomain` TS union; fails build with descriptive diff if the two drift. Distinct from contract-rule-validation-in-code (which `docs/SESSION_OPENER.md` prohibits): this is a developer-build mirror check between two intentionally-mirrored sources, not a runtime gate on agent output. Verified to fire correctly on a negative-test mutation.
+
+**Backfill script** at [scripts/backfill-pick-domain.mjs](scripts/backfill-pick-domain.mjs) — Stage A only (zero D1 writes). Reads the last 30 NULL-pick_domain pieces from prod D1, classifies via one Claude call against the contract, emits `scripts/backfill-pick-domain.sql` for operator review. Apply via `wrangler d1 execute zeemish --remote --file=...`. Without backfill, Curator's domain-soft-preference signal sees an empty trailing window for ~30 days post-deploy.
+
+**FOLLOWUPS [observing] 2026-05-09 entry queued.** Entertainment/Sports rejection-rate watch — Curator will reject heavy gossip / score-recap candidates via `low_signal` / `tribal_framing`, which is the safety valve. If rejection rate sustained >80% on either feed over 14 days, swap to narrower search query (e.g. `entertainment industry analysis`, `sports tactics analysis`). Calendar trigger: 2026-05-23.
+
+**Files.** scanner.ts, types.ts, curator-prompt.ts, curator.ts, director.ts, codegen-contracts.mjs, regenerated contracts.ts, new migration 0042, new backfill script + CLAUDE / DECISIONS / SCHEMA / FOLLOWUPS. Migration count: 42 (was 41). Table count: 26 (unchanged).
+
+**Sequencing.** PR #1 of the four-PR sequence (Sources → Drafting shape → Widgets → Rename Phase 1). Operator's earlier preference was to "run a few days, eyeball candidate breadth and Curator picks" between PR #1 and PR #2; PRs #2-#4 still ship in this push per the "finish everything" directive but each is independently revertable and operator can hold #2 on the queue while observing #1's effects.
+
+---
+
 ## 2026-05-09: PR #0 — Beat-count + word-count drift fix; single source of truth = MDX
 
 **Symptom.** Operator screenshotted the 2026-05-09 fake-citations piece. The dot row showed 7 beat dots; the "How this was made" drawer said `4 beats · 555 words`. The file on disk has 7 `## ` headings; `computePieceStats` returns 905 body words (post-frontmatter-strip + tag-strip). Two visible numbers, neither correct in the drawer.
