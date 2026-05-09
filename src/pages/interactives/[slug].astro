@@ -51,7 +51,7 @@ const resourceType = quizEntry ? 'Quiz' : 'Interactive simulation';
 >
   <article class="mx-auto">
     <p class="text-xs uppercase tracking-wider text-zee-muted mb-2">
-      Interactive
+      Lab
     </p>
     <h1 class="text-3xl font-bold text-zee-primary mb-3">{primary.data.title}</h1>
     {primary.data.concept && (
@@ -64,7 +64,7 @@ const resourceType = quizEntry ? 'Quiz' : 'Interactive simulation';
         spec leaves it open. */}
     {htmlEntry && htmlEntry.data.content.type === 'html' && (
       <section class="mb-12">
-        <h2 class="text-sm uppercase tracking-wider text-zee-muted mb-3">Try the model</h2>
+        <h2 class="text-sm uppercase tracking-wider text-zee-muted mb-3">Try the lab</h2>
         {isLowQuality(htmlEntry) && (
           <div class="text-xs text-zee-muted border border-zee-border/50 rounded-md px-3 py-2 mb-3">
             {LOW_QUALITY_NOTE}
