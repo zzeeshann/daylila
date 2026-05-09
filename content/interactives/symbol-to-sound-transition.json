@@ -1,0 +1,59 @@
+{
+  "slug": "symbol-to-sound-transition",
+  "type": "quiz",
+  "title": "Symbol-to-Sound Transition",
+  "concept": "Writing systems make a hard conceptual leap when symbols stop representing things directly and start encoding the sounds of speech instead—a shift that requires ignoring visual meaning to hear phonetic structure.",
+  "interactiveId": "6d42f9bd-6a20-40cd-8e02-69ede4a36cc4",
+  "sourcePieceId": "d0504385-5ffc-4dde-9dcc-8b3b3d1ae73f",
+  "publishedAt": 1778292464024,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What changes when a writing system shifts from pictographic to phonetic encoding?",
+        "options": [
+          "The symbols become simpler and easier to draw",
+          "Each symbol stops meaning a thing and starts representing a sound",
+          "The number of symbols decreases to match the alphabet size",
+          "Writing becomes accessible to people without artistic training"
+        ],
+        "correctIndex": 1,
+        "explanation": "The core shift is conceptual: a symbol that once pointed directly at an object (ox means ox) now encodes a sound (ox-shape means the sound 'a'). Simplicity and accessibility may follow, but the essential change is breaking the link between what you see and what the mark means."
+      },
+      {
+        "question": "Why is the transition to phonetic writing described as hard rather than intuitive?",
+        "options": [
+          "It requires inventing new symbols from scratch instead of using existing images",
+          "You must train yourself to ignore a symbol's visual meaning and hear a sound instead",
+          "Phonetic systems need thousands of symbols to represent every possible syllable",
+          "Most languages don't have sounds that can be broken into discrete units"
+        ],
+        "correctIndex": 1,
+        "explanation": "When you see a drawing of an ox, your brain says 'ox.' Treating that same image as the sound 'a' requires overriding the natural visual-to-meaning link—an unnatural move that must be taught. Phonetic systems actually reduce symbol count, and all spoken languages have discrete sound units."
+      },
+      {
+        "question": "What kind of information is most likely to push a writing system toward phonetic encoding?",
+        "options": [
+          "Recording physical inventories of grain and livestock",
+          "Marking ownership with personal names on objects",
+          "Drawing maps of territory and trade routes",
+          "Documenting seasonal agricultural cycles"
+        ],
+        "correctIndex": 1,
+        "explanation": "Names are pure sound—they don't mean anything by themselves, so you can't draw them as pictures. An inventory or map can use direct symbols (three jars, a river), but a name like 'Ashur' or 'Bilal' forces you to encode sounds. That pressure drives the leap."
+      },
+      {
+        "question": "A trader uses a fish symbol to mean 'fish' in one text and the sound 'fi' in another. What does this indicate about the writing system?",
+        "options": [
+          "The system is broken and inconsistent because symbols should have one meaning",
+          "The system is mid-transition, mixing pictographic and phonetic uses of the same marks",
+          "The trader is uneducated and misusing the symbols by accident",
+          "Fish is a sacred symbol and changes meaning in ritual contexts"
+        ],
+        "correctIndex": 1,
+        "explanation": "Many early phonetic systems borrowed existing pictographic symbols and repurposed them for sounds, creating a hybrid period where the same mark could be read two ways depending on context. This isn't error—it's evidence of the transition underway."
+      }
+    ]
+  }
+}
