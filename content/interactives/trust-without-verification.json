@@ -1,0 +1,59 @@
+{
+  "slug": "trust-without-verification",
+  "type": "quiz",
+  "title": "Trust Without Verification",
+  "concept": "Systems that assume good faith because checking every claim is too expensive will eventually be gamed by actors who exploit the gap between appearance and reality.",
+  "interactiveId": "e4c319ef-a83e-4f59-b82d-d3f051e729dc",
+  "sourcePieceId": "955100a7-9500-4f26-87a8-cfd02c20789e",
+  "publishedAt": 1778335721913,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why do systems that depend on trust often skip verification steps?",
+        "options": [
+          "Because verification is technically impossible in most cases",
+          "Because checking every claim would cost more time and money than the system can afford",
+          "Because the people running the system don't care about accuracy",
+          "Because verification would violate privacy or ethical standards"
+        ],
+        "correctIndex": 1,
+        "explanation": "Verification isn't skipped because it's impossible—it's skipped because it's expensive. Checking every claim takes time, labor, and money that would slow the system down or exceed its budget. The first wrong answer assumes a technical barrier that doesn't exist—most claims can be checked, just not cheaply."
+      },
+      {
+        "question": "What makes a fraudulent claim hard to spot in a trust-based system?",
+        "options": [
+          "The claim is hidden in technical language that gatekeepers don't understand",
+          "The claim looks formatted the same way legitimate claims look",
+          "The claim comes from someone with a respected title or affiliation",
+          "The claim is repeated so many times that people assume it must be true"
+        ],
+        "correctIndex": 1,
+        "explanation": "Fraudulent claims slip through when they mimic the surface features of legitimate ones—correct formatting, plausible structure, the right kind of labels. Gatekeepers rely on those signals because checking the substance of every claim is too costly. The third option describes reputation bias, which can help fraud spread but doesn't explain why individual gatekeepers miss it in the first place."
+      },
+      {
+        "question": "Why do fraudulent actors create entire networks of fake supporting claims instead of just one isolated fake claim?",
+        "options": [
+          "Because isolated claims are easier to trace back to their source",
+          "Because a network of mutually-reinforcing claims looks more credible and is harder to audit",
+          "Because creating multiple claims costs less than creating one high-quality fake",
+          "Because systems automatically flag claims that have no supporting references"
+        ],
+        "correctIndex": 1,
+        "explanation": "A network of fake claims that reference each other mimics the structure of legitimate knowledge—each claim appears to rest on others, making the whole web look credible. Auditing that web is exponentially harder than checking one claim. The fourth option assumes detection tools exist that don't in most trust-based systems."
+      },
+      {
+        "question": "When does a trust-based system discover it has been gamed at scale?",
+        "options": [
+          "When a whistleblower inside the system reports the fraud directly",
+          "When the fraud becomes so widespread that routine operations start breaking down",
+          "When someone finally does the expensive verification work the system skipped",
+          "When external regulators impose mandatory audits after a scandal"
+        ],
+        "correctIndex": 2,
+        "explanation": "Trust-based systems discover fraud when someone—often outside the system—does the verification work the system couldn't afford to do routinely. That's what an audit is: systematically checking claims the system accepted on faith. The second option describes a symptom that might prompt an audit, but discovery comes from actually checking, not from noticing things are broken."
+      }
+    ]
+  }
+}
