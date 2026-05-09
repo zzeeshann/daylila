@@ -27,6 +27,7 @@ import type { RunPiece, RunCandidate } from '../../components/RunBlock.astro';
 import { getCollection } from 'astro:content';
 import { deriveSlug } from '../../lib/slug';
 import { formatUtcLongDateFromIso } from '../../lib/format';
+import { computePieceStats } from '../../lib/piece-stats';
 
 const db = Astro.locals.runtime.env.DB;
 
@@ -39,7 +40,6 @@ interface PieceRow {
   piece_id: string;
   date: string;
   headline: string;
-  beat_count: number | null;
   reading_minutes: number | null;
   published_at: number;
   candidate_id: string | null;
@@ -56,7 +56,6 @@ const rows = (await db
        p.id AS piece_id,
        p.date,
        p.headline,
-       p.beat_count,
        p.reading_minutes,
        p.published_at,
        c.id AS candidate_id,
@@ -79,7 +78,6 @@ type Bucket = {
     piece_id: string;
     date: string;
     headline: string;
-    beat_count: number | null;
     reading_minutes: number | null;
     published_at: number;
   };
@@ -95,7 +93,6 @@ for (const r of rows) {
         piece_id: r.piece_id,
         date: r.date,
         headline: r.headline,
-        beat_count: r.beat_count,
         reading_minutes: r.reading_minutes,
         published_at: r.published_at,
       },
@@ -128,6 +125,10 @@ const runs: Run[] = [];
 for (const b of buckets.values()) {
   const entry = collectionByPieceId.get(b.d1.piece_id);
   if (!entry) continue; // orphan piece_id — skip
+  // Beat count derived from the published MDX (single source of truth).
+  // The previously-used daily_pieces.beat_count column was Curator's brief
+  // plan and drifted from what Drafter actually shipped — see PR #0.
+  const stats = computePieceStats(entry.body ?? '');
   runs.push({
     piece: {
       pieceId: b.d1.piece_id,
@@ -135,7 +136,7 @@ for (const b of buckets.values()) {
       slug: deriveSlug(entry.id),
       headline: b.d1.headline || entry.data.title,
       description: entry.data.description,
-      beatCount: b.d1.beat_count ?? entry.data.beatCount,
+      beatCount: stats.beatCount,
       readingMinutes: b.d1.reading_minutes,
       estimatedTime: entry.data.estimatedTime,
       publishedAt: b.d1.published_at || entry.data.publishedAt,

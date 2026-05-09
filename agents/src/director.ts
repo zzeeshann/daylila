@@ -672,24 +672,25 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // captured earlier (before the frontmatter splice) so identity +
     // timestamp agree between MDX and D1.
     const factsPassed = failedGates.includes('facts') ? 0 : 1;
-    // Use Drafter's wordCount (captured at draft time, before Director's
-    // frontmatter splices added ~6 tokens for voiceScore/pieceId/publishedAt).
-    // Prior shape re-computed `currentMdx.split(/\s+/).length` here which
-    // inflated the count and drifted from the `drafting done` pipeline_log
-    // step. One source of truth: Drafter's value.
-    // reading_minutes derived at write time from wordCount at 200 wpm
-    // (conservative web-reading rate). Math.max(1, ...) so a 200-word
-    // piece still reads as "1 min" instead of "0 min". Column existed
-    // in the schema but was never populated; RunBlock fell through to
-    // an estimatedTime regex parse on every render. One source of truth.
+    // word_count + beat_count columns are inert as of PR #0 (2026-05-09).
+    // They held Curator's brief plan (beat_count) and Drafter's pre-revision
+    // word count, both of which drifted from the final published MDX. All
+    // site-worker readers now derive both from the MDX file via
+    // src/lib/piece-stats.ts. The columns are queued for removal in a
+    // future migration; we leave the INSERT silent on them so new rows
+    // get NULL and stale historical values are no longer relied upon.
+    //
+    // reading_minutes is still computed from Drafter's wordCount because
+    // it's a derived display field already and rough enough that brief-vs-
+    // final-piece drift doesn't affect the rounded "X min" reading.
     const readingMinutes = Math.max(1, Math.round(wordCount / 200));
     await this.env.DB
       .prepare(
-        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, word_count, beat_count, voice_score, fact_check_passed, quality_flag, reading_minutes, published_at, created_at, run_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO daily_pieces (id, date, headline, underlying_subject, source_story, voice_score, fact_check_passed, quality_flag, reading_minutes, published_at, created_at, run_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(pieceId, today, brief.headline, brief.underlyingSubject, brief.newsSource ?? '',
-        wordCount, brief.beats?.length ?? 0, lastVoiceScore, factsPassed, qualityFlag, readingMinutes, publishedAtMs, publishedAtMs, runId)
+        lastVoiceScore, factsPassed, qualityFlag, readingMinutes, publishedAtMs, publishedAtMs, runId)
       .run().catch(() => {});
 
     await this.logStep(today, pieceId, runId,'publishing', 'done', { commitUrl: publishResult.commitUrl, filePath: publishResult.filePath, qualityFlag });

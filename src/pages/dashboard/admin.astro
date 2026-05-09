@@ -31,8 +31,6 @@ type Piece = {
   underlying_subject: string | null;
   voice_score: number | null;
   quality_flag: 'low' | null;
-  word_count: number | null;
-  beat_count: number | null;
   published_at: number | null;
 };
 
@@ -131,7 +129,7 @@ try {
   // ORDER BY date DESC, published_at DESC so same-date pieces (multi-per-day)
   // stay in publish order rather than D1's implicit row order.
   const piecesRes = await db
-    .prepare('SELECT id, date, headline, underlying_subject, voice_score, quality_flag, word_count, beat_count, published_at FROM daily_pieces ORDER BY date DESC, published_at DESC')
+    .prepare('SELECT id, date, headline, underlying_subject, voice_score, quality_flag, published_at FROM daily_pieces ORDER BY date DESC, published_at DESC')
     .all<Piece>();
   const pieces = piecesRes.results;
 

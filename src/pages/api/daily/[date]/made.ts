@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
+import { getCollection } from 'astro:content';
 import { auditTier } from '../../../../lib/audit-tier';
 import { FALLBACK_SLUG } from '../../../../lib/categoriser-thresholds';
+import { computePieceStats } from '../../../../lib/piece-stats';
 import type {
   MadeEnvelope,
   MadePiece,
@@ -86,11 +88,27 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           .bind(date)
           .first<any>();
     if (row) {
+      // Derive word + beat count from the published MDX body, not from
+      // daily_pieces.word_count / beat_count. Those columns held Curator's
+      // brief plan and drifted from what Drafter actually shipped (PR #0,
+      // 2026-05-09). Single source of truth = MDX file.
+      let wordCount: number | null = null;
+      let beatCount: number | null = null;
+      try {
+        const collection = await getCollection('dailyPieces');
+        const entry = collection.find((e) => e.data.pieceId === row.id);
+        if (entry) {
+          const stats = computePieceStats(entry.body ?? '');
+          wordCount = stats.wordCount;
+          beatCount = stats.beatCount;
+        }
+      } catch { /* MDX missing — null both */ }
+
       const piece: MadePiece = {
         headline: row.headline,
         subject: row.underlying_subject ?? null,
-        wordCount: row.word_count ?? null,
-        beatCount: row.beat_count ?? null,
+        wordCount,
+        beatCount,
         voiceScore: row.voice_score ?? null,
         tier: auditTier(row.voice_score, row.quality_flag),
         qualityFlag: row.quality_flag ?? null,

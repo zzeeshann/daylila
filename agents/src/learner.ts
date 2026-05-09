@@ -304,8 +304,8 @@ Extract learnings for future pieces. What should the Drafter do differently next
     // THIS piece's metadata, not an arbitrary same-date row.
     const piece = await this.env.DB
       .prepare(
-        `SELECT headline, underlying_subject, source_story, word_count,
-                beat_count, voice_score, fact_check_passed, quality_flag,
+        `SELECT headline, underlying_subject, source_story,
+                voice_score, fact_check_passed, quality_flag,
                 published_at
          FROM daily_pieces WHERE id = ? LIMIT 1`,
       )
@@ -314,8 +314,6 @@ Extract learnings for future pieces. What should the Drafter do differently next
         headline: string;
         underlying_subject: string;
         source_story: string;
-        word_count: number | null;
-        beat_count: number | null;
         voice_score: number | null;
         fact_check_passed: number | null;
         quality_flag: string | null;
@@ -419,8 +417,6 @@ Extract learnings for future pieces. What should the Drafter do differently next
 - Headline: "${piece.headline}"
 - Underlying subject: ${piece.underlying_subject}
 - Source story: ${piece.source_story}
-- Word count: ${piece.word_count ?? 'unknown'}
-- Beat count: ${piece.beat_count ?? 'unknown'}
 - Final voice score: ${piece.voice_score ?? 'unknown'}/100
 - Fact-check passed: ${piece.fact_check_passed ? 'yes' : 'no'}
 - Quality flag: ${piece.quality_flag ?? 'none'}

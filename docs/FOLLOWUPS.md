@@ -13,6 +13,26 @@ Format per entry:
 
 ---
 
+## [deferred] 2026-05-09: Drop `daily_pieces.word_count` + `beat_count` columns
+
+- **Surfaced:** 2026-05-09 PR #0 made both columns inert. Director no longer writes them; all five site-worker readers derive from the published MDX via `src/lib/piece-stats.ts`; Learner dropped them from its post-publish prompt (voice score + audit rounds + engagement carry the learning signal — word/beat count were ambient context). Today's writes leave the columns NULL; historical values are stale brief-time numbers no longer relied upon. See DECISIONS 2026-05-09 "PR #0 — Beat-count + word-count drift fix".
+- **Hypothesis:** None — staged removal. Single migration `ALTER TABLE daily_pieces DROP COLUMN word_count` and `DROP COLUMN beat_count`. SQLite supports DROP COLUMN since 3.35; D1 underlying engine supports it.
+- **Investigation hints:** before the migration, grep `agents/src/`, `src/`, and `migrations/` once more for the column names — the PR #0 cleanup should have caught all readers, but a second pass catches anything added since. Look especially at any new admin tooling, reports, or data-export scripts that reference the column names. The migration is forward-only and non-reversible without restore from backup, so verify zero readers remain before applying.
+- **Unblock:** ≥30 days of clean operation post-PR-#0 with no operator surface noticing missing data, plus zero bulk-query usage discovered. Calendar trigger: 2026-06-09.
+- **Priority:** Low — columns are inert; cosmetic schema cleanup. Carries no functional risk if left in place indefinitely (precedent: `admin_settings.reading_mode` row preserved as audit trail since C7 cleanup 2026-05-08).
+
+---
+
+## [deferred] 2026-05-09: `made.ts` content-collection cache for drawer endpoint
+
+- **Surfaced:** 2026-05-09 PR #0. The drawer's `/api/daily/[date]/made` endpoint now calls `getCollection('dailyPieces')` to derive word + beat count from the MDX body. At today's traffic (low) the iteration cost is invisible; at scale it could become a hotspot since the drawer fetch fires every time a reader expands the panel.
+- **Hypothesis:** None — performance follow-up only triggered by data. Cache shape (when needed): module-level `Map<pieceId, PieceStats>` keyed by piece id, invalidated on rebuild (Astro content collections are immutable per build, so the cache is naturally bounded by deploy lifetime).
+- **Investigation hints:** measure first. Wrangler analytics or Cloudflare logs for `/api/daily/*/made` — if p95 latency stays <50ms, no action. Cache only if drawer-open p95 ever exceeds ~150ms or daily-piece traffic crosses ~50 RPS.
+- **Unblock:** drawer endpoint p95 >150ms sustained over 24h, or a noticeable click-to-expand lag reported by a reader, or anticipated traffic step-change (e.g. a launch).
+- **Priority:** Low — premature optimisation today; documented so the option's there when needed.
+
+---
+
 ## [observing] 2026-05-08: Drawer narrative arc — confirm forward-looking framing reads cleanly across 5+ fresh pieces
 
 - **Surfaced:** 2026-05-08 alongside the drawer narrative-arc landing (DECISIONS entry "Drawer narrative arc clarified — Final state block + forward-looking reframe"). The Drafter reflection prompt and all three Learner prompts were rewritten to instruct forward-looking framing. The self-check at the bottom of each prompt asks the model "would a reader hear a critique of what they read, or a pattern for what comes next?" — the right behaviour is the latter, every time.
