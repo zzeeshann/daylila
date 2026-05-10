@@ -2,6 +2,39 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: Per-file ownership comments — uniform `Contracts injected:` / `Inline rule bodies:` headers across every prompt file
+
+**Why this commit.** Item 10 from the LLM-surface cleanup ranked list. The codebase has 10 prompt files (9 on the agents worker + 1 on the site worker). Each one's relationship to `content/*.md` contracts varies by accident of history — some inject one contract, some three, some none. The audit at `docs/LLM-SURFACE.md` Step 3 maps this in a table; the table is correct but exists only in a doc, not at the call sites. Today's PR adds the same information at the top of each prompt file so a reader opening any one of them sees the contract dependency at a glance.
+
+**The convention.** Each prompt file's top doc-comment now carries a uniform two-line block:
+
+```
+ * Contracts injected: ${A}, ${B}
+ * Inline rule bodies: <description, or "none">
+```
+
+The `Contracts injected:` line names every `${CONTRACT_NAME}` literal interpolated into a system or user prompt in the file. The `Inline rule bodies:` line lists every chunk of rule prose that lives in the TypeScript literal (worked examples, opener, output JSON spec, anti-patterns, scoring rubrics) — not every line of the file, but every chunk that would have to be edited if a rule changes. "none" means the file is 100% inline (the Learner heads) or 100% contract-driven (no current file is fully contract-driven; even the leanest still has an opener + OUTPUT JSON spec).
+
+**Per-file additions.**
+
+- **categoriser-prompt.ts** (already had the closest existing example — extended): `${CATEGORISER_CONTRACT}`; inline = response-format JSON spec + CATEGORISER_RETRY_MESSAGE (with hand-synced literals 60/74).
+- **curator-prompt.ts**: `${CURATOR_CONTRACT}`; inline = opener + Daylila Protocol three-sentence framing (canonical home: voice-contract.md) + response-format JSON + verbatim-UUID rule + user-message reminders.
+- **drafter-prompt.ts** (two prompts): main draft = `${BEAT_CONTRACT}` (system) + `${VOICE_CONTRACT}` (user message — unusual position, called out); reflection = none. Inline list covers the 4-bullet invariants, the 6 worked widget examples, the topic-shape permission paragraph, the deletion heuristic, and the reflection's statelessness frame.
+- **voice-auditor-prompt.ts**: `${VOICE_CONTRACT}`, `${AUDIT_CONTRACT}`; inline = opener + OUTPUT JSON spec. Two-contract reasoning explains why audit-contract holds the penalty rubric (path B from priority 4).
+- **structure-editor-prompt.ts**: `${BEAT_CONTRACT}`, `${AUDIT_CONTRACT}`; inline = opener + operational lens + OUTPUT JSON spec. Same path-B-style two-contract reasoning.
+- **fact-checker-prompt.ts**: `${FACT_CHECK_CONTRACT}`; inline = opener + today's-date instruction (computed in code via `new Date().toISOString().slice(0,10)`) + OUTPUT JSON spec + closed-enum failure_reasons reminder.
+- **integrator-prompt.ts**: `${INTEGRATOR_CONTRACT}`, `${VOICE_CONTRACT}`, `${BEAT_CONTRACT}` (the most-stuffed system prompt in the codebase, ~6-8 KB); inline = RULES paragraph (PRESERVE/FIX framing) + response-format JSON + closed-enum allowed-values reminder.
+- **learner-prompt.ts** (three prompts): contracts = none — all three are 100% inline. Inline list covers forward-looking framing, 5 worked-example learnings per prompt, reader-engagement metric interpretation, per-prompt OUTPUT JSON spec. Also adds a "notable contract gap" paragraph: Learner does NOT inject `${VOICE_CONTRACT}` so a learning could in principle use a tribe word without an auditor in the loop. Named in `docs/LLM-SURFACE.md` Step 7; defer fix until production produces an actual tribe-word.
+- **interactive-generator-prompt.ts** (two system prompts × three call-shapes each = 6 calls): quiz path = `${VOICE_CONTRACT}` + `${INTERACTIVE_CONTRACT}`; HTML path adds `${INTERACTIVE_HTML_REFERENCE}` (the only non-markdown contract — a 12 KB chokepoints HTML reference template inlined as the example). Inline = opener + 3 worked examples per path + per-path anti-patterns + OUTPUT JSON spec. Cache posture noted (HTML system prompt is a single ephemeral prompt-cache block).
+- **interactive-auditor-prompt.ts** (quiz + HTML): `${VOICE_CONTRACT}`, `${INTERACTIVE_CONTRACT}` for both. Inline = opener + four-dimensional scoring rubric prose + strict-JSON OUTPUT spec. HTML auditor's literal threshold values (75 floor on structure/essence/factual, ≥85 voice mirrored from `VOICE_PASS_THRESHOLD`) called out as inline-restated-from-contract.
+- **src/lib/zita-prompt.ts** (site worker): voice contract injected via Vite `?raw` (NOT codegen — distinct compilation path called out). Inline = 7 Zita-specific Socratic-scaffolding rules (ask before telling, scaffold don't solve, 2-4 sentences max, etc.). The "Never congratulate" overlap with the contract's "no flattery" rule explained — Zita-specific examples ("Great question!") are operational anti-patterns the general rule doesn't make visible.
+
+**No behaviour change.** Pure documentation. No prompt content changed; no contract changed; no codegen ran (no `content/*.md` touched). The only files modified are doc-comments in 10 TypeScript modules. CI typecheck on push is the verification gate — no integer literal or import added.
+
+**Verified.** All 10 files modified follow the exact `Contracts injected: …` / `Inline rule bodies: …` two-line format. Grep-able for future tooling: `grep -rn "Contracts injected:" agents/src/ src/lib/zita-prompt.ts` returns 10 hits.
+
+**Files (10 + 2 docs):** `categoriser-prompt.ts`, `curator-prompt.ts`, `drafter-prompt.ts`, `voice-auditor-prompt.ts`, `structure-editor-prompt.ts`, `fact-checker-prompt.ts`, `integrator-prompt.ts`, `learner-prompt.ts`, `interactive-generator-prompt.ts`, `interactive-auditor-prompt.ts`, `src/lib/zita-prompt.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry). No migration. No contract change. No codegen. No agent change. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-11: Drift watch instrumentation — admin dashboard surfaces unknown failure_reason rate
 
 **Why this commit.** Item 8 from the LLM-surface cleanup ranked list. The closed-enum `failure_reasons` parsers on Voice Auditor / Structure Editor / Fact Checker (extracted Foundation Fix Task 08 PR 08c, 2026-05-07) drop unknown tokens at the writer with `parseError` populated, and the persisted `audit_results.failure_reasons` string carries the `unknown` literal as a breadcrumb. The signal already exists in D1 — but until today there was nothing surfacing the drift rate. The fact-checker dropped one `unknown` token in a recent observer event; nobody would have noticed until the next quarterly investigation. This commit adds visibility, not notification.

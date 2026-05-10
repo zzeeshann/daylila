@@ -22,6 +22,22 @@ import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, INTERACTIVE_CONTRACT } from
  * One prompt module per agent, co-located (AGENTS.md §9-2).
  * InteractiveGeneratorAgent is the only caller.
  *
+ * Quiz-path system prompt (INTERACTIVE_GENERATOR_PROMPT):
+ *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT}
+ *   Inline rule bodies: opener; 3 worked examples (essence-not-reference);
+ *     quiz-specific anti-pattern rule; OUTPUT JSON spec.
+ *
+ * HTML-path system prompt (INTERACTIVE_HTML_GENERATOR_PROMPT):
+ *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT},
+ *     ${INTERACTIVE_HTML_REFERENCE} (inlined as the chokepoints HTML
+ *     reference template, ~12 KB; the only non-markdown contract).
+ *   Inline rule bodies: opener; 3 worked examples (essence-not-reference);
+ *     engagement-events sentence; diversity-with-past sentence; OUTPUT
+ *     JSON spec. Cached as a single ephemeral prompt-cache block.
+ *
+ * Per-call-shape user prompts (build*Prompt helpers): produce / revise
+ * / repair shapes for both paths — see helper docstrings below.
+ *
  * THE QUALITY BAR (shared across both paths): essence, not reference.
  *
  * If someone who has never read the source piece lands on the

@@ -5,6 +5,11 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * CategoriserAgent is the only caller.
  *
+ * Contracts injected: ${CATEGORISER_CONTRACT}
+ * Inline rule bodies: response-format JSON spec; CATEGORISER_RETRY_MESSAGE
+ *   (with hardcoded literals `60` and `74` mirroring the contract's
+ *   confidence-floor numbers, hand-synced — see comment at the const).
+ *
  * Rule body lives at `content/categoriser-contract.md`, codegenned
  * into `${CATEGORISER_CONTRACT}` and injected into the system prompt
  * below. The four named constants (max-assignments, reuse floor,

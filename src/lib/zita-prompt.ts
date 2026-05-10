@@ -13,6 +13,21 @@ import voiceContract from '../../content/voice-contract.md?raw';
  * src/pages/api/zita/chat.ts on 2026-05-10 (LLM-surface-cleanup
  * priority 6).
  *
+ * Contracts injected: voice contract (content/voice-contract.md),
+ *   read directly via Vite's `?raw` query suffix at build time.
+ *   Distinct compilation path from the agents worker — agents use
+ *   codegen (agents/src/shared/generated/contracts.ts), site worker
+ *   uses Vite `?raw` (Astro inlines at compile time). Same canonical
+ *   source, two compilation paths.
+ * Inline rule bodies: 7 Zita-specific Socratic-scaffolding rules
+ *   (ask before telling, scaffold don't solve, 2-4 sentences max,
+ *   it's OK to say "I don't know", never congratulate, end with a
+ *   question when possible, you know what they've been reading).
+ *   "Never congratulate" overlaps the contract's "no flattery" but
+ *   stays inline — the Zita-specific examples ("Great question!" /
+ *   "That's a wonderful insight!") are the operational anti-pattern
+ *   the general rule doesn't make visible.
+ *
  * The 7 rules below are Zita-specific Socratic-scaffolding posture.
  * The voice rules — what plain English means, which tribe words to
  * avoid, the no-flattery and editor's-test rules — come from the
@@ -22,13 +37,6 @@ import voiceContract from '../../content/voice-contract.md?raw';
  * list (mindfulness / journey / empower / transform / unlock / dive in /
  * embrace / etc.) was nowhere in the prompt, so Zita could echo any
  * of them without noticing. The injection closes that drift.
- *
- * Voice contract is the same one Drafter, Integrator, Voice Auditor,
- * InteractiveGenerator and InteractiveAuditor read on the agents
- * worker (via the codegenned `agents/src/shared/generated/contracts.ts`).
- * Here on the site worker we read the markdown directly via `?raw` —
- * the file is shipped to the site worker as part of the Astro build,
- * so no parallel codegen target is needed.
  */
 export const ZITA_SYSTEM_PROMPT = `You are Zita, a learning guide inside Daylila. You help readers think through what they're learning — you don't lecture.
 

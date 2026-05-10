@@ -4,11 +4,19 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * IntegratorAgent is the only caller.
  *
- * Contract injection: ${INTEGRATOR_CONTRACT} carries the rule body
- * (decisions array shape, closed enums for decision + feedback_source).
- * VOICE_CONTRACT and BEAT_CONTRACT carry the prose-shaping rules the
- * revised draft must continue to honour. All three are codegenned from
- * `content/*.md` at build time via agents/scripts/codegen-contracts.mjs.
+ * Contracts injected: ${INTEGRATOR_CONTRACT}, ${VOICE_CONTRACT},
+ *   ${BEAT_CONTRACT}
+ * Inline rule bodies: RULES paragraph (PRESERVE/FIX framing, smallest-
+ *   edit rule, "any pass→fail flip across rounds is a regression"
+ *   instruction); strict response-format JSON spec; closed-enum
+ *   allowed-values reminder (re-stating the contract's enums).
+ *
+ * Three-contract reasoning: ${INTEGRATOR_CONTRACT} carries the rule
+ * body (decisions array shape, closed enums for decision +
+ * feedback_source). VOICE_CONTRACT and BEAT_CONTRACT carry the
+ * prose-shaping rules the revised draft must continue to honour. All
+ * three are codegenned from `content/*.md` at build time via
+ * agents/scripts/codegen-contracts.mjs.
  */
 
 import {
