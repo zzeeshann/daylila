@@ -108,9 +108,10 @@ ${existing
           const headlinesLine = c.recentHeadlines.length === 0
             ? '  recent_headlines: (none yet)'
             : `  recent_headlines:\n${c.recentHeadlines.map((h) => `    - "${h}"`).join('\n')}`;
-          const densityLine = c.recentDensity
-            ? '  filling_fast: true (≥3 pieces in the last 7 days — be sure before adding another)'
-            : '';
+          // The contract carries the filling_fast rule (added 2026-05-10
+          // alongside the contract simplification commit). Render just
+          // the flag; the contract tells Claude what to do with it.
+          const densityLine = c.recentDensity ? '  filling_fast: true' : '';
           return [
             `- id: ${c.id}`,
             `  name: "${c.name}"`,
