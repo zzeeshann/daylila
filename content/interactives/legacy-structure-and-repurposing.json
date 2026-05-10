@@ -1,0 +1,59 @@
+{
+  "slug": "legacy-structure-and-repurposing",
+  "type": "quiz",
+  "title": "Legacy Structure and Repurposing",
+  "concept": "Evolution doesn't optimize for future environments—it modifies inherited structures to work in the current one, so bodies carry features built for one use but kept because they serve another.",
+  "interactiveId": "9d230529-5eb0-46ac-bd62-301386b3c51d",
+  "sourcePieceId": "f4c864dd-c622-421f-844d-2c8b39ea4430",
+  "publishedAt": 1778441412984,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why would a creature keep a body feature shaped for an environment it doesn't live in?",
+        "options": [
+          "The feature is practice for a future migration the species will eventually make",
+          "The inherited structure still works for a different task in the current environment",
+          "Evolution always removes features that aren't used for their original purpose",
+          "The feature costs nothing to maintain so natural selection ignores it"
+        ],
+        "correctIndex": 1,
+        "explanation": "Selection keeps features that function well enough right now, regardless of their original purpose. If an inherited structure serves a new task—pushing through sediment, bracing against currents—it stays. The first option assumes evolution plans ahead; the third assumes perfect efficiency; the fourth ignores that unused features often carry metabolic or developmental costs."
+      },
+      {
+        "question": "What does it mean when a body's structure suggests capability for an activity the organism never performs?",
+        "options": [
+          "The structure is vestigial and will disappear in future generations",
+          "The organism is in transition and will eventually use that capability",
+          "Past evolutionary pressures shaped the structure, and current pressures haven't removed it",
+          "The structure evolved independently by chance and has no functional history"
+        ],
+        "correctIndex": 2,
+        "explanation": "Bodies carry history. A structure shaped by ancestral pressures persists if it still works in the current environment, even for a different task. The first option assumes structures must vanish if unused; the second assumes forward planning; the fourth ignores that complex structures don't arise randomly—they accumulate through selection acting on what already exists."
+      },
+      {
+        "question": "How can a feature become more refined for a use the organism never engages in?",
+        "options": [
+          "The feature can't—refinement only happens through direct use",
+          "Changes driven by one pressure can incidentally improve capability for an unrelated activity",
+          "Genetic drift randomly improves features over time regardless of selection",
+          "The organism must occasionally attempt the activity or the feature degrades"
+        ],
+        "correctIndex": 1,
+        "explanation": "Selection for size, strength, or bracing ability can make segments stiffer and joints more robust—traits that also happen to improve terrestrial capability, even if the organism never walks. The first option assumes one-to-one matching between use and refinement; the third overweights drift's role in shaping complex functional traits; the fourth requires conscious practice."
+      },
+      {
+        "question": "Why can't evolution restart a body design from scratch when the environment changes?",
+        "options": [
+          "Each generation can only modify what it inherits—small changes to existing structures",
+          "Genes lock in place after a certain number of generations and become unchangeable",
+          "Evolution remembers past environments and preserves features in case conditions revert",
+          "Starting over would require too much energy so organisms avoid drastic changes"
+        ],
+        "correctIndex": 0,
+        "explanation": "Selection acts on variation in the current population, modifying inherited structures one generation at a time. There's no mechanism to wipe the slate clean and rebuild from zero. The second option invents genetic rigidity that doesn't exist; the third assumes memory or foresight; the fourth assumes organisms make strategic metabolic decisions about how evolution proceeds."
+      }
+    ]
+  }
+}
