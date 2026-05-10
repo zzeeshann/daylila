@@ -112,7 +112,7 @@ export function buildCuratorPrompt(
   return `## Today's news candidates:
 ${candidates.map((c) => `id: ${c.id}\n   [${c.category}] "${c.headline}" (${c.source})\n   ${c.summary}`).join('\n\n')}
 
-## Already published recently (last 30 days)
+## Already published recently (last 14 days)
 ${recentBlock}
 
 Apply the SAME-EVENT and SAME-CONCEPT hard-skip rules from your system prompt against this list. Includes today's earlier picks if any.

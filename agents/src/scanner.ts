@@ -73,11 +73,19 @@ const RSS_FEEDS: Record<string, string> = {
 const PER_FEED_CAP = 8;
 
 // Global cap on candidate count stored in D1 + passed to Curator.
-// Raised from 50 to 80 on 2026-05-01 to match the feed-count expansion
-// — keeps direct feeds proportionally represented while preserving
-// Google News news-anchor coverage. ~50KB total candidate-row text in
-// the Curator prompt; well within Sonnet's context budget.
-const GLOBAL_CAP = 80;
+// Cut 80 → 24 on 2026-05-10. The cap is per-run, not per-day — each
+// pipeline run pulls fresh news, so pool depth across runs isn't a
+// concern. SAME-EVENT / SAME-CONCEPT hard skips + the recent-pieces
+// headline list already prevent the Curator from picking anything we've
+// covered; pool depth isn't carrying that load. Library check at the
+// time of the cut: 58 pieces, 11 categories — the deep pool wasn't
+// producing real variety. Latency reading at the time of the cut:
+// Curator clocked 141.8s on the 2026-05-10 run, past the CF Workers
+// 125s subrequest idle limit (streaming from the 2026-05-09 fix is the
+// only reason that run didn't 499). The trim is the latency-margin
+// fix the streaming workaround is currently hiding.
+// See DECISIONS 2026-05-10 "Curator input trim".
+const GLOBAL_CAP = 24;
 
 /**
  * ScannerAgent — fetches news from Google News RSS daily.
@@ -182,15 +190,17 @@ export class ScannerAgent extends Agent<Env, ScannerState> {
           headline: this.cleanHtml(title),
           source: source || category,
           category,
-          // 250-char cap (was 500). Each candidate's summary feeds into
-          // Curator's prompt verbatim; at ~80 candidates this halves
-          // ~7k input tokens per Curator call. Google News RSS
-          // descriptions are auto-generated leads — the first ~250
-          // chars carry the headline angle and the lede sentence,
-          // which is what Curator needs to judge teachability.
-          // Reverting requires bumping Curator's max_tokens headroom.
-          // See DECISIONS 2026-05-09 "Curator 124s 499 timeout regression".
-          summary: this.cleanHtml(description || '').slice(0, 250),
+          // 150-char cap. Each candidate's summary feeds into Curator's
+          // prompt verbatim. Google News RSS descriptions are
+          // auto-generated leads; 150 chars carry the headline angle
+          // and the lede sentence — which is what Curator needs to
+          // judge teachability. Cut from 250 on 2026-05-10 alongside
+          // the GLOBAL_CAP 80 → 24 trim; the per-candidate reasoning
+          // the contract asks for doesn't need 250 chars per row.
+          // History: was 500 pre-2026-05-09, dropped to 250 in the
+          // Curator timeout regression fix, dropped again to 150 here.
+          // See DECISIONS 2026-05-10 "Curator input trim".
+          summary: this.cleanHtml(description || '').slice(0, 150),
           url: link || '',
         });
       }

@@ -19,7 +19,10 @@ import {
   LEARNER_VALIDATION_VOICE_FLOOR,
   LEARNER_VALIDATION_MAX_ROUNDS,
 } from './shared/audit-thresholds';
-import { CURATOR_RECENT_WINDOW_DAYS } from './shared/curator-thresholds';
+import {
+  CURATOR_RECENT_PIECES_WINDOW_DAYS,
+  CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS,
+} from './shared/curator-thresholds';
 import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thresholds';
 import { CATEGORISER_FALLBACK_SLUG } from './shared/categoriser-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
@@ -225,7 +228,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     this.enterPhase('curator');
     await this.logStep(today, pieceId, runId,'curating', 'running', {});
     const curator = await this.subAgent(CuratorAgent, 'curator');
-    const recentPieces = await this.getRecentDailyPieces(CURATOR_RECENT_WINDOW_DAYS);
+    const recentPieces = await this.getRecentDailyPieces(CURATOR_RECENT_PIECES_WINDOW_DAYS);
 
     // Hard pre-Curator dedup. Curator (Sonnet) keeps picking
     // near-duplicate stories despite multiple prompt-language tightenings
@@ -265,8 +268,8 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       );
     }
 
-    const recentCategoryCounts = await this.getRecentCategoryCounts(CURATOR_RECENT_WINDOW_DAYS);
-    const recentDomainCounts = await this.getRecentDomainCounts(CURATOR_RECENT_WINDOW_DAYS);
+    const recentCategoryCounts = await this.getRecentCategoryCounts(CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS);
+    const recentDomainCounts = await this.getRecentDomainCounts(CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS);
     // Try/catch around curator.curate so a Curator throw (Anthropic
     // 5xx, CF Workers fetch error, JSON parse fail) writes
     // `curating: failed` to pipeline_log + an observer.logError row,
