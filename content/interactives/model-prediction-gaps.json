@@ -1,0 +1,59 @@
+{
+  "slug": "model-prediction-gaps",
+  "type": "quiz",
+  "title": "Model-Prediction Gaps",
+  "concept": "When measured results exceed what a model predicts from known variables, the gap signals an interaction the model missed—anomalies are where incomplete theories show their edges.",
+  "interactiveId": "591e61f3-1a38-44aa-afb1-83365d82a6e6",
+  "sourcePieceId": "b9635350-3c1f-4418-a6ae-b242e9ed7ce1",
+  "publishedAt": 1778436291799,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a model that correctly predicts most materials sometimes fail for a new one?",
+        "options": [
+          "The model was built from measurements of different materials",
+          "The new material has interactions between components the model doesn't account for",
+          "The measurements of the new material were performed incorrectly",
+          "The model is outdated and needs to be replaced entirely"
+        ],
+        "correctIndex": 1,
+        "explanation": "Models sum known effects of individual variables. When a new combination produces behavior the sum doesn't predict, it means those variables interact in a way the model doesn't capture—the model isn't wrong about what it includes, it's incomplete about what it excludes."
+      },
+      {
+        "question": "What makes an anomaly—a result higher than the model predicts—valuable rather than just confusing?",
+        "options": [
+          "It proves the original model was completely wrong",
+          "It shows exactly where the model's simplifications break down",
+          "It means the measurements are more accurate than previous ones",
+          "It suggests the model needs better computational power"
+        ],
+        "correctIndex": 1,
+        "explanation": "An anomaly marks the boundary of what the model captures. The gap between prediction and measurement tells you which interactions you simplified away—it's a map showing where to look next, not a sign the whole framework is broken."
+      },
+      {
+        "question": "Why do models built from individual component effects sometimes miss combined effects?",
+        "options": [
+          "Component effects are measured separately but combine nonlinearly",
+          "The individual measurements were performed at different temperatures",
+          "Models can only handle three variables at a time",
+          "Combined effects require more expensive testing equipment"
+        ],
+        "correctIndex": 0,
+        "explanation": "Adding two effects together assumes they don't change each other. But when components interact—one component changing how another behaves—the total effect isn't just A plus B. The model built on separate measurements misses what happens when A and B are present together."
+      },
+      {
+        "question": "A research team designs an alloy based on a model, then measures performance that exceeds the prediction. What should they do first?",
+        "options": [
+          "Publish the result and let other teams figure out why",
+          "Test which combinations of variables produce the gap",
+          "Assume the measurement was wrong and repeat it",
+          "Build a completely new model from scratch"
+        ],
+        "correctIndex": 1,
+        "explanation": "The gap is the signal—it tells you the model is missing something, but not what. Systematically varying the components that might interact shows which combinations produce the unexpected effect, narrowing down where the missing piece lives in the model."
+      }
+    ]
+  }
+}
