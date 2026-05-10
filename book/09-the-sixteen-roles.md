@@ -10,7 +10,9 @@ Here they are, in the order they run.
 
 **Job:** Fetch today's news headlines.
 
-**What it does:** Reads seventeen RSS feeds — six Google News topic feeds (TOP / TECHNOLOGY / SCIENCE / BUSINESS / HEALTH / WORLD) plus eleven direct breadth feeds added on 2026-05-01 (Aeon for philosophy and long-form, Quanta for math and physics, JSTOR Daily for humanities and history, Atlas Obscura for places and language curiosities, Nautilus and Phys.org and Live Science and New Scientist for science, Knowable Magazine for research explainers, Smithsonian for history and arts, MIT Technology Review for technology substance). Deduplicates stories that appear in multiple feeds. Caps each feed at six items so wire-service feeds don't crowd out direct ones; caps the total at eighty. Stores the result in a table called `daily_candidates`. Typically produces sixty to eighty candidates per run.
+**What it does:** Reads ten RSS feeds — six Google News topic feeds for the news anchor (TOP / TECHNOLOGY / SCIENCE / BUSINESS / HEALTH / WORLD) plus four breadth feeds added on 2026-05-09 to widen the input (ENTERTAINMENT, SPORTS, FOOD_COOKING, PERSONAL_FINANCE). Deduplicates stories that appear in multiple feeds. Caps each feed at two items so every feed gets a fair seat at the table; caps the total at twenty-four. Stores the result in a table called `daily_candidates`. Typically produces around twenty candidates per run.
+
+The cap numbers look small, but they're load-bearing. An earlier feed list (eleven academic-leaning breadth feeds added 2026-05-01) was retired on 2026-05-09 because the candidates skewed too hard toward hard-science. The new mix carries more of ordinary life — what's on the news, what's on telly, sport, cooking, money — and Curator's job is to find the teachable thread inside it. The per-feed cap of two is what makes sure ENTERTAINMENT can't be crowded out by TOP and TECHNOLOGY filling the global cap first.
 
 **Claude call?** No. Just code parsing XML from RSS feeds.
 
