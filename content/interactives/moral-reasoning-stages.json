@@ -1,0 +1,59 @@
+{
+  "slug": "moral-reasoning-stages",
+  "type": "quiz",
+  "title": "Moral Reasoning Stages",
+  "concept": "The human capacity to recognize values develops in stages across childhood and adulthood—not because values change, but because the cognitive tools needed to see beyond self-interest build gradually over years.",
+  "interactiveId": "2409dfcc-2329-47f6-a054-c12e5d2563b8",
+  "sourcePieceId": "06687efd-3af7-490c-9f30-3d35f7f0f913",
+  "publishedAt": 1778452787969,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a young child interpret a delay for someone else's benefit as unfair constraint rather than as an act of virtue?",
+        "options": [
+          "The child hasn't learned which values society expects them to prioritize yet",
+          "The brain regions needed to hold abstract principles and take another person's perspective are still under construction",
+          "The child is being selfish and needs correction through teaching",
+          "The child lacks exposure to examples of people helping others"
+        ],
+        "correctIndex": 1,
+        "explanation": "Young children reason about right and wrong using the cognitive tools available at that developmental stage. The prefrontal cortex—which handles abstract thinking, delayed reward, and perspective-taking—is still forming. The child isn't choosing to see the world through immediate self-interest; it's the only lens their brain can use yet. Teaching examples or correcting behavior doesn't accelerate the underlying neural infrastructure."
+      },
+      {
+        "question": "What shifts when a person moves from deciding based on 'What do I get?' to deciding based on 'What does a good friend do?'",
+        "options": [
+          "They've memorized a longer list of rules about how to behave in relationships",
+          "They've learned to hide self-interest behind social performance",
+          "The cognitive capacity to hold social roles and reciprocal expectations comes online",
+          "They fear punishment from authority figures less than judgment from peers"
+        ],
+        "correctIndex": 2,
+        "explanation": "The shift from self-centered reasoning to role-based reasoning isn't about memorizing rules or performing for approval—it's about newly available cognitive infrastructure. The brain becomes capable of holding the concept of reciprocal relationships and stable social roles. A child reasoning at the earlier stage can't fake this; they genuinely lack the mental tools to see the world that way. Fear of judgment is a motivator within a stage, not the mechanism that builds the next one."
+      },
+      {
+        "question": "Why might two adults disagree about the right course of action even when both have full information and care about doing the right thing?",
+        "options": [
+          "One of them is reasoning from abstract principles while the other is reasoning from social norms, and those lenses can produce opposite answers to the same question",
+          "One of them has incomplete information despite appearing fully informed",
+          "One of them is lying about their true motivation to win the argument",
+          "One of them hasn't developed past childhood-level moral thinking"
+        ],
+        "correctIndex": 0,
+        "explanation": "People at different stages of moral reasoning use genuinely different frameworks to evaluate the same situation. Someone reasoning from social roles asks 'What does a responsible person in my position do?' Someone reasoning from principles asks 'What values do I want to embody regardless of role expectations?' Both care about doing right; they're using different cognitive lenses to see what 'right' means. The disagreement isn't about facts, dishonesty, or developmental failure—it's about which framework the brain is using to process the decision."
+      },
+      {
+        "question": "A person remembers finding their parent's generosity frustrating as a child but now names it as the quality they most admire. What changed?",
+        "options": [
+          "The parent became more generous over time and the child is now noticing it",
+          "The child has become an adult with access to cognitive tools that make generosity legible as a value rather than as constraint",
+          "The child has forgotten how frustrating the delays actually were and is romanticizing the past",
+          "The parent explained their reasoning better as the child got older"
+        ],
+        "correctIndex": 1,
+        "explanation": "Same behavior, same parent, opposite interpretation—because the cognitive tools available to the observer changed. A young child's brain processes a delay for someone else's benefit as 'thing I want is being blocked.' An adult brain with fully developed prefrontal infrastructure can hold abstract values like generosity and recognize the same behavior as embodying a principle. The parent didn't change, the child's memory isn't distorted, and explanation doesn't substitute for developmental readiness—the shift is in what the brain can now see."
+      }
+    ]
+  }
+}
