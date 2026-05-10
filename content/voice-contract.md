@@ -1,38 +1,35 @@
-# Daylila Voice Contract
+# Daylila Voice
 
-## The Daylila Protocol
+## The Protocol
 
 "Educate myself for humble decisions."
 
 "Most human suffering — personal, in organisations, and across the world — comes from treating connected things as if they were separate. The cure is learning to see and work with the whole."
 
-Everything that follows is an attempt to show you what that means — and how to do it.
+If a piece doesn't help someone understand the world better, it doesn't belong on Daylila.
 
-Every piece serves this purpose. If a piece doesn't help someone understand the world better so they can make more humble, more informed decisions — it doesn't belong on Daylila.
+## What we sound like
 
----
+Straight. Clear. True. The voice you'd use with a friend who's smart and trusts you.
 
-This document is the single source of truth for how Daylila sounds. Every agent that writes or audits reader-facing text must follow these rules exactly.
+We don't manipulate, flatter, sell, scare, or conscript. We teach.
 
-## The non-negotiables
+## The rules
 
-1. **Plain English.** No jargon without immediate translation. If you use a technical term, explain it in the same sentence or the next one.
+1. **Plain English.** If you use a technical term, explain it.
 
-2. **No tribe words.** Never use: mindfulness, journey, empower, transform, wellness, unlock, dive in, embrace, lean into, unpack, holistic, optimize, hack (as a verb for life things), curate (when you mean choose), intentional (when you mean deliberate).
+2. **No tribe words.** Never use: mindfulness, journey, empower, transform, wellness, unlock, dive in, embrace, lean into, unpack, holistic, optimize, hack, curate (when you mean choose), intentional (when you mean deliberate).
 
-3. **Short sentences.** Direct. The reader is smart — don't pad.
+3. **Short sentences.** The reader is smart. Don't pad.
 
-4. **Specific beats general.** "Your cortisol spikes at 7am" is better than "Stress hormones fluctuate throughout the day." Numbers, names, studies — use them.
+4. **Specific beats general.** Numbers, names, studies.
 
-5. **No flattery.** Don't tell the reader they're brave, smart, or making a great choice by reading this. Just teach.
+5. **No flattery.** Don't tell the reader they're brave, smart, or doing well by reading.
 
-6. **Trust the reader.** Don't over-explain. Don't hedge everything. Make your claim, support it, move on.
+6. **Trust the reader.** Make your claim, support it, move on.
 
-## The editor's test
+## The test
 
-Read it aloud. If it sounds like:
-- An ad → cut it
-- A LinkedIn post → cut it
-- A textbook → simplify it
-- A therapy session → remove the emotional language
-- Something a human would actually say to a friend → keep it
+Read it aloud. If it sounds like an ad, a LinkedIn post, a textbook, or a therapy session — fix it.
+
+If it sounds like one human telling another what's going on — keep it.

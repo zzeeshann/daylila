@@ -115,7 +115,7 @@ export function buildContractsTs() {
 
 /**
  * Build-time assertion: PickDomain enum in agents/src/types.ts matches
- * the bullet list under "### Pick domain enum" in
+ * the bullet list under "Pick domain enum" in
  * content/curator-contract.md. Fails build if drift detected.
  *
  * Per Zi's PR #1 directive (2026-05-09): "Worth a quick assertion in
@@ -140,13 +140,19 @@ function assertPickDomainEnumMatchesContract() {
   );
 
   // Parse contract: lines starting with `- \`<slug>\`` under the Pick
-  // domain enum section. Stop at the next heading (### or ##).
-  const sectionStart = CONTRACT.indexOf('### Pick domain enum');
-  if (sectionStart === -1) {
-    throw new Error('codegen-contracts assertion: "### Pick domain enum" section missing from curator-contract.md');
+  // domain enum section. Heading depth is flexible (## or ###) — the
+  // contract chooses; the parser doesn't care. Stop at the next
+  // heading of equal-or-shallower depth.
+  const sectionMatch = CONTRACT.match(/^(#{2,3})\s+Pick domain enum\s*$/m);
+  if (!sectionMatch) {
+    throw new Error('codegen-contracts assertion: "Pick domain enum" section heading missing from curator-contract.md');
   }
-  const sectionAfter = CONTRACT.slice(sectionStart);
-  const sectionEnd = sectionAfter.search(/\n##+ /m); // next heading
+  const sectionStart = sectionMatch.index;
+  const headingDepth = sectionMatch[1].length;
+  const sectionAfter = CONTRACT.slice(sectionStart + sectionMatch[0].length);
+  // Match the next heading at the same depth or shallower.
+  const stopPattern = new RegExp(`\\n#{2,${headingDepth}} `, 'm');
+  const sectionEnd = sectionAfter.search(stopPattern);
   const section = sectionEnd === -1 ? sectionAfter : sectionAfter.slice(0, sectionEnd);
   const contractSlugs = [...section.matchAll(/^- `([a-z][a-z0-9-]*)`/gm)].map((m) => m[1]);
 
