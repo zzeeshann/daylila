@@ -63,14 +63,18 @@ const RSS_FEEDS: Record<string, string> = {
   PERSONAL_FINANCE: 'https://news.google.com/rss/search?q=personal+finance&hl=en-US&gl=US&ceid=US:en',
 };
 
-// Per-feed cap — bounds each feed's contribution so wire-service feeds
-// don't crowd out direct breadth feeds. Lifted 6 → 8 on 2026-05-09
-// (PR #1) when the feed list shrank from 17 to 10: 10 feeds × 8 = 80
-// candidates pre-dedup, dedup to ~60-70 unique, cap to GLOBAL_CAP.
-// At cap 6 the new feed mix would only produce ~60 candidates pre-dedup
-// — too thin given Curator's expected higher rejection rate on the
-// Entertainment / Sports gossip-vs-craft mix.
-const PER_FEED_CAP = 8;
+// Per-feed cap — bounds each feed's contribution. Cut 8 → 2 on
+// 2026-05-11 after the post-PR-39 run showed a structural starvation
+// of later feeds: PER_FEED_CAP=8 × GLOBAL_CAP=24 × feed-iteration-order
+// meant the first 3 feeds (TOP, TECHNOLOGY, SCIENCE) exhausted the cap
+// before BUSINESS, HEALTH, WORLD, ENTERTAINMENT, SPORTS, FOOD_COOKING,
+// PERSONAL_FINANCE got any slots at all. At cap=2, 10 feeds × 2 = 20
+// candidates pre-dedup (~19 post-dedup) and every feed gets exactly
+// 2 slots. The editorial-contract-simplification (PR #39) unlocked
+// the Curator's judgment; this fixes the feed-cap math that was
+// silently constraining the pool to the first 3 feeds.
+// See DECISIONS 2026-05-11 "Feed-cap rebalance".
+const PER_FEED_CAP = 2;
 
 // Global cap on candidate count stored in D1 + passed to Curator.
 // Cut 80 → 24 on 2026-05-10. The cap is per-run, not per-day — each
