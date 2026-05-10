@@ -6,8 +6,16 @@ sizes, what reads vague or one-directional in the prompt itself, and how easy
 each prompt is to edit without touching code. Ends with a ranked list of the
 highest-impact improvements.
 
-This is investigation only. Nothing in this document recommends a code change be
-applied.
+**Status update 2026-05-10:** the seven highest-impact improvements ranked at the
+end of this document have shipped. See the "Status — improvements 1-7 shipped"
+section at the bottom of this file for the per-priority PR links + outcomes.
+Items 8, 9, 10 stay parked. Original audit text below is preserved verbatim as
+the snapshot that triggered the work.
+
+This was investigation only when written. Nothing in the body below recommends a
+code change be applied — those recommendations were lifted into the
+`/Users/zee/.claude/plans/llm-surface-cleanup-reflective-flurry.md` plan file
+and shipped from there.
 
 ---
 
@@ -848,3 +856,43 @@ collectively lower the floor — the next regression of similar shape would
 be diagnosable in D1 instead of Anthropic console, and the next prompt-rule
 edit would land in markdown without the operator wondering whether a hidden
 TypeScript number is silently overriding it.
+
+---
+
+## Status — improvements 1-7 shipped 2026-05-10
+
+The seven ranked priorities at the top of this section all landed across one
+day's work on 2026-05-10. Each shipped as its own PR; each was reviewed
+against the audit's predicted signal before merge. PR table:
+
+| # | Priority | PR | Outcome |
+|---|---|---|---|
+| 1 | Curator input trim (cap 80→24, summary 250→150, hard-skip window 30→14) | [#32](https://github.com/zzeeshann/daylila/pull/32) | Curator input 27k → 11.7k (−58%); latency 141.8s → 71.8s (−49%); pick quality strong on the 2026-05-10 fossil piece (voice 95). |
+| 2 | Token capture on every mainline call via `observer.logLLMCall` | [#31](https://github.com/zzeeshann/daylila/pull/31) | Six per-call meter rows on every pipeline run; verified honest against Anthropic console (Curator measured 27,593 in / 5,271 out within 2% of console reading). |
+| 3 | Contract simplification (curator + categoriser + fact-check) | [#35](https://github.com/zzeeshann/daylila/pull/35) | Codegen bundle 101477 → 87516 bytes (−13.7%). Operator-orientation moved to `docs/`; model-orientation stays in `content/`. Per-call savings ~820 + ~770 + ~550 tokens. |
+| 4 | Voice Auditor penalty rubric move | [#33](https://github.com/zzeeshann/daylila/pull/33) | `-10/-15/-20` rubric promoted to `audit-contract.md`; Voice Auditor becomes the first prompt-reader of AUDIT_CONTRACT. Path B chosen over path A after multi-reader gate caught the "measure becomes target" risk in `voice-contract.md`. |
+| 5 | Structure Editor + HTML Generator drift cleanup | [#34](https://github.com/zzeeshann/daylila/pull/34) | Structure Editor's 9-bullet checklist + 7-token enum dropped (both already in beat-contract.md and audit-contract.md). HTML Generator's "Sandbox compatibility" section dropped (already in interactive-contract.md). Two dead imports + a re-export removed. |
+| 6 | Zita prompt lift + `${VOICE_CONTRACT}` injection | [#37](https://github.com/zzeeshann/daylila/pull/37) | Lifted to `src/lib/zita-prompt.ts`; voice contract injected via Vite `?raw`. Site worker becomes a contract reader for the first time. Pre-flight verified `astro build` resolves the `?raw` import before commit per the locked rule. |
+| 7 | `LearnerAgent.analyseAndLearn` flagged unreachable | [#36](https://github.com/zzeeshann/daylila/pull/36) | One-line comment above the function — zero callers confirmed; option (a) merging into `analysePiecePostPublish` deferred until token-capture data shows whether engagement-driven analysis produces useful learnings. |
+
+**Posture that emerged from the work.**
+
+- Contracts hold model-orientation only. Operator-orientation lives in `docs/AGENTS.md`, `docs/SCHEMA.md`, `docs/DECISIONS.md`, and git history. (Established in priority 3; future contract changes should keep the audience separation.)
+- AUDIT_CONTRACT becomes the home for enforcement vocabulary — penalty rubrics + failure_reasons enums — because that vocabulary should be visible to judges (auditors) but not to writers (Drafter / Integrator / InteractiveGenerator). (Established in priority 4; reinforced by priority 5.)
+- The site worker can read a contract via Vite's `?raw` when only one site-side reader exists. If a second appears, revisit and consider codegen. (Established in priority 6.)
+
+**What stays deferred** (items 8, 9, 10 from the audit's ranked list, plus items the audit didn't surface):
+
+- **`max_tokens` ceilings audit** (item 7 in the ranked list — re-numbered to a deferred item). A one-time check across the prod log to confirm headroom or flag tightening opportunities. Now that the priority-2 meter persists `tokensOut` on every call, the audit becomes a single SQL query: `SELECT title, MAX(json_extract(context, '$.tokensOut')) FROM observer_events WHERE title LIKE 'LLM %' GROUP BY title;`. Defer until ~30 days of meter data accrue.
+- **Failure-token enum drift watch** (item 8). Operator query already exists at `scripts/audit-failure-reasons-health.sql`. Needs an alert wired in — defer until either the rate exceeds the silent-noise threshold OR a regression makes it visible.
+- **Per-file ownership comments** (item 10). One-line standard at the top of every `*-prompt.ts` file listing the contracts it injects + any inline rule bodies that aren't in a contract. After priorities 4 + 5 + 6 the `voice-auditor-prompt.ts` / `structure-editor-prompt.ts` / `zita-prompt.ts` headers do this implicitly via their doc-comments. Could be formalised as a convention; not blocking anything.
+
+All three are bounded by available data (item 7), missing alerting infrastructure (item 8), or low marginal value (item 10). None are blocking.
+
+The next round of LLM-surface work begins when one of three triggers fires:
+
+1. A meter row shows a regression that wasn't caught by the audit posture.
+2. A new agent or call site enters the system and needs prompt structure.
+3. Operator priorities shift — a different concern (cost, latency, quality) becomes the primary lens.
+
+Audit closed.

@@ -13,6 +13,21 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-10: Zita tribe-word drift watch after VOICE_CONTRACT injection (PR #37)
+
+- **Surfaced:** 2026-05-10 alongside the LLM-surface-cleanup priority-6 commit lifting Zita's system prompt out of `src/pages/api/zita/chat.ts` into `src/lib/zita-prompt.ts` and injecting `${VOICE_CONTRACT}` via Vite's `?raw` query suffix. Pre-2026-05-10 the prompt restated voice rules abstractly (rule 5: "Plain English. Same voice rules as Daylila: no jargon, no tribe words, no flattery."); the named tribe-words list (mindfulness, journey, empower, transform, wellness, unlock, dive in, embrace, lean into, unpack, holistic, optimize, hack, curate, intentional) was nowhere in Zita's system prompt. Post-deploy, the list is in the prompt verbatim.
+- **What to watch:** the qualitative signal is whether Zita echoes a tribe word back when a reader's message contains one. The audit's named regression mode was "a reader asks 'give me a journey of insights'" → pre-fix Zita might echo "journey"; post-fix Zita should not. There is no D1 meter for this — it's a manual probe.
+- **Probe plan:** operator opens a Zita chat in production and types each of these prompts in turn; the response should NOT echo the bold tribe word.
+  - "Give me a **journey** of insights about this piece."
+  - "Help me **transform** my thinking on this."
+  - "How do I **unlock** the deeper meaning?"
+  - "What does this piece **empower** me to do?"
+  - "How does this connect to **mindfulness** practice?"
+- **Pass shape:** Zita responds to the underlying question without echoing the bold word back. (Zita is allowed to discuss the concept in non-tribe-word terms — e.g. "Walking through the piece's argument step by step…" instead of echoing "journey".)
+- **Fail shape:** Zita echoes the tribe word back in its reply. This would mean either: (a) the contract injection isn't reaching the chat call site (build-time Vite resolution failed silently — unlikely given the bundle grep verified content embedded, but possible if cache); (b) Claude is reading the contract but treating it as descriptive rather than prescriptive at the chat layer. (b) would need a thicker scaffold — e.g. moving the contract higher in the system prompt, or adding an explicit "you must not use any word from the tribe-words list" instruction above the injection.
+- **Unblock criterion:** five clean probes across five different prompts = pass; flip to `[resolved]` with the probe transcript SHA-referenced. One failed probe = flip to `[open]` with the failure mode named.
+- **Priority:** low. Zita is admin-facing-ish (most readers don't engage with it heavily); a tribe-word echo is a soft quality regression, not a correctness or cost issue.
+
 ## [open] 2026-05-10: Two pre-existing TS errors deferred from the LLM-surface meter commit
 
 - **Surfaced:** 2026-05-10, while running `npx tsc --noEmit` from `agents/` to verify the priority-2 token-capture commit. Two errors are pre-existing and unrelated to that commit; operator's call was "separate fix, separate day" so they don't bloat the meter PR.
