@@ -2,6 +2,57 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-10: Zita prompt lifted out of chat.ts; site worker becomes a contract reader for the first time
+
+**Why this commit.** Priority 6 of the LLM surface cleanup. Two coupled changes in one commit:
+
+1. **Lift Zita's 8-rule system prompt** out of the inline `ZITA_SYSTEM_PROMPT` const at `src/pages/api/zita/chat.ts:28` into a new module at `src/lib/zita-prompt.ts`. Same posture as the per-agent prompt files on the agents worker — one prompt per agent, co-located.
+2. **Inject the voice contract.** Pre-2026-05-10 the prompt restated voice rules abstractly (rule 5: *"Plain English. Same voice rules as Daylila: no jargon, no tribe words, no flattery."*) without naming the actual rule body. The named tribe-words list from `content/voice-contract.md` (mindfulness, journey, empower, transform, wellness, unlock, dive in, embrace, lean into, unpack, holistic, optimize, hack, curate, intentional) was nowhere in Zita's system prompt, so Zita could echo any of those words without noticing.
+
+The audit at `docs/LLM-SURFACE.md` had named this drift as the priority-6 fix. A test conversation where a reader asks "give me a journey of insights" produces a response that does NOT echo "journey" — the canonical voice contract bans it; the inline prompt didn't list it.
+
+**Astro `?raw` path locked, pre-flight verified BEFORE commit per the plan's locked rule.** Earlier in the session the operator approved a path-choice: (a) parallel codegen target emitting a `src/lib/generated/contracts.ts` mirror, or (b) direct `import voiceContract from '../../content/voice-contract.md?raw'` using Vite's `?raw` query suffix. Path (b) was the cheaper preference, but I committed to verifying it works at build time before committing — the locked rule was "if astro build doesn't resolve the import, fall back to (a)."
+
+Pre-flight execution: created a temporary `src/lib/_zita_preflight.ts` with the bare `?raw` import, ran `pnpm build`, watched the full Astro build complete green in 13.3s — all 50+ interactives rendered, server bundle built, post-build script applied. Vite handles `?raw` natively (it's a built-in feature documented at vitejs.dev/guide/assets#importing-asset-as-string); Astro 5 with the Cloudflare adapter passes it through transparently. Deleted the scratch file; wrote the production zita-prompt.ts using path (b) directly. No parallel codegen target needed.
+
+**Site worker becomes a contract reader for the first time.** Architectural posture before today: contracts lived in `content/*.md`, codegenned into `agents/src/shared/generated/contracts.ts` at agents-worker build time, injected into agent prompts (Drafter, Integrator, Voice Auditor, Structure Editor, Fact Checker, Curator, Categoriser, InteractiveGenerator, InteractiveAuditor). The site worker did not read any contract — its job is rendering, auth, engagement, and Zita chat, none of which were structured to need contract content.
+
+After today: `src/lib/zita-prompt.ts` is the first site-worker file that reads a contract. The compilation path is different from the agents worker — agents worker uses codegen (bundle is checked in and verifier-gated via `pnpm verify-contracts-fresh`); site worker uses Vite's `?raw` (Astro's build pipeline inlines at compile time). Same canonical source (`content/voice-contract.md`), two compilation paths reflecting the two workers' build chains.
+
+The choice is deliberate: codegen makes sense on the agents side because the bundle is checked in to source control (so the deploy artefact's contract content is git-readable without rebuilding) and because the bundle is enforced fresh by CI. Codegen on the site side would add a script, add a CI check, add a generated-file mirror — none of which earn their weight for a single contract reader. Vite's `?raw` is the simpler answer for one consumer; codegen becomes the right answer if/when a second site-worker contract reader appears.
+
+**The 8-rule list, after the move.** Rule 5 (Plain English / voice rules) was the duplicate; deleted. The remaining 7 rules stay inline because they're Zita-specific Socratic-scaffolding posture, not voice rules:
+
+1. Ask before telling
+2. Scaffold, don't solve
+3. 2-4 sentences maximum
+4. You know what they've been reading
+5. It's OK to say "I don't know"
+6. Never congratulate
+7. End with a question when possible
+
+The "Never congratulate" rule stays even though the voice contract has "No flattery" — Zita's specific anti-patterns ("Great question!" / "That's a wonderful insight!") are operational concrete examples the general rule doesn't make visible. Same posture as the curator contract's worked pairings and procedural-moments parenthetical (priority-3 leave-ins): concrete examples that fix specific past failure modes stay even at token cost.
+
+**Production bundle verified end-to-end.** `pnpm build` completed green after the production zita-prompt.ts + chat.ts edits. The compiled worker output at `dist/_worker.js/pages/api/zita/chat.astro.mjs` contains the full voice contract content embedded — confirmed by grepping the bundle for canonical markers: `Daylila Voice Contract` (1 hit), `mindfulness` (1 hit), `tribe words` (1 hit), `editor's test` (1 hit). After deploy, the next Zita chat request sees the canonical voice contract in its system prompt.
+
+**Verification.** Site `npx tsc --noEmit` 37 errors total, all 37 pre-existing site-worker tsc issues (D1Database missing types in 3 lib files, implicit-any in made.ts and pipeline.ts, settings.ts). Zero new errors from the priority-6 files. The initial draft had one `@ts-expect-error` annotation that turned out to be unused because Vite ships client types for `?raw` — removed; Vite's types make the import structurally typed as `string` automatically.
+
+**Expected signal.** No meter rows on the priority-2 dashboard (Zita's per-message cost was already metered via `logObserverEvent` since `LLM zita-chat`, not the agents-side `logLLMCall`). The observable signal is qualitative: a "give me a journey of insights" probe (or any tribe-word probe — "mindfulness practice", "transform my thinking", "unlock my potential") should produce a response that does NOT echo the probe word. Pre-2026-05-10, the abstract rule was easy to ignore; post-deploy, the named ban is in Zita's system prompt verbatim.
+
+**Files (2 + 2 docs):** new `src/lib/zita-prompt.ts`, modified `src/pages/api/zita/chat.ts`; CLAUDE.md (latest-session entry), DECISIONS.md (this entry). No migration. No agent change. No contract content change (voice-contract.md unchanged — it's the READING posture that changed). Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+**The seven planned LLM-surface-cleanup priorities are now complete.**
+
+- Priority 1: Curator input trim (PR #32, merged earlier today)
+- Priority 2: token capture on every mainline call (PR #31, merged yesterday)
+- Priority 3: contract simplification (PR #35, merged earlier today)
+- Priority 4: Voice Auditor penalty rubric move (PR #33, merged earlier today)
+- Priority 5: Structure Editor + HTML Generator drift cleanup (PR #34, merged earlier today)
+- Priority 6: Zita prompt lift + voice contract injection (this PR)
+- Priority 7: Learner.analyseAndLearn unreachable comment (PR #36)
+
+Three deferred items stay parked for a later round: max_tokens ceilings audit, drift-watch instrumentation, per-file ownership comments.
+
 ## 2026-05-10: Contract simplification — operator-orientation goes to docs/, model-orientation stays in contracts/
 
 **Why this commit.** Priority 3 of the LLM surface cleanup, landing after priorities 1, 4, 5 in the same compaction sweep. The three target contracts (curator-contract.md, categoriser-contract.md, fact-check-contract.md) had grown a mix of two audiences:
