@@ -2,6 +2,39 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-10: Voice Auditor penalty rubric promoted to audit-contract.md — AUDIT_CONTRACT gets its first prompt-reader
+
+**Why this commit.** Priority 4 of the [LLM surface cleanup](/Users/zee/.claude/plans/llm-surface-cleanup-reflective-flurry.md). The Voice Auditor's penalty rubric (`Tribe word → -10 per instance`, `Flattery → -15`, `Jargon → -10`, `Long sentence → -5`, `"In this lesson…" opener → -20`, `Summary/CTA in close → -15`) was the same shape as every other hidden rule the Foundation Fix programme has moved out of agent prompts and into named contracts since 2026-05-03 — numeric rule body that the auditor enforced but the operator couldn't review without grepping a TypeScript file. The audit at `docs/LLM-SURFACE.md` named it; this commit closes it.
+
+**Path A vs path B — surfaced at planning time, not at commit time.** The plan-as-written said "move to `content/voice-contract.md`, same posture as Fact Checker." Reading it carefully before the edit caught the structural mismatch: `FACT_CHECK_CONTRACT` has exactly one prompt-reader (the Fact Checker), so moving rules into it doesn't change what any other agent sees. `VOICE_CONTRACT` has five prompt-readers — Drafter, Integrator, Voice Auditor, InteractiveGenerator, InteractiveAuditor — because voice rules govern how Daylila *sounds* across every writing and audit surface.
+
+The risk in path A was real and bounded. Showing Drafter and Integrator the explicit `-10 / -15 / -20` deduction values introduces a "measure becomes target" surface that the voice contract itself deliberately doesn't have. Drafter today reads voice rules and tries to follow them; under path A it would also see penalty values and could shift toward penalty-avoidance instead of voice-following. Bounded because voice scores are metered since PR #31 (regression would surface), reversible because the section could be deleted — but it's a real behaviour delta the plan didn't anticipate.
+
+Path B chosen. The penalty rubric goes into `content/audit-contract.md` next to the three failure_reasons enum sections (Voice / Structure / Fact, added 2026-05-07 alongside Foundation Fix Task 08 PR 08c). Those enums are the rubric's natural neighbours — both are "the categorical tag attached to this audit round" / "the score deduction that flows from this audit round." Voice Auditor prompt injects `${AUDIT_CONTRACT}` for the first time, alongside the existing `${VOICE_CONTRACT}` injection. No other prompt-reader exists for AUDIT_CONTRACT today; that's by design.
+
+**The "no prompt-readers" posture for AUDIT_CONTRACT flips today.** From CLAUDE.md as recently as last week: *"`AUDIT_CONTRACT` (from `content/audit-contract.md` — extracted 2026-05-06, no prompt currently injects it; the contract is canonical narrative and named TS constants in `agents/src/shared/audit-thresholds.ts` carry the runtime values)."* That posture was a 10-day-young state — "no one's needed to inject it yet" — not an architectural rule. The penalty rubric is exactly what AUDIT_CONTRACT should hold (audit-shape enforcement vocabulary, parallel to the failure_reasons enums that already live there). This is the posture being earned, not violated.
+
+**Voice rules and enforcement vocabulary are now cleanly separated by layer.**
+
+- `content/voice-contract.md` governs how Daylila *sounds*. Read by Drafter, Integrator, Voice Auditor, InteractiveGenerator, InteractiveAuditor. Contains the Daylila Protocol, non-negotiables (Plain English, no tribe words, short sentences, specific beats general, no flattery, trust the reader), and the editor's test.
+- `content/audit-contract.md` governs how Daylila *judges* itself. Read by the Voice Auditor only (after this commit). Contains the three-gate model, the revision loop, the publish-anyway rule, the qualityFlag taxonomy, the reader-facing tier mapping, the Voice / Structure / Fact failure_reasons enums, **and now the Voice Auditor penalty rubric**.
+
+Writers see voice rules. Judges see voice rules AND the deduction values. The asymmetry is the whole point.
+
+**What deliberately stayed.**
+
+- The Voice Auditor's closed-enum `failure_reasons` token list (`tribe_word` / `long_sentence` / `vague_subject` / `no_specific_example` / `flattery` / `jargon_without_translation`) was already canonical in `audit-contract.md` since 2026-05-07. The prompt now references the contract's enum instead of re-listing it inline — the duplicate was the kind of drift that contracts are supposed to prevent.
+- Pass threshold stays as `VOICE_PASS_THRESHOLD = 85` exported from `agents/src/shared/audit-thresholds.ts`. No constant moved. The prompt's JSON-spec line still reads `"passed": boolean (score >= ${VOICE_PASS_THRESHOLD})`.
+- The OUTPUT JSON spec stays inline in the prompt — response-shape spec, not rule body. Same posture as Fact Checker, Categoriser, Curator.
+
+**Drafter / Integrator / InteractiveGenerator / InteractiveAuditor are unaffected.** They continue to read `${VOICE_CONTRACT}` only. The contract's content didn't change today; they see the same content as yesterday.
+
+**Behaviour-preserving relocation.** The Voice Auditor reads the same six numeric rules from a saner place. The model's input doesn't structurally change — every number that was in the inline rubric is now in the injected audit contract, character-for-character. Voice scores on the next pipeline piece should land in the same band as recent pieces; the 2026-05-10 fossil piece (commit `23fa0d5`) scored 95 on the pre-move prompt, and that's the comparison anchor.
+
+**Verification.** Voice Auditor prompt body shrank to ~16 lines (was ~31 lines of rule body and response shape mixed). The doc-comment header expanded to document the two-contract injection and the path-B reasoning, but headers are one-time human reads, not per-call tokens. Regenerated `agents/src/shared/generated/contracts.ts` (101477 bytes, +2556 from prior); `pnpm verify-contracts-fresh` ✓. Agents `npx tsc --noEmit` 27 errors total, all 27 pre-existing (`src/server.ts` Durable Object set + `audio-auditor.ts:200` arity mismatch), zero new.
+
+**Files (2 + 2 docs):** `agents/src/voice-auditor-prompt.ts`, `content/audit-contract.md`; regenerated `agents/src/shared/generated/contracts.ts`; CLAUDE.md (latest-session entry), DECISIONS.md (this entry). No migration. No new D1 column. No new constant. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-10: Curator input trim — the latency-margin fix the streaming workaround is hiding
 
 **Why this commit.** Priority 1 of the LLM surface cleanup ([locked plan](/Users/zee/.claude/plans/llm-surface-cleanup-reflective-flurry.md)). The meter from priority 2 landed earlier today (PR #31, commit `7081527`) and was verified honest on the 18:00 UTC admin retrigger: Curator measured **27,593 input tokens** at **141,871 ms latency**, matching the Anthropic-console number within ~2%.
