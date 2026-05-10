@@ -216,6 +216,7 @@ export class LearnerAgent extends Agent<Env, LearnerState> {
 
   // --- Learning extraction ---
 
+  // Currently unreachable — intended for a future engagement-trigger path; revisit once analysePiecePostPublish shows whether engagement-driven analysis is needed at all. See LLM-SURFACE audit priority 7 (2026-05-10).
   /** Analyse an underperforming piece and extract learnings for future pieces */
   async analyseAndLearn(lessonData: UnderperformingLesson): Promise<EngagementLearning> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
