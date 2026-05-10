@@ -198,7 +198,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
     const start = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1500,
+      max_tokens: 1000,
       system: DRAFTER_REFLECTION_PROMPT,
       messages: [{ role: 'user', content: buildDrafterReflectionPrompt(brief, mdx) }],
     });

@@ -452,7 +452,7 @@ ${logRes.results.map((r) => `- ${r.step} — ${r.status}`).join('\n')}`;
     const callStart = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2000,
+      max_tokens: 800,
       system: LEARNER_POST_PUBLISH_PROMPT,
       messages: [{ role: 'user', content: context }],
     });
