@@ -1,13 +1,12 @@
 import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
-import {
-  HTML_FILE_BYTES_MAX,
-  HTML_SCRIPT_ALLOWLIST_DESCRIPTION,
-} from './interactive-validator';
 
-// Re-export the constants the prompt references so existing/future
-// callers of the prompt module see them at the same import path. The
-// validator owns the values; this module owns the prose around them.
-export { HTML_FILE_BYTES_MAX, HTML_SCRIPT_ALLOWLIST_DESCRIPTION };
+// HTML_FILE_BYTES_MAX / HTML_SCRIPT_ALLOWLIST_DESCRIPTION used to be
+// imported here and re-exported. They drove an inline "Sandbox
+// compatibility" section in the HTML system prompt that restated
+// what's already in interactive-contract.md's "HTML validator
+// constraints" section. Dropped 2026-05-10 (LLM surface cleanup
+// priority 5) — the prompt now leans on the injected contract for
+// validator constraints; live callers go direct to interactive-validator.ts.
 
 /**
  * InteractiveGenerator prompts — produce interactives that teach the
@@ -448,32 +447,6 @@ ${VOICE_CONTRACT}
 The full set of rules for shaping a quiz or HTML interactive lives in the contract below. Hard prohibitions (the essence-not-reference list), the Plain English split rule and jargon translation list, the HTML interactive shape (one clear surface, teaching label, cohesive layout, mobile-respectable, sensible defaults, stable on input, pedagogy hooks, manipulation embodies the mechanism), the title / concept / slug rules, and the validator constraints all live here:
 
 ${INTERACTIVE_CONTRACT}
-
-# Sandbox compatibility — the file runs inside <iframe sandbox="allow-scripts">
-
-The validator at \`agents/src/interactive-validator.ts\` is the gate; its eight rules are listed in the contract above. The notes below are practical authoring guidance — the validator catches what it can pre-flight; the sandbox catches the rest at runtime.
-
-**Forbidden APIs (must not appear in any \`<script>\` block):**
-- \`localStorage\`, \`sessionStorage\`, \`indexedDB\` — sandbox without \`allow-same-origin\` throws SecurityError on these. Your interactive cannot persist anything between page loads. State lives in memory for the session.
-- \`eval(...)\`, \`new Function(...)\`, \`setTimeout("...", ...)\`, \`setInterval("...", ...)\` — dynamic code execution is forbidden. \`setTimeout(fn, ms)\` with a function reference is fine; the string-form is forbidden.
-- \`fetch(...)\`, \`new XMLHttpRequest()\`, \`new WebSocket(...)\`, \`new EventSource(...)\`, \`navigator.sendBeacon(...)\` — no network calls. Every byte the interactive needs ships in the file.
-
-**Forbidden elements:**
-- \`<iframe>\` — no nested iframes. Nested sandboxes get confused; outer can't constrain inner attributes.
-- \`<form>\` — sandbox disallows form submission anyway (no \`allow-forms\`); it would be visible-but-broken UI.
-
-**Forbidden URL schemes in \`src=\` and \`href=\` attributes:**
-- \`data:\` URLs in \`src=\`/\`href=\` (well-known sandbox-bypass surface).
-- \`blob:\` URLs in \`src=\`/\`href=\` (output of URL.createObjectURL — unexpected here).
-- \`data:\` URIs in CSS \`url(...)\` for background images and fonts ARE fine.
-
-**External scripts:**
-- Inline \`<script>\` is fully allowed — that is the file's own JS.
-- External \`<script src=...>\` is allowed ONLY for: ${HTML_SCRIPT_ALLOWLIST_DESCRIPTION}.
-- Anything else — any other CDN, any other library, any custom script URL — fails the validator and forces a revision.
-
-**File size:**
-- ${HTML_FILE_BYTES_MAX} bytes (50 KB) hard cap. D3 is loaded externally from cdnjs — it does NOT count against this. Your inline HTML/CSS/JS plus any inline SVG must fit.
 
 # Engagement events (optional, future-friendly)
 

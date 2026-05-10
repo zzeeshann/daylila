@@ -2,6 +2,48 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-10: Structure Editor + HTML Generator drift — drop the duplicated rule restatements
+
+**Why this commit.** Priority 5 of the LLM surface cleanup. Three related drifts surfaced in the audit at `docs/LLM-SURFACE.md`:
+
+1. **Structure Editor restated the beat contract.** Its "## Audit" section was a 9-bullet checklist where 8 of the 9 bullets were character-for-character duplicates of beat-contract.md (literal numbers `900–1100` / `5–8` / `6–8` / `9+` / `200`, the hook-opens-with-observation rule, the close-doesn't-summarise rule, the JSX-tags-banned rule, the frontmatter-required list, the widget-earns-its-place heuristic). The ninth bullet ("padding or filler paragraphs") was the one operationally-additive rule.
+2. **Structure Editor also had its own inline `failure_reasons` enum.** The 7-token closed enum (`weak_hook` / `missing_close` / `beat_too_long` / `pacing_uneven` / `wrong_beat_count` / `wrong_word_count` / `widget_without_purpose`) was canonical in `content/audit-contract.md` since 2026-05-07 (Foundation Fix Task 08 PR 08c). Same drift I closed for Voice Auditor in priority 4 yesterday.
+3. **InteractiveGenerator's HTML prompt restated the validator spec.** Its "# Sandbox compatibility" section (~25 lines) listed the eight forbidden categories — storage APIs, dynamic code, network, nested iframes, form elements, unsafe URL schemes, external scripts, file-size cap — all already in interactive-contract.md "HTML validator constraints" section. The prompt section even acknowledged the duplication inline (*"its eight rules are listed in the contract above. The notes below are practical authoring guidance"*) but the practical-guidance framing was 95% the same content, restated.
+
+Three drifts in three prompts, same root cause: rules that were extracted into contracts during Foundation Fix Phase 1 (beat-contract 2026-05-04, interactive-contract 2026-05-05, audit-contract 2026-05-07) but where the original inline copies in the agent prompts weren't fully cleaned up at the time of extraction.
+
+**Multi-reader check (the priority-4 gate that caught path A there).** Doesn't fire here. Both prompts already read their respective contracts; this commit removes duplication, doesn't introduce new contract readers.
+
+- `BEAT_CONTRACT` has 3 prompt-readers (Drafter / Integrator / Structure Editor) — unchanged.
+- `INTERACTIVE_CONTRACT` has 4 prompt-readers (InteractiveGenerator quiz / InteractiveGenerator HTML / InteractiveAuditor quiz / InteractiveAuditor HTML) — unchanged.
+- `AUDIT_CONTRACT` goes from 1 reader (Voice Auditor) to 2 (Voice Auditor + Structure Editor). Both are auditors; no writer reads it. The "enforcement vocabulary stays away from writers" posture established yesterday is preserved.
+
+**Fix shape.**
+
+- **Structure Editor prompt** slimmed to ~18 lines of body (was ~42 mixing rule body and response shape). Header + `${BEAT_CONTRACT}` injection + `${AUDIT_CONTRACT}` injection (new) + operational lens ("be reasonable; padding is a failure; minor formatting isn't") + OUTPUT spec referencing the contract's enum by name. The 9-bullet audit checklist and the 7-token enum are gone — both lived in their contracts already. The doc-comment header expanded to document the two-contract injection (same pattern as voice-auditor-prompt.ts after priority 4).
+- **InteractiveGenerator HTML prompt** dropped the entire "# Sandbox compatibility" section. The `${INTERACTIVE_CONTRACT}` injection sitting a few lines above carries the validator constraints; the section underneath sat redundantly. The two interpolated constants that drove the section (`HTML_FILE_BYTES_MAX`, `HTML_SCRIPT_ALLOWLIST_DESCRIPTION`) turned out to be dead — re-exported from the prompt module for "future callers" who never materialised; live callers (e.g. interactive-validator.ts itself) go direct. Both imports and the re-export removed. A 7-line `// HTML_FILE_BYTES_MAX / HTML_SCRIPT_ALLOWLIST_DESCRIPTION used to be imported here…` comment stays in place to leave a breadcrumb for anyone wondering why the dead imports vanished.
+
+**What stayed deliberately.**
+
+- The "padding or filler paragraphs" rule (the one operationally-additive bullet from Structure Editor's old checklist) is preserved inline in the operational-lens line — beat-contract.md mentions padding only obliquely ("9+ is the padding zone — Cut, don't add"), and the audit-lens framing is what makes it actionable for the auditor.
+- The OUTPUT JSON spec stays inline in both prompts — response shape, not rule body. Same posture as Fact Checker / Categoriser / Curator / Voice Auditor.
+- InteractiveGenerator's "# Voice contract" section + `${VOICE_CONTRACT}` injection stayed at its current position; the priority-5 cuts are scoped to validator-spec drift, not voice drift.
+
+**Codegen idempotent.** No contract content moved this session — only prompt restatements were dropped. `agents/src/shared/generated/contracts.ts` is identical at 101477 bytes after `pnpm codegen`. `pnpm verify-contracts-fresh` ✓.
+
+**Verifier scripts all pass.** Ran all 10 verify-*.mjs scripts — 28 of them (verify-validator) verify the dropped sandbox spec still fires correctly at the actual validator (it does — the validator is the gate, not the prompt). verify-interactive-voice's 10 cases verify the InteractiveAuditor's voice scoring still works.
+
+**Tsc clean.** Agents `npx tsc --noEmit` 27 errors total, all 27 pre-existing (`src/server.ts` Durable Object set + `audio-auditor.ts:200` arity mismatch), zero new. Notable: dropping the two `HTML_*` imports + re-exports didn't break anything because nothing imported them through the prompt module — the re-export at line 10 was load-bearing only in theory.
+
+**Expected signal.** Per-pipeline run:
+
+- Structure Editor input tokens drop slightly (~600 tokens — the dropped audit checklist + enum, since `AUDIT_CONTRACT` was already going to be added). Cached prompt-prefix hits stable.
+- InteractiveGenerator HTML prompt drops ~1200 input tokens on every HTML generation (sandbox spec was ~25 lines × ~50 tokens average).
+- Structure Editor pass/fail verdicts unchanged — same rule body via a different vehicle.
+- InteractiveGenerator HTML output validator pass-rate unchanged — the contract's validator-constraints section carries the same rules, and the validator itself doesn't care what the prompt said.
+
+**Files (2 + 2 docs):** `agents/src/structure-editor-prompt.ts`, `agents/src/interactive-generator-prompt.ts`; CLAUDE.md (latest-session entry), DECISIONS.md (this entry). No migration. No contract change. No new constant. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-10: Voice Auditor penalty rubric promoted to audit-contract.md — AUDIT_CONTRACT gets its first prompt-reader
 
 **Why this commit.** Priority 4 of the [LLM surface cleanup](/Users/zee/.claude/plans/llm-surface-cleanup-reflective-flurry.md). The Voice Auditor's penalty rubric (`Tribe word → -10 per instance`, `Flattery → -15`, `Jargon → -10`, `Long sentence → -5`, `"In this lesson…" opener → -20`, `Summary/CTA in close → -15`) was the same shape as every other hidden rule the Foundation Fix programme has moved out of agent prompts and into named contracts since 2026-05-03 — numeric rule body that the auditor enforced but the operator couldn't review without grepping a TypeScript file. The audit at `docs/LLM-SURFACE.md` named it; this commit closes it.
