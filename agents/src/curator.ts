@@ -51,12 +51,16 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
       // Streaming receives tokens incrementally so the connection
       // never goes idle. See DECISIONS 2026-05-09 "Curator 124s 499
       // timeout regression".
+      const callStart = Date.now();
       const response = await client.messages.stream({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 8000,
         system: CURATOR_PROMPT,
         messages: [{ role: 'user', content: buildCuratorPrompt(candidates, recentPieces, recentCategoryCounts, recentDomainCounts) }],
       }).finalMessage();
+      const durationMs = Date.now() - callStart;
+      const tokensIn = response.usage?.input_tokens ?? 0;
+      const tokensOut = response.usage?.output_tokens ?? 0;
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
       const parsed = extractJson<DailyPieceBrief & {
@@ -70,7 +74,13 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
 
       if (parsed.skip) {
         this.setState({ ...this.state, status: 'idle' });
-        return { skip: true, reason: parsed.reason ?? 'No teachable stories today' };
+        return {
+          skip: true,
+          reason: parsed.reason ?? 'No teachable stories today',
+          tokensIn,
+          tokensOut,
+          durationMs,
+        };
       }
 
       const {
@@ -130,6 +140,9 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
         pickReasoning: typeof pickReasoning === 'string' && pickReasoning.trim() !== '' ? pickReasoning : undefined,
         pickDomain,
         rejections,
+        tokensIn,
+        tokensOut,
+        durationMs,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Curator failed';

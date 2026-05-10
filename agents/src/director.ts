@@ -290,6 +290,21 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       return null;
     }
 
+    // Per-call usage telemetry (LLM-surface audit follow-up, 2026-05-10).
+    // Fires on both the pick and skip branches so the observer feed shows
+    // the cost of every Curator call regardless of outcome.
+    {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      const headline = curatorResult.skip
+        ? '(skip)'
+        : (curatorResult.brief?.headline ?? '(unknown)');
+      await obs.logLLMCall('curator', headline, {
+        tokensIn: curatorResult.tokensIn,
+        tokensOut: curatorResult.tokensOut,
+        durationMs: curatorResult.durationMs,
+      }, pieceId, runId).catch(() => {});
+    }
+
     if (curatorResult.skip) {
       await this.logStep(today, pieceId, runId,'skipped', 'done', { reason: curatorResult.reason });
       const observer = await this.subAgent(ObserverAgent, 'observer');
@@ -433,6 +448,15 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         .logError('drafter', 0, `draft_revisions round-0 persist failed: ${draftResult.persistError}`, pieceId, runId)
         .catch(() => {});
     }
+    // Per-call usage telemetry (LLM-surface audit follow-up, 2026-05-10).
+    {
+      const obs = await this.subAgent(ObserverAgent, 'observer');
+      await obs.logLLMCall('drafter', brief.headline, {
+        tokensIn: draftResult.tokensIn,
+        tokensOut: draftResult.tokensOut,
+        durationMs: draftResult.durationMs,
+      }, pieceId, runId).catch(() => {});
+    }
     await this.logStep(today, pieceId, runId,'drafting', 'done', {
       wordCount, beatCount: brief.beats?.length ?? 0,
     });
@@ -462,6 +486,35 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       ]);
 
       lastFactResult = factResult;
+
+      // Per-call usage telemetry for each auditor (LLM-surface audit
+      // follow-up, 2026-05-10). Three rows per audit round so we can
+      // see how fact-check input bloats with web_search round-trips,
+      // and so voice/structure calls aren't invisible.
+      {
+        const obs = await this.subAgent(ObserverAgent, 'observer');
+        const headline = brief.headline;
+        await Promise.all([
+          obs.logLLMCall('voice-auditor', headline, {
+            round,
+            tokensIn: voiceResult.tokensIn,
+            tokensOut: voiceResult.tokensOut,
+            durationMs: voiceResult.durationMs,
+          }, pieceId, runId).catch(() => {}),
+          obs.logLLMCall('structure-editor', headline, {
+            round,
+            tokensIn: structureResult.tokensIn,
+            tokensOut: structureResult.tokensOut,
+            durationMs: structureResult.durationMs,
+          }, pieceId, runId).catch(() => {}),
+          obs.logLLMCall('fact-checker', headline, {
+            round,
+            tokensIn: factResult.tokensIn,
+            tokensOut: factResult.tokensOut,
+            durationMs: factResult.durationMs,
+          }, pieceId, runId).catch(() => {}),
+        ]);
+      }
 
       await this.saveAuditResults(taskId, pieceId, runId, round, voiceResult, structureResult, factResult);
 
@@ -530,6 +583,16 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
           await obs
             .logError('integrator', round, `revision persist failed: ${revision.persistError}`, pieceId, runId)
             .catch(() => {});
+        }
+        // Per-call usage telemetry (LLM-surface audit follow-up, 2026-05-10).
+        {
+          const obs = await this.subAgent(ObserverAgent, 'observer');
+          await obs.logLLMCall('integrator', brief.headline, {
+            round,
+            tokensIn: revision.tokensIn,
+            tokensOut: revision.tokensOut,
+            durationMs: revision.durationMs,
+          }, pieceId, runId).catch(() => {});
         }
         await this.logStep(today, pieceId, runId,`revising_r${round}`, 'done', { round, decisions: revision.decisions.length });
         this.enterPhase('auditors'); // back to audit for next round
@@ -947,6 +1010,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     try {
       const learner = await this.subAgent(LearnerAgent, 'learner');
       const result = await learner.analysePiecePostPublish(pieceId, date);
+      // Per-call usage telemetry (LLM-surface audit follow-up, 2026-05-10).
+      await observer.logLLMCall('learner-post-publish', title, {
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+        durationMs: result.durationMs,
+      }, pieceId, runId).catch(() => {});
       if (result.overflowCount > 0) {
         await observer
           .logLearnerOverflow(date, title, result.written, result.overflowCount, pieceId, runId)

@@ -96,12 +96,16 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       // examples) puts it past the wall. See DECISIONS 2026-05-09
       // "Curator 124s 499 timeout regression" for the Curator failure
       // that prompted this defense-in-depth conversion.
+      const callStart = Date.now();
       const response = await client.messages.stream({
         model: 'claude-sonnet-4-5-20250929',
         max_tokens: 8000,
         system: DRAFTER_PROMPT,
         messages: [{ role: 'user', content: buildDrafterPrompt(brief, VOICE_CONTRACT, learnings) }],
       }).finalMessage();
+      const durationMs = Date.now() - callStart;
+      const tokensIn = response.usage?.input_tokens ?? 0;
+      const tokensOut = response.usage?.output_tokens ?? 0;
 
       let mdx = response.content[0].type === 'text' ? response.content[0].text : '';
       // Force correct date in frontmatter (Claude may generate a different date)
@@ -124,7 +128,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       // call and fires observer.logError once if populated.
       const persistError = await this.persistInitialDraft(pieceId, runId, mdx, wordCount);
 
-      return { mdx, wordCount, loadedLearningIds, persistError };
+      return { mdx, wordCount, loadedLearningIds, persistError, tokensIn, tokensOut, durationMs };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Drafter failed';
       this.setState({ ...this.state, status: 'error', error: message });

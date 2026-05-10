@@ -21,6 +21,10 @@ export interface VoiceAuditResult {
    *  set. Same drop-with-visibility posture as Task 06's
    *  IntegratorDecision parse path. */
   parseError?: string | null;
+  /** Per-call usage. Director forwards to observer.logLLMCall. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 interface VoiceAuditorState {
@@ -38,12 +42,16 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
   async audit(mdx: string): Promise<VoiceAuditResult> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
 
+    const callStart = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 2000,
       system: buildVoiceAuditorSystem(),
       messages: [{ role: 'user', content: `Audit this draft:\n\n${mdx}` }],
     });
+    const durationMs = Date.now() - callStart;
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
     const raw = extractJson<VoiceAuditResult & { failure_reasons?: unknown }>(text);
@@ -72,6 +80,9 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
       parseError: droppedCount > 0
         ? `Voice auditor dropped ${droppedCount} unknown failure_reason token(s) from the response`
         : null,
+      tokensIn,
+      tokensOut,
+      durationMs,
     };
     this.setState({ lastResult: result });
     return result;

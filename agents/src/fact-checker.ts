@@ -56,6 +56,13 @@ export interface FactCheckResult {
    *  the count surfaces via parseError. */
   failureReasons: FactFailureReason[];
   parseError?: string | null;
+  /** Per-call usage. Director forwards to observer.logLLMCall.
+   *  tokensIn includes web_search tool-result content blocks that
+   *  bounce back into the conversation — for fact-checking on
+   *  current-event pieces this can dwarf the prompt itself. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 export interface FactClaim {
@@ -83,6 +90,7 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
     const today = new Date().toISOString().slice(0, 10);
 
+    const callStart = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4000,
@@ -101,8 +109,9 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
         },
       ],
     });
+    const durationMs = Date.now() - callStart;
 
-    return this.parseResponse(response);
+    return this.parseResponse(response, durationMs);
   }
 
   /**
@@ -121,11 +130,13 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
    * Public for the verifier harness — `agents/scripts/verify-fact-checker.mjs`
    * calls a JS mirror of this logic.
    */
-  parseResponse(response: Anthropic.Messages.Message): FactCheckResult {
+  parseResponse(response: Anthropic.Messages.Message, durationMs = 0): FactCheckResult {
     let textCombined = '';
     let searchUsed = false;
     let searchAvailable = true;
     const sources = new Set<string>();
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
 
     for (const block of response.content) {
       if (block.type === 'text') {
@@ -190,6 +201,9 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
         sources: flatSources,
         failureReasons: [],
         parseError: `Fact checker response was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+        tokensIn,
+        tokensOut,
+        durationMs,
       };
       this.setState({ lastResult: result });
       return result;
@@ -230,6 +244,9 @@ export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
       parseError: droppedCount > 0
         ? `Fact checker dropped ${droppedCount} unknown failure_reason token(s) from the response`
         : null,
+      tokensIn,
+      tokensOut,
+      durationMs,
     };
 
     this.setState({ lastResult: result });

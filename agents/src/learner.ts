@@ -89,6 +89,10 @@ export interface PostPublishResult {
   written: number;      // how many rows actually landed in learnings
   overflowCount: number; // how many were produced beyond PRODUCER_LEARNINGS_WRITE_CAP
   considered: number;   // total learnings Claude produced (written + overflowCount on success)
+  /** Per-call usage. Director forwards to observer.logLLMCall. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 /** Result of a Zita-question synthesis — surfaced back to Director
@@ -444,12 +448,16 @@ ${logRes.results.map((r) => `- ${r.step} — ${r.status}`).join('\n')}`;
 
     // ── 3. Ask Claude for producer-side learnings ────────────────
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
+    const callStart = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 2000,
       system: LEARNER_POST_PUBLISH_PROMPT,
       messages: [{ role: 'user', content: context }],
     });
+    const durationMs = Date.now() - callStart;
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
     let parsed: { learnings?: ProducerLearning[] };
@@ -490,7 +498,7 @@ ${logRes.results.map((r) => `- ${r.step} — ${r.status}`).join('\n')}`;
       learningsWritten: this.state.learningsWritten + written,
     });
 
-    return { date, written, overflowCount, considered: all.length };
+    return { date, written, overflowCount, considered: all.length, tokensIn, tokensOut, durationMs };
   }
 
   /**
