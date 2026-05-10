@@ -2,6 +2,46 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: max_tokens ceiling audit — five calls tightened against observed prod data
+
+**Why this commit.** Item 7 from the LLM-surface cleanup ranked list. Token capture has been live since PR #31 (2026-05-10); enough data has accrued in `observer_events` to verify whether the `max_tokens` ceilings on each Claude call are appropriately sized or generous-to-wasteful. The cap doesn't cost money on its own — billing is for actual `output_tokens` returned — but a generous cap signals "Claude has permission to ramble" and a tight cap is a forcing function for the closed-enum + JSON-envelope output shape every auditor and post-publish call already targets. Rule applied: *where current `max_tokens` is more than ~3× the observed maximum, tighten to roughly 2× the observed max as a safety margin.*
+
+**Data pulled (last ~3-60 calls per type, prod D1 `observer_events`).**
+
+| Call | Current cap | Observed max | n | Ratio | Decision | New cap |
+|---|---|---|---|---|---|---|
+| Voice Auditor | 2000 | 365 | 4 | 5.5× | tighten | **800** |
+| Structure Editor | 2000 | 450 | 4 | 4.4× | tighten | **1000** |
+| Categoriser (initial + retry) | 1500 | 247 | 61 | 6.1× | tighten | **500** |
+| Drafter reflection | 1500 | 506 | 57 | 3.0× | tighten | **1000** |
+| Learner post-publish | 2000 | 404 | 3 | 5.0× | tighten | **800** |
+| Curator | 8000 | 5271 | 3 | 1.5× | leave (variable, recently-bloated) | 8000 |
+| Drafter main | 8000 | 1247 | 3 | 6.4× | leave (output varies on long-piece runs; small sample) | 8000 |
+| Fact Checker | 4000 | 1364 | 4 | 2.9× | leave (web_search rounds add output variance) | 4000 |
+| Integrator | 8000 | 1560 | 1 | 5.1× | leave (sample of 1; audit's prior data showed 3,123) | 8000 |
+| Interactive HTML (3 paths) | 16000 | 5677 | 8 | 2.8× | leave (50 KB HTML target; needs the headroom) | 16000 |
+| Interactive Quiz (3 paths) | 3000 | (no LLM-meter data) | 0 | n/a | leave | 3000 |
+| Interactive Auditor (quiz / HTML) | 2500 / 4000 | (no LLM-meter data) | 0 | n/a | leave | 2500 / 4000 |
+| Learner.analyseZitaPatternsDaily | 2000 | 368 | 1 | 5.4× | leave (n=1; revisit when ≥10) | 2000 |
+| Learner.analyseAndLearn | 1500 | unreachable | 0 | n/a | leave (PR #36 marked unreachable; no callers) | 1500 |
+| Zita chat | 300 | (variable) | n/a | n/a | leave (already tight, 2-4 sentence target) | 300 |
+
+**Five tightenings.** `agents/src/voice-auditor.ts` 2000 → 800; `agents/src/structure-editor.ts` 2000 → 1000; `agents/src/categoriser.ts` 1500 → 500 (both initial + retry call sites, replaced via `replace_all`); `agents/src/drafter.ts` reflection 1500 → 1000; `agents/src/learner.ts` post-publish 2000 → 800. Each new cap sits at roughly 2× the observed maximum from the relevant prod sample, with a round-number bias (800 / 1000 / 500) over a tight algebraic 2× (730 / 900 / 494) — gives a couple of hundred tokens of additional margin against unexpected output spikes without losing the forcing-function signal.
+
+**What deliberately stayed.** Curator / Drafter main / Fact Checker / Integrator / Interactive HTML have either a 1.5–2.9× ratio (already inside the safety band) or output that varies a lot run-to-run. Categoriser's two call sites (initial and retry) share the same 500 cap because they're the same agent's same task; the retry isn't a different problem shape, it's a second-shot at the first one. Learner.analyseAndLearn (currently unreachable, marked by PR #36) and Learner.analyseZitaPatternsDaily (n=1 in the prod sample) stay at 1500 / 2000 — too thin a sample to tighten safely. Interactive Quiz (3 paths) and Interactive Auditor (quiz / HTML) have no `LLM `-prefix meter rows because those call sites use the older `logInteractiveGeneratorMetered` shape rather than `logLLMCall`; revisit if and when those meters expose tokensOut.
+
+**Risk model.** If a call hits the new cap and gets truncated, the parser falls through to the existing parse-fail path: Voice Auditor / Structure Editor / Learner / Drafter reflection all return `{}` from `extractJson` on an unparseable response and Director moves on. Truncation is recoverable, not catastrophic. The new caps were chosen against an observed maximum that already reflects rare worst-case runs (Structure Editor's 450 came from a multi-issue audit round; Categoriser's 247 came from a 3-assignment categorisation). The safety multiplier covers anything 2× larger than the worst observed prod output so far.
+
+**Reversibility.** Each cap is a single-integer literal in the agent file. Reverting any one is one Edit + a deploy. The five edits are also independent — Voice Auditor's tightening doesn't depend on Structure Editor's, and so on. If a regression surfaces in any one, that one reverts without disturbing the others.
+
+**Verified.** Five `max_tokens` literal edits, no other code changes. No contract change → no codegen rerun → no `pnpm verify-contracts-fresh` re-execution. Five files are in the agents bundle; no site-worker file touched. CI runs typecheck on push; the diff is integer-literal-only and cannot introduce a TS error.
+
+**Expected signal post-deploy.** Per-call output token rows in `observer_events` should start landing at the same magnitudes as before (the model wasn't producing more output than the new caps allow). If a `LLM voice-auditor` row shows tokensOut ≥ 800 (for example), that's the truncation signal — investigate that specific run and either widen the cap or accept the parse fallback. The tracking query is `SELECT title, json_extract(context,'$.tokensOut') FROM observer_events WHERE title LIKE 'LLM %' ORDER BY created_at DESC LIMIT 50;` — same shape as the existing meter audit.
+
+**Standing rule applies.** Verification of this commit waits for the next 02:00 UTC cron — no manual retrigger.
+
+**Files (5 + 2 docs):** `voice-auditor.ts`, `structure-editor.ts`, `categoriser.ts`, `drafter.ts`, `learner.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry). No migration. No contract change. No codegen rerun. No new constant. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-11: Feed-cap rebalance — PER_FEED_CAP 8 → 2 to unblock the 7 starved feeds
 
 **The discovery.** The post-PR-39 admin-triggered pipeline run picked well at the editorial level — `Happy Mother's Day to the kindest mom. P.S. Your kindness annoyed me when I was a kid`, sourced from NPR via the TOP feed, `pickDomain=inner-life`, voice score 90 round-1, ordinary-life content rather than academic curiosity. Exactly the shape the editorial contract simplification (PR #39, merged earlier today) was aiming for. **But the candidate pool was only 3 feeds wide.** Run-report query against `daily_candidates` filtered by the run's `piece_id` returned: TOP 8, TECHNOLOGY 8, SCIENCE 8 — totalling exactly the GLOBAL_CAP of 24. The other 7 feeds in `RSS_FEEDS` (BUSINESS, HEALTH, WORLD, ENTERTAINMENT, SPORTS, FOOD_COOKING, PERSONAL_FINANCE) got **zero seats**.

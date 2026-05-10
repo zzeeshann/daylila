@@ -362,7 +362,7 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
     // First attempt
     const first = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1500,
+      max_tokens: 500,
       system: CATEGORISER_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     });
@@ -393,7 +393,7 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
 
       const second = await client.messages.create({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 1500,
+        max_tokens: 500,
         system: CATEGORISER_PROMPT,
         messages: [
           { role: 'user', content: userPrompt },
