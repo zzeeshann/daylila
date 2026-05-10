@@ -36,7 +36,7 @@ Return JSON:
 {
   "selectedCandidateId": "<uuid copied verbatim from the chosen candidate's id: field — e.g. 0f3a8b6c-2d1e-4f9a-b7c8-1e2d3f4a5b6c>",
   "pickReasoning": "<1-3 sentences explaining why this candidate is the most teachable today — see 'What to record' in the contract>",
-  "pickDomain": "<one of: inner-life | meaning | expression | language | science | body | how-humans-live | skills | technology | time-and-place — the teachability-taxonomy domain whose lens does the most teaching work for this pick. Same names as the bullet list under 'TEACHABILITY' in the contract above. Pick the SUBJECT-of-the-teaching domain, not the surface category of the news (a Taylor Swift tour-economics piece is 'expression' or 'how-humans-live', not 'business' just because it's about money).>",
+  "pickDomain": "<one of: inner-life | meaning | expression | language | science | body | how-humans-live | skills | technology | time-and-place — the lens whose teaching work this pick is doing. Same values as the bullet list under 'Pick domain enum' in the contract above. Pick the SUBJECT-of-the-teaching domain, not the surface category of the news (a Taylor Swift tour-economics piece is 'expression' or 'how-humans-live', not 'business' just because it's about money).>",
   "date": "YYYY-MM-DD",
   "headline": "the news headline",
   "newsSource": "source name",
@@ -71,7 +71,7 @@ Return JSON:
 
 The "rejections" array must cover EVERY candidate in the input list except the picked one. The "rejectionCategory" field on each entry MUST be one of the 8 values defined in the "Rejection category enum" section of the contract above — do not invent new categories.
 
-ONLY if the narrow skip conditions in the contract above genuinely apply, return the skip JSON named in "The skip output shape" — and remember: the reason must NAME the specific condition, never a category dismissal. The skip path produces no candidate-record (no rejections array), since there is no pick to weigh against.`;
+ONLY if the narrow skip conditions in the contract above genuinely apply, return the skip JSON shown at the end of the contract's "What to record" section — and remember: the reason must NAME the specific condition, never a category dismissal. The skip path produces no candidate-record (no rejections array), since there is no pick to weigh against.`;
 
 export function buildCuratorPrompt(
   candidates: DailyCandidate[],
