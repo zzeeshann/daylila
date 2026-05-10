@@ -53,6 +53,8 @@ let observerWarnCount = 0;
 let observerEscalationCount = 0;
 let avgRevisionsLifetime: number | null = null;
 let learningCounts: LearningCounts = { producer: 0, selfReflection: 0, total: 0 };
+let driftWindow = 0;
+let driftUnknownCount = 0;
 let pipelineHistory: {
   runId: string;
   pieceId: string | null;
@@ -252,7 +254,42 @@ try {
   // admin describes how much memory has accumulated. Shared helper at
   // src/lib/learnings.ts.
   learningCounts = await getLearningCounts(db);
+
+  // Audit failure_reasons drift watch — counts how many of the last
+  // 30 audit_results carry an `unknown` token. Closed-enum parsers
+  // (Voice Auditor / Structure Editor / Fact Checker) drop unknown
+  // tokens at the writer with `parseError` populated; the persisted
+  // failure_reasons string then carries the `unknown` literal as a
+  // breadcrumb. Sustained drift (>1 in 30) means a prompt is asking
+  // for tokens the closed enum doesn't model — either the contract
+  // or the prompt is out of sync. Mirrors query #5 in
+  // scripts/audit-failure-reasons-health.sql.
+  const driftRow = await db
+    .prepare(
+      `WITH recent_audits AS (
+         SELECT failure_reasons FROM audit_results
+         ORDER BY created_at DESC LIMIT 30
+       )
+       SELECT
+         COUNT(*) AS audits_in_window,
+         SUM(CASE WHEN failure_reasons LIKE '%unknown%' THEN 1 ELSE 0 END) AS unknown_count
+       FROM recent_audits`,
+    )
+    .first<{ audits_in_window: number | null; unknown_count: number | null }>();
+  driftWindow = driftRow?.audits_in_window ?? 0;
+  driftUnknownCount = driftRow?.unknown_count ?? 0;
 } catch { /* D1 may be empty in dev */ }
+
+// Drift card colour: 0 → primary (clean), 1 → gold (warning, drift exists),
+// >1 → red (over the threshold the brief sets at audit time). Same colour
+// vocabulary as the Escalations card (zee-gold) extended with red for the
+// alarm tier so the operator sees a visual escalation at a glance.
+const driftToneClass =
+  driftUnknownCount > 1
+    ? 'text-red-600'
+    : driftUnknownCount === 1
+      ? 'text-zee-gold'
+      : 'text-zee-primary';
 
 function safeJson(input: string): any {
   try { return JSON.parse(input); } catch { return {}; }
@@ -351,6 +388,24 @@ for (const piece of allPieces) {
         <div class="text-2xl font-bold text-zee-primary">{avgRevisionsLifetime ?? '—'}</div>
         <div class="text-sm text-zee-muted">Avg revisions</div>
         <div class="text-xs text-zee-muted/70 mt-1">per piece</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit drift — closed-enum failure_reasons parser writes the
+       literal `unknown` when Claude emits a token outside the closed
+       Set (Voice Auditor / Structure Editor / Fact Checker). This card
+       counts how many of the last 30 audit rounds carried an unknown
+       token. Threshold rule: 0 clean, 1 drift exists (gold), >1 over
+       (red — investigate the prompt vs contract sync). Mirrors query
+       #5 in scripts/audit-failure-reasons-health.sql. -->
+  <section class="mb-10">
+    <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted mb-4">Audit drift</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="p-4 rounded-xl border border-zee-border text-center">
+        <div class={`text-2xl font-bold ${driftToneClass} tabular-nums`}>{driftUnknownCount}</div>
+        <div class="text-sm text-zee-muted">Unknown tokens</div>
+        <div class="text-xs text-zee-muted/70 mt-1">last {driftWindow} audits</div>
       </div>
     </div>
   </section>
