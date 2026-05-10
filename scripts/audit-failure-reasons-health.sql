@@ -81,12 +81,12 @@ WHERE created_at > unixepoch() * 1000 - 30 * 86400000
 GROUP BY auditor, passed
 ORDER BY auditor, passed;
 
--- ─── 4. Drift detector for unknown-token surfacing ──────────────────
+-- ─── 4. Drift detector for unknown-token surfacing (all-time) ──────
 -- The closed-enum parser persists `unknown` when Claude emits a token
 -- outside the closed Set. Any non-zero count here means at least one
 -- of the auditor prompts has drifted from the contract — either
 -- Claude is hallucinating new tokens or the prompt is asking for
--- something we don't validate.
+-- something we don't validate. All-time count, per-auditor.
 SELECT
   auditor,
   COUNT(*) AS rounds_with_unknown
@@ -94,3 +94,21 @@ FROM audit_results
 WHERE failure_reasons LIKE '%unknown%'
 GROUP BY auditor
 ORDER BY rounds_with_unknown DESC;
+
+-- ─── 5. Rolling drift rate (last 30 audits) ────────────────────────
+-- The metric the admin dashboard's "Audit drift" card runs each load.
+-- Returns one row with the total audits in the window (≤30) and the
+-- count of those carrying an `unknown` token. Threshold colour rule
+-- on the dashboard: 0 → normal, 1 → warning, >1 → red. Window is
+-- audit-count, not calendar — keeps the signal stable when pipeline
+-- cadence shifts.
+WITH recent_audits AS (
+  SELECT failure_reasons
+  FROM audit_results
+  ORDER BY created_at DESC
+  LIMIT 30
+)
+SELECT
+  COUNT(*) AS audits_in_window,
+  SUM(CASE WHEN failure_reasons LIKE '%unknown%' THEN 1 ELSE 0 END) AS unknown_count
+FROM recent_audits;
