@@ -2,6 +2,57 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-10: Curator input trim — the latency-margin fix the streaming workaround is hiding
+
+**Why this commit.** Priority 1 of the LLM surface cleanup ([locked plan](/Users/zee/.claude/plans/llm-surface-cleanup-reflective-flurry.md)). The meter from priority 2 landed earlier today (PR #31, commit `7081527`) and was verified honest on the 18:00 UTC admin retrigger: Curator measured **27,593 input tokens** at **141,871 ms latency**, matching the Anthropic-console number within ~2%.
+
+That latency is past Cloudflare Workers' ~125 s subrequest idle limit. Streaming (the 2026-05-09 fix at `agents/src/curator.ts:45`) is the only reason the run didn't 499 — Anthropic kept the byte stream live; without streaming, CF would have disconnected at second 125 and the pipeline would have wedged exactly the same way it did on 2026-05-09.
+
+The framing matters. The operator's request was to "trim Curator input"; I was tempted to log this as a token-cost win. It isn't. Curator's spend isn't the dominant line on the monthly cost (Fact Checker's 78–105 k input is). The real load this commit carries is **closing the latency margin** — moving Curator from "streaming-rescued at 142 s" to "comfortable at 50–60 s, no rescue needed." If streaming ever regresses or the per-tok generation speed slows under Anthropic load, the 125 s wall stops being theoretical. The trim is the structural fix; streaming becomes the belt rather than the only thing holding it together.
+
+**Three cuts in one commit, in order of structural weight.**
+
+**(1) `GLOBAL_CAP` 80 → 24** at `agents/src/scanner.ts`. The plan file proposed 40; the operator tightened to 24 after reading the meter. Three reasons:
+
+- The cap is per-run, not per-day. Each pipeline run pulls fresh news, so pool depth across runs isn't carrying variety.
+- The SAME-EVENT / SAME-CONCEPT hard skips + the recent-pieces headline list already prevent the Curator from picking anything we've covered. Pool depth isn't carrying *that* load either.
+- Library audit at the time of the cut: 58 pieces, 11 categories — the deep pool wasn't actually producing real variety. Cutting to 24 doesn't lose what isn't there.
+
+This one cut takes the largest token block out of the prompt (~14 k of the 27 k is candidate rows). The rollback path is the same single constant whichever direction.
+
+**(2) Summary truncation 250 → 150 chars** at `scanner.ts:185`. History: 500 pre-2026-05-09, 250 in the timeout-regression fix, 150 here. Google News RSS descriptions are auto-generated leads — the first ~150 chars carry the headline angle and the lede sentence, which is what Curator needs to judge teachability. Anything past that is wire-service boilerplate.
+
+**(3) Recent-pieces window split: 30 → 14 days for the hard-skip headline list; 30 stays for the soft-preference category + domain counts.** The single `CURATOR_RECENT_WINDOW_DAYS = 30` constant at `agents/src/shared/curator-thresholds.ts` split into two:
+
+- `CURATOR_RECENT_PIECES_WINDOW_DAYS = 14` — the SAME-EVENT / SAME-CONCEPT hard-skip input. The rules fire on news that's still in cycle; two weeks catches the overwhelming majority of dupes, and the trailing 30 was overlap with the category-counts block (which already encodes "what's filling fast").
+- `CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS = 30` — the soft-preference category + domain counts. Stays at 30 because that's the window that produces a stable distribution across 11 categories + 10 domains. Cutting this one would make the breadth signal noisier.
+
+Director's three call sites updated to the new names (`director.ts:228 / :268 / :269`). Curator-prompt header for the recent-pieces section flips `(last 30 days)` → `(last 14 days)`. The two soft-preference headers stay at 30. The contract at `content/curator-contract.md` "How agents apply this contract" section names both new constants; v1.2 change-log entry appended.
+
+**What deliberately stayed.**
+
+- **Domain-counts block** — the one block doing breadth work. It's how Curator notices "9 hard-science picks in 30 days, 0 expression picks" and reaches for the thinner domain.
+- **Category-counts block** — soft preference, cheap (~20 lines of prompt), pulls its weight.
+- **Rejection-feedback array** — every non-picked candidate gets a category, top-10 get a one-sentence reason. The audit trail and learning signal are preserved on every candidate.
+- **Per-feed cap of 8** — operator's 2026-05-09 directive that PR #25 lifted this on purpose for breadth and reversing within 24 hours undoes the diversity fix. Trimming `GLOBAL_CAP` is the orthogonal lever.
+- **Hard pre-Curator dedup** at `agents/src/shared/dedup-headlines.ts` — Scanner-side filter, untouched.
+
+**Codegen + verification.** Regenerated `agents/src/shared/generated/contracts.ts` (98921 bytes, +892 from prior); `pnpm verify-contracts-fresh` ✓. Agents `npx tsc --noEmit` shows 27 errors total, all 27 in the pre-existing `src/server.ts` Durable Object set or the pre-existing `audio-auditor.ts:200` arity mismatch — zero new errors.
+
+**Expected signal on the next pipeline run** (read via the priority-2 meter query: `SELECT title, body FROM observer_events WHERE title LIKE 'LLM curator%' ORDER BY created_at DESC LIMIT 1`):
+
+- Curator input: 27 k → ~9–11 k.
+- Curator latency: 141.8 s → ~50–60 s.
+- Pick quality: piece looks teachable, hook is concrete.
+
+**Rollback.** `GLOBAL_CAP` reverts to a single constant change in `scanner.ts` if pick quality drops in the next 3–5 pieces. The summary-truncation and window-split cuts are separately revertable; the three are independent levers stacked in one commit because they all reduce the same input.
+
+**Why land separately from priority 3 (contract simplification).** Both reduce what the Curator sees. Landing on separate days with the meter between makes any quality drop attributable to one cut, not both — same principle as the meter-before-trim sequencing for priority 2 → priority 1.
+
+**Standing rule applies.** Verification waits for the next 02:00 UTC cron or an operator-driven admin retrigger; the meter row is the verification step before declaring the trim done.
+
+**Files (4 + 1 contract + 1 generated module + 2 docs):** `scanner.ts`, `curator-prompt.ts`, `curator-thresholds.ts`, `director.ts`; `curator-contract.md`; `contracts.ts` (regenerated); `CLAUDE.md` (latest-session entry), `DECISIONS.md` (this entry). Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-10: LLM surface audit + token capture on every mainline call
 
 **Why this commit.** The 2026-05-09 Curator 124s 499 timeout regression — the one that wedged a pipeline run, burned ~$0.54 across three SDK retries, and zombied the admin UI for 15+ minutes — had to be diagnosed entirely from the Anthropic console UI because there was no D1 row to read. Every mainline LLM call (Curator, Drafter main, the three auditors, Integrator, Learner post-publish, Zita) was discarding `response.usage` silently. The cheap post-publish calls (Categoriser, Drafter reflection, Zita synthesis, Interactive Generator) had per-purpose meters; the expensive mainline calls did not. That's backwards — the expensive calls are exactly the ones a runaway prompt would hide in.
