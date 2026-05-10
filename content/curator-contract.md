@@ -1,6 +1,6 @@
 # Daylila Curator Contract
 
-This document is the single source of truth for how Daylila *picks* its daily story. The voice contract governs how Daylila sounds; the beat contract governs how daily pieces are shaped; the interactive contract governs how the post-publish artefacts are shaped; the audit contract governs the gates each draft passes through; the fact-check contract governs the verification rule. This contract governs the criteria the Curator applies when reading the day's news candidates — what makes a story teachable, what counts as a duplicate, when (rarely) to skip.
+This contract governs the criteria the Curator applies when reading the day's news candidates — what makes a story teachable, what counts as a duplicate, when (rarely) to skip.
 
 ## The Curator's job
 
@@ -39,8 +39,6 @@ Your job is to **find the connection** between the day's news and an underlying 
    - Crime / policy / business / scandal → still teachable: human psychology, incentive design, market structure, organisational adaptation
    - Supply chain / infrastructure / chokepoints → still teachable: cascades, redundancy, who pays when it breaks (just not the only frame)
 
-   The question is never "is this teachable?" — it is "what does this teach?" And the library is healthier when "what this teaches" lands across the whole taxonomy, not only in systems-under-stress.
-
 2. **UNIVERSALITY** — Will the underlying concept matter to someone in Delhi, Bradford, Berlin, and Manila? The SUBJECT can be local; the LESSON must travel.
 
 3. **FRESHNESS** — Is this genuinely new today, or a rehash of yesterday's news with no new angle?
@@ -60,8 +58,6 @@ When in doubt, find the connection. A no-piece day is a worse outcome than a pie
 ## Recent-category concentration — soft preference
 
 The user message carries a count of how many pieces each library category has received over the last 30 days. If a candidate's underlying subject would land in a category that already holds 3+ recent pieces, prefer a candidate that opens a thinner category — unless the news event genuinely demands the fuller category. This is a SOFT preference (not a hard skip — the SAME-EVENT and SAME-CONCEPT rules below are the only hard skips). The taxonomy in TEACHABILITY shows how wide the library can grow; reach for that breadth.
-
-The 30-day window is the data window Director queries. The "3+" threshold is the soft-preference floor. The override clause ("unless the news event genuinely demands the fuller category") is the safety valve — strong news events still get picked when the breadth signal would otherwise push them aside.
 
 ## SAME-EVENT and SAME-CONCEPT — hard skips
 
@@ -92,7 +88,7 @@ Every Curator run leaves a complete record of what was considered, what was pick
 
 For the picked candidate, write a **`pickReasoning`** of 1–3 sentences explaining *why this candidate is the most teachable today*. Name the underlying system the piece will teach and the link from today's news to it. Plain English. The reader of this record is a future Learner reading hundreds of past picks at once, not a colleague over coffee — so be specific over general.
 
-For the picked candidate, also assign a **`pickDomain`** from the 10-value closed enum mirroring the TEACHABILITY taxonomy bullet list above. Exactly one domain per pick. The domain is the LENS that does the most teaching work — the SUBJECT-of-the-teaching domain, not the surface category of the news. A Taylor Swift tour-economics piece is `expression` or `how-humans-live`, not `business` just because money is involved. A neuroscience paper that teaches memory consolidation is `inner-life`, not `science`, when the lens is "how the brain works for you." A new fossil discovery is `science` when the lens is "how knowledge accumulates." Director persists this to `daily_pieces.pick_domain` (migration 0042) so the next Curator run sees trailing-30-day domain concentration alongside the existing category-concentration block — the "9 hard-science / 0 expression" pattern from the 2026-05-09 source-mix audit becomes visible to Curator before it picks.
+For the picked candidate, also assign a **`pickDomain`** from the 10-value closed enum mirroring the TEACHABILITY taxonomy bullet list above. Exactly one domain per pick. The domain is the LENS that does the most teaching work — the SUBJECT-of-the-teaching domain, not the surface category of the news. A Taylor Swift tour-economics piece is `expression` or `how-humans-live`, not `business` just because money is involved. A neuroscience paper that teaches memory consolidation is `inner-life`, not `science`, when the lens is "how the brain works for you." A new fossil discovery is `science` when the lens is "how knowledge accumulates."
 
 ### Pick domain enum
 
@@ -107,11 +103,11 @@ For the picked candidate, also assign a **`pickDomain`** from the 10-value close
 - `technology` — technology beyond crisis: how computers work, the internet at adult level, AI substance, cryptography, energy beyond grid strain, everyday transportation
 - `time-and-place` — geography beyond chokepoints, geology, long-version climate, astronomy of the everyday
 
-If the most natural lens isn't one of the ten, return the closest fit — Director defensively maps unrecognised tokens to `unknown` so drift surfaces via the operator query rather than dropping the row. The enum stays closed by design; adding a domain requires a contract change AND mirroring `agents/src/types.ts` `PickDomain` + `PICK_DOMAINS`. The codegen step (`pnpm verify-contracts-fresh`) refuses to build when the contract enum and the TS enum disagree.
+If the most natural lens isn't one of the ten, return the closest fit. The enum stays closed by design.
 
 For every rejected candidate, assign a **`rejectionCategory`** from the closed enum below. Exactly one category per rejection. Do not invent new categories.
 
-For the **top 10 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining ~63 rejections get only the category. Raised 5 → 10 on 2026-05-09: the operator reviews up to ~10 in practice, and the audit-trail value of seeing the top 10 by hand outweighs the small token delta. Going past 10 doesn't help — the further down the list, the less Curator weighed the candidate, and the reason rapidly collapses to the category alone.
+For the **top 10 rejected candidates** — the ones you weighed most seriously before settling on the pick — also write a one-sentence **`rejectionReason`** in the same voice. The remaining rejections get only the category.
 
 ### Rejection category enum
 
@@ -124,16 +120,4 @@ For the **top 10 rejected candidates** — the ones you weighed most seriously b
 - `tribal_framing` — the candidate's framing exists to score points for one tribe over another, and the underlying system isn't reachable without inheriting that frame. The SUBJECT can still be picked under a different candidate; this label is about the framing of *this specific candidate*, not the topic.
 - `already_covered` — same SAME-EVENT or SAME-CONCEPT as a recent piece (the hard skip rules above). Use this category whenever a hard-skip rule fires.
 
-If you find yourself wanting to assign a value not in this list, return your closest fit — Director will defensively warn on unknown values and Zi will read those warnings. The enum stays closed by design; new categories require a contract change, not Curator improvisation.
-
-## How agents apply this contract
-
-- **Curator.** Reads this contract via `${CURATOR_CONTRACT}` injection in its system prompt at `agents/src/curator-prompt.ts`. The opener (`You are the Curator of Daylila.` + the Daylila Protocol three-sentence framing) stays inline above the injection — voice-contract.md is the Protocol's canonical home, and the Protocol-as-lens posture for Curator is documented in DECISIONS 2026-04-25. The response-format JSON spec (`selectedCandidateId / date / headline / ...`) and the verbatim-UUID rule stay inline below the injection — response-shape spec, not rule body.
-- **Director.** Queries `getRecentDailyPieces(CURATOR_RECENT_PIECES_WINDOW_DAYS)` for the recent-pieces headline list (the SAME-EVENT / SAME-CONCEPT hard-skip input), and `getRecentCategoryCounts(CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS) / getRecentDomainCounts(CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS)` for the soft-preference category + domain counts. The two windows are exported from `agents/src/shared/curator-thresholds.ts` (agents-only; the site worker does not read curator rules at render time, so no parallel `src/lib/curator-thresholds.ts` mirror is needed): `CURATOR_RECENT_PIECES_WINDOW_DAYS = 14` (the hard-skip rules fire on news that's still in cycle — two weeks catches the overwhelming majority of dupes), and `CURATOR_RECENT_CONCENTRATION_WINDOW_DAYS = 30` (the "what's filling fast" soft-preference window — 30 days produces a stable distribution across 11 categories + 10 domains). Split from a single 30-day constant on 2026-05-10 alongside the Curator input trim.
-- **The hard pre-Curator dedup at `agents/src/shared/dedup-headlines.ts`** is a separate cluster (Scanner-side filter, mirrored by `verify-dedup.mjs`). It removes near-duplicate candidates from the input list BEFORE Curator sees them — defense-in-depth that complements the SAME-EVENT / SAME-CONCEPT hard skips above. Curator literally cannot pick what's not in its input.
-
-## Change log
-
-- 2026-05-08 — v1.0 — extracted from `agents/src/curator-prompt.ts` and `agents/src/director.ts` (Foundation Fix Task 02 sixth extraction session, branch `foundation-fix-02-extraction-curator`). Behaviour-preserving — rule values + canonical phrasings unchanged.
-- 2026-05-06 — v1.1 — added "What to record" section + the 8-value `rejection_category` closed enum (Foundation Fix Task 03). Closes data leaks L1 (pick reasoning was computed and discarded by Director) and L2 (per-rejection reasoning was never produced — the prompt only asked for a global skip-everything reason). Reading rule body into the contract; response-format JSON spec stays inline in `agents/src/curator-prompt.ts` per Phase 1 precedent.
-- 2026-05-10 — v1.2 — split the single 30-day window into two constants alongside the Curator input trim (LLM surface cleanup priority 1). Recent-pieces headline list (the SAME-EVENT / SAME-CONCEPT hard-skip input) cuts to 14 days; recent category + domain concentration counts stay at 30 days. The "How agents apply this contract" section is the canonical place for both constants. No rule body changes — only window values.
+If you find yourself wanting to assign a value not in this list, return your closest fit. The enum stays closed by design; new categories require a contract change, not Curator improvisation.

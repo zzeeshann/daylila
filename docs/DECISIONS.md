@@ -2,6 +2,83 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-10: Contract simplification — operator-orientation goes to docs/, model-orientation stays in contracts/
+
+**Why this commit.** Priority 3 of the LLM surface cleanup, landing after priorities 1, 4, 5 in the same compaction sweep. The three target contracts (curator-contract.md, categoriser-contract.md, fact-check-contract.md) had grown a mix of two audiences:
+
+- **Model-orientation.** Rules Claude applies on every call: what counts as teachable, what counts as a duplicate, what counts as `unverified` vs. `incorrect`, what the response shape must contain. This is the contract's job.
+- **Operator-orientation.** Code wiring: which Director method threads which constant, which migration seeded which row, what `verify-*.mjs` script mirrors what, what the codegen step refuses to build, why the rejectionReason cap was raised from 5 to 10 on a specific date. This is `docs/AGENTS.md` / `docs/SCHEMA.md` / `docs/DECISIONS.md` / git-history's job.
+
+Both kinds of prose are useful. But the model pays input-token cost on every line, and operator-orientation in the contract bundle means we're paying Anthropic to ship migration numbers and verifier-script filenames to Claude on every Curator pick. That's the conflation this commit splits.
+
+**Cut list reviewed and approved before applying.** Sent operator a 19-cut list across the three contracts with a per-cut "why no behaviour change" justification, plus 6 leave-in items flagged for review where the cut had non-zero behavioural risk. Operator approved all 19 cuts and all 6 leave-ins — calibration was right on the first pass.
+
+Decision-1: the `filling_fast` flag. The Categoriser computed a 7-day density signal (`filling_fast: true` for any category with ≥3 pieces in the last 7 days) and rendered it inline in the prompt with an off-contract parenthetical "(≥3 pieces in the last 7 days — be sure before adding another)" — but the contract itself didn't say what `filling_fast` means or how to weight it. Two options surfaced: (A) add a rule to the contract, (B) stop computing the flag. Operator picked (A). New paragraph added to categoriser-contract.md under "Tiered decision": *"A `filling_fast` flag on an existing category means it received 3 or more pieces in the last 7 days. Treat as added pressure on tier-1 / tier-2 reuse — be sure the piece's primary subject really fits before adding another. NOT a hard skip — a clearly-tier-1 piece still lands. The signal leans Categoriser toward the next-best existing category or a stretch-reuse, not toward fragmenting the taxonomy with new-category proposals."* Inline parenthetical dropped from `agents/src/categoriser-prompt.ts:111-114` (contract carries the rule now).
+
+Decision-2: priority 7 fold or separate. Operator picked separate post-priority-3 commit per my vote.
+
+**The 19 cuts, by contract.**
+
+**Curator (8 cuts):**
+
+1. Inter-contract preamble (line 3, 5-contract list).
+2. "How agents apply this contract" section (lines 129-133, code wiring + window constants).
+3. Change log (lines 135-139, three v-entries).
+4. TEACHABILITY recap sentence (line 42, "The question is never 'is this teachable?'…").
+5. 30-day-window recap (line 64, restated line 62).
+6. Top-10 historical note (line 114, three sentences explaining the 2026-05-09 raise).
+7. Codegen-tooling sentence (line 110, "The codegen step refuses to build…").
+8. `pick_domain` persistence parenthetical (line 95, "(migration 0042)…").
+
+**Categoriser (5 cuts + 1 addition):**
+
+1. Inter-contract preamble (line 3, 8-contract list).
+2. "How agents apply this contract" section (lines 107-113, code wiring + migration 0027 + verifier).
+3. Change log (lines 115-118, two v-entries with 2026-05-07 rewrite narrative).
+4. Tier-2 example phrases (line 36, "('thematic echo, not primary subject' / 'adjacent mechanism, not core')").
+5. Confidence-section paragraph (lines 79-82, slimmed to one rule sentence).
+6. **Added:** The `filling_fast` flag sub-section under "Tiered decision."
+
+**Fact-check (6 cuts):**
+
+1. Inter-contract preamble (line 3, 4-contract list).
+2. "How agents apply this contract" section (lines 72-78, code wiring + drawer + verifier).
+3. Change log (lines 80-82, v1.0 entry).
+4. "training data" exemption explanation (line 64, historical rationale).
+5. Budget headroom note (line 68 second half, "Typical pieces use 3–6 searches…").
+6. Budget tunability sentence (line 70, "Drop max_uses from 8 to 4 if cost runs above $30/month").
+
+**The 6 leave-ins.** Operator approved keeping all 6 flagged items. The shared principle: when uncertain, concrete examples that fix specific past regressions stay, even at token cost.
+
+- **Curator's worked-pairings list** (10 examples mapping news shapes → domain lenses) — teaches the LENS pattern; cutting risked surface-category drift.
+- **Curator's procedural-moments parenthetical** (6 examples: oral argument vs. written ruling, etc.) — teaches what "same procedural moment of one story" means; cutting risked weakening hard-skip discipline.
+- **Categoriser's concrete-pairs list** (`Brain` not `Neural Architecture…` × 6) — load-bearing anti-pattern set from the 2026-05-07 taxonomy-fragmentation rewrite.
+- **Categoriser's three anti-pattern descriptions** ("How knowledge accumulates…" etc.) — same source; these are exactly the shapes that produced the dumping-ground categories pre-rewrite.
+- **Categoriser's recovery sequence** (3-step retry → fallback list at lines 95-99) — Claude reading "first attempt retried only when zero usable rows" might be priming first-call conservatism; the conservatism is desired.
+- **Fact-check's 5-phrase ban list** (`speculative fiction` / `knowledge cutoff` / `as of my` / `is hypothetical` / `beyond my training`) — load-bearing concrete-example set from the 2026-04-30 web_search rewrite triggered by the J. Craig Venter regression.
+
+**The "two audiences" posture is now locked.** Contracts hold model-orientation only. `docs/AGENTS.md`, `docs/SCHEMA.md`, `docs/DECISIONS.md`, and git history hold operator-orientation. This is the inverse of the per-contract "How agents apply this contract" sections that existed before this commit — those sections were trying to do both jobs at once, and the cost was paying for operator prose on every Claude call. Future contract changes should keep the audience separation: if a sentence teaches Claude what to do, it goes in the contract; if it teaches the operator how the rule is wired, it goes in docs/.
+
+**Codegen bundle drops 13,961 bytes** — 101477 → **87516**, a 13.7% reduction. Per-call token savings (rough):
+
+- Curator: ~820 tokens (~7% of current 11.7k baseline).
+- Categoriser: ~770 tokens (net of the +40-token filling_fast addition).
+- Fact Checker: ~550 tokens.
+
+Three contracts shrink:
+
+- Curator 140 → **123** lines.
+- Categoriser 118 → **107** lines (would be 100 without the filling_fast addition).
+- Fact-check 82 → **67** lines.
+
+**Verification.** All 10 verifier scripts pass; `verify-validator` 28 cases confirm the validator still fires correctly; `verify-categoriser-floor` 10 cases confirm the resolver's 60-floor and tier-2 boundaries still hold despite the contract's confidence-section slimming. Agents `npx tsc --noEmit` 27 errors total, all 27 pre-existing (`src/server.ts` Durable Object set + `audio-auditor.ts:200` arity mismatch), zero new.
+
+**Expected signal on next pipeline run.** Per-call input-token deltas measurable via the priority-2 meter. Curator drops ~820 tokens. Fact Checker drops ~550. Categoriser drops ~770. Verdicts unchanged — same rule body via a smaller vehicle.
+
+**Two post-priority-3 commits queued.** (a) Priority 7 — one-line "currently unreachable" comment on `Learner.analyseAndLearn`, its own micro-commit. (b) Priority 6 — Zita prompt cleanup, its own commit after priority 7 lands.
+
+**Files (3 + 1 + 1 generated + 2 docs):** `content/curator-contract.md`, `content/categoriser-contract.md`, `content/fact-check-contract.md`; `agents/src/categoriser-prompt.ts`; regenerated `agents/src/shared/generated/contracts.ts`; CLAUDE.md (latest-session entry), DECISIONS.md (this entry). No migration. No new constant. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-10: Structure Editor + HTML Generator drift — drop the duplicated rule restatements
 
 **Why this commit.** Priority 5 of the LLM surface cleanup. Three related drifts surfaced in the audit at `docs/LLM-SURFACE.md`:
