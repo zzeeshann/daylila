@@ -1,0 +1,70 @@
+{
+  "slug": "disclosure-timing-and-legitimacy",
+  "type": "quiz",
+  "title": "Disclosure Timing and Legitimacy",
+  "concept": "Institutions release previously hidden information not when it becomes safe or true, but when the cost of secrecy—measured in public trust, legal pressure, or political capital—exceeds the value of continued control.",
+  "interactiveId": "a3cca609-a679-4c36-bf3f-bdc3462f1a51",
+  "sourcePieceId": "f074806a-4711-420b-a275-b27efc4c3ed1",
+  "publishedAt": 1778379020726,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why do large batches of previously classified files tend to be released all at once rather than steadily over time?",
+        "options": [
+          "Because reviewing documents requires expensive legal work that only makes sense when external pressure justifies the investment",
+          "Because institutions prefer to release everything at once to avoid looking like they're hiding something",
+          "Because automatic review deadlines force all files from a given year to be processed simultaneously",
+          "Because releasing files individually would take too long and create a backlog"
+        ],
+        "correctIndex": 0,
+        "explanation": "Declassification requires staff time, legal review, and institutional sign-off—resources only allocated when public pressure, legislative mandates, or strategic interest align to make the cost worthwhile. The option about appearing transparent mistakes outcome for cause; institutions don't release batches to look open, they release when conditions force them to prioritize the work."
+      },
+      {
+        "question": "What does an automatic 25-year review rule actually guarantee?",
+        "options": [
+          "That files will be made public after 25 years",
+          "That someone must evaluate whether continued secrecy still serves a purpose after 25 years",
+          "That the strategic context will have changed enough to make disclosure safe",
+          "That sources named in the files will have retired or become irrelevant"
+        ],
+        "correctIndex": 1,
+        "explanation": "Automatic review rules create an obligation to decide, not an obligation to release. The institution must assess whether keeping something hidden still serves its interests, but that assessment can conclude 'yes, keep it secret.' The rule forces a checkpoint where the calculation must be made, not a predetermined outcome."
+      },
+      {
+        "question": "A surveillance method from 1985 is now obsolete in the country that developed it. Why might it still be kept classified in 2026?",
+        "options": [
+          "Because it reveals the government's historical willingness to use invasive techniques, which undermines current legitimacy claims",
+          "Because declassifying it would create pressure to release similar files on adjacent programs",
+          "Because the method might still work in countries with older technology infrastructure",
+          "Because the legal review process hasn't reached that file yet"
+        ],
+        "correctIndex": 0,
+        "explanation": "Secrecy persists when disclosure threatens legitimacy more than it threatens operational security. Admitting to past invasive practices—even obsolete ones—can undermine an institution's current claims about restraint and oversight. The option about adjacent files is a real concern but secondary; it's a procedural risk, not a legitimacy risk. The primary calculation weighs whether the historical record damages public trust more than continued secrecy does."
+      },
+      {
+        "question": "When does selective disclosure—releasing some files but withholding others—reveal more than keeping everything secret?",
+        "options": [
+          "When the pattern of what gets released maps the boundary of what the institution considers defensible to admit publicly",
+          "When released files contain redactions that hint at protected details",
+          "When the time gap between request and release shows which topics require more internal debate",
+          "When multiple agencies release files on the same event with different levels of detail"
+        ],
+        "correctIndex": 0,
+        "explanation": "What an institution chooses to reveal is a legible risk map. Released files show what it's willing to defend in public, and the subjects that remain entirely absent show what it won't engage with at all. The boundary between released and withheld content maps institutional vulnerability more clearly than uniform secrecy does. Redactions and time gaps are signals, but they're downstream of the primary mechanism—the institution's assessment of which admissions threaten legitimacy and which don't."
+      },
+      {
+        "question": "Why do institutions sometimes release files that make them look bad?",
+        "options": [
+          "Because withholding them after a court order or legislative mandate would cost more political capital than the content itself",
+          "Because transparency builds long-term trust even when specific disclosures are embarrassing",
+          "Because the files were going to leak anyway so controlled release limits the damage",
+          "Because newer leadership wants to distance itself from past practices"
+        ],
+        "correctIndex": 0,
+        "explanation": "Institutions release damaging files when forced disclosure costs less than defiance. A court ruling or legislative subpoena changes the calculation—resisting carries its own legitimacy cost, often larger than whatever the files reveal. The option about building trust mistakes rhetoric for mechanism; institutions don't release embarrassing material to build trust, they release it because the alternative became more expensive. Controlled release to pre-empt leaks is real but reactive; the structural driver is external pressure raising the cost of continued secrecy above the cost of admission."
+      }
+    ]
+  }
+}
