@@ -1,0 +1,59 @@
+{
+  "slug": "encoding-richness-and-retrieval",
+  "type": "quiz",
+  "title": "Encoding Richness and Retrieval",
+  "concept": "Your brain stores new information by linking it to the sensory inputs and physical actions present during learning—more sensory channels firing during encoding means more pathways to retrieve the memory later.",
+  "interactiveId": "03ba6d54-be1c-4681-88c5-96d96c0d6706",
+  "sourcePieceId": "74f8d228-c871-4991-9315-82be7f26cb34",
+  "publishedAt": 1778421909491,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does writing something down by hand create a stronger memory trace than typing the same words on a keyboard?",
+        "options": [
+          "Hand movements are slower, so the brain has more time to process the information",
+          "Each unique finger motion activates motor pathways that become part of the memory network",
+          "Handwriting requires more conscious effort, which forces deeper concentration",
+          "Physical writing uses older brain regions that evolved before language"
+        ],
+        "correctIndex": 1,
+        "explanation": "Your motor cortex fires differently for each letter you form by hand, creating unique neural patterns that become retrieval cues. Typing executes the same generic tap gesture regardless of content, providing fewer distinct pathways back to the memory."
+      },
+      {
+        "question": "A student reads the same textbook chapter twice—once while sitting at a desk with paper notes, once while lying in bed scrolling on a tablet. Why might the desk session produce better recall on the exam?",
+        "options": [
+          "Paper reflects less blue light, reducing eye strain that interferes with memory",
+          "Sitting upright increases blood flow to the brain compared to lying down",
+          "The desk session provided more distinct sensory details—posture, pen grip, page texture—that act as memory anchors",
+          "Digital screens refresh at rates that disrupt the brain's natural encoding rhythm"
+        ],
+        "correctIndex": 2,
+        "explanation": "Memory formation works by linking new information to context—where you were, what you were doing, what it felt like. The desk session created a richer sensory environment with more distinct features to anchor the memory to, making retrieval easier later."
+      },
+      {
+        "question": "Why might you remember that you wrote an appointment in your planner even after you've lost the planner?",
+        "options": [
+          "The act of writing created the memory independently of whether you still have the written record",
+          "Your brain automatically backs up important information to long-term storage when you write it",
+          "Physical writing triggers a stress response that strengthens memory formation",
+          "The visual image of the written words persists in your photographic memory"
+        ],
+        "correctIndex": 0,
+        "explanation": "The sensory and motor inputs during writing—forming the letters, feeling the pen, seeing the ink appear—became the memory trace itself. The written record is an external artifact; the memory lives in the neural pathways activated during encoding, which fire whether or not you keep the paper."
+      },
+      {
+        "question": "A company switches from paper procedure manuals to a tablet app that displays the same text. Workers report they can't remember steps as well. What does encoding richness predict will help?",
+        "options": [
+          "Increase font size on the tablets to make text more visually distinct",
+          "Add interactive gestures—swiping, pinching, dragging—so each step feels different",
+          "Schedule more frequent review sessions to compensate for weaker initial encoding",
+          "Use audio narration alongside the text to add another sensory channel"
+        ],
+        "correctIndex": 1,
+        "explanation": "The problem isn't lack of review or sensory input per se—it's lack of distinct sensory input per piece of information. Making each step require a unique physical gesture creates motor variety that mirrors the encoding advantage of flipping to different pages in a physical manual. Option D adds a channel but doesn't create distinctness across steps."
+      }
+    ]
+  }
+}
