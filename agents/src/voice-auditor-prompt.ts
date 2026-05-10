@@ -4,20 +4,24 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * VoiceAuditorAgent is the only caller.
  *
- * Two contracts inject here:
+ * Contracts injected: ${VOICE_CONTRACT}, ${AUDIT_CONTRACT}
+ * Inline rule bodies: opener; OUTPUT JSON spec (response shape, not
+ *   rule body — same posture as fact-check / structure-editor).
+ *
+ * Two-contract reasoning:
  *   - VOICE_CONTRACT: the voice rules themselves (tribe words, plain
  *     English, no flattery, the editor's test). Same contract Drafter,
  *     Integrator, InteractiveGenerator and InteractiveAuditor read.
  *   - AUDIT_CONTRACT: the enforcement vocabulary — the penalty rubric
- *     and the failure_reasons enum. The Voice Auditor is currently the
- *     only prompt-reader of AUDIT_CONTRACT; penalty values stay out of
+ *     and the failure_reasons enum. Voice Auditor was the first prompt-
+ *     reader of AUDIT_CONTRACT (2026-05-10 priority 4); Structure Editor
+ *     joined as second reader the same week. Penalty values stay out of
  *     VOICE_CONTRACT to avoid showing Drafter / Integrator a target to
  *     optimise against. See content/audit-contract.md change-log v1.2
  *     (2026-05-10) for the path-A vs path-B reasoning.
  *
  * Same thin-prompt posture as the Fact Checker — header + injected
- * contract(s) + OUTPUT JSON spec. The OUTPUT block stays inline because
- * response shape is not rule body.
+ * contract(s) + OUTPUT JSON spec.
  */
 
 import { VOICE_CONTRACT, AUDIT_CONTRACT } from './shared/generated/contracts';

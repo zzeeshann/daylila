@@ -4,7 +4,12 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * StructureEditorAgent is the only caller.
  *
- * Two contracts inject here:
+ * Contracts injected: ${BEAT_CONTRACT}, ${AUDIT_CONTRACT}
+ * Inline rule bodies: opener; operational lens ("be reasonable; padding
+ *   is a failure; minor formatting isn't"); OUTPUT JSON spec (response
+ *   shape, not rule body).
+ *
+ * Two-contract reasoning:
  *   - BEAT_CONTRACT: the shape rules (word count, beat count, hook /
  *     teaching / close shape, frontmatter, widget allow-list). Same
  *     contract Drafter and Integrator read.
@@ -13,8 +18,7 @@
  *     (2026-05-10) — enforcement vocabulary lives near the judge.
  *
  * Thin-prompt posture: header + injected contracts + operational lens
- * + OUTPUT JSON spec. The OUTPUT block stays inline because response
- * shape is not rule body.
+ * + OUTPUT JSON spec.
  */
 
 import { BEAT_CONTRACT, AUDIT_CONTRACT } from './shared/generated/contracts';

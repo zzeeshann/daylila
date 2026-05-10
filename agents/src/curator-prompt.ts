@@ -4,15 +4,20 @@
  * Migrated from shared/prompts.ts (DAILY_DIRECTOR_PROMPT) in PR 2.
  * Director no longer owns this prompt. Curator is the only caller.
  *
+ * Contracts injected: ${CURATOR_CONTRACT}
+ * Inline rule bodies: opener; Daylila Protocol three-sentence framing
+ *   (Protocol's canonical home is voice-contract.md, restated here as
+ *   system-prompt scaffolding); response-format JSON spec; verbatim-UUID
+ *   rule; user-message reminders ("apply SAME-EVENT/SAME-CONCEPT hard-
+ *   skips from your system prompt", soft-preference paragraphs).
+ *
  * Foundation Fix Task 02 (2026-05-08): rule body extracted to
  * `content/curator-contract.md` and injected via `${CURATOR_CONTRACT}`.
- * The opener + Daylila Protocol three-sentence framing stay inline as
- * system-prompt scaffolding (voice-contract.md is the Protocol's
- * canonical home). Response-format JSON spec + verbatim-UUID rule stay
- * inline below the injection — response-shape spec, not rule body
- * (same posture as fact-check Q5 / audit Q5 / beats Q6). User-message
- * data blocks stay; rule prose collapses to a Tier-2 audit-context
- * paraphrase under the data (beats Q6 precedent).
+ * Response-format JSON spec + verbatim-UUID rule stay inline below
+ * the injection — response-shape spec, not rule body (same posture
+ * as fact-check Q5 / audit Q5 / beats Q6). User-message data blocks
+ * stay; rule prose collapses to a Tier-2 audit-context paraphrase
+ * under the data (beats Q6 precedent).
  */
 
 import type { DailyCandidate } from './types';

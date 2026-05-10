@@ -4,6 +4,22 @@
  *
  * Migrated from shared/prompts.ts (DAILY_DRAFTER_PROMPT) in PR 2.
  * Director no longer owns this prompt. Drafter is the only caller.
+ *
+ * DRAFTER_PROMPT (main draft):
+ *   Contracts injected: ${BEAT_CONTRACT} (system); ${VOICE_CONTRACT}
+ *     (user message — unusual position; functionally identical for the
+ *     model). VOICE_CONTRACT is interpolated by buildDrafterPrompt.
+ *   Inline rule bodies: Drafter invariants (4 bullets); "When a beat
+ *     earns a widget" worked examples (3 positive + 3 negative);
+ *     scan-for-earning-moments framing; topic-shape permission
+ *     paragraph; deletion heuristic; voice-rules-apply-inside-widgets
+ *     paragraph.
+ *
+ * DRAFTER_REFLECTION_PROMPT (post-publish self-reflection):
+ *   Contracts injected: none.
+ *   Inline rule bodies: 100% inline; statelessness frame ("you didn't
+ *     write this piece — a prior invocation with this same role did");
+ *     forward-looking framing for the made-drawer surface.
  */
 
 import type { DailyPieceBrief } from './types';

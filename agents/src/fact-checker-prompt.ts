@@ -4,6 +4,11 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * FactCheckerAgent is the only caller.
  *
+ * Contracts injected: ${FACT_CHECK_CONTRACT}
+ * Inline rule bodies: opener sentence; "Today is X" instruction
+ *   (today's date computed in code via new Date().toISOString().slice(0,10));
+ *   OUTPUT JSON spec; closed-enum failure_reasons reminder.
+ *
  * Replaced the two-pass DDG IA prompt on 2026-04-30. The new prompt
  * relies on Anthropic's web_search server tool to verify current-event
  * claims rather than collapsing back to training-data inference.

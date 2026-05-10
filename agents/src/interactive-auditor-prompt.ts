@@ -8,6 +8,24 @@
  * would need to change. Generator.revise consumes this feedback to
  * produce the next round.
  *
+ * One prompt module per agent, co-located (AGENTS.md §9-2).
+ * InteractiveAuditorAgent is the only caller (called internally by
+ * InteractiveGeneratorAgent each round).
+ *
+ * Quiz auditor (INTERACTIVE_AUDITOR_PROMPT):
+ *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT}
+ *   Inline rule bodies: opener; four-dimensional scoring rubric prose
+ *     (voice 0–100, structure / essence / factual binary); strict-JSON
+ *     OUTPUT spec.
+ *
+ * HTML auditor (INTERACTIVE_HTML_AUDITOR_PROMPT):
+ *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT}
+ *   Inline rule bodies: opener; four-dimensional scoring rubric prose
+ *     with literal threshold values restated from the contract (75
+ *     floor on structure / essence / factual; ≥85 voice — mirrored from
+ *     `VOICE_PASS_THRESHOLD` in agents/src/shared/audit-thresholds.ts);
+ *     strict-JSON OUTPUT spec. Sent as a cached prompt-cache block.
+ *
  * Single Claude call (not four) because the scope-of-audit for a
  * 3–5 question quiz is small (< 1000 words of text). A comprehensive
  * prompt reads the whole quiz once + cites specific questions per

@@ -4,8 +4,24 @@
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * LearnerAgent is the only caller.
  *
- *  - LEARNER_ANALYSE_PROMPT       → reader-engagement signals (analyseAndLearn)
  *  - LEARNER_POST_PUBLISH_PROMPT  → producer-side signals (analysePiecePostPublish)
+ *  - LEARNER_ZITA_PROMPT          → reader-Zita conversation signals (analyseZitaPatternsDaily)
+ *  - LEARNER_ANALYSE_PROMPT       → reader-engagement signals (analyseAndLearn — currently
+ *                                    unreachable per PR #36, no callers)
+ *
+ * Contracts injected: none (all three prompts are 100% inline).
+ * Inline rule bodies: forward-looking framing for the drawer ("patterns
+ *   extracted for tomorrow's Drafter"); 5 worked-example learnings per
+ *   prompt (different examples per origin); reader-engagement metric
+ *   interpretation (post-publish); per-prompt OUTPUT JSON spec.
+ *
+ * Notable contract gap (named in docs/LLM-SURFACE.md Step 7): Learner
+ * does NOT inject ${VOICE_CONTRACT}, so a learning could in principle
+ * use a tribe word (mindfulness / journey / unlock / etc.) without an
+ * auditor in the loop. The drawer's reader-facing framing means this
+ * matters — a Daylila reader chatting through a piece could see a
+ * learning written in language Daylila itself bans. Defer fix until
+ * a tribe-word actually appears in production learnings.
  */
 
 export const LEARNER_POST_PUBLISH_PROMPT = `You analyse the pipeline record of a just-published Daylila daily piece to extract producer-side learnings for future pieces.
