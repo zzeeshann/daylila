@@ -65,6 +65,23 @@ Closed enum. Voice Auditor emits ONE token per VIOLATION KIND (not per instance)
 
 Persisted to `audit_results.failure_reasons` as comma-separated tokens (since migration 0038, 2026-05-07). Runtime mirror: `VOICE_FAILURE_REASONS: ReadonlySet<VoiceFailureReason>` in `agents/src/types.ts`.
 
+## Voice Auditor penalty rubric
+
+Closed table. The Voice Auditor applies these deductions when scoring 0–100 against the voice contract. Be strict. The score deduction is what moves the 0–100 verdict (and the reader-facing tier label that flows from it); the failure_reasons enum above is the categorical tag attached to the same audit round.
+
+| Violation | Deduction |
+|-----------|-----------|
+| Tribe word from the voice contract (mindfulness, journey, empower, dive in, transform, embrace, etc.) | -10 per instance |
+| Flattery — congratulating the reader, "great job"-style language | -15 |
+| Jargon without immediate plain-English translation | -10 |
+| Long padded sentence or trailing throat-clearing | -5 each |
+| "In this lesson we'll learn…" opening or any throat-clearing scaffold | -20 |
+| Summary / CTA / congratulations in the close beat | -15 |
+
+Pass threshold is `VOICE_PASS_THRESHOLD = 85`, exported from `agents/src/shared/audit-thresholds.ts` and mirrored site-side at `src/lib/audit-thresholds.ts`.
+
+This rubric lives here, not in `content/voice-contract.md`, on purpose. `VOICE_CONTRACT` has five prompt-readers (Drafter, Integrator, Voice Auditor, InteractiveGenerator, InteractiveAuditor). Penalty values shown to writers risk a "measure becomes target" shift — Drafter or Integrator optimising for penalty-avoidance instead of voice-following. The rubric belongs near the auditor that enforces it. Voice rules and enforcement vocabulary are different layers.
+
 ## Structure Editor failure_reasons enum
 
 Closed enum. Same one-token-per-violation-kind shape. Pass rounds emit `[]`.
@@ -105,7 +122,7 @@ Migration 0038 also adds `audit_results.suggestions_count INTEGER` — the numbe
 
 ## How agents apply this contract
 
-- **Voice Auditor.** Reads the contract via the named constant `VOICE_PASS_THRESHOLD = 85`, injected into its system prompt's JSON-spec line as `"passed": boolean (score >= ${VOICE_PASS_THRESHOLD})`. The auditor's full voice rules come from the voice contract (`${VOICE_CONTRACT}` injection); the threshold here is response-format spec, not rule body.
+- **Voice Auditor.** Injects two contracts into its system prompt: `${VOICE_CONTRACT}` for the voice rules themselves (what counts as flattery, which tribe words are banned, the editor's test) and `${AUDIT_CONTRACT}` for the enforcement vocabulary (the penalty rubric above, the failure_reasons enum). Also imports the named constant `VOICE_PASS_THRESHOLD = 85` for its JSON-spec line as `"passed": boolean (score >= ${VOICE_PASS_THRESHOLD})`. The Voice Auditor is currently the only prompt-reader of `${AUDIT_CONTRACT}` — the contract was canonical-narrative-only from extraction (2026-05-06) until the penalty rubric moved here on 2026-05-10. The posture was earned at that point, not violated: enforcement vocabulary lives near auditors, not near writers.
 - **Director.** Imports `MAX_AUDIT_ROUNDS = 3` from `agents/src/shared/audit-thresholds.ts` and bounds the audit-then-revise loop on it. Sets `qualityFlag = "low"` per the rule above when round 3 fails. Splices the flag into MDX frontmatter and persists it to the `daily_pieces.quality_flag` column.
 - **Interactive Generator.** Imports `MAX_AUDIT_ROUNDS` (aliased locally as `INTERACTIVE_MAX_ROUNDS` for in-file readability) and applies it on both quiz and HTML loops. Sets `qualityFlag = "low"` on max-fail with the same setter shape as Director.
 - **Interactive Auditor.** Imports `VOICE_PASS_THRESHOLD` (aliased locally as `INTERACTIVE_VOICE_MIN_SCORE` for in-file readability) and applies it as the voice dimension's pass bar on both quiz and HTML paths. The HTML auditor's structure / essence / factual thresholds are a separate rule (the interactive shape thresholds at 75) and not governed by this contract.
@@ -115,3 +132,4 @@ Migration 0038 also adds `audit_results.suggestions_count INTEGER` — the numbe
 
 - 2026-05-06 — v1.0 — extracted from `agents/src/voice-auditor-prompt.ts`, `agents/src/voice-auditor.ts`, `agents/src/director.ts`, `agents/src/interactive-generator.ts`, `agents/src/interactive-auditor-prompt.ts`, and `src/lib/audit-tier.ts` (Foundation Fix Task 02 fourth extraction session, branch `foundation-fix-02-extraction-audit-thresholds`). Behaviour-preserving — rule values unchanged.
 - 2026-05-07 — v1.1 — added three failure_reasons enum sections (Voice / Structure / Fact) + the audit suggestions count note, alongside Foundation Fix Task 08 PR 08c (closes leak L24). Migration 0038 adds the persistence columns. Each closed-enum token + the per-auditor token list is canonical here; runtime mirrors live in `agents/src/types.ts`.
+- 2026-05-10 — v1.2 — added the Voice Auditor penalty rubric section (lifted verbatim from `agents/src/voice-auditor-prompt.ts` — same numbers, same kinds). The Voice Auditor prompt now injects `${AUDIT_CONTRACT}` for the first time; before today the contract was canonical narrative with no prompt-readers. Earned, not violated: the penalty rubric is enforcement vocabulary, which belongs near the auditor — not in `voice-contract.md` (which has five prompt-readers and would risk a "measure becomes target" shift if Drafter / Integrator saw the penalty values). LLM surface cleanup priority 4 (path B chosen over path A at review time).

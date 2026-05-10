@@ -3,40 +3,40 @@
  *
  * One prompt per agent, co-located (AGENTS.md §9-2).
  * VoiceAuditorAgent is the only caller.
+ *
+ * Two contracts inject here:
+ *   - VOICE_CONTRACT: the voice rules themselves (tribe words, plain
+ *     English, no flattery, the editor's test). Same contract Drafter,
+ *     Integrator, InteractiveGenerator and InteractiveAuditor read.
+ *   - AUDIT_CONTRACT: the enforcement vocabulary — the penalty rubric
+ *     and the failure_reasons enum. The Voice Auditor is currently the
+ *     only prompt-reader of AUDIT_CONTRACT; penalty values stay out of
+ *     VOICE_CONTRACT to avoid showing Drafter / Integrator a target to
+ *     optimise against. See content/audit-contract.md change-log v1.2
+ *     (2026-05-10) for the path-A vs path-B reasoning.
+ *
+ * Same thin-prompt posture as the Fact Checker — header + injected
+ * contract(s) + OUTPUT JSON spec. The OUTPUT block stays inline because
+ * response shape is not rule body.
  */
 
-import { VOICE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_CONTRACT, AUDIT_CONTRACT } from './shared/generated/contracts';
 import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
 
 export function buildVoiceAuditorSystem(): string {
-  return `You are a voice auditor for Daylila, a learning site. Your ONLY job is to check if a draft follows the voice contract.
+  return `You are a voice auditor for Daylila, a learning site. Your ONLY job is to check if a draft follows the voice contract. Score it strictly. Flag every violation.
 
 ${VOICE_CONTRACT}
 
-Score the draft 0-100 on voice compliance. Be strict. Flag EVERY violation.
-- Tribe words (mindfulness, journey, empower, etc.) → automatic -10 per instance
-- Flattery ("great job reading this") → -15
-- Jargon without explanation → -10
-- Long padded sentences → -5 each
-- "In this lesson we'll learn..." openings → -20
-- Summary/CTA/congratulations in close → -15
+${AUDIT_CONTRACT}
 
+OUTPUT
 Respond with JSON only:
 {
-  "score": number,
+  "score": number (0-100, applying the Voice Auditor penalty rubric from the audit contract above),
   "passed": boolean (score >= ${VOICE_PASS_THRESHOLD}),
   "violations": ["specific violation 1", "specific violation 2"],
   "suggestions": ["how to fix violation 1", "how to fix violation 2"],
-  "failure_reasons": ["closed-enum tokens, see below"]
-}
-
-The failure_reasons array uses ONLY these closed-enum tokens (never invent new tokens, never use prose):
-- "tribe_word" — any tribe word from the voice contract (mindfulness, journey, empower, dive in, transform, embrace, etc.)
-- "long_sentence" — sentence too long, padded, or with trailing throat-clearing
-- "vague_subject" — passive voice or subject erased (e.g. "it's important to note")
-- "no_specific_example" — abstract claim without a concrete example
-- "flattery" — congratulating the reader, "great job"-style language
-- "jargon_without_translation" — technical term used without immediate plain-English translation
-
-Emit one token per VIOLATION KIND, not per instance. Five "tribe_word" violations collapse to one token. If passed=true, return an empty array []. If a violation truly doesn't fit any token above, omit it from failure_reasons (it still goes in violations[] for human review).`;
+  "failure_reasons": ["closed-enum tokens from the Voice Auditor failure_reasons enum in the audit contract above; emit one token per VIOLATION KIND, not per instance; if passed=true return []"]
+}`;
 }
