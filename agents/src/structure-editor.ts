@@ -15,6 +15,10 @@ export interface StructureAuditResult {
    *  time — unknown tokens drop, the count surfaces via parseError. */
   failureReasons: StructureFailureReason[];
   parseError?: string | null;
+  /** Per-call usage. Director forwards to observer.logLLMCall. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 interface StructureEditorState {
@@ -31,12 +35,16 @@ export class StructureEditorAgent extends Agent<Env, StructureEditorState> {
   async review(mdx: string): Promise<StructureAuditResult> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
 
+    const callStart = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 2000,
       system: STRUCTURE_EDITOR_PROMPT,
       messages: [{ role: 'user', content: `Review this lesson structure:\n\n${mdx}` }],
     });
+    const durationMs = Date.now() - callStart;
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
     const raw = extractJson<StructureAuditResult & { failure_reasons?: unknown }>(text);
@@ -62,6 +70,9 @@ export class StructureEditorAgent extends Agent<Env, StructureEditorState> {
       parseError: droppedCount > 0
         ? `Structure editor dropped ${droppedCount} unknown failure_reason token(s) from the response`
         : null,
+      tokensIn,
+      tokensOut,
+      durationMs,
     };
 
     // Learnings are NOT written here. Learner.analysePiecePostPublish reads

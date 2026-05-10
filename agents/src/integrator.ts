@@ -32,6 +32,10 @@ export interface IntegrationResult {
    *  in-memory verdict is computed before persistence runs, so a D1
    *  hiccup cannot affect Director's branch logic. */
   persistError: string | null;
+  /** Per-call usage. Director forwards to observer.logLLMCall. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 /** Internal — what we expect Claude to return as the structured
@@ -106,6 +110,7 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
     // recently observed at 3,123 output tokens. Same CF Workers ~125s
     // subrequest idle reasoning as Curator + Drafter. See DECISIONS
     // 2026-05-09 "Curator 124s 499 timeout regression".
+    const callStart = Date.now();
     const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 8000,
@@ -117,6 +122,9 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
         },
       ],
     }).finalMessage();
+    const durationMs = Date.now() - callStart;
+    const tokensIn = response.usage?.input_tokens ?? 0;
+    const tokensOut = response.usage?.output_tokens ?? 0;
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : '';
 
@@ -150,7 +158,7 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
       },
     });
 
-    return { revisedMdx, decisions, parseError, persistError };
+    return { revisedMdx, decisions, parseError, persistError, tokensIn, tokensOut, durationMs };
   }
 
   /**

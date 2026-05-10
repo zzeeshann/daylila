@@ -190,8 +190,23 @@ export const PICK_DOMAINS: ReadonlySet<PickDomain> = new Set<PickDomain>([
   'unknown',
 ]);
 
+/** Per-call usage telemetry surfaced from any agent that makes a
+ *  Claude call. Director reads these off the result and forwards them
+ *  to ObserverAgent.logLLMCall so the admin observer feed carries the
+ *  cost shape of every mainline LLM call. tokensIn / tokensOut come
+ *  from `response.usage.input_tokens / output_tokens`; durationMs is
+ *  measured wall-clock around the call. Optional cache fields are
+ *  populated only by callers that pass an Anthropic prompt-cache block. */
+export interface LLMCallMetrics {
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
+  cacheCreateTokens?: number;
+  cacheReadTokens?: number;
+}
+
 /** Result of Curator picking a story (or deciding to skip) */
-export type CuratorResult =
+export type CuratorResult = (
   | {
       skip: false;
       brief: DailyPieceBrief;
@@ -200,7 +215,8 @@ export type CuratorResult =
       pickDomain?: PickDomain;
       rejections?: CuratorRejection[];
     }
-  | { skip: true; reason: string };
+  | { skip: true; reason: string }
+) & LLMCallMetrics;
 
 /** Result of Drafter writing MDX for a brief */
 export interface DrafterResult {
@@ -220,6 +236,10 @@ export interface DrafterResult {
    *  unaffected — computed before the persistence call runs.
    *  Foundation Fix Task 06 (L4). */
   persistError: string | null;
+  /** Per-call usage. Director forwards to observer.logLLMCall. */
+  tokensIn: number;
+  tokensOut: number;
+  durationMs: number;
 }
 
 /** Closed enum for audio_audit_results.issue_type — one value per

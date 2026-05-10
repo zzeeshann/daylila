@@ -165,6 +165,7 @@ ${lesson_context ? `\nWhat the reader has been learning:\n${lesson_context}` : '
   }
 
   try {
+    const callStart = Date.now();
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -179,6 +180,7 @@ ${lesson_context ? `\nWhat the reader has been learning:\n${lesson_context}` : '
         messages,
       }),
     });
+    const durationMs = Date.now() - callStart;
 
     if (!claudeResponse.ok) {
       // Read the error body for the observer context, but don't leak
@@ -204,8 +206,32 @@ ${lesson_context ? `\nWhat the reader has been learning:\n${lesson_context}` : '
 
     const data = await claudeResponse.json() as {
       content: Array<{ type: string; text: string }>;
+      usage?: { input_tokens?: number; output_tokens?: number };
     };
     const reply = data.content[0]?.type === 'text' ? data.content[0].text : '';
+
+    // Per-call usage telemetry (LLM-surface audit follow-up, 2026-05-10).
+    // Mirrors agents-side observer.logLLMCall — same row shape so the
+    // admin feed reads site-origin Zita calls alongside agent-origin
+    // mainline calls. Fire-and-forget; never blocks the reply.
+    const tokensIn = data.usage?.input_tokens ?? 0;
+    const tokensOut = data.usage?.output_tokens ?? 0;
+    await logObserverEvent(db, {
+      severity: 'info',
+      title: `LLM zita: ${lesson_title ?? 'Untitled'}`,
+      body: `zita for "${lesson_title ?? 'Untitled'}" — tokens in=${tokensIn} out=${tokensOut}. Latency: ${durationMs}ms.`,
+      context: {
+        step: 'zita',
+        tokensIn,
+        tokensOut,
+        durationMs,
+        userId,
+        pieceDate: piece_date ?? null,
+        courseSlug: course_slug,
+        lessonNumber: lesson_number,
+      },
+      pieceId: scopedPieceId,
+    });
 
     // Cap what we persist so a single row can't dominate future context
     // or bloat D1. Input was already capped at 2000 above; assistant

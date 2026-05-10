@@ -803,6 +803,56 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /**
+   * Generic per-LLM-call meter. One info-severity row per Claude call
+   * on the mainline path, capturing token usage so cost regressions
+   * (input bloat, output bloat, cache misses) surface in the admin
+   * observer feed instead of only in the Anthropic console.
+   *
+   * Used by Curator, Drafter (main draft only — reflection has its own
+   * shape via logReflectionMetered), Voice Auditor, Structure Editor,
+   * Fact Checker, Integrator, and Learner post-publish. The
+   * agent-specific meters (logReflectionMetered / logZitaSynthesisMetered
+   * / logCategoriserMetered / logInteractiveGeneratorMetered) keep
+   * their narrative shapes; this is for the calls that don't have one.
+   *
+   * Round is optional — auditors and the Integrator pass the round
+   * number so a multi-round pipeline run is forensically traceable.
+   * Calls with no round (Curator, Drafter, Learner post-publish) pass
+   * undefined.
+   *
+   * Foundation Fix follow-up (2026-05-10): closes the "mainline calls
+   * discard response.usage" gap from the LLM-surface audit.
+   */
+  async logLLMCall(
+    step: string,
+    title: string,
+    metrics: {
+      tokensIn: number;
+      tokensOut: number;
+      durationMs: number;
+      round?: number;
+      cacheCreateTokens?: number;
+      cacheReadTokens?: number;
+    },
+    pieceId: string | null = null,
+    runId: string | null = null,
+  ): Promise<void> {
+    const roundNote = metrics.round !== undefined ? ` round=${metrics.round}` : '';
+    const cacheNote =
+      (metrics.cacheCreateTokens ?? 0) > 0 || (metrics.cacheReadTokens ?? 0) > 0
+        ? ` cacheCreate=${metrics.cacheCreateTokens ?? 0} cacheRead=${metrics.cacheReadTokens ?? 0}`
+        : '';
+    await this.writeEvent({
+      severity: 'info',
+      title: `LLM ${step}: ${title}`,
+      body: `${step}${roundNote} for "${title}" — tokens in=${metrics.tokensIn} out=${metrics.tokensOut}${cacheNote}. Latency: ${metrics.durationMs}ms.`,
+      context: { step, ...metrics },
+      piece_id: pieceId,
+      run_id: runId,
+    });
+  }
+
   /** Get recent events for the dashboard */
   async getRecentEvents(limit = 20): Promise<ObserverEvent[]> {
     try {
