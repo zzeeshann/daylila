@@ -1,0 +1,70 @@
+{
+  "slug": "use-dependent-network-maintenance",
+  "type": "quiz",
+  "title": "Use-Dependent Network Maintenance",
+  "concept": "Complex networks—biological, social, or infrastructural—maintain their capacity through active use; when connections sit idle, the system gradually prunes them to conserve resources, shifting the balance from growth to loss.",
+  "interactiveId": "0fc11fce-c246-4adc-977e-aac2f0aaef21",
+  "sourcePieceId": "9536b2c6-35aa-461c-9748-68ad2a73685e",
+  "publishedAt": 1778508225730,
+  "voiceScore": 90,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A company maintains a distributed team across twelve offices. Over two years, three offices stop participating in cross-site projects. What happens to the communication pathways between those offices and the rest of the network?",
+        "options": [
+          "They stay intact because the infrastructure exists",
+          "They weaken and eventually disappear without active use",
+          "They strengthen as employees compensate for reduced contact",
+          "They convert into different types of connections"
+        ],
+        "correctIndex": 1,
+        "explanation": "Networks—whether neural, social, or organizational—prune unused connections to allocate resources efficiently. Infrastructure existing doesn't mean pathways persist; they require active traffic to justify their maintenance cost. Without use, the network treats them as waste."
+      },
+      {
+        "question": "Why does a system ever prune its own capacity when that capacity might be needed later?",
+        "options": [
+          "Because maintaining unused capacity costs energy and resources",
+          "Because the system can't distinguish temporary from permanent disuse",
+          "Because pruning prevents interference with active pathways",
+          "Because rebuilding capacity is faster than maintaining it"
+        ],
+        "correctIndex": 0,
+        "explanation": "Maintaining connections—synaptic, social, or mechanical—requires continuous resource input. A system keeping every possible pathway active would exhaust itself. Pruning unused capacity is efficient when reactivation cost is lower than maintenance cost, which is true for most biological and organizational networks."
+      },
+      {
+        "question": "Two people maintain equally complex social networks. One rotates through all their contacts regularly. The other focuses on a core group and rarely reaches out to peripheral contacts. Over five years, what differs between their networks?",
+        "options": [
+          "Nothing—both maintain the same number of relationships",
+          "The first person retains more total contacts but shallower ties",
+          "The second person's network becomes denser but smaller",
+          "The first person builds new contacts faster"
+        ],
+        "correctIndex": 2,
+        "explanation": "Active use maintains pathways; neglect prunes them. The person rotating through contacts keeps more connections alive but spreads attention thin. The person focusing on a core group strengthens those ties but loses peripheral ones through disuse—the network shrinks but thickens where it persists."
+      },
+      {
+        "question": "A university maintains twenty research partnerships with external institutions. Budget constraints force them to choose: invest equally in all twenty or concentrate resources on ten. What determines which choice better preserves total network capacity long-term?",
+        "options": [
+          "Whether the partnerships naturally cluster into active and dormant groups",
+          "Whether concentrated investment produces enough value to justify losing half the network",
+          "Whether equal investment keeps all twenty partnerships above the threshold where they self-maintain through use",
+          "Whether external institutions compensate for reduced university investment"
+        ],
+        "correctIndex": 2,
+        "explanation": "Networks have maintenance thresholds—a minimum activity level below which connections decay despite nominal support. If equal investment keeps all partnerships above that threshold, the network persists. If spreading resources too thin drops all twenty below the threshold, the network collapses entirely. Concentrated investment only wins if the return from ten partnerships exceeds the value of twenty weak ones."
+      },
+      {
+        "question": "An engineer designs a communication protocol for a sensor network. Sensors that haven't transmitted in 30 days automatically reduce their polling frequency to conserve power. Why might this design backfire in practice?",
+        "options": [
+          "Because sensors that stop polling can't detect when they're needed again",
+          "Because the 30-day threshold is arbitrary and might not match actual use patterns",
+          "Because reducing frequency saves less power than shutting down entirely",
+          "Because other sensors compensate by increasing their own polling"
+        ],
+        "correctIndex": 0,
+        "explanation": "The protocol creates a pruning trap: sensors that go quiet lose the ability to detect changes that would justify waking up. Unlike biological networks that prune based on internal signal flow, engineered systems using time-based pruning cut the very mechanism needed to reverse the decision. The sensor can't know it's needed if it's not looking."
+      }
+    ]
+  }
+}
