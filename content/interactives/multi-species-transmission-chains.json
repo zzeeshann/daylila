@@ -1,0 +1,59 @@
+{
+  "slug": "multi-species-transmission-chains",
+  "type": "quiz",
+  "title": "Multi-Species Transmission Chains",
+  "concept": "Disease moves between species through a chain of living intermediaries—pathogens persist in reservoir hosts that sustain them, travel through vectors that feed on multiple species, and reach incidental hosts when their habitats overlap.",
+  "interactiveId": "b97bb61b-a945-4288-903c-6bdf48205583",
+  "sourcePieceId": "51af7aa3-12c1-4e8d-9ac1-e9c627810490",
+  "publishedAt": 1778490248920,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a pathogen need a reservoir species to maintain a stable presence in an area?",
+        "options": [
+          "The reservoir species spreads the pathogen more efficiently than other animals",
+          "The reservoir species provides a population where the pathogen can reproduce without killing its host",
+          "The reservoir species attracts vectors to feed more frequently",
+          "The reservoir species has immunity that protects nearby humans"
+        ],
+        "correctIndex": 1,
+        "explanation": "A reservoir sustains the pathogen because it allows reproduction without killing the host population. If a pathogen killed its primary reservoir quickly, it would eliminate its own survival base. Reservoirs aren't necessarily efficient spreaders—they're stable homes."
+      },
+      {
+        "question": "A vector organism carries pathogens between hosts. What makes transmission incidental rather than intentional from the vector's perspective?",
+        "options": [
+          "The vector doesn't benefit from spreading disease—it's just feeding",
+          "The vector only bites infected hosts by accident",
+          "The vector's immune system blocks most pathogens from being transmitted",
+          "The vector dies after transmitting the pathogen"
+        ],
+        "correctIndex": 0,
+        "explanation": "Transmission is a side effect of the vector's feeding behavior, not a biological goal. The vector evolved to obtain blood meals for growth and reproduction. Moving pathogens between hosts happens because feeding creates a physical bridge, not because transmission benefits the vector."
+      },
+      {
+        "question": "What defines a contact zone in a multi-species transmission system?",
+        "options": [
+          "Any area where the vector species is naturally found",
+          "Regions with high human population density",
+          "Places where vector habitat, reservoir populations, and human activity overlap in the same physical space",
+          "Areas designated by health agencies as high-risk for disease"
+        ],
+        "correctIndex": 2,
+        "explanation": "Contact zones form where all three system components meet—the vector needs suitable habitat, the reservoir needs resources, and humans need reasons to be there. Remove any one element and transmission becomes unlikely. High human density alone doesn't create risk if vectors and reservoirs aren't present."
+      },
+      {
+        "question": "Why do incidental hosts (like humans) often get sicker from these pathogens than reservoir hosts do?",
+        "options": [
+          "Humans have weaker immune systems than wild animals",
+          "The pathogen evolved to survive in the reservoir, not to navigate human biology",
+          "Incidental hosts are exposed to higher pathogen doses",
+          "Reservoir hosts have been vaccinated through prior exposure"
+        ],
+        "correctIndex": 1,
+        "explanation": "The pathogen's evolutionary relationship is with the reservoir species—it adapted to persist there without causing severe harm, since killing the reservoir eliminates its survival base. Incidental hosts encounter a pathogen optimized for a different biology, which often triggers damaging immune responses or lacks containment mechanisms."
+      }
+    ]
+  }
+}
