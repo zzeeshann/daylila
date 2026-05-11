@@ -60,11 +60,37 @@ export interface MadeFacts {
   sources?: string[];
 }
 
+/**
+ * One Integrator response to one piece of audit feedback, persisted by
+ * Foundation Fix Task 06 (2026-05-07) to `integrator_decisions`. Empty
+ * for pieces that pre-date Task 06 or that didn't go through revision
+ * (round 1 pass — no integrator call). Drawer nests these inside each
+ * round's voice / structure / fact gates.
+ */
+export interface MadeIntegratorDecision {
+  /** Closed enum at the writer: `voice_auditor` | `fact_checker` | `structure_editor`. */
+  feedbackSource: string;
+  /** The auditor's flagged item the Integrator was responding to —
+   *  populated from Task 06's `feedback_summary` column. Nullable
+   *  defensively for rows where the integrator parse-fell-through.   */
+  feedbackSummary: string | null;
+  /** Closed enum: `accepted` | `overruled` | `partial`. */
+  decision: string;
+  /** Integrator's narrative for the decision — why accept / overrule. */
+  reasoning: string | null;
+  /** What actually changed in the MDX — line / paragraph / beat. */
+  resultingChange: string | null;
+}
+
 export interface MadeRound {
   round: number;
   voice: MadeVoice;
   structure: MadeStructure;
   fact: MadeFacts;
+  /** Integrator decisions persisted at the END of this round
+   *  (i.e. the response that produced the NEXT round's draft).
+   *  Empty when the round passed and no integrator ran. */
+  integratorDecisions: MadeIntegratorDecision[];
 }
 
 export interface MadeCandidate {
@@ -74,18 +100,74 @@ export interface MadeCandidate {
   summary: string | null;
   url: string | null;
   teachabilityScore: number | null;
+  /** Curator's narrative for picking THIS story. Populated only on the
+   *  picked candidate (selected=1). Foundation Fix Task 03 (2026-05-06)
+   *  added `daily_candidates.pick_reasoning`; pre-Task-03 picks return
+   *  null and the drawer omits the line. */
+  pickReasoning: string | null;
+  /** Closed-enum category (8 values): `off_topic` | `duplicate` | `too_local`
+   *  | `no_teaching_angle` | `wrong_shape` | `low_signal` | `tribal_framing`
+   *  | `already_covered`. Populated on every non-picked candidate
+   *  Curator actually evaluated; null for candidates the pre-Curator
+   *  dedup-headlines path hard-skipped before Curator wrote a category. */
+  rejectionCategory: string | null;
+  /** Curator's narrative for rejecting THIS candidate. Populated only
+   *  for top-N runner-ups (currently top 10 per CURATOR_CONTRACT v1.2);
+   *  other rejections carry only `rejectionCategory` for storage cost. */
+  rejectionReason: string | null;
+}
+
+/** One row of the Curator's rejection-by-category aggregate. */
+export interface MadeRejectionBreakdown {
+  /** Closed-enum slug (e.g. `off_topic`, `tribal_framing`). */
+  category: string;
+  /** How many candidates landed in this category for the run. */
+  count: number;
 }
 
 export interface MadeCandidates {
   total: number;
   picked: MadeCandidate | null;
   alsoConsidered: MadeCandidate[];
+  /** Aggregate count by rejection_category across the run.
+   *  Empty for pre-Task-03 pieces (no rejection_category to group by). */
+  rejectionBreakdown: MadeRejectionBreakdown[];
 }
 
 export interface MadeAudioBeat {
   beatName: string;
   publicUrl: string;
   characterCount: number;
+  /** Per-beat playback duration in seconds. Populated by Audio Producer
+   *  from `byteLength / BYTES_PER_SECOND_AT_96KBPS` (Foundation Fix
+   *  Task 05, 2026-05-12). Null on legacy rows. */
+  durationSeconds: number | null;
+  /** Per-beat MP3 size in bytes — `arrayBuffer().byteLength` captured
+   *  by Audio Producer (Task 05). Null on legacy rows. */
+  fileSizeBytes: number | null;
+}
+
+/**
+ * One row from `audio_audit_results` (Foundation Fix Task 05). The
+ * audit always writes a summary row (`beatName=null`, `issueType=null`)
+ * + one row per issue. Drawer renders the summary as a verdict line
+ * and the issues as a per-beat list. Closed-enum `issueType`:
+ * `no_audio_rows` | `missing_file` | `empty_file` | `size_too_small`
+ * | `size_too_large` | `text_too_short` | `character_cap_exceeded`
+ * | `unknown` (forward-compat sentinel).
+ */
+export interface MadeAudioAuditIssue {
+  beatName: string | null;
+  issueType: string | null;
+  issueSeverity: string | null;
+  notes: string | null;
+}
+
+export interface MadeAudioAudit {
+  passed: boolean;
+  summaryNote: string | null;
+  issues: MadeAudioAuditIssue[];
+  auditedAt: number | null;
 }
 
 /**
@@ -97,10 +179,20 @@ export interface MadeAudioBeat {
 export interface MadeAudio {
   beats: MadeAudioBeat[];
   totalCharacters: number;
+  /** SUM(file_size_bytes) over the beats — populated since Foundation
+   *  Fix Task 05 (2026-05-12). Null when no beat row carries the
+   *  column (pre-Task-05 legacy audio). */
   totalSizeBytes: number | null;
+  /** SUM(duration_seconds) over the beats — total listening time. */
+  totalDurationSeconds: number | null;
   model: string | null;
   voiceId: string | null;
   generatedAt: number | null;
+  /** Audio Auditor's verdict + per-beat issues. Null for pre-Task-05
+   *  legacy pieces with no `audio_audit_results` row, OR for the
+   *  pre-2026-05-11 deploy where every audit silently failed to
+   *  persist via the line-200 arity bug. */
+  audit: MadeAudioAudit | null;
 }
 
 /**
@@ -113,6 +205,27 @@ export interface MadeAudio {
 export interface MadeLearning {
   observation: string;
   source: string | null;
+  createdAt: number;
+}
+
+/**
+ * One learning from an EARLIER piece that was loaded into THIS piece's
+ * Drafter (via `getRecentLearnings(10)`) and then validated by THIS
+ * piece's publication (Director appends this piece's id to the
+ * learning's `applied_to_prompts` JSON array on success — Foundation
+ * Fix Task 04, 2026-05-11).
+ *
+ * Closes the read-side of the loop in the drawer: the existing
+ * `learnings` array is what THIS piece WROTE for future Drafters;
+ * `learningsLoaded` is what PAST pieces WROTE that shaped THIS one.
+ */
+export interface MadeLearningLoad {
+  observation: string;
+  source: string | null;
+  /** Piece that originally wrote this learning. May be null on legacy
+   *  pre-Task-04 rows without piece_id. */
+  fromPieceId: string | null;
+  fromPieceDate: string | null;
   createdAt: number;
 }
 
@@ -182,6 +295,11 @@ export interface MadeEnvelope {
    *  above; both can be set, one set, or neither. */
   htmlInteractive: MadeInteractive | null;
   learnings: MadeLearning[];
+  /** Read-side of the learning loop — learnings written by EARLIER
+   *  pieces that shaped THIS piece. Populated since Foundation Fix
+   *  Task 04 (2026-05-11). Empty on pre-Task-04 pieces (no
+   *  `applied_to_prompts` linkage). */
+  learningsLoaded: MadeLearningLoad[];
 }
 
 /**

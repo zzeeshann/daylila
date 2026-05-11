@@ -2,6 +2,71 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: "How this was made" drawer surfaces Foundation Fix data — pick reasoning, integrator decisions, audio audit, per-beat duration/size, rejection breakdown, read-side of the learning loop
+
+**Trigger.** Operator asked what the drawer currently shows and what's missing, mentioning the learning loop as a candidate. Drawer audit landed in chat: 12 sections render today, zero references in `made.ts` / `made-by.ts` / `made-drawer.ts` to any of the columns Foundation Fix Phase 2 added (`pick_reasoning`, `rejection_category`, `loaded_at`, `applied_to_prompts`, `last_validated_at`, `audio_audit_results`, `draft_revisions`, `integrator_decisions`, `audio_dwell_events`, `file_size_bytes`, `duration_seconds`, `failure_reasons`). Operator approved Tier 1 + Tier 2 of the ranked recommendations; Tier 3 (cross-piece backlinks, failure_reasons enum, LLM token meter on timeline) deferred to a separate decision.
+
+**Two stale lines fixed alongside.** Drawer copy at [made-drawer.ts:289](src/interactive/made-drawer.ts:289) said literally "We don't store *why* — only what was considered." Stale since 2026-05-06 Task 03 — Curator records both pick_reasoning + per-candidate rejection_category. Endpoint at [made.ts:313](src/pages/api/daily/[date]/made.ts:313) hardcoded `totalSizeBytes: null` with the comment "not stored in D1 — R2 HEAD is agents-worker-only" — stale since 2026-05-12 Task 05 added `daily_piece_audio.file_size_bytes`.
+
+**Seven new surfaces, one bundled commit.** All changes touch the same four files; splitting would add commit-graph noise without adding clarity. Bundled because each surface uses the same envelope-extension pattern (add type → extend SELECT → render block → CSS).
+
+### Surface 1 — Curator's pick_reasoning (T03)
+At the top of the Scanner section in a teal-bordered narrative block (`.made-pick` — left border `#1A6B62`, faint teal background tint at 4% alpha). Label "Why this story" + the full pick paragraph. Replaces the stale "we don't store why" sentence. Highest-asked transparency surface; lowest cost — already in D1.
+
+### Surface 2 — Rejection breakdown aggregate (T03)
+Below the picked block, rendered as small count-pill chips: "6 off-topic · 4 tribal framing · 3 low signal · 3 too local · 1 no teaching angle · 1 wrong shape". Aggregated in-memory from the same `daily_candidates` SELECT — zero extra D1 queries. Closed-enum slugs humanised via `REJECTION_CATEGORY_LABEL` (off_topic → "off-topic" etc.); canonical enum stays in `agents/src/types.ts` `RejectionCategory`.
+
+### Surface 3 — Per-candidate rejection_category on Also-considered (T03)
+Each "Also considered" row gets a small grey pill ("low signal") + optional narrative `rejection_reason` as a muted italic sub-line for the top-10 runner-ups. Pre-Curator-dedup skips (rejection_category=null) render without the pill — graceful omission.
+
+### Surface 4 — Integrator decisions per round (T06)
+Nested inside each audit round's body (after voice/structure/fact gates). New `.made-decisions` block titled "What the Integrator did about it" with sub-groups per `feedback_source` (voice / facts / structure ordering matches the gate order above). Each decision carries:
+- italic `feedback_summary` (what the auditor flagged) →
+- uppercase decision label (accepted=teal `#1A6B62` / overruled=grey `#6B6B6B` / partial=amber `#B85c00`) + reasoning →
+- optional `resulting_change` with a gold left-border (`#C49A1A`, matches existing learning row treatment).
+
+One D1 SELECT against `integrator_decisions` keyed by piece_id, grouped in-memory by `revision_round` (matches the audit round numbering). Most editorially-meaningful surface in the package — for each violation/issue/claim, what the editor decided.
+
+### Surface 5 — Audio audit verdict (T05)
+In the Audio section: "Audio audit: passed · Audited N beats, M issues" line between the section's summary and the per-beat list. Failure path renders a per-issue list ("beat-name: issue_type · severity — notes") underneath. One SELECT against `audio_audit_results`; takes the most recent summary row (`beat_name IS NULL AND issue_type IS NULL`) plus per-issue rows from the same audit pass (created_at within 2 min of the summary). Pre-2026-05-11 audit-bug pieces show no audit verdict — fail-soft (`audit: null` from initial state).
+
+### Surface 6 — Per-beat duration + file size (T05)
+Audio section's per-beat list extended: "hook — 529 chars · 0:41 · 484 KB" instead of "hook — 529 chars". Section hint extended too: "6 beats · ~6 min · 4.0 MB". `totalSizeBytes` populated from `SUM(file_size_bytes)`; the hardcoded `null` + stale comment removed. `totalDurationSeconds` added as a new envelope field on `MadeAudio`. Two new formatters: `formatDuration` (seconds → "5:51") + `formatBytes` (bytes → "4.2 MB" / "853 KB" / "237 B").
+
+### Surface 7 — Read-side of the learning loop (T04 — the headline)
+**The drawer's loop story until today was half-loop.** It showed which learnings THIS piece WROTE for future pieces but not which past learnings WERE LOADED into this Drafter. Task 04 closed the agent-side loop on 2026-05-11; today's commit makes it visible.
+
+New SELECT against `learnings WHERE applied_to_prompts LIKE '%"<this_piece_id>"%' AND piece_id != ?` — finds learnings written by EARLIER pieces whose JSON `applied_to_prompts` array now contains THIS piece's id. The LIKE needle wraps the UUID in quotes to guard against prefix-collision with another UUID sharing the leading hex bytes.
+
+New section "Carried in from earlier pieces" rendered immediately before the existing "What the system learned from making this piece" section, sharing the same `.made-section-break` visual frame. Editorially: Drafter pulled prior learnings IN → produced new piece → Learner wrote new patterns OUT. Read first, write second.
+
+Each row carries a quiet "· from YYYY-MM-DD" attribution to the originating piece. The originating piece's slug/URL is **deferred** to Tier 3 — full backlink would need a join against `daily_pieces` on `piece_id`. Today's surface uses the date-only attribution; the row's observation is the visual focus.
+
+**Verification.** Local Astro build clean (`npx astro build` — full TypeScript check + bundling, no errors). Started `npx astro dev`, navigated to the bones piece path, stubbed `window.fetch` to return a hand-crafted envelope exercising every new field, clicked the drawer open. DOM inspection confirmed:
+
+- 10 sections render in correct order (Carried in idx 8, written side idx 9, single visual break between them).
+- `.made-pick` shows pick_reasoning text verbatim.
+- 6 rejection pills render with counts ("6 off-topic" / "4 tribal framing" / "3 low signal" / "3 too local" / "1 no teaching angle" / "1 wrong shape").
+- All three decision colour classes verified via `preview_inspect`: accepted `rgb(26, 107, 98)` / overruled `rgb(107, 107, 107)` / partial `rgb(184, 92, 0)`.
+- Audio audit line: "Audio audit: passed · Audited 6 beats, 0 issues (0 major)" with verdict text in teal.
+- Round 2 readout includes "What the Integrator did about it" → Voice feedback sub-group → tribe word "journey" → accepted (with reasoning + change), then long-sentence → overruled.
+- Loaded-learnings rows carry "· from 2026-05-10" attribution.
+- No console errors.
+
+**Defensive posture.** Every new SELECT is wrapped in try/catch with fail-open default. New envelope fields initialised on every response — `rejectionBreakdown: []`, `audio.audit: null`, `audio.totalDurationSeconds: null`, `learningsLoaded: []`, plus `integratorDecisions: []` per round. Existing reader bundle that doesn't know about new fields parses cleanly (ignores unknown keys); new bundle handles missing fields via defaults. Same back-compat pattern the existing `htmlInteractive` field uses since Phase 2.
+
+**Tier 3 deferred (operator decision queued).**
+- Cross-piece backlinks from loaded learnings to the originating piece URL — needs a join against `daily_pieces.date` for slug. One column-add to the SELECT.
+- `audit_results.failure_reasons` closed-enum tokens surfaced alongside freeform `violations` — would need a render shape change in the audit-rounds block to distinguish the standardized signal from the human narrative.
+- LLM token meter from `observer_events WHERE title LIKE 'LLM %'` on Timeline rows — would surface "Curator · 27k in / 4.8k out · 141.8s" per pipeline phase. Most operator-facing of the three; borderline whether it belongs in a reader drawer.
+- `audio_dwell_events` aggregate — `[wontfix]` for the drawer. Per-reader aggregate is awkward in a single-reader drawer; belongs in admin dashboard.
+
+**What deliberately stayed.** "Rules applied" section still hardcodes `VOICE_RULES` + `STRUCTURE_RULES` arrays in TS. Loading from `VOICE_CONTRACT` codegen is its own refactor with audit-side implications.
+
+**Files (4 + 2 docs):** `src/lib/made-by.ts` (new types: MadeIntegratorDecision, MadeRejectionBreakdown, MadeAudioAuditIssue, MadeAudioAudit, MadeLearningLoad; extended MadeCandidate/MadeCandidates/MadeRound/MadeAudioBeat/MadeAudio/MadeEnvelope), `src/pages/api/daily/[date]/made.ts` (extended candidates SELECT + new integrator_decisions + audio_audit_results + learningsLoaded queries + totalSize/Duration aggregates), `src/interactive/made-drawer.ts` (new helpers: renderRejectionBreakdown, renderIntegratorDecisions, renderOneDecision, renderAudioAudit, renderLoadedLearnings; rewrote Scanner + Audio sections, appended new "Carried in" section, reframed pair break placement), `src/styles/made.css` (15 new classes: .made-pick, .made-pick-label, .made-pick-reasoning, .made-rej-breakdown, .made-rej-pill, .made-candidate-rej, .made-candidate-reason, .made-decisions, .made-decisions-group, .made-decision, .made-decision-accepted/overruled/partial, .made-audio-audit, .made-audio-audit-ok/mixed, .made-learning-from); CLAUDE.md (this entry), DECISIONS.md (this entry). No migration. No agent change. No contract change. No codegen. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+---
+
 ## 2026-05-11: Empty-content guard across all 19 Anthropic SDK call sites — closes the `Cannot read properties of undefined (reading 'type')` crash class
 
 **Trigger.** Operator triggered a fresh InteractiveGenerator run from admin against the 2026-05-11 tick-borne-diseases piece. The quiz path shipped fine; the HTML path failed with `Interactive generation failed: 6 tick-borne diseases that should be on your radar (html) / Reason: Cannot read properties of undefined (reading 'type')`. The piece stayed live; the html artefact didn't ship.
