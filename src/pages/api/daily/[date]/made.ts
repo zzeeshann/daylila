@@ -13,9 +13,14 @@ import type {
   MadeFactClaim,
   MadeAudio,
   MadeAudioBeat,
+  MadeAudioAudit,
+  MadeAudioAuditIssue,
   MadeLearning,
+  MadeLearningLoad,
   MadeCategory,
   MadeInteractive,
+  MadeIntegratorDecision,
+  MadeRejectionBreakdown,
 } from '../../../../lib/made-by';
 
 export const prerender = false;
@@ -61,19 +66,22 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     piece: null,
     timeline: [],
     rounds: [],
-    candidates: { total: 0, picked: null, alsoConsidered: [] },
+    candidates: { total: 0, picked: null, alsoConsidered: [], rejectionBreakdown: [] },
     audio: {
       beats: [],
       totalCharacters: 0,
       totalSizeBytes: null,
+      totalDurationSeconds: null,
       model: null,
       voiceId: null,
       generatedAt: null,
+      audit: null,
     },
     categories: [],
     interactive: null,
     htmlInteractive: null,
     learnings: [],
+    learningsLoaded: [],
   };
 
   // --- Piece metadata --------------------------------------------------
@@ -192,6 +200,45 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       return ra - rb;
     });
 
+    // Pull integrator_decisions for this piece up front (one query,
+    // no join — Task 06 wrote `revision_round` keyed by the round
+    // that PRODUCED the decision, which matches the audit's round_id).
+    // Empty on pre-Task-06 pieces (table didn't exist) or single-round
+    // pieces (no integrator call fired). Failure is fail-open — drawer
+    // still renders rounds without decisions.
+    const decisionsByRound = new Map<number, MadeIntegratorDecision[]>();
+    if (pieceIdFilter) {
+      try {
+        const decisionRows = await db
+          .prepare(
+            `SELECT revision_round, feedback_source, feedback_summary, decision, reasoning, resulting_change
+               FROM integrator_decisions
+              WHERE piece_id = ?
+              ORDER BY revision_round ASC, created_at ASC`,
+          )
+          .bind(pieceIdFilter)
+          .all<{
+            revision_round: number;
+            feedback_source: string;
+            feedback_summary: string | null;
+            decision: string;
+            reasoning: string | null;
+            resulting_change: string | null;
+          }>();
+        for (const r of decisionRows.results) {
+          const key = r.revision_round ?? 0;
+          if (!decisionsByRound.has(key)) decisionsByRound.set(key, []);
+          decisionsByRound.get(key)!.push({
+            feedbackSource: r.feedback_source,
+            feedbackSummary: r.feedback_summary,
+            decision: r.decision,
+            reasoning: r.reasoning,
+            resultingChange: r.resulting_change,
+          });
+        }
+      } catch { /* leave decisionsByRound empty */ }
+    }
+
     envelope.rounds = drafts.map<MadeRound>(([draftId, group]) => {
       const round = roundFromDraftId(draftId);
       const voice = group.find((g) => g.auditor === 'voice');
@@ -217,15 +264,28 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             ? { sources: factShape.sources }
             : {}),
         },
+        // Integrator's response was written at the END of this round
+        // (it produced round N+1's draft). We key the decision row by
+        // `revision_round = N+1` in Task 06 — but for the drawer the
+        // editorially natural pairing is "audit round N → integrator
+        // response shown UNDER round N." So we look up decisions
+        // whose revision_round equals THIS round's number for the
+        // pairing — Task 06 numbers decisions by the round that
+        // CONSUMES them. Empty array on the final passing round
+        // (no integrator ran).
+        integratorDecisions: decisionsByRound.get(round) ?? [],
       };
     });
   } catch { /* leave empty */ }
 
   // --- Candidates Scanner surfaced -------------------------------------
+  // pick_reasoning / rejection_category / rejection_reason all added by
+  // Foundation Fix Task 03 (2026-05-06). Pre-Task-03 candidates carry
+  // null on all three; renderer omits the empty lines naturally.
   try {
     const cands = pieceIdFilter
       ? await db
-          .prepare('SELECT headline, source, category, summary, url, teachability_score, selected FROM daily_candidates WHERE piece_id = ? ORDER BY teachability_score DESC')
+          .prepare('SELECT headline, source, category, summary, url, teachability_score, selected, pick_reasoning, rejection_category, rejection_reason FROM daily_candidates WHERE piece_id = ? ORDER BY teachability_score DESC')
           .bind(pieceIdFilter)
           .all<{
             headline: string;
@@ -235,9 +295,12 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             url: string | null;
             teachability_score: number | null;
             selected: number | null;
+            pick_reasoning: string | null;
+            rejection_category: string | null;
+            rejection_reason: string | null;
           }>()
       : await db
-          .prepare('SELECT headline, source, category, summary, url, teachability_score, selected FROM daily_candidates WHERE date = ? ORDER BY teachability_score DESC')
+          .prepare('SELECT headline, source, category, summary, url, teachability_score, selected, pick_reasoning, rejection_category, rejection_reason FROM daily_candidates WHERE date = ? ORDER BY teachability_score DESC')
           .bind(date)
           .all<{
             headline: string;
@@ -247,6 +310,9 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             url: string | null;
             teachability_score: number | null;
             selected: number | null;
+            pick_reasoning: string | null;
+            rejection_category: string | null;
+            rejection_reason: string | null;
           }>();
 
     const list = cands.results.map<MadeCandidate>((c) => ({
@@ -256,7 +322,25 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       summary: c.summary ?? null,
       url: c.url ?? null,
       teachabilityScore: c.teachability_score ?? null,
+      pickReasoning: c.pick_reasoning ?? null,
+      rejectionCategory: c.rejection_category ?? null,
+      rejectionReason: c.rejection_reason ?? null,
     }));
+
+    // Rejection breakdown by closed-enum category, descending by count.
+    // Aggregates in-memory rather than a second D1 query — the cands
+    // result already has every row, and the result set caps at ~24
+    // rows under PER_FEED_CAP=2 + GLOBAL_CAP=24.
+    const rejectionCounts = new Map<string, number>();
+    for (const c of cands.results) {
+      if (c.selected === 1) continue;
+      const cat = c.rejection_category ?? null;
+      if (!cat) continue;
+      rejectionCounts.set(cat, (rejectionCounts.get(cat) ?? 0) + 1);
+    }
+    const rejectionBreakdown: MadeRejectionBreakdown[] = Array.from(rejectionCounts.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count);
 
     const pickedIdx = cands.results.findIndex((c) => c.selected === 1);
     const envelopeCandidates: MadeCandidates = {
@@ -265,16 +349,20 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       alsoConsidered: list
         .filter((_, i) => i !== pickedIdx)
         .slice(0, 6),
+      rejectionBreakdown,
     };
     envelope.candidates = envelopeCandidates;
   } catch { /* leave empty */ }
 
   // --- Audio rows (may be empty if audio hasn't landed yet) -----------
+  // file_size_bytes + duration_seconds added by Foundation Fix Task 05
+  // (migration 0033). Null on pre-Task-05 audio; totals fall back to
+  // null when every row is missing the column.
   try {
     const audioRes = pieceIdFilter
       ? await db
           .prepare(
-            `SELECT beat_name, public_url, character_count, model, voice_id, generated_at
+            `SELECT beat_name, public_url, character_count, file_size_bytes, duration_seconds, model, voice_id, generated_at
              FROM daily_piece_audio WHERE piece_id = ? ORDER BY generated_at ASC`,
           )
           .bind(pieceIdFilter)
@@ -282,13 +370,15 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             beat_name: string;
             public_url: string;
             character_count: number;
+            file_size_bytes: number | null;
+            duration_seconds: number | null;
             model: string;
             voice_id: string;
             generated_at: number;
           }>()
       : await db
           .prepare(
-            `SELECT beat_name, public_url, character_count, model, voice_id, generated_at
+            `SELECT beat_name, public_url, character_count, file_size_bytes, duration_seconds, model, voice_id, generated_at
              FROM daily_piece_audio WHERE date = ? ORDER BY generated_at ASC`,
           )
           .bind(date)
@@ -296,6 +386,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             beat_name: string;
             public_url: string;
             character_count: number;
+            file_size_bytes: number | null;
+            duration_seconds: number | null;
             model: string;
             voice_id: string;
             generated_at: number;
@@ -306,15 +398,77 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         beatName: r.beat_name,
         publicUrl: r.public_url,
         characterCount: r.character_count,
+        durationSeconds: r.duration_seconds ?? null,
+        fileSizeBytes: r.file_size_bytes ?? null,
       }));
+      const sizes = rows.map((r) => r.file_size_bytes ?? 0);
+      const durs = rows.map((r) => r.duration_seconds ?? 0);
+      const someSize = rows.some((r) => r.file_size_bytes != null);
+      const someDur = rows.some((r) => r.duration_seconds != null);
       const audio: MadeAudio = {
         beats,
         totalCharacters: rows.reduce((sum, r) => sum + r.character_count, 0),
-        totalSizeBytes: null, // not stored in D1 — R2 HEAD is agents-worker-only
+        totalSizeBytes: someSize ? sizes.reduce((s, n) => s + n, 0) : null,
+        totalDurationSeconds: someDur ? durs.reduce((s, n) => s + n, 0) : null,
         model: rows[0].model,
         voiceId: rows[0].voice_id,
         generatedAt: rows[0].generated_at,
+        audit: null,
       };
+
+      // Audio Auditor verdict from `audio_audit_results` (Task 05,
+      // migration 0033). Always-summary row has `beat_name IS NULL`
+      // and `issue_type IS NULL`; per-issue rows carry both. Take the
+      // most recent summary row (audit may have re-run; the latest is
+      // authoritative).
+      if (pieceIdFilter) {
+        try {
+          const auditRows = await db
+            .prepare(
+              `SELECT beat_name, passed, issue_type, issue_severity, notes, created_at
+                 FROM audio_audit_results
+                WHERE piece_id = ?
+                ORDER BY created_at DESC`,
+            )
+            .bind(pieceIdFilter)
+            .all<{
+              beat_name: string | null;
+              passed: number;
+              issue_type: string | null;
+              issue_severity: string | null;
+              notes: string | null;
+              created_at: number;
+            }>();
+          if (auditRows.results.length > 0) {
+            // Latest summary row (beat_name=null AND issue_type=null).
+            const summary = auditRows.results.find(
+              (r) => r.beat_name == null && r.issue_type == null,
+            );
+            // Group issues from the same audit pass: created_at within
+            // 2 minutes of the latest summary row counts as the same run.
+            const summaryT = summary?.created_at ?? auditRows.results[0].created_at;
+            const issueRows = auditRows.results.filter(
+              (r) =>
+                r !== summary &&
+                r.issue_type != null &&
+                Math.abs(r.created_at - summaryT) < 120_000,
+            );
+            const issues: MadeAudioAuditIssue[] = issueRows.map((r) => ({
+              beatName: r.beat_name,
+              issueType: r.issue_type,
+              issueSeverity: r.issue_severity,
+              notes: r.notes,
+            }));
+            audio.audit = {
+              passed: summary ? !!summary.passed : issues.length === 0,
+              summaryNote: summary?.notes ?? null,
+              issues,
+              auditedAt: summaryT,
+            };
+          }
+        } catch { /* leave audio.audit null */ }
+      }
+
       envelope.audio = audio;
     }
   } catch { /* leave audio empty */ }
@@ -472,6 +626,45 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       createdAt: r.created_at,
     }));
   } catch { /* leave learnings empty */ }
+
+  // --- Read-side of the learning loop --------------------------------
+  // Learnings written by EARLIER pieces whose `applied_to_prompts` JSON
+  // array now contains THIS piece's id — meaning the Drafter loaded
+  // them via `getRecentLearnings(10)` at draft time and Director's
+  // success-path batch then linked them to this piece on publish.
+  // Foundation Fix Task 04 (2026-05-11) added the linkage column.
+  // Pre-Task-04 pieces have no inbound links and the array stays empty.
+  if (pieceIdFilter) {
+    try {
+      // LIKE on a JSON-encoded array of UUIDs — the search needle
+      // includes the quotes to avoid prefix-collision with another
+      // UUID that happens to share the leading hex bytes.
+      const needle = `%"${pieceIdFilter}"%`;
+      const loaded = await db
+        .prepare(
+          `SELECT observation, source, piece_id, piece_date, created_at
+             FROM learnings
+            WHERE applied_to_prompts LIKE ?
+              AND piece_id != ?
+            ORDER BY created_at ASC`,
+        )
+        .bind(needle, pieceIdFilter)
+        .all<{
+          observation: string;
+          source: string | null;
+          piece_id: string | null;
+          piece_date: string | null;
+          created_at: number;
+        }>();
+      envelope.learningsLoaded = loaded.results.map<MadeLearningLoad>((r) => ({
+        observation: r.observation,
+        source: r.source,
+        fromPieceId: r.piece_id,
+        fromPieceDate: r.piece_date,
+        createdAt: r.created_at,
+      }));
+    } catch { /* leave learningsLoaded empty */ }
+  }
 
   return new Response(JSON.stringify(envelope), {
     headers: {

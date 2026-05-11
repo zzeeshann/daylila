@@ -16,7 +16,13 @@
 import { auditTier, auditTierLabel } from '../lib/audit-tier';
 import { pipelineStepLabel } from '../lib/pipeline-steps';
 import { CUTOFF_CONFESSION_PHRASES, CUTOFF_CONFESSION_REPLACEMENT } from '../lib/fact-check-thresholds';
-import type { MadeEnvelope, MadeFactClaim } from '../lib/made-by';
+import type {
+  MadeEnvelope,
+  MadeFactClaim,
+  MadeIntegratorDecision,
+  MadeAudioAudit,
+  MadeRejectionBreakdown,
+} from '../lib/made-by';
 
 /**
  * Voice-contract rules shown as a plain reference card. The drawer does
@@ -282,11 +288,26 @@ class MadeDrawer extends HTMLElement {
     }
 
     // --- Candidates ----------------------------------------------------
+    // Foundation Fix Task 03 (2026-05-06) added pick_reasoning +
+    // rejection_category + rejection_reason to daily_candidates. The
+    // older "we don't store why" copy is now stale — Curator records a
+    // full narrative on the picked candidate plus a closed-enum category
+    // on every rejection plus a text reason on the top-10 runner-ups.
     if (env.candidates.total > 0) {
       const total = env.candidates.total;
       const hint = `${total} candidate${total === 1 ? '' : 's'}`;
+      const pickedReasoning = env.candidates.picked?.pickReasoning ?? null;
+      const breakdownHtml = renderRejectionBreakdown(env.candidates.rejectionBreakdown);
+      const pickedBlock = pickedReasoning
+        ? `
+        <div class="made-pick">
+          <p class="made-pick-label">Why this story</p>
+          <p class="made-pick-reasoning">${escapeHtml(pickedReasoning)}</p>
+        </div>`
+        : `<p class="made-section-note">${total} candidates today. Curator picked the one above.</p>`;
       const body = `
-        <p class="made-section-note">${total} candidates today. Curator picked the one above. We don't store <em>why</em> — only what was considered.</p>
+        ${pickedBlock}
+        ${breakdownHtml}
         <div class="made-candidates" data-made-candidates>
           <button class="made-candidates-toggle" type="button" data-made-candidates-toggle>
             <span>Also considered (${env.candidates.alsoConsidered.length})</span>
@@ -303,23 +324,46 @@ class MadeDrawer extends HTMLElement {
     }
 
     // --- Audio ---------------------------------------------------------
+    // Per-beat duration_seconds + file_size_bytes populated since
+    // Foundation Fix Task 05 (2026-05-12). Totals fall back when
+    // every row is null (pre-Task-05 legacy audio). Audit verdict
+    // from `audio_audit_results` — null on pre-Task-05 pieces and
+    // on every audit before the 2026-05-11 arity-bug fix deployed.
     if (env.audio && env.audio.beats.length > 0) {
       const a = env.audio;
       const modelLabel = a.model === 'eleven_multilingual_v2'
         ? 'ElevenLabs Multilingual v2'
         : (a.model ?? 'ElevenLabs');
       const beatCount = a.beats.length;
-      const hint = `${beatCount} beat${beatCount === 1 ? '' : 's'} · ${formatChars(a.totalCharacters)}`;
+      const totalMin = a.totalDurationSeconds != null
+        ? Math.round(a.totalDurationSeconds / 60)
+        : null;
+      const sizeLabel = a.totalSizeBytes != null
+        ? formatBytes(a.totalSizeBytes)
+        : null;
+      const hintParts: string[] = [`${beatCount} beat${beatCount === 1 ? '' : 's'}`];
+      if (totalMin != null) hintParts.push(`~${totalMin} min`);
+      if (sizeLabel) hintParts.push(sizeLabel);
+      const hint = hintParts.join(' · ');
+      const totalLineParts: string[] = [`${a.totalCharacters.toLocaleString()} characters`];
+      if (a.totalDurationSeconds != null) totalLineParts.push(`${formatDuration(a.totalDurationSeconds)} listening`);
+      if (sizeLabel) totalLineParts.push(sizeLabel);
       const body = `
         <p class="made-section-note">
           ${beatCount} beat${beatCount === 1 ? '' : 's'} narrated by
           <strong>Frederick Surrey</strong> via ${escapeHtml(modelLabel)} ·
-          ${a.totalCharacters.toLocaleString()} characters
+          ${totalLineParts.join(' · ')}
         </p>
+        ${renderAudioAudit(a.audit)}
         <ul class="made-list" style="margin-top:0.5rem">
           ${a.beats
             .map(
-              (b) => `<li>${escapeHtml(b.beatName)} — ${b.characterCount.toLocaleString()} chars</li>`,
+              (b) => {
+                const perBeatParts: string[] = [`${b.characterCount.toLocaleString()} chars`];
+                if (b.durationSeconds != null) perBeatParts.push(`${formatDuration(b.durationSeconds)}`);
+                if (b.fileSizeBytes != null) perBeatParts.push(formatBytes(b.fileSizeBytes));
+                return `<li>${escapeHtml(b.beatName)} — ${perBeatParts.join(' · ')}</li>`;
+              },
             )
             .join('')}
         </ul>
@@ -375,6 +419,35 @@ class MadeDrawer extends HTMLElement {
       html.push(renderSection('The final commit', hint, body));
     }
 
+    // --- Read-side of the learning loop --------------------------------
+    // Foundation Fix Task 04 (2026-05-11) closed the consumption-side
+    // of the learnings loop: every learning loaded by Drafter via
+    // getRecentLearnings(10) gets its applied_to_prompts JSON array
+    // extended with the new piece's id on Director's success path.
+    // The drawer until now showed the WRITE side ("what this piece
+    // taught") but not the READ side ("what shaped this piece"). This
+    // section closes that visible gap.
+    //
+    // Renders BEFORE the write-side learnings, so the natural read
+    // order is: this piece was shaped by prior learnings → this piece
+    // produced new learnings for future pieces. Both sit inside the
+    // same `made-section-break` visual frame.
+    const hasLoaded = env.learningsLoaded.length > 0;
+    const hasWritten = env.learnings.length > 0;
+    if (hasLoaded || hasWritten) {
+      html.push(`<div class="made-section-break" aria-hidden="true"></div>`);
+    }
+    if (hasLoaded) {
+      const n = env.learningsLoaded.length;
+      const hint = `${n} learning${n === 1 ? '' : 's'} from earlier pieces`;
+      const intro = `Earlier pieces taught Drafter patterns the system carried into this one. ${n} learning${n === 1 ? '' : 's'} from past pieces shaped this Drafter's choices.`;
+      const body = `
+        <p class="made-section-note">${escapeHtml(intro)}</p>
+        ${renderLoadedLearnings(env.learningsLoaded)}
+      `;
+      html.push(renderSection('Carried in from earlier pieces', hint, body));
+    }
+
     // --- What the system learned from making this piece ----------------
     // Visual break + intro paragraph reframe the section as forward-
     // looking — these notes are patterns for tomorrow's Drafter, not a
@@ -393,9 +466,8 @@ class MadeDrawer extends HTMLElement {
         <p class="made-section-note">${escapeHtml(intro)}</p>
         ${renderLearningGroups(env.learnings)}
       `;
-      // Visual break sits between making-history and learning-forward
-      // sections — reads visually even when both are collapsed.
-      html.push(`<div class="made-section-break" aria-hidden="true"></div>`);
+      // Visual break already emitted above when paired with the
+      // read-side block; no extra break here.
       html.push(renderSection('What the system learned from making this piece', hint, body));
     }
 
@@ -451,6 +523,54 @@ function renderSection(label: string, hint: string | null, body: string): string
 function formatChars(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k chars`;
   return `${n} chars`;
+}
+
+/** Seconds → "5:51" (mm:ss) or "0:41" (under a minute). */
+function formatDuration(secs: number): string {
+  const total = Math.max(0, Math.round(secs));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/** Bytes → "4.2 MB" / "853 KB" / "237 B". */
+function formatBytes(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} MB`;
+  if (n >= 1000) return `${(n / 1000).toFixed(0)} KB`;
+  return `${n} B`;
+}
+
+/**
+ * Audio Auditor verdict line for inside the Audio section. Reads:
+ *   "Audio audit: passed · 7 beats reviewed, 0 issues"
+ * or on failure:
+ *   "Audio audit: 2 issues" + per-issue list under it
+ * Null `audit` (pre-Task-05 piece or pre-fix arity-bug audit silently
+ * lost) → empty string, section omits the line cleanly.
+ */
+function renderAudioAudit(audit: MadeAudioAudit | null | undefined): string {
+  if (!audit) return '';
+  const verdictCls = audit.passed ? 'made-audio-audit-ok' : 'made-audio-audit-mixed';
+  const verdictLabel = audit.passed ? 'passed' : 'mixed';
+  const issuesLine = audit.issues.length === 0
+    ? ''
+    : `<ul class="made-list made-audio-audit-issues">${audit.issues
+        .map((i) => {
+          const beat = i.beatName ? escapeHtml(i.beatName) : 'audio';
+          const t = i.issueType ? escapeHtml(i.issueType.replace(/_/g, ' ')) : 'issue';
+          const sev = i.issueSeverity ? ` · ${escapeHtml(i.issueSeverity)}` : '';
+          const note = i.notes ? ` — ${escapeHtml(i.notes)}` : '';
+          return `<li>${beat}: ${t}${sev}${note}</li>`;
+        })
+        .join('')}</ul>`;
+  const note = audit.summaryNote ? ` · ${escapeHtml(audit.summaryNote)}` : '';
+  return `
+    <p class="made-audio-audit">
+      <span class="made-audio-audit-label">Audio audit:</span>
+      <span class="made-audio-audit-verdict ${verdictCls}">${escapeHtml(verdictLabel)}</span>${note}
+    </p>
+    ${issuesLine}
+  `;
 }
 
 /**
@@ -605,7 +725,80 @@ function renderRound(r: MadeEnvelope['rounds'][number], isLatest: boolean): stri
         </div>
         ${renderStringList(r.structure.issues, 'No structural issues.')}
       </div>
+
+      ${renderIntegratorDecisions(r.integratorDecisions)}
     </div>
+  `;
+}
+
+/**
+ * Foundation Fix Task 06 (2026-05-07): for each round whose auditors
+ * flagged issues, Integrator persisted one `integrator_decisions` row
+ * per feedback item with `decision` ∈ {accepted, overruled, partial},
+ * reasoning, and the resulting change. Drawer surfaces these per-round
+ * so a reader sees the editorial response, not just the audit verdict.
+ *
+ * Grouped by `feedbackSource` to mirror the round's gate ordering
+ * (voice / facts / structure). Empty array on the final passing round
+ * (no integrator ran).
+ */
+const FEEDBACK_SOURCE_LABEL: Record<string, string> = {
+  voice_auditor: 'Voice',
+  fact_checker: 'Facts',
+  structure_editor: 'Structure',
+};
+
+const DECISION_LABEL_CLASS: Record<string, string> = {
+  accepted: 'made-decision-accepted',
+  overruled: 'made-decision-overruled',
+  partial: 'made-decision-partial',
+};
+
+function renderIntegratorDecisions(decisions: MadeIntegratorDecision[]): string {
+  if (!decisions || decisions.length === 0) return '';
+  // Stable source order: voice, facts, structure. Within a source,
+  // preserve insertion (Director writes in audit order).
+  const order = ['voice_auditor', 'fact_checker', 'structure_editor'];
+  const grouped = new Map<string, MadeIntegratorDecision[]>();
+  for (const d of decisions) {
+    const key = d.feedbackSource;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(d);
+  }
+  const sectionParts: string[] = [];
+  for (const src of order) {
+    const items = grouped.get(src);
+    if (!items || items.length === 0) continue;
+    const label = FEEDBACK_SOURCE_LABEL[src] ?? src;
+    sectionParts.push(`
+      <div class="made-decisions-group">
+        <p class="made-decisions-group-title">${escapeHtml(label)} feedback</p>
+        <ul class="made-decisions-list">
+          ${items.map(renderOneDecision).join('')}
+        </ul>
+      </div>
+    `);
+  }
+  if (sectionParts.length === 0) return '';
+  return `
+    <div class="made-decisions">
+      <p class="made-decisions-title">What the Integrator did about it</p>
+      ${sectionParts.join('')}
+    </div>
+  `;
+}
+
+function renderOneDecision(d: MadeIntegratorDecision): string {
+  const dCls = DECISION_LABEL_CLASS[d.decision] ?? 'made-decision-partial';
+  return `
+    <li class="made-decision">
+      ${d.feedbackSummary ? `<p class="made-decision-feedback">${escapeHtml(d.feedbackSummary)}</p>` : ''}
+      <p class="made-decision-verdict">
+        <span class="made-decision-label ${dCls}">${escapeHtml(d.decision)}</span>
+        ${d.reasoning ? `<span class="made-decision-reasoning">${escapeHtml(d.reasoning)}</span>` : ''}
+      </p>
+      ${d.resultingChange ? `<p class="made-decision-change">${escapeHtml(d.resultingChange)}</p>` : ''}
+    </li>
   `;
 }
 
@@ -760,6 +953,55 @@ function renderLearningGroup(title: string, observations: string[]): string {
   `;
 }
 
+/**
+ * Render the read-side loop — learnings written by earlier pieces that
+ * this piece's Drafter loaded at runtime. Each row carries the source
+ * piece's date as a quiet attribution line; we don't link back yet
+ * because the slug isn't in the load result and computing one would
+ * need a second query (deferred Tier-3 add).
+ */
+function renderLoadedLearnings(loaded: MadeEnvelope['learningsLoaded']): string {
+  if (!loaded || loaded.length === 0) return '';
+  // Group by source label to mirror the write-side grouping above.
+  const bySource = new Map<string, typeof loaded>();
+  for (const l of loaded) {
+    const key = l.source && LEARNING_SOURCE_LABEL[l.source] ? l.source : '__fallback__';
+    if (!bySource.has(key)) bySource.set(key, []);
+    bySource.get(key)!.push(l);
+  }
+  const groups: string[] = [];
+  for (const src of LEARNING_SOURCE_ORDER) {
+    const items = bySource.get(src);
+    if (!items || items.length === 0) continue;
+    groups.push(renderOneLoadedGroup(LEARNING_SOURCE_LABEL[src], items));
+  }
+  const fb = bySource.get('__fallback__');
+  if (fb && fb.length > 0) {
+    groups.push(renderOneLoadedGroup(LEARNING_FALLBACK_LABEL, fb));
+  }
+  return groups.join('');
+}
+
+function renderOneLoadedGroup(title: string, items: MadeEnvelope['learningsLoaded']): string {
+  return `
+    <div class="made-learning-group">
+      <p class="made-learning-group-title">${escapeHtml(title)}</p>
+      <ul class="made-list">
+        ${items
+          .map(
+            (l) =>
+              `<li class="made-learning">${escapeHtml(l.observation)}${
+                l.fromPieceDate
+                  ? `<span class="made-learning-from"> · from ${escapeHtml(l.fromPieceDate)}</span>`
+                  : ''
+              }</li>`,
+          )
+          .join('')}
+      </ul>
+    </div>
+  `;
+}
+
 function renderCategory(c: MadeEnvelope['categories'][number]): string {
   const slug = encodeURIComponent(c.slug);
   return `
@@ -852,10 +1094,60 @@ function renderCandidate(c: MadeEnvelope['candidates']['alsoConsidered'][number]
   if (c.source) meta.push(escapeHtml(c.source));
   if (c.category) meta.push(escapeHtml(c.category));
   if (c.teachabilityScore != null) meta.push(`teach ${c.teachabilityScore}`);
+  // T03 (Foundation Fix Task 03, 2026-05-06): show the closed-enum
+  // rejection category as a small tag. Skipped at the pre-Curator
+  // dedup-headlines path will have a null category — section omits.
+  const rejTag = c.rejectionCategory
+    ? `<span class="made-candidate-rej">${escapeHtml(humaniseRejectionCategory(c.rejectionCategory))}</span>`
+    : '';
+  // Narrative reason — only top-10 runner-ups carry text. Renders as
+  // a muted sub-line under the headline.
+  const rejReason = c.rejectionReason
+    ? `<span class="made-candidate-reason">${escapeHtml(c.rejectionReason)}</span>`
+    : '';
   return `
     <div class="made-candidate">
-      <span class="made-candidate-headline">${title}</span>
+      <span class="made-candidate-headline">${title}${rejTag}</span>
       ${meta.length > 0 ? `<span class="made-candidate-meta">${meta.join(' · ')}</span>` : ''}
+      ${rejReason}
+    </div>
+  `;
+}
+
+/**
+ * Render Curator's per-run rejection-category aggregate. Closed enum
+ * lives in `agents/src/types.ts` `RejectionCategory`; this map carries
+ * the reader-facing labels. The breakdown line reads at a glance:
+ *
+ *   "Curator filtered: 6 off-topic · 4 tribal framing · 3 low signal"
+ *
+ * Empty array → empty string (graceful omission on pre-Task-03 pieces
+ * and runs where every candidate skipped the dedup-pre-Curator path).
+ */
+const REJECTION_CATEGORY_LABEL: Record<string, string> = {
+  off_topic: 'off-topic',
+  duplicate: 'duplicate',
+  too_local: 'too local',
+  no_teaching_angle: 'no teaching angle',
+  wrong_shape: 'wrong shape',
+  low_signal: 'low signal',
+  tribal_framing: 'tribal framing',
+  already_covered: 'already covered',
+};
+
+function humaniseRejectionCategory(slug: string): string {
+  return REJECTION_CATEGORY_LABEL[slug] ?? slug.replace(/_/g, ' ');
+}
+
+function renderRejectionBreakdown(breakdown: MadeRejectionBreakdown[]): string {
+  if (!breakdown || breakdown.length === 0) return '';
+  const parts = breakdown.map(
+    (b) => `<span class="made-rej-pill"><strong>${b.count}</strong> ${escapeHtml(humaniseRejectionCategory(b.category))}</span>`,
+  );
+  return `
+    <div class="made-rej-breakdown">
+      <p class="made-rej-breakdown-label">Curator filtered</p>
+      <div class="made-rej-breakdown-list">${parts.join('')}</div>
     </div>
   `;
 }

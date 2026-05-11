@@ -868,6 +868,235 @@ details.made-section[open] > summary .made-section-caret {
   margin-bottom: 0;
 }
 
+/* --- Curator's "Why this story" + rejection breakdown -------------- */
+/* Foundation Fix Task 03 (2026-05-06) — Curator records pick_reasoning
+ * on the picked candidate and rejection_category on every rejection.
+ * Drawer surfaces both: pick_reasoning sits at the top of the Scanner
+ * section in a teal-bordered narrative block; the rejection breakdown
+ * sits underneath as small count-pill chips. */
+
+.made-pick {
+  border-left: 3px solid #1A6B62;
+  background: rgba(26, 107, 98, 0.04);
+  border-radius: 0 0.5rem 0.5rem 0;
+  padding: 0.625rem 0.875rem;
+  margin: 0 0 0.875rem;
+}
+
+.made-pick-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6B6B6B;
+}
+
+.made-pick-reasoning {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #1A1A1A;
+}
+
+.made-rej-breakdown {
+  margin: 0 0 0.875rem;
+}
+
+.made-rej-breakdown-label {
+  margin: 0 0 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #6B6B6B;
+  text-transform: uppercase;
+}
+
+.made-rej-breakdown-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.made-rej-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(232, 228, 222, 0.6);
+  font-size: 0.6875rem;
+  color: #1A1A1A;
+  font-variant-numeric: tabular-nums;
+}
+
+.made-rej-pill strong {
+  font-weight: 700;
+  color: #1A6B62;
+}
+
+.made-candidate-rej {
+  display: inline-block;
+  margin-left: 0.375rem;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 9999px;
+  background: rgba(232, 228, 222, 0.7);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6B6B6B;
+  vertical-align: middle;
+}
+
+.made-candidate-reason {
+  font-size: 0.6875rem;
+  color: #6B6B6B;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* --- Integrator decisions (per round) ----------------------------- */
+/* Foundation Fix Task 06 (2026-05-07) — for each piece of audit
+ * feedback, Integrator decided accepted / overruled / partial with
+ * reasoning + resulting_change. Drawer nests these UNDER each round's
+ * voice/structure/fact gates so the audit verdict and the editorial
+ * response sit visually paired.
+ */
+
+.made-decisions {
+  margin-top: 0.875rem;
+  padding-top: 0.875rem;
+  border-top: 1px dashed #E8E4DE;
+}
+
+.made-decisions-title {
+  margin: 0 0 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6B6B6B;
+}
+
+.made-decisions-group + .made-decisions-group {
+  margin-top: 0.625rem;
+}
+
+.made-decisions-group-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+
+.made-decisions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.made-decision {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 0.375rem;
+  border: 1px solid #E8E4DE;
+}
+
+.made-decision-feedback {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #6B6B6B;
+  font-style: italic;
+}
+
+.made-decision-verdict {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #1A1A1A;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.made-decision-label {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  flex-shrink: 0;
+}
+
+.made-decision-accepted  { color: #1A6B62; background: rgba(26, 107, 98, 0.1); }
+.made-decision-overruled { color: #6B6B6B; background: rgba(107, 107, 107, 0.12); }
+.made-decision-partial   { color: #B85c00; background: rgba(184, 92, 0, 0.1); }
+
+.made-decision-reasoning {
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #1A1A1A;
+}
+
+.made-decision-change {
+  margin: 0.375rem 0 0;
+  font-size: 0.75rem;
+  color: #6B6B6B;
+  line-height: 1.55;
+  padding-left: 0.625rem;
+  border-left: 2px solid #C49A1A;
+}
+
+/* --- Audio audit verdict (inside Audio section) ------------------- */
+/* Foundation Fix Task 05 (2026-05-12) verdict line — sits between the
+ * top-of-section summary line and the per-beat list. Reads at a glance:
+ *   "Audio audit: passed · Audited 7 beats, 0 issues (0 major)"
+ */
+
+.made-audio-audit {
+  margin: 0.5rem 0;
+  font-size: 0.75rem;
+  color: #6B6B6B;
+  line-height: 1.55;
+}
+
+.made-audio-audit-label {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.made-audio-audit-verdict {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+}
+
+.made-audio-audit-ok    { color: #1A6B62; }
+.made-audio-audit-mixed { color: #B85c00; }
+
+.made-audio-audit-issues {
+  margin-top: 0.375rem;
+}
+
+/* --- Loaded-learnings attribution line ---------------------------- */
+/* Read-side of the loop — shows which earlier piece originally wrote
+ * each loaded learning. Quiet sub-line so the observation is the
+ * visual focus, not the attribution. */
+
+.made-learning-from {
+  font-style: normal;
+  color: #6B6B6B;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
+
 /* --- Affordance glyphs (↗ on external links inside the drawer) ---- */
 
 .made-glyph-teal {
