@@ -1,6 +1,5 @@
 ---
 import '../styles/global.css';
-import { AGENT_COUNT } from '../lib/constants';
 import { getUser } from '../lib/db';
 import { parseSessionCookie } from '../lib/auth';
 
@@ -46,7 +45,7 @@ const { title, description, ogType = 'website', article, learningResource, claim
 // admin dashboard).
 const metaDescription =
   description ??
-  `Educate yourself for humble decisions. Daily teaching, made by ${AGENT_COUNT} agents.`;
+  `Read the headline, learn the system behind it. Educate yourself for humble decisions.`;
 
 const siteOrigin = Astro.site ?? Astro.url;
 const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).toString();
@@ -250,6 +249,8 @@ if (learningResource) {
 
     <!-- Icons + manifest -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#1A6B62" />
