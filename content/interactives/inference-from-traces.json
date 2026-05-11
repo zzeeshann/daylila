@@ -1,0 +1,59 @@
+{
+  "slug": "inference-from-traces",
+  "type": "quiz",
+  "title": "Inference from Traces",
+  "concept": "When direct observation is impossible, you reconstruct behavior by reading the physical marks it left behind—patterns in traces reveal the choices that produced them.",
+  "interactiveId": "625aaf85-45da-46cd-af0d-f0e5a5eda1fa",
+  "sourcePieceId": "fec7fcc3-8e7c-4afa-b6e9-5c031773d395",
+  "publishedAt": 1778458091692,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A factory floor shows scuff marks concentrated near one machine but not others. What does the pattern most directly tell you?",
+        "options": [
+          "Workers spent more time at that machine",
+          "That machine is older than the others",
+          "The floor material is weaker in that spot",
+          "Workers preferred working at that machine"
+        ],
+        "correctIndex": 0,
+        "explanation": "Concentrated wear marks mean repeated activity in that location—time spent. Age and floor material might contribute, but the clustering itself is evidence of where activity happened. Preference is a leap beyond what the marks show."
+      },
+      {
+        "question": "You find tool marks clustered on parts of an object but absent from others. What does the absence teach you?",
+        "options": [
+          "Those parts were worked with a different tool",
+          "Those parts weren't processed",
+          "The tool couldn't reach those parts",
+          "Those parts were already finished"
+        ],
+        "correctIndex": 1,
+        "explanation": "No marks means no work happened there. The clustering shows selective effort—they worked some parts and skipped others. Different tools, reach limits, or prior finishing would still leave marks, just different ones."
+      },
+      {
+        "question": "Why does clustering of marks in high-value areas suggest planning rather than random work?",
+        "options": [
+          "Random work would leave marks everywhere equally",
+          "Planning always creates visible patterns",
+          "High-value areas are easier to work",
+          "Clustering proves they had a written plan"
+        ],
+        "correctIndex": 0,
+        "explanation": "If effort were unguided, marks would spread evenly across available surfaces. Clustering means selection—they evaluated and focused on specific parts. Planning doesn't require writing; it requires choosing where to spend effort based on expected return."
+      },
+      {
+        "question": "A set of cut marks runs shallow and parallel along a surface. What does the angle and depth pattern reveal?",
+        "options": [
+          "The tool was dull",
+          "The worker was inexperienced",
+          "The task was removing material along the surface",
+          "The surface was very hard"
+        ],
+        "correctIndex": 2,
+        "explanation": "Shallow parallel cuts mean the tool moved along the surface, not into it—stripping something off rather than cutting through. Dullness or hardness would show in effort marks or repeated passes, not in the angle. The pattern itself shows the motion, not the skill level."
+      }
+    ]
+  }
+}
