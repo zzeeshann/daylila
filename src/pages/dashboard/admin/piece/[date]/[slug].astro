@@ -501,11 +501,6 @@ const audioFailureReason: string | null = audioFailureStep
   ? (safeJson(audioFailureStep.data)?.reason ?? null)
   : null;
 const totalAudioChars = audioRows.reduce((sum, r) => sum + r.character_count, 0);
-// has_audio = 1 is the definitive "audio done" signal (set by Publisher
-// after the second commit splices audioBeats into frontmatter). Any
-// other state (partial rows, failed step, zero rows, stalled with no
-// error) means a retry affordance should be visible.
-const audioComplete = piece?.has_audio === 1;
 // Word + beat count derived from the published MDX (single source of
 // truth as of PR #0, 2026-05-09). The previous daily_pieces.word_count
 // + beat_count columns were brief-time values that drifted from the
@@ -514,6 +509,14 @@ const audioComplete = piece?.has_audio === 1;
 // — pre-Phase-7 historical pieces or rebuild lag.
 const pieceStats = entry?.body ? computePieceStats(entry.body) : null;
 const expectedBeats = pieceStats?.beatCount ?? audioRows.length;
+// has_audio = 1 alone isn't enough — per-beat regen (retryAudioBeat)
+// deletes one row + R2 object then schedules a regen alarm, but if the
+// alarm silently dies the flag stays at 1 and rows < expectedBeats.
+// Without checking row count, the dashboard tells the operator
+// "published ✓" while one beat is 404 for readers. Require both: the
+// flag set AND every expected row present. See 2026-05-11 session.
+const audioComplete = piece?.has_audio === 1
+  && audioRows.length === expectedBeats;
 
 // Compact summary values — computed once, consumed in the top stat row
 // and in each collapsible section's <summary> so the operator can scan

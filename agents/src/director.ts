@@ -1600,13 +1600,27 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     const { pieceId, date, title, armedAt } = payload;
     const runId = payload.runId ?? null;
 
-    // (1) If has_audio=1, the pipeline completed normally before the
-    // watchdog fired. No-op.
-    const piece = await this.env.DB
-      .prepare('SELECT has_audio FROM daily_pieces WHERE id = ? LIMIT 1')
-      .bind(pieceId)
-      .first<{ has_audio: number }>();
-    if (piece?.has_audio === 1) return;
+    // (1) If an `audio-publishing done` row landed for this piece since
+    // `armedAt`, the pipeline completed normally — no-op. has_audio=1
+    // alone is not enough: per-beat regen (retryAudioBeat) keeps
+    // has_audio=1 the whole time. The old `has_audio === 1` check made
+    // the watchdog blind to silently-stalled regens — the 2026-05-11
+    // cognitive-challenge incident, where the operator's regen click
+    // left R2 + D1 row deleted but no observer event ever fired because
+    // the watchdog short-circuited on the still-set flag. Tying
+    // completion to a fresh pipeline_log row scoped to this run
+    // distinguishes "this run done" from "an earlier run already set
+    // the flag."
+    const completionRow = await this.env.DB
+      .prepare(
+        `SELECT id FROM pipeline_log
+         WHERE piece_id = ? AND step = 'audio-publishing' AND status = 'done'
+           AND created_at >= ?
+         LIMIT 1`,
+      )
+      .bind(pieceId, armedAt)
+      .first();
+    if (completionRow) return;
 
     // (2) If an audio-failure observer_event for this pieceId fired
     // since `armedAt`, the pipeline already reported its failure. No-op.
@@ -1844,27 +1858,63 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // Per-beat regen (retryAudioBeat) passes force=true after deleting
     // just the target beat; producer's head-check then regenerates only
     // the missing row.
+    //
+    // Refuse only when has_audio=1 AND every expected beat row is
+    // present. Per-beat regen can leave the piece wedged (has_audio=1
+    // but rows < expected) when its scheduled alarm silently dies —
+    // the 2026-05-11 cognitive-challenge incident. In that state
+    // Continue is the right tool: Producer's R2 head-check skips the
+    // existing rows and regenerates only the missing one. Comparing
+    // against the most recent audio-publishing.done's beatCount keeps
+    // this check honest without re-parsing the MDX.
     if (!force && piece.has_audio === 1) {
-      const observer = await this.subAgent(ObserverAgent, 'observer');
-      await observer.logError(
-        'audio',
-        0,
-        `retryAudio no-op: piece ${pieceId} already has audio published (has_audio=1). Use "Start over" or per-beat Regenerate to trigger a rewrite.`,
-        pieceId,
-        null,
-      );
-      return;
+      const audioRowCount = await this.env.DB
+        .prepare('SELECT COUNT(*) AS cnt FROM daily_piece_audio WHERE piece_id = ?')
+        .bind(pieceId)
+        .first<{ cnt: number }>();
+      const lastPublishRow = await this.env.DB
+        .prepare(
+          `SELECT data FROM pipeline_log
+           WHERE piece_id = ? AND step = 'audio-publishing' AND status = 'done'
+           ORDER BY created_at DESC LIMIT 1`,
+        )
+        .bind(pieceId)
+        .first<{ data: string | null }>();
+      let expectedBeats: number | null = null;
+      try {
+        expectedBeats = lastPublishRow?.data
+          ? (JSON.parse(lastPublishRow.data)?.beatCount ?? null)
+          : null;
+      } catch { /* malformed JSON — fall through to refuse */ }
+      const rowCount = audioRowCount?.cnt ?? 0;
+      if (expectedBeats == null || rowCount >= expectedBeats) {
+        const observer = await this.subAgent(ObserverAgent, 'observer');
+        await observer.logError(
+          'audio',
+          0,
+          `retryAudio no-op: piece ${pieceId} already has audio published (has_audio=1, ${rowCount}/${expectedBeats ?? '?'} beats). Use "Start over" or per-beat Regenerate to trigger a rewrite.`,
+          pieceId,
+          null,
+        );
+        return;
+      }
+      // Wedged: has_audio=1 but rows<expected. Fall through and let the
+      // pipeline resume — head-check fills the missing beat(s) only.
     }
 
     // filePath lives in the publishing.done step's data column.
-    // run_id stays YYYY-MM-DD (cadence Phase 3 walk-back) but we now
-    // additionally scope by `piece_id = ?` (migration 0018) so
-    // multi-per-day same-date pieces don't collide. One row per piece
-    // by construction — LIMIT 1 is defensive, not load-bearing.
+    // Migration 0037 (2026-05-07) renamed pipeline_log's date-shaped
+    // `run_id` to `run_date` and added a fresh UUID-shaped `run_id`
+    // alongside. Site-worker queries were swept then; this agent query
+    // was missed, so retryAudio threw "no publishing.done row" on every
+    // call (the throw lives inside ctx.waitUntil — visible only via
+    // console.error, which is why the failure was silent until
+    // 2026-05-11). `piece_id = ?` also scopes against multi-per-day
+    // same-date collisions (migration 0018).
     const pubRow = await this.env.DB
       .prepare(
         `SELECT data FROM pipeline_log
-         WHERE run_id = ? AND piece_id = ?
+         WHERE run_date = ? AND piece_id = ?
            AND step = 'publishing' AND status = 'done'
          ORDER BY created_at DESC LIMIT 1`,
       )
