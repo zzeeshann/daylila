@@ -46,7 +46,7 @@ export class StructureEditorAgent extends Agent<Env, StructureEditorState> {
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
 
     // Resilient parse. See voice-auditor.ts for the full rationale —
     // before 2026-05-11 a truncated / malformed JSON response would

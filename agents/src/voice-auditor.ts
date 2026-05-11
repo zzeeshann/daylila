@@ -64,7 +64,7 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
 
     // Resilient parse. extractJson throws on truncated / malformed
     // JSON. Before 2026-05-11 the throw propagated to Director and

@@ -366,7 +366,7 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
       system: CATEGORISER_PROMPT,
       messages: [{ role: 'user', content: userPrompt }],
     });
-    const firstText = first.content[0].type === 'text' ? first.content[0].text : '{}';
+    const firstText = first.content[0]?.type === 'text' ? first.content[0].text : '{}';
     const firstRaw = parseRawAssignments(firstText);
     const firstResolveOutcome = await this.resolveAssignments(
       firstRaw,
@@ -401,7 +401,7 @@ export class CategoriserAgent extends Agent<Env, CategoriserState> {
           { role: 'user', content: CATEGORISER_RETRY_MESSAGE },
         ],
       });
-      const secondText = second.content[0].type === 'text' ? second.content[0].text : '{}';
+      const secondText = second.content[0]?.type === 'text' ? second.content[0].text : '{}';
       const secondRaw = parseRawAssignments(secondText);
       const secondResolveOutcome = await this.resolveAssignments(
         secondRaw,

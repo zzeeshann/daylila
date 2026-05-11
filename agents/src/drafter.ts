@@ -107,7 +107,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
       const tokensIn = response.usage?.input_tokens ?? 0;
       const tokensOut = response.usage?.output_tokens ?? 0;
 
-      let mdx = response.content[0].type === 'text' ? response.content[0].text : '';
+      let mdx = response.content[0]?.type === 'text' ? response.content[0].text : '';
       // Force correct date in frontmatter (Claude may generate a different date)
       mdx = mdx.replace(/^(date:\s*)"?\d{4}-\d{2}-\d{2}"?/m, `$1"${brief.date}"`);
       const wordCount = mdx.split(/\s+/).length;
@@ -207,7 +207,7 @@ export class DrafterAgent extends Agent<Env, DrafterState> {
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     let parsed: { learnings?: ReflectionLearning[] };
     try {
       parsed = extractJson<typeof parsed>(text);
