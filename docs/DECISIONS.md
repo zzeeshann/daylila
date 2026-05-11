@@ -2,6 +2,85 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: Audio retry paths silently broken since 2026-05-07 — stale `run_id` query + wedge UX gap
+
+**Trigger.** Operator opened today's *Three enjoyable ways to slow your brain's ageing* piece on prod, found beat 5 (`cognitive-challenge`) audio rendering "unavailable". Had clicked per-beat **Regenerate** from admin earlier; the regen "didn't regenerate" and produced no visible error. Three coordinated issues surfaced from one incident.
+
+### The wedged state (visible immediately)
+
+- `daily_pieces.has_audio = 1`
+- `daily_piece_audio` rows = 6 (the cognitive-challenge row was DELETEd by `retryAudioBeat`)
+- R2 object `cognitive-challenge.mp3` = 404 (deleted by the same flow)
+- Zero observer event around the regen click
+- Admin dashboard incorrectly showed "Audio published ✓" + Start over only (no Continue affordance, no per-beat Regenerate button for the missing beat because its row anchor was gone)
+
+### The silent root cause (found via wrangler tail)
+
+Initial diagnosis hypothesised "silent stall" — the 12-min watchdog should have caught any pipeline that ran but didn't complete. That hypothesis assumed the regen *attempted* execution. To confirm, ran `wrangler tail --format pretty` against `zeemish-agents` and had the operator click **Continue** (with `has_audio` manually flipped to 0 via wrangler). The tail surfaced:
+
+```
+DirectorAgent.retryAudio - Ok @ 11:32:16 PM
+[audio-retry:continue] failed for piece 9536b2c6-... (2026-05-11):
+  retryAudio: no publishing.done row for 2026-05-11
+```
+
+Migration 0037 (Foundation Fix Task 08, 2026-05-07) renamed `pipeline_log.run_id` (date-shaped) → `run_date` and added a fresh UUID-shaped `run_id` alongside. The migration file explicitly named the sweep: *"each rewrites `WHERE run_id = ?` → `WHERE run_date = ?`"*. Four site-worker queries were swept; **one agent-side query in `retryAudio` was missed** — the publish-row lookup at [agents/src/director.ts:1913](agents/src/director.ts:1913) still bound `date` against the now-UUID `run_id` column. Returned zero rows on every call; the function threw with a deterministic "no publishing.done row" message.
+
+The throw lived inside the `/audio-retry` handler's `ctx.waitUntil` block at [agents/src/server.ts:276](agents/src/server.ts:276). That handler only writes the error to `console.error` — no observer event, no pipeline_log row, no admin-feed signal. Every audio retry path failed silently the same way:
+- **Continue** (`retryAudio`) → throw
+- **Start over** (`retryAudioFresh` → `retryAudio`) → throw, AFTER `retryAudioFresh` had already wiped every R2 object + D1 row + flipped `has_audio` to 0
+- **Per-beat Regenerate** (`retryAudioBeat` → `retryAudio`) → throw, AFTER the per-beat DELETEs already ran
+
+The per-beat case is the worst because it strands one beat without operator-visible signal. Today's cognitive-challenge was the first incident to fully play out the wedge scenario; the bug had been live for 4 days.
+
+### Why initial runs survived
+
+`triggerDailyPiece` schedules `runAudioPipelineScheduled` directly with the runId in the payload; it never reads `pipeline_log` for publish-row lookup. Only the retry-from-admin paths went through `retryAudio`'s broken query. Most pieces are published successfully on first attempt, so the bug stayed hidden in plain sight.
+
+### Fixes — four coordinated, two commits ([PR #51](https://github.com/zzeeshann/daylila/pull/51))
+
+**Commit [3173adf](https://github.com/zzeeshann/daylila/commit/3173adf) — wedge surface + recovery affordances.** Three changes that together make wedged pieces visible and recoverable (irrespective of which underlying bug caused the wedge):
+
+1. **Admin dashboard `audioComplete` derivation** at [src/pages/dashboard/admin/piece/[date]/[slug].astro:508](src/pages/dashboard/admin/piece/[date]/[slug].astro:508). Was `piece?.has_audio === 1` alone; now also requires `audioRows.length === expectedBeats`. The wedged state — `has_audio=1` AND rows < expected — now correctly renders "Audio incomplete — expected N beats, have M" with Continue + Start over buttons instead of misleading "Audio published ✓".
+
+2. **`retryAudio` short-circuit** at [agents/src/director.ts:1861](agents/src/director.ts:1861). Was `if (!force && piece.has_audio === 1) refuse`; now reads `daily_piece_audio` row count AND the most recent `audio-publishing.done` row's `beatCount` (from `pipeline_log`), and refuses ONLY when both flag set AND rows ≥ expected. When wedged (rows < expected), falls through to schedule the pipeline — Producer's R2 head-check fills the missing beat(s) without disturbing the working ones. Preserves the 2026-04-17 double-fire guard for healthy pieces.
+
+3. **`checkAudioStalled` watchdog** at [agents/src/director.ts:1603](agents/src/director.ts:1603). Was short-circuiting on `has_audio === 1` alone, which is always-true for per-beat regens. Now queries for an `audio-publishing done` pipeline_log row written since `armedAt`. Distinguishes "this run done" from "an earlier run set the flag." Future regen stalls (different root cause) will fire the "Silent stall" observer event after 12 min instead of silently masking.
+
+**Commit [17bfc67](https://github.com/zzeeshann/daylila/commit/17bfc67) — the actual root cause.** One-word swap in the `retryAudio` publish-row query — `WHERE run_id = ?` → `WHERE run_date = ?`. Doc-comment above the query expanded to call out the migration-0037 sweep gap with a brief incident summary, so the next reader doesn't re-introduce the bug.
+
+### Recovery flow (operator-driven)
+
+For today's piece specifically, the recovery couldn't use the post-fix Continue path because the fix wasn't deployed yet at incident time. Used wrangler to flip `has_audio` to 0 first (which made the OLD dashboard show "Audio incomplete" + Continue), then realised Continue ALSO failed via the same stale query → cracked the bug via tail → shipped the fix → operator re-clicked Continue after deploy. End-to-end successful: Producer's R2 head-check skipped the 6 present beats, generated only `cognitive-challenge`, Publisher re-committed the audioBeats frontmatter, `has_audio` flipped back to 1. ~1 ElevenLabs call cost ($0.05) vs the full piece regen (~$0.35) Start over would have charged.
+
+### What did NOT change
+
+- No migration. No schema change.
+- No contract change. No codegen rerun.
+- Initial pipeline runs (`triggerDailyPiece` → `runAudioPipeline`) untouched — they bypass the broken query entirely.
+- The 2026-04-17 double-fire guard stays in place; the `retryAudio` short-circuit refines its detection, not its semantics.
+- No new D1 indexes; the wedge-detection query against `audio-publishing.done` uses the existing index from migration 0033 / 0034 era.
+
+### Why bundled together
+
+Commit 1 was already in flight (drafted in the worktree as wedge UX fixes) when the live wrangler-tail diagnosis surfaced the root cause. Both are useful and complementary:
+- Commit 2 alone fixes the underlying bug, but leaves the dashboard's blind spot intact for any other wedge-class incident (network blip, ElevenLabs flake, DO eviction).
+- Commit 1 alone closes the wedge UX, but the Continue button it exposes would have kept failing on commit 2's bug.
+
+Together: the surface is honest, the agent can recover, and future regressions are observable instead of silent.
+
+### Lesson — `verify_dont_infer` in action
+
+Initial reasoning was "silent stall → watchdog blind spot" because no observer event was visible. That hypothesis was partially correct (the watchdog IS blind for per-beat regens, fixed in commit 1) but the actual mechanism was different — `retryAudio` never reached the alarm at all. Without `wrangler tail`, the bug would have stayed hidden behind commit 1's wedge surface fix; the Continue button would have been exposed but still broken. The diagnostic value of streaming worker logs against a live click is hard to overstate for any `ctx.waitUntil`-wrapped failure mode.
+
+### Files
+
+- 1 site file (`src/pages/dashboard/admin/piece/[date]/[slug].astro`)
+- 1 agent file (`agents/src/director.ts`)
+- CLAUDE.md (this entry), DECISIONS.md (this entry)
+
+Migration count: 43 (unchanged). Table count: 26 (unchanged). No contract change. No codegen rerun.
+
 ## 2026-05-11: "How this was made" drawer surfaces Foundation Fix data — pick reasoning, integrator decisions, audio audit, per-beat duration/size, rejection breakdown, read-side of the learning loop
 
 **Trigger.** Operator asked what the drawer currently shows and what's missing, mentioning the learning loop as a candidate. Drawer audit landed in chat: 12 sections render today, zero references in `made.ts` / `made-by.ts` / `made-drawer.ts` to any of the columns Foundation Fix Phase 2 added (`pick_reasoning`, `rejection_category`, `loaded_at`, `applied_to_prompts`, `last_validated_at`, `audio_audit_results`, `draft_revisions`, `integrator_decisions`, `audio_dwell_events`, `file_size_bytes`, `duration_seconds`, `failure_reasons`). Operator approved Tier 1 + Tier 2 of the ranked recommendations; Tier 3 (cross-piece backlinks, failure_reasons enum, LLM token meter on timeline) deferred to a separate decision.
