@@ -13,6 +13,25 @@ Format per entry:
 
 ---
 
+## [followup] 2026-05-11: Update book chapter(s) to reflect drawer surfacing of Foundation Fix Phase 2 data
+
+**Surfaced:** 2026-05-11, alongside commit `99daa9a` ([daylila#49](https://github.com/zzeeshann/daylila/pull/49)) — the drawer expansion that surfaces pick reasoning (T03), the read-side of the learning loop (T04), audio audit + per-beat duration/size (T05), and per-round integrator decisions (T06).
+
+`docs/foundation-fix/BOOK-UPDATES.md` defines per-task book responsibility (table at "Per-task book responsibility"). The drawer surfacing PR closes the *reader-facing visibility* side of each of those four tasks, which is editorially different from the agent-side change the existing BOOK-UPDATES rows describe. The book chapters that the drawer's new surfaces would touch:
+
+- **Chapter on the Curator** (08-daylila-the-idea.md or wherever Curator lives) — "we now show you why this story was picked, and what categories the rejected ones fell into."
+- **Chapter on the audit-and-revise loop** (11-quality-gates.md) — "the drawer now shows what the Integrator did about each piece of feedback, not just the auditors' verdict."
+- **Chapter on the self-improvement loop** (14-closing-the-loop.md) — "the loop is now visible to readers, not just observable in the agent code. You can see which prior learnings shaped this piece, and which new patterns this piece taught the next Drafter."
+- **Chapter on audio narration** (13-audio-pipeline.md) — "audio audit verdict + per-beat duration are surfaced; no more 'how big is the file?' question."
+
+**Voice rules** match the per-piece body voice (same as `docs/foundation-fix/BOOK-UPDATES.md` lays out): plain English, no tribe words, no flattery, specific over general, trust the reader.
+
+**Sequencing:** open separate session per the existing pattern (e.g. the line-179 entry "Update book chapter(s) to reflect Categoriser fragmentation work" — same shape). Documentation work, no migration risk, no agent runtime impact.
+
+**Priority:** low. The drawer is live; the book lags. Readers see the new surfaces; the book chapters explain *why* (which is the book's job, not the drawer's).
+
+---
+
 ## [observing] 2026-05-10: Zita tribe-word drift watch after VOICE_CONTRACT injection (PR #37)
 
 - **Surfaced:** 2026-05-10 alongside the LLM-surface-cleanup priority-6 commit lifting Zita's system prompt out of `src/pages/api/zita/chat.ts` into `src/lib/zita-prompt.ts` and injecting `${VOICE_CONTRACT}` via Vite's `?raw` query suffix. Pre-2026-05-10 the prompt restated voice rules abstractly (rule 5: "Plain English. Same voice rules as Daylila: no jargon, no tribe words, no flattery."); the named tribe-words list (mindfulness, journey, empower, transform, wellness, unlock, dive in, embrace, lean into, unpack, holistic, optimize, hack, curate, intentional) was nowhere in Zita's system prompt. Post-deploy, the list is in the prompt verbatim.
@@ -269,13 +288,13 @@ The [open] zombie-pipeline-runs entry below is partially relevant — migration 
 - **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Use the `idx_dwell_piece_occurred` composite index on `(piece_id, occurred_at)` for the per-piece scan; the leftmost prefix handles the WHERE. Per-user retrospectives (e.g. "show all dwell rows for this signed-in user") are even further deferred — `idx_dwell_user_occurred` is in place to serve them when picked up.
 - **Priority:** low. The data flows; the surface is downstream readability work. Pick up after the unblock criterion is met.
 
-## [deferred] 2026-05-07: Surface revision trail (rounds + decisions) on the made-drawer + admin per-piece
+## [partially-resolved] 2026-05-07: Surface revision trail (rounds + decisions) on the made-drawer + admin per-piece
 
 - **Surfaced:** 2026-05-07, Foundation Fix Task 06 ("L4, L8, L9 closed"). Task 06 lands the data — every `draft()` call writes round 0 to `draft_revisions`, every `revise()` call writes round N + per-decision rows to `draft_revisions` + `integrator_decisions` (migration 0034) — but does not surface it on any reader-facing or admin surface.
 - **Hypothesis:** the natural reader-facing surface is the *How this was made* drawer's existing "What the auditors said" section (rendered from `audit_results` per round). The natural extension is per-round word counts + per-feedback-item dispositions ("Voice flagged 'unlock' — accepted, replaced with 'enable'"). The natural admin surface is the per-piece deep-dive (`src/pages/dashboard/admin/piece/[date]/[slug].astro`) with the full revision trail rendered alongside the existing audit-rounds table — operator-shaped detail showing how the prose evolved across rounds.
-- **Why deferred:** same posture as the Task 03 + Task 04 + Task 05 deferred surface entries above. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. The brief explicitly named drawer work as defer-by-default. Both consumer files (`src/pages/api/daily/[date]/made.ts`, the admin page) SELECT explicit columns; the new tables are silently safe.
-- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Reader-facing made-drawer is a separate and lower-priority question — most readers don't care which feedback items the Integrator overruled; the drawer's audit-rounds section already gives them voice/structure/fact verdicts. The decisions array's diagnostic value is mostly for operators and the future Task 09 verification work.
-- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after Phase 2 completes.
+- **Drawer half resolved 2026-05-11** in commit `99daa9a` ([daylila#49](https://github.com/zzeeshann/daylila/pull/49)). Each audit round in the drawer's "What the auditors said" section now nests a "What the Integrator did about it" block grouped by `feedback_source` (voice / facts / structure). Each decision shows italic `feedback_summary` → uppercase decision label (accepted=teal / overruled=grey / partial=amber) + reasoning → optional `resulting_change` with a gold left-border. Verified on prod via the 2026-05-11 12:17 piece (single-round R1 pass, empty decision array — designed) and on the Fossil / Big-G multi-round pieces during development. Per-round word counts NOT surfaced (separate future polish).
+- **Still open: admin per-piece deep-dive.** `src/pages/dashboard/admin/piece/[date]/[slug].astro` doesn't yet render the round-by-round revision trail. Same data; different audience (operator-shaped detail).
+- **Priority:** low. Drawer side gives readers the editorial-response visibility; admin side is downstream operator polish.
 
 ## [resolved] 2026-05-12: Integrator regression risk — passing dimensions can flip to failing across rounds
 
@@ -305,28 +324,26 @@ The [open] zombie-pipeline-runs entry below is partially relevant — migration 
 - **Investigation hints:** join `daily_pieces.voice_score` (or the regenerated tier from `audit_results`) against per-piece pass→fail flip count from `integrator_decisions`. If the distribution separates cleanly (Rough pieces have fewer flips than Solid), that's a clean Learner signal. If it doesn't separate, the Learner's "Rough = hard piece" assumption needs more work upstream of Task 09.
 - **Priority:** low. Speculative until 30 days of data body. Premature to act on.
 
-## [deferred] 2026-05-07: Surface integrator regression awareness in admin per-piece deep-dive / made-drawer
+## [partially-resolved] 2026-05-07: Surface integrator regression awareness in admin per-piece deep-dive / made-drawer
 
 - **Surfaced:** 2026-05-07, Foundation Fix Task 09 closing PR. The data lands going forward (`integrator_decisions` with both rounds' decisions per piece, plus the new prompt + state behaviour visible via DO state inspection); no reader-facing or admin surface renders the round-to-round transition story yet.
-- **Hypothesis:** the natural admin surface is the per-piece deep-dive's existing decisions table at `src/pages/dashboard/admin/piece/[date]/[slug].astro` (already renders `integrator_decisions`). Extension would render pass→fail flip annotations between rounds: "Round 2 introduced [tribe_word]; Round 3 fixed it." Reader-facing surface on the made-drawer is similar but lower priority — most readers don't care which feedback items the Integrator overruled; the drawer's audit-rounds section already gives them voice/structure/fact verdicts per round.
-- **Why deferred:** same posture as the Tasks 03 / 04 / 05 / 06 / 07 deferred surface entries. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. The brief explicitly named drawer work as defer-by-default. Both consumer files SELECT explicit columns; the round-pair derivation is a render-time computation against existing rows.
-- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). The `round_pairs` CTE in `scripts/integrator-regression-health.sql` is the rendering shape — pair adjacent rounds, flag pass→fail transitions. Reader-facing made-drawer can pick up later from the same shape.
-- **Priority:** low. The data flows; the surface is downstream readability work.
+- **Hypothesis:** the natural admin surface is the per-piece deep-dive's existing decisions table at `src/pages/dashboard/admin/piece/[date]/[slug].astro`. Extension would render pass→fail flip annotations between rounds: "Round 2 introduced [tribe_word]; Round 3 fixed it." Reader-facing surface on the made-drawer is similar but lower priority.
+- **Drawer half partially resolved 2026-05-11** in commit `99daa9a` — the drawer now renders per-feedback-item decisions inside each round (see entry above). Pass→fail flip annotations *between* rounds are NOT rendered yet — that's a render-time computation over the existing `integratorDecisions` array (`round_pairs` CTE shape from `scripts/integrator-regression-health.sql`). The current drawer shows what happened *within* each round; the inter-round transition story is still operator-tier visibility.
+- **Still open: admin per-piece deep-dive + pass→fail flip annotation on either surface.**
+- **Priority:** low. The data flows; the inter-round transition layer is downstream readability work.
 
-## [deferred] 2026-05-12: Surface audio_audit_results on admin per-piece deep-dive
+## [partially-resolved] 2026-05-12: Surface audio_audit_results on admin per-piece deep-dive
 
 - **Surfaced:** 2026-05-12, Foundation Fix Task 05 ("L10, L11, L12 closed"). Task 05 lands the data — every `AudioAuditorAgent.audit()` call writes per-issue rows + a summary row to `audio_audit_results` (migration 0033) — but does not surface it on any reader-facing or admin surface.
-- **Hypothesis:** the natural admin surface is the per-piece deep-dive's existing `audioRows` table at `src/pages/dashboard/admin/piece/[date]/[slug].astro:217` (already SELECTs from `daily_piece_audio` in column-explicit form, so the new `file_size_bytes` column is silently safe but not rendered). The shape would be: an "Audio audit history" panel below the current audioRows render, showing each `audit()` invocation as a row with timestamp, summary verdict (`passed`, `notes` rollup), and a nested expand for per-issue rows when `passed=0`. Window-function pattern parallel to operator-query #1 in `scripts/audio-audit-health.sql`.
-- **Why deferred:** same posture as the Task 03 + Task 04 deferred surface entries below. Designing this is content + UI work, not data work — bundling would have grown scope ~30%. Both consumer files SELECT explicit columns by name; the new table + column don't break either page.
-- **Investigation hints:** start with the admin per-piece page (operator-shaped detail, simpler audience). Reader-facing audio audit history on the made-drawer is a separate and lower-priority question — most readers don't care which beat had a size anomaly; the drawer's `MadeAudio` envelope already gives them a pass/fail summary via `has_audio`.
-- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after Phase 2 completes.
+- **Hypothesis:** the natural admin surface is the per-piece deep-dive's existing `audioRows` table at `src/pages/dashboard/admin/piece/[date]/[slug].astro:217`. The shape would be: an "Audio audit history" panel below the current audioRows render, showing each `audit()` invocation as a row with timestamp, summary verdict (`passed`, `notes` rollup), and a nested expand for per-issue rows when `passed=0`. Window-function pattern parallel to operator-query #1 in `scripts/audio-audit-health.sql`.
+- **Drawer half resolved 2026-05-11** in commit `99daa9a`. The Audio section now carries an "Audio audit: passed · Audited N beats, M issues" verdict line between the section's summary line and the per-beat list. Failure path renders a per-issue list ("beat-name: issue_type · severity — notes"). Per-beat `duration_seconds` + `file_size_bytes` also surfaced on each beat row plus aggregate "~6 min · 4.0 MB" in the section hint. Verified on the 2026-05-11 12:17 piece — first cron-flow audit row post-arity-fix shows "Audio audit: passed · Audited 7 beats, 0 issues (0 major)" in teal.
+- **Still open: admin per-piece deep-dive.** Operator-shaped expanded audit history (multi-`audit()` invocation timeline, per-beat expand for failures) still pending.
+- **Priority:** low. Drawer gives readers + casual observers the at-a-glance verdict; admin polish is downstream.
 
-## [deferred] 2026-05-12: Backfill made-drawer's totalSizeBytes from daily_piece_audio.file_size_bytes
+## [resolved] 2026-05-12: Backfill made-drawer's totalSizeBytes from daily_piece_audio.file_size_bytes
 
 - **Surfaced:** 2026-05-12, Foundation Fix Task 05. Task 05 closes L11 (the `file_size_bytes` column lands on `daily_piece_audio`); the made-drawer envelope at [`src/pages/api/daily/[date]/made.ts:295`](../src/pages/api/daily/[date]/made.ts:295) currently returns `totalSizeBytes: null` with a comment naming "not stored in D1 — R2 HEAD is agents-worker-only". With the new column populated going forward, that field can return `SUM(file_size_bytes)`.
-- **Hypothesis:** one-line query change in `made.ts` — replace `totalSizeBytes: null` with the sum of the per-row `file_size_bytes` already SELECTed (or extended into the SELECT). NULL on pre-Task-05 historical rows means the sum will be partial for older pieces; honest behaviour is to return null when any row has NULL, or to return the partial sum with a flag — content-design call.
-- **Why deferred:** trivial code change but requires deciding the partial-sum vs null-on-any-NULL behaviour, which is a content decision tied to how the made-drawer renders the value. Pick up next time the made-drawer is touched for other reasons.
-- **Priority:** low. Cosmetic; the `null` is honest today.
+- **Resolved 2026-05-11** in commit `99daa9a`. Adopted the "partial-sum-when-any-row-has-the-column" policy: if at least one row carries `file_size_bytes`, sum the available rows; otherwise return null. Pre-Task-05 pieces with no `file_size_bytes` get null (honest); post-Task-05 pieces get the real total (e.g., `3,552,546` on the 2026-05-11 12:17 piece, rendered as "4.0 MB" in the section hint). Same shape applied to the new `totalDurationSeconds` aggregate. The hardcoded `null` + stale comment removed from `made.ts`.
 
 ## [observing] 2026-05-11: Learner feedback loop — 30-day signal vs noise evaluation
 
@@ -339,20 +356,21 @@ The [open] zombie-pipeline-runs entry below is partially relevant — migration 
 - **Do NOT delete learnings during the observation window** — even ones that look unused. Loop needs to settle.
 - **Priority:** medium. Decision deferred ~30 days; setting up the rails was the work, not the analysis.
 
-## [deferred] 2026-05-11: Surface Learner feedback (loaded / applied / validated) in made-drawer + admin per-piece
+## [partially-resolved] 2026-05-11: Surface Learner feedback (loaded / applied / validated) in made-drawer + admin per-piece
 
 - **Surfaced:** 2026-05-11, Foundation Fix Task 04. The data lands going forward; no reader-facing or admin surface renders it yet.
-- **Hypothesis:** the natural reader-facing surface is the per-piece *How this was made* drawer's "What the system learned from this piece" section — currently renders `learnings` rows by source (producer / self-reflection / Zita), one logical extension is "and N rows from prior pieces were loaded into this draft, M of which were validated by this publish". Admin surface is the per-piece deep-dive table — operator-shaped detail showing which specific learnings were loaded + their validation count over time.
-- **Why deferred:** same posture as the Task 03 deferred surface entry above. Design work, not data work — bundling would have grown scope 30%. Both consumer files (`src/pages/api/daily/[date]/made.ts`, `src/pages/dashboard/admin/piece/[date]/[slug].astro`) SELECT explicit columns; the new columns are silently safe.
-- **Priority:** low. Pick up after the 30-day evaluation entry above resolves — its outcome (keep / narrow / replace) shapes what the surface should say.
+- **Hypothesis:** the natural reader-facing surface is the per-piece *How this was made* drawer's "What the system learned from this piece" section — currently renders `learnings` rows by source (producer / self-reflection / Zita), one logical extension is "and N rows from prior pieces were loaded into this draft, M of which were validated by this publish". Admin surface is the per-piece deep-dive table.
+- **Drawer half resolved 2026-05-11** in commit `99daa9a`. New "Carried in from earlier pieces" section paired with the existing "What the system learned from making this piece" via a single visual break — closes the half-loop the drawer showed (write-only) so a reader now sees: prior learnings shaped this Drafter → this piece produced new learnings for future pieces. SELECT is `WHERE applied_to_prompts LIKE '%"<this_piece_id>"%'` (JSON-quoted UUID to guard against hex prefix collisions). Each row carries a quiet "· from YYYY-MM-DD" attribution. Verified on the 2026-05-11 12:17 piece — Drafter loaded 10 prior learnings, all 10 got the new piece's id appended to `applied_to_prompts` (T04 counts moved 142→152 loaded/applied). Cross-piece slug backlinks NOT surfaced (Tier 3 deferred — would need a join against `daily_pieces` for slug).
+- **Still open: admin per-piece deep-dive.** Operator-shaped detail (which specific learnings were loaded, per-learning validation count over time) still pending.
+- **Priority:** low. Drawer-side loop story is the headline ask; admin polish is downstream.
 
-## [deferred] 2026-05-06: Surface curator pick + rejection reasoning in made-drawer + admin per-piece
+## [partially-resolved] 2026-05-06: Surface curator pick + rejection reasoning in made-drawer + admin per-piece
 
 - **Surfaced:** 2026-05-06, Foundation Fix Task 03 ("L1, L2, L25 closed"). Task 03 lands the data — `pick_reasoning` on the picked candidate, `rejection_category` + `rejection_reason` on every rejection — but does not surface it on any reader-facing or admin surface.
-- **Hypothesis:** Both `daily_candidates`-reading surfaces (`src/pages/api/daily/[date]/made.ts:210` for the public *How this was made* drawer, `src/pages/dashboard/admin/piece/[date]/[slug].astro:166` for the admin per-piece deep-dive) currently render the also-considered list as headline + score. The natural reader-facing surface for the new fields is the made-drawer ("why this candidate was picked / what categories the rejected ones fell into / one-sentence reasons on the top-5 runner-ups"); the natural admin surface is the same per-piece deep-dive (operator-shaped detail).
-- **Why deferred:** designing this is content + UI work, not data work. Doing it inside Task 03 would have grown scope ~30% and bundled two different judgment kinds (data persistence + reader copy). The Foundation Fix programme's "do not bundle this with other agent fixes" principle applies. The new fields are silently safe — both SELECTs name explicit columns, so adding the three new ones to `daily_candidates` doesn't break either page.
-- **Investigation hints:** the made-drawer is the higher-impact surface (every published piece carries it). Start by deciding what reader-shaped detail to expose (full pickReasoning? rejection categories as a count chart? the top-5 reasons verbatim?) before touching code. Operator surface is simpler — admin per-piece can just show all four fields alongside the existing teal-dot table.
-- **Priority:** low. The data flows; the surface is downstream readability work. Pick up after Phase 2 completes.
+- **Hypothesis:** Both `daily_candidates`-reading surfaces (`src/pages/api/daily/[date]/made.ts:210` for the public *How this was made* drawer, `src/pages/dashboard/admin/piece/[date]/[slug].astro:166` for the admin per-piece deep-dive) currently render the also-considered list as headline + score. The natural reader-facing surface for the new fields is the made-drawer; the natural admin surface is the same per-piece deep-dive (operator-shaped detail).
+- **Drawer half resolved 2026-05-11** in commit `99daa9a`. Three new surfaces in the Scanner section: (1) a teal-bordered "Why this story" narrative block at the top carrying Curator's full `pick_reasoning` paragraph (replaces the now-stale "we don't store why" copy); (2) a rejection breakdown of count-pill chips ("6 off-topic · 4 tribal framing · 3 low signal · …") aggregated in-memory from the same SELECT — zero extra D1 queries; (3) a small grey rejection-category pill on each Also-considered row, plus optional narrative `rejection_reason` as a muted italic sub-line for the top-10 runner-ups. Closed-enum slugs humanised via `REJECTION_CATEGORY_LABEL` (off_topic → "off-topic" etc.); canonical enum stays in `agents/src/types.ts` `RejectionCategory`. Verified on the 2026-05-11 12:17 piece — 19 candidates, 1 with pick_reasoning, 18 with rejection_category, 10 with narrative reason.
+- **Still open: admin per-piece deep-dive.** Operator surface (all four fields alongside the existing teal-dot table) still pending.
+- **Priority:** low. Drawer side serves the higher-impact audience; admin polish is downstream.
 
 ## [observing] 2026-05-06: 2026-04-26 U.S. Mint piece — `selected = 0` despite post-2026-04-22 publish
 
