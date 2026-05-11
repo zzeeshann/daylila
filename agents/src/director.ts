@@ -1903,14 +1903,18 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     }
 
     // filePath lives in the publishing.done step's data column.
-    // run_id stays YYYY-MM-DD (cadence Phase 3 walk-back) but we now
-    // additionally scope by `piece_id = ?` (migration 0018) so
-    // multi-per-day same-date pieces don't collide. One row per piece
-    // by construction — LIMIT 1 is defensive, not load-bearing.
+    // Migration 0037 (2026-05-07) renamed pipeline_log's date-shaped
+    // `run_id` to `run_date` and added a fresh UUID-shaped `run_id`
+    // alongside. Site-worker queries were swept then; this agent query
+    // was missed, so retryAudio threw "no publishing.done row" on every
+    // call (the throw lives inside ctx.waitUntil — visible only via
+    // console.error, which is why the failure was silent until
+    // 2026-05-11). `piece_id = ?` also scopes against multi-per-day
+    // same-date collisions (migration 0018).
     const pubRow = await this.env.DB
       .prepare(
         `SELECT data FROM pipeline_log
-         WHERE run_id = ? AND piece_id = ?
+         WHERE run_date = ? AND piece_id = ?
            AND step = 'publishing' AND status = 'done'
          ORDER BY created_at DESC LIMIT 1`,
       )
