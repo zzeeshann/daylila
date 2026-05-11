@@ -1,6 +1,14 @@
 # Dependencies
 node_modules/
 
+# Lock files — project history hasn't tracked any (npm-install side effects
+# from local dev should not pollute the repo; CI installs with --frozen-lockfile
+# via pnpm wherever a pnpm-lock.yaml is present, or against package.json
+# semver ranges otherwise).
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
 # Astro
 dist/
 .astro/
