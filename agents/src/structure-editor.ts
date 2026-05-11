@@ -47,7 +47,32 @@ export class StructureEditorAgent extends Agent<Env, StructureEditorState> {
     const tokensOut = response.usage?.output_tokens ?? 0;
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const raw = extractJson<StructureAuditResult & { failure_reasons?: unknown }>(text);
+
+    // Resilient parse. See voice-auditor.ts for the full rationale —
+    // before 2026-05-11 a truncated / malformed JSON response would
+    // throw out of extractJson, propagate to Director, and kill the
+    // whole pipeline run. Now: parse-fail returns a soft-fail
+    // (passed=false, empty arrays, parseError populated) so Director
+    // treats the round as a fail and Integrator revises in the next
+    // round. The pipeline survives the auditor's own format wobble.
+    let raw: StructureAuditResult & { failure_reasons?: unknown };
+    try {
+      raw = extractJson<StructureAuditResult & { failure_reasons?: unknown }>(text);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const result: StructureAuditResult = {
+        passed: false,
+        issues: [],
+        suggestions: [],
+        failureReasons: [],
+        parseError: `Structure editor response did not parse as JSON (likely truncation): ${message}`,
+        tokensIn,
+        tokensOut,
+        durationMs,
+      };
+      this.setState({ lastResult: result });
+      return result;
+    }
 
     // Validate failure_reasons against the closed enum. Same posture
     // as VoiceAuditor (Task 08 PR 08c) and Task 06's IntegratorDecision.

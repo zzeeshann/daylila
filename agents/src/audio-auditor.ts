@@ -197,7 +197,7 @@ export class AudioAuditorAgent extends Agent<Env, AudioAuditorState> {
       totalSizeBytes,
       persistError: null,
     };
-    result.persistError = await this.persistAuditRows(brief.pieceId, result);
+    result.persistError = await this.persistAuditRows(brief.pieceId, brief.runId ?? null, result);
     this.setState({ lastResult: result });
     return result;
   }

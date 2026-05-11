@@ -218,8 +218,17 @@ const RETENTION_RULES: RetentionRule[] = [
     table: 'engagement',
     description: 'Reader engagement aggregates older than 1 year.',
     windowDays: 365,
-    selectSql: 'SELECT COUNT(*) AS n FROM engagement WHERE created_at < ?',
-    deleteSql: 'DELETE FROM engagement WHERE created_at < ?',
+    // The engagement table's time column is `date TEXT` (YYYY-MM-DD)
+    // since migration 0003, NOT a unix-ms `created_at`. Convert the
+    // bound cutoff (Unix ms, like every other rule) to YYYY-MM-DD via
+    // SQLite's date(?/1000, 'unixepoch') so the rule-loop binding
+    // stays uniform. Lexicographic comparison on YYYY-MM-DD is
+    // correct (the format is sortable). Fixes the daily warn
+    // "Retention SELECT failed: engagement — no such column:
+    // created_at" that fired since the retention worker shipped
+    // (Task 08 PR 08a/b, 2026-05-07).
+    selectSql: "SELECT COUNT(*) AS n FROM engagement WHERE date < date(?/1000, 'unixepoch')",
+    deleteSql: "DELETE FROM engagement WHERE date < date(?/1000, 'unixepoch')",
     guardSql: null,
   },
 ];

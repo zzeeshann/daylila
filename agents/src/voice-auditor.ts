@@ -43,9 +43,20 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
     const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
 
     const callStart = Date.now();
+    // max_tokens sized to absorb a worst-case round-2 fail response.
+    // Round 1 of a typical piece returns ~480 tokens. Round 2 of a
+    // fail piece (multiple violations + suggestions + failure_reasons
+    // array, each violation a 50-80 token natural-language string)
+    // empirically reaches ~700-1000 tokens. The 2026-05-11 02:00 UTC
+    // pipeline crash had this auditor truncated mid-string at 800 →
+    // extractJson threw → Director died. 1500 carries ~50% headroom
+    // over the realistic worst case while still being thin enough to
+    // act as a forcing function against rambling. Output billing is
+    // per actual output_token, so the cap does not cost money unless
+    // truncation would otherwise have happened.
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 800,
+      max_tokens: 1500,
       system: buildVoiceAuditorSystem(),
       messages: [{ role: 'user', content: `Audit this draft:\n\n${mdx}` }],
     });
@@ -54,7 +65,34 @@ export class VoiceAuditorAgent extends Agent<Env, VoiceAuditorState> {
     const tokensOut = response.usage?.output_tokens ?? 0;
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
-    const raw = extractJson<VoiceAuditResult & { failure_reasons?: unknown }>(text);
+
+    // Resilient parse. extractJson throws on truncated / malformed
+    // JSON. Before 2026-05-11 the throw propagated to Director and
+    // killed the whole pipeline — a single auditor's output-format
+    // wobble could wipe out a publish run. Now: on parse-fail, return
+    // a soft-fail (passed=false, score=0, parseError populated) so
+    // Director treats the round as a fail, Integrator revises in the
+    // next round, and the run survives. Same posture as Task 06's
+    // Integrator parseError + Task 08 PR 08c's audit-token drop path.
+    let raw: VoiceAuditResult & { failure_reasons?: unknown };
+    try {
+      raw = extractJson<VoiceAuditResult & { failure_reasons?: unknown }>(text);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const result: VoiceAuditResult = {
+        passed: false,
+        score: 0,
+        violations: [],
+        suggestions: [],
+        failureReasons: [],
+        parseError: `Voice auditor response did not parse as JSON (likely truncation): ${message}`,
+        tokensIn,
+        tokensOut,
+        durationMs,
+      };
+      this.setState({ lastResult: result });
+      return result;
+    }
 
     // Validate failure_reasons against the closed enum. Unknown tokens
     // drop with the count surfaced via parseError; the verdict

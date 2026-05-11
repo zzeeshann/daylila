@@ -2,6 +2,80 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-11: Three forward fixes from the post-cron admin-dashboard investigation — pipeline survives auditor parse-fail; audio-auditor persistence unblocks; retention engagement-rule SELECTs successfully
+
+**Trigger.** Operator opened the admin dashboard mid-day and asked "last night the piece did not run, error, do investigation please." Three findings, ranked by severity.
+
+### Finding 1 — voice-auditor `max_tokens=800` truncation crashed the 02:00 UTC pipeline run
+
+The error visible at 02:03:09 UTC:
+
+```
+Pipeline error: Could not extract JSON from response:
+```json { "score": 75, "passed": false, "violations": [
+  "Tribe word 'mental models' in what-successful-transfer-requires beat",
+  "Long padded sentence in hook beat: 'Who's sick, who's div
+```
+
+That cut mid-violation-string is the smoking gun: the auditor's JSON response was truncated at the 800-token cap, with no closing brace. `parse-json.ts` then runs three fallback strategies (full parse, `{[\s\S]*}` regex, `lastIndexOf('}')` slice) — all fail on a string with no closing brace — and throws. The throw propagates out of `voice-auditor.audit()` and Director's pipeline loop has no try/catch around it, so the entire publish run dies.
+
+**The earlier-session premise was wrong.** Today's earlier "max_tokens ceiling audit" session (Voice Auditor 2000 → 800 etc.) included this risk-model line: *"If a call hits the new cap and gets truncated, the parser falls through to the existing parse-fail path: Voice Auditor / Structure Editor / Learner / Drafter reflection all return `{}` from `extractJson` on an unparseable response and Director moves on. Truncation is recoverable, not catastrophic."* That's not what the code does. `extractJson` THROWS on parse failure. The `{}` fallback at `voice-auditor.ts:67` only kicks in if the response isn't a text block AT ALL (i.e. tool_use response shape), not on parse failure. n=4 was too small a sample to establish the empirical max, and the "graceful degradation" the analysis depended on didn't exist in the code.
+
+**Forward fix.** Two parts at `agents/src/voice-auditor.ts` and `agents/src/structure-editor.ts`:
+
+(a) **Wrap `extractJson` in try/catch.** On throw, return a soft-fail result (`passed=false`, `score=0` for voice, empty `violations` / `issues` / `suggestions` / `failureReasons`, `parseError` populated with the underlying error message). Director treats the round as a normal voice/structure fail, Integrator revises in the next round, the pipeline survives. Same posture as Task 06's IntegratorDecision parseError + Task 08 PR 08c's audit-token drop path. The Integrator does lose the actionable feedback for the truncated round (violations list was the truncation casualty), so it revises blindly, but the run completes and ships with `flagged_low` if all three rounds end in parse-fail. Catastrophic outcome (zero pieces published) becomes graceful degradation (piece ships, quality flag set).
+
+(b) **Voice Auditor cap 800 → 1500.** Not back to 2000. Not "reverting." 1500 carries ~50% headroom over the realistic worst case (~700-1000 tokens for a round-2 fail with multiple violations + suggestions + failure_reasons), still thin enough to act as a forcing function against rambling. Round 1 of the failed run produced 480 output tokens; round 2 of a fail piece compounds with more violations + the failure_reasons closed-enum list. Output billing is per actual `output_token`, so a wider cap costs nothing unless truncation would otherwise have happened — the cap is a forcing function, not a cost knob.
+
+**Structure Editor cap stays at 1000.** Observed max 450; the fail-soft path (a) is the safety net if it ever truncates.
+
+### Finding 2 — audio-auditor data leak: every audio audit since Task 05 has silently failed to persist
+
+Every single audio audit run since Task 05 shipped (2026-05-12) wrote `Pipeline error: audio_audit_results persist failed: Cannot read properties of undefined (reading 'issues')`. Visible across the bones piece (00:14 UTC 5/11), Mother's Day (5/10 22:45), Fossil (5/10 19:35), stainless steel (5/10 18:08), and every Psychologists/UFO/etc. piece in the recent observer log.
+
+**Root cause: arity mismatch at `audio-auditor.ts:200`.** The function signature at line 236 is `persistAuditRows(pieceId, runId, result)`. The earlier no-rows branch at line 111 calls it correctly with 3 args. The main branch at line 200 was missing the runId arg: `persistAuditRows(brief.pieceId, result)`. So `runId` received the AudioAuditResult object, and the third arg `result` was `undefined`. When `persistAuditRows` did `result.issues.filter(...)` at line 250, undefined → throw.
+
+This was the "pre-existing tsc error" CLAUDE.md kept naming in every recent session entry ("agents tsc --noEmit shows 27 errors total, all 27 pre-existing — `src/server.ts` Durable Object set + `audio-auditor.ts:200` arity mismatch"). It's not just a typecheck warning — it's an actual prod data leak. The `audio_audit_results` table has had ZERO persist data from the main branch since Task 05 deployed. The summary-row "always-one-row" semantic Task 05 was designed for has been broken since day one of Task 05. The no-rows-branch summary rows do persist (line 111 is correct); the typical-case rows never did.
+
+**Fix.** One-character change: `(brief.pieceId, brief.runId ?? null, result)`. Matches the line-111 call shape. No backfill possible (we never wrote them); going forward the table populates.
+
+Closes item (2) of the [open] 2026-05-10 FOLLOWUPS entry "Two pre-existing TS errors deferred from the LLM-surface meter commit." Item (1) (`src/server.ts` Durable Object typing, 26 errors) stays open as a Cloudflare Agents SDK typing gap unrelated to this fix.
+
+### Finding 3 — retention worker engagement-rule SELECT has been a daily no-op since 2026-05-07
+
+Every 04:00 UTC retention cron has written the warn event `Retention SELECT failed: engagement — no such column: created_at` since the retention worker shipped (Task 08 PR 08a/b, 2026-05-07).
+
+**Root cause.** `retention.ts:221-222` queried `WHERE created_at < ?`, but the `engagement` table has no `created_at` column — its time field is `date TEXT` in YYYY-MM-DD format, set during migration 0017 (`engagement_piece_id`). The retention rule was written from a default assumption ("every table has `created_at`") that's true for most agents-side tables but not for engagement, which predates the convention and uses a calendar-date PK component.
+
+The fail-soft path inside `runRetention` catches the throw, logs the warn, and continues to the next rule, so the bug never escalated past noise — but the engagement rule has been a no-op for ~4 days (since 2026-05-07 deploy through 2026-05-11). Engagement rows older than 365 days were never pruned (none exist yet anyway — engagement only started accruing at the launch date 2026-04-18, ~3 weeks ago — but the rule would not have worked if they did).
+
+**Fix.** Use SQLite's `date(?/1000, 'unixepoch')` inside the WHERE clause to convert the bound Unix-ms cutoff (kept uniform with every other rule's binding) to YYYY-MM-DD. Lexicographic comparison on YYYY-MM-DD is correct (the format is sortable). The rule-loop binding stays uniform; only the engagement-rule SQL is touched.
+
+### Why one commit, not three
+
+Each fix is independent, one-Edit-revertable, and structurally unrelated to the others. Bundled because:
+
+1. All three were surfaced by the same investigation (one dashboard view).
+2. Each is small enough that splitting would add commit-graph noise without adding clarity.
+3. The user's directive was "comnonne fix all, push commit, document whatever" — execute mode.
+4. Reverting any single fix is one Edit + deploy; the bundling doesn't reduce reversibility.
+
+### Verified
+
+No local typecheck available — this worktree has no `node_modules` (CI installs deps and runs typecheck on push, the standing CI gate per the verification posture documented across every recent session entry). Each file's edit was re-read for syntactic correctness against the surrounding context. No contract change → no codegen rerun. No migration; no D1 schema change. No site-worker file touched.
+
+**Standing rule applies.** Verification waits for the next 02:00 UTC pipeline cron + the next 04:00 UTC retention cron — no manual retrigger. Expected signal post-deploy:
+
+- (1) Any future round of voice / structure audit with a truncated response writes one `parseError` field to its result and Director moves on; pipeline survives. The next observable case will be a piece with multiple violations on round 2 where output tokens would have exceeded 1500 (now expected rare per the new cap).
+- (2) `audio_audit_results` starts receiving rows on every audio audit. The four operator queries in `scripts/audio-audit-health.sql` from Task 05 start returning non-empty results.
+- (3) The daily warn `Retention SELECT failed: engagement` stops appearing at 04:00 UTC; replaced by `Retention dry-run: engagement` info events (DRY_RUN is still active per the standing FOLLOWUPS entry).
+
+**Files (4 + 3 docs):** `agents/src/voice-auditor.ts`, `agents/src/structure-editor.ts`, `agents/src/audio-auditor.ts`, `agents/src/retention.ts`; CLAUDE.md (new top entry), DECISIONS.md (this entry), FOLLOWUPS.md (item (2) of the 2026-05-10 entry closed).
+
+Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+---
+
 ## 2026-05-11: Per-file ownership comments — uniform `Contracts injected:` / `Inline rule bodies:` headers across every prompt file
 
 **Why this commit.** Item 10 from the LLM-surface cleanup ranked list. The codebase has 10 prompt files (9 on the agents worker + 1 on the site worker). Each one's relationship to `content/*.md` contracts varies by accident of history — some inject one contract, some three, some none. The audit at `docs/LLM-SURFACE.md` Step 3 maps this in a table; the table is correct but exists only in a doc, not at the call sites. Today's PR adds the same information at the top of each prompt file so a reader opening any one of them sees the contract dependency at a glance.
