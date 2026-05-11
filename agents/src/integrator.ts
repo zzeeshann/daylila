@@ -126,7 +126,7 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : '';
+    const rawText = response.content[0]?.type === 'text' ? response.content[0].text : '';
 
     // Parse + validate. Two-stage: extractJson then per-row enum guard.
     // Parse-fail OR every-row-dropped-by-enum-guard surfaces as

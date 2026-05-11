@@ -1293,7 +1293,18 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     });
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // 2026-05-11 — empty-content guard. Anthropic's streaming protocol
+    // (and non-streaming response in refusal / max_tokens-at-0 cases)
+    // can deliver Message { content: [] }. The `?.` keeps the immediate
+    // dereference safe; the empty-content branch routes through the
+    // existing parse-fail recovery with stop_reason captured so future
+    // occurrences are diagnosable from the observer event body.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidate: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
@@ -1338,7 +1349,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     });
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // See produceQuiz for the empty-content guard rationale.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidate: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
@@ -1386,7 +1403,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     });
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // See produceQuiz for the empty-content guard rationale.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidate: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
@@ -1446,7 +1469,20 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     }).finalMessage();
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // 2026-05-11 — empty-content guard. Streaming finalMessage() can
+    // return Message { content: [] } if the stream ends between
+    // `message_start` and the first `content_block_start` event
+    // (verified at MessageStream.mjs:402-436 in @anthropic-ai/sdk
+    // 0.52.0). Stream-cut edge, refusal, or max_tokens-at-0 all land
+    // here. Throw with stop_reason so the next occurrence is diagnosable
+    // from the observer event body, and route through the existing
+    // parse-fail recovery via the message prefix.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidateHtml: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
@@ -1519,7 +1555,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     }).finalMessage();
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // See produceHtml for the empty-content guard rationale.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidateHtml: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 
@@ -1569,7 +1611,13 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       ],
     }).finalMessage();
 
-    const continuation = response.content[0].type === 'text' ? response.content[0].text : '';
+    // See produceHtml for the empty-content guard rationale.
+    if (response.content.length === 0) {
+      throw new Error(
+        `parseAndValidateHtml: Claude returned non-JSON output (empty content, stop_reason=${response.stop_reason ?? 'unknown'})`,
+      );
+    }
+    const continuation = response.content[0]?.type === 'text' ? response.content[0].text : '';
     const rawText = '{' + continuation;
     const usage = extractUsage(response.usage);
 

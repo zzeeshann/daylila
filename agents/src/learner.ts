@@ -240,7 +240,7 @@ Extract learnings for future pieces. What should the Drafter do differently next
       ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     let parsed: { learnings: string[] };
     try {
       parsed = extractJson<{ learnings: string[] }>(text);
@@ -460,7 +460,7 @@ ${logRes.results.map((r) => `- ${r.step} — ${r.status}`).join('\n')}`;
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     let parsed: { learnings?: ProducerLearning[] };
     try {
       parsed = extractJson<typeof parsed>(text);
@@ -601,7 +601,7 @@ ${convoBlocks.join('\n\n')}`;
       messages: [{ role: 'user', content: context }],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     let parsed: { learnings?: ProducerLearning[] };
     try {
       parsed = extractJson<typeof parsed>(text);

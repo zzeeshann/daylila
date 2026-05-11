@@ -157,7 +157,7 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
       ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     const usage = extractUsage(response.usage);
 
     let parsed: Record<string, unknown>;
@@ -258,7 +258,7 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
       ],
     });
 
-    const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
     const usage = extractUsage(response.usage);
 
     let parsed: Record<string, unknown>;

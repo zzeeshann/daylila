@@ -62,7 +62,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
       const tokensIn = response.usage?.input_tokens ?? 0;
       const tokensOut = response.usage?.output_tokens ?? 0;
 
-      const text = response.content[0].type === 'text' ? response.content[0].text : '{}';
+      const text = response.content[0]?.type === 'text' ? response.content[0].text : '{}';
       const parsed = extractJson<DailyPieceBrief & {
         skip?: boolean;
         reason?: string;
