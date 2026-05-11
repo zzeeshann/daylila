@@ -1,0 +1,59 @@
+{
+  "slug": "elasticity-through-substitution",
+  "type": "quiz",
+  "title": "Elasticity Through Substitution",
+  "concept": "When prices rise beyond what people will pay, demand doesn't vanish—it shifts to cheaper alternatives or different supply channels, maintaining consumption while changing where and how people get what they need.",
+  "interactiveId": "ef48ebb4-938a-4a01-b197-7f9c1269639e",
+  "sourcePieceId": "8cda1afc-48fb-4ad3-94d2-1ee3d77e3edc",
+  "publishedAt": 1778501965262,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does it mean when demand is elastic?",
+        "options": [
+          "People buy exactly the same amount no matter what the price does",
+          "People change how much they buy when the price changes",
+          "People stop buying the product completely",
+          "People switch to a different brand but keep spending the same amount"
+        ],
+        "correctIndex": 1,
+        "explanation": "Elastic demand means quantity responds to price—when price climbs, people cut back; when it drops, they buy more. The first option describes inelastic demand (like insulin), where need overrides price."
+      },
+      {
+        "question": "A family starts buying store-brand cereal instead of name-brand when prices rise. What economic move is this?",
+        "options": [
+          "Reducing consumption to save money",
+          "Substituting toward a cheaper version of the same thing",
+          "Switching categories to avoid the price increase entirely",
+          "Stockpiling before prices go higher"
+        ],
+        "correctIndex": 1,
+        "explanation": "They're still eating cereal—same category, different supplier. That's substitution: maintaining consumption by shifting to a cheaper alternative. They didn't cut breakfast or hoard boxes."
+      },
+      {
+        "question": "Why does social stigma around a behavior often disappear when many people start doing it at once?",
+        "options": [
+          "Moral standards relax during hard times",
+          "People care less what others think when they're struggling",
+          "Visibility shifts—what was rare becomes common, so it stops feeling wrong",
+          "Authorities stop enforcing the stigma when too many people ignore it"
+        ],
+        "correctIndex": 2,
+        "explanation": "Stigma is friction cost paid in embarrassment. When the crowd doing the behavior grows large enough, it becomes normal through observation—not because values changed, but because the behavior is no longer unusual."
+      },
+      {
+        "question": "When does widespread individual substitution become a system-level signal?",
+        "options": [
+          "When a single large buyer shifts their purchasing pattern",
+          "When the substitution happens gradually over decades",
+          "When enough people make the same shift simultaneously that the aggregate rate changes",
+          "When the government announces the substitution in official statistics"
+        ],
+        "correctIndex": 2,
+        "explanation": "One person clipping coupons means little. When the response rate crosses a threshold—many people doing it at once—it signals something about the system (prices exceeded tolerance). Gradual drift or top-down announcements don't carry the same information."
+      }
+    ]
+  }
+}
