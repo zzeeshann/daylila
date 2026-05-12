@@ -1,0 +1,59 @@
+{
+  "slug": "asymmetric-search-costs",
+  "type": "quiz",
+  "title": "Asymmetric Search Costs",
+  "concept": "Finding one weakness in a system costs less than securing every possible entry point—attackers need one success while defenders need zero failures, creating a structural imbalance that determines how resources flow in any adversarial contest.",
+  "interactiveId": "f49526e1-af69-49b6-ba43-f214f782bb37",
+  "sourcePieceId": "e6c58cad-9a9d-41ab-9c30-74a250a1914b",
+  "publishedAt": 1778594604620,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does finding vulnerabilities cost less than fixing them?",
+        "options": [
+          "Attackers have better tools than defenders",
+          "Finding one working entry point requires less effort than securing every possible entry point",
+          "Defenders face legal restrictions that attackers don't",
+          "Vulnerabilities are easier to understand than security measures"
+        ],
+        "correctIndex": 1,
+        "explanation": "The cost gap is structural, not technical. An attacker can stop searching after finding one hole that works. A defender must check and secure every potential entry point—even a single overlooked weakness breaks the whole perimeter. This isn't about tool quality; it's about the math of comprehensive coverage versus opportunistic success."
+      },
+      {
+        "question": "A system has 1,000 possible entry points. An attacker probes randomly. What changes when probing gets 10x faster?",
+        "options": [
+          "The defender's workload increases proportionally",
+          "Both sides gain speed equally, so nothing changes",
+          "The attacker finds working entries 10x sooner while the defender's coverage task stays the same size",
+          "Faster probing makes attacks easier to detect"
+        ],
+        "correctIndex": 2,
+        "explanation": "Speed multiplies the attacker's advantage because their goal is bounded—find one working door. The defender's task doesn't shrink when the attacker gets faster; they still need to secure all 1,000 doors. Faster scanning means the race to exploitation shortens while the race to comprehensive defense stays constant."
+      },
+      {
+        "question": "Why can't defenders 'flip' the imbalance by making attackers search everything too?",
+        "options": [
+          "Attackers would just switch to targeting easier systems instead",
+          "The attacker's win condition is 'find one'; you can't force them to search exhaustively when success stops the search",
+          "International law prevents offensive countermeasures",
+          "Making systems harder to probe also makes them harder to use legitimately"
+        ],
+        "correctIndex": 1,
+        "explanation": "The imbalance comes from the goal structure, not the search difficulty. An attacker stops searching the moment they find one working entry—'search everything' is never their task. The defender must secure everything because one open door loses the game. You can raise the cost per probe, but you can't change the fact that offense is a first-success problem and defense is a zero-failure problem."
+      },
+      {
+        "question": "A company locks down 999 out of 1,000 entry points. What happens?",
+        "options": [
+          "The system is 99.9% secure",
+          "The attacker still wins if they find the one open point",
+          "The remaining point becomes harder to find because the attacker must search more",
+          "The defender has reduced their risk by three orders of magnitude"
+        ],
+        "correctIndex": 1,
+        "explanation": "Security doesn't average. The attacker only needs that one open door to succeed—99.9% coverage still leaves the perimeter breached. The third option is tempting, but finding 1 in 1,000 is still cheap when search is automated. The imbalance persists because the attacker's success bar is binary: open or not. Partial coverage is full exposure from the attacker's perspective."
+      }
+    ]
+  }
+}
