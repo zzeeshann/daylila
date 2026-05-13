@@ -1,0 +1,59 @@
+{
+  "slug": "supply-bottleneck-leverage",
+  "type": "quiz",
+  "title": "Supply Bottleneck Leverage",
+  "concept": "When a critical resource flows through a single refining step controlled by one supplier, buyers face constrained alternatives—not because the raw material is scarce, but because building competing capacity requires decades of capital and expertise accumulation.",
+  "interactiveId": "85f7b54e-a2e8-42f5-a110-60049bccaa3f",
+  "sourcePieceId": "070caa7e-bde8-4a71-be10-f73479a0f46d",
+  "publishedAt": 1778654107485,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a single supplier gain market power even when the raw material exists in many locations?",
+        "options": [
+          "The raw material is actually much rarer than geological surveys suggest",
+          "The costly transformation step creates the constraint, not the availability of ore",
+          "International law prevents new suppliers from entering the market",
+          "Buyers prefer to concentrate purchases with one vendor for simplicity"
+        ],
+        "correctIndex": 1,
+        "explanation": "Market power comes from controlling the expensive, complex transformation step—not from owning the only deposits. When refining requires billions in capital and decades of process knowledge, ore availability doesn't translate to supply diversity."
+      },
+      {
+        "question": "What makes a refining bottleneck hard to bypass once it exists?",
+        "options": [
+          "Patent protections prevent competitors from using the same methods",
+          "The bottleneck supplier can lower prices temporarily to undercut new entrants",
+          "Building competing capacity requires long timelines for plant construction and process mastery",
+          "Customers become legally bound to multi-decade contracts with the original supplier"
+        ],
+        "correctIndex": 2,
+        "explanation": "Refining bottlenecks persist because building alternative capacity takes years—time to construct facilities, hire skilled labor, and debug complex chemistry at scale. Price competition can deter investment, but the fundamental barrier is the timeline, not the economics alone."
+      },
+      {
+        "question": "When one country refines 90% of a critical material, what does 'leverage' actually mean for buyers?",
+        "options": [
+          "Buyers face higher prices and supply uncertainty because alternatives take years to develop",
+          "Buyers must accept whatever political terms the supplier demands or lose access immediately",
+          "Buyers can easily switch to synthetic substitutes that perform identically",
+          "Buyers form cartels to negotiate collectively and eliminate the supplier's advantage"
+        ],
+        "correctIndex": 0,
+        "explanation": "Leverage means buyers face constrained choices—prices rise, supply becomes less predictable, and alternatives require long lead times. It's economic friction, not a binary on-off switch. Buyers don't lose access overnight, but they can't escape the constraint without years of investment."
+      },
+      {
+        "question": "Why do buyers initially ship raw material to a distant refiner rather than building local capacity?",
+        "options": [
+          "Refining is cheap when concentrated in one location due to economies of scale",
+          "Environmental regulations in buyer countries make local refining illegal",
+          "Raw material loses value during transport, so refining must happen at the mine site",
+          "Buyers lack the technical knowledge to refine even if they wanted to"
+        ],
+        "correctIndex": 0,
+        "explanation": "Buyers ship raw material because concentrated refining is cheaper—one supplier amortizes capital costs across global demand. The arrangement makes economic sense until supply security becomes more valuable than cost savings, flipping the calculation."
+      }
+    ]
+  }
+}
