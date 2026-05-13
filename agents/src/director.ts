@@ -6,7 +6,7 @@ import { IntegratorAgent } from './integrator';
 import { PublisherAgent } from './publisher';
 import { ObserverAgent } from './observer';
 import { ScannerAgent } from './scanner';
-import { CuratorAgent } from './curator';
+import { CuratorAgent, CuratorParseFailError } from './curator';
 import { DrafterAgent } from './drafter';
 import { AudioProducerAgent, AudioBudgetExceededError } from './audio-producer';
 import { AudioAuditorAgent } from './audio-auditor';
@@ -289,6 +289,33 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       await this.logStep(today, pieceId, runId, 'curating', 'failed', { error: message });
       const observer = await this.subAgent(ObserverAgent, 'observer');
       await observer.logError('curator', 0, message, pieceId, runId);
+
+      // 2026-05-13 diagnostic capture: when Curator's parse-fail
+      // makes it through both the initial call AND the repair retry,
+      // write a dedicated observer_events row carrying the full raw
+      // bodies + stop_reasons + token usage from both calls so the
+      // next investigation isn't inference-bound. Closes the gap that
+      // made the 2026-05-13 c01ab251 diagnosis impossible from D1
+      // alone (the formatter only persisted the first 200 chars of
+      // attempt 1 via parse-json.ts:37). See DECISIONS 2026-05-13
+      // "Curator parse-fail diagnostic + repair-on-parse-fail".
+      if (err instanceof CuratorParseFailError) {
+        await observer.logCuratorParseFail({
+          rawTextAttempt1: err.rawTextAttempt1,
+          rawTextAttempt2: err.rawTextAttempt2,
+          stopReasonAttempt1: err.stopReasonAttempt1,
+          stopReasonAttempt2: err.stopReasonAttempt2,
+          tokensInAttempt1: err.tokensInAttempt1,
+          tokensOutAttempt1: err.tokensOutAttempt1,
+          tokensInAttempt2: err.tokensInAttempt2,
+          tokensOutAttempt2: err.tokensOutAttempt2,
+          attempt1ParseError: err.attempt1ParseError,
+          attempt2ParseError: err.attempt2ParseError,
+          pieceId,
+          runId,
+        }).catch(() => {});
+      }
+
       this.exitToIdle();
       return null;
     }

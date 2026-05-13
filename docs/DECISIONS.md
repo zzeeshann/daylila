@@ -2,6 +2,82 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-13: Curator parse-fail diagnostic + repair-on-parse-fail retry — closes the single-shot-dies failure class
+
+**Trigger.** Operator opened admin and reported piece c01ab251 wedged at Curator with `Could not extract JSON from response: ` ```json { "selectedCandidateId": "7561c529-040b-4a4b-8d8e-2906d2e25436", "pickReasoning": "Ordinary day connection is strong: rodent exposure happens everywhere from cruise ships to cabins to city"...` — asked to investigate, not patch. Operator's exact directive: *"find the problem first what is the problem why thi happend dont gues give me plan tell me why it happend and what is the recomended solution, no just temp fix"*.
+
+**Investigation flow — verified from D1, not inferred.** Pulled `pipeline_log` + `observer_events` for the failed piece:
+
+- Scanner returned 20 candidates cleanly (PER_FEED_CAP=2 × 10 feeds).
+- Curator started, threw at [agents/src/shared/parse-json.ts:37](agents/src/shared/parse-json.ts:37).
+- Director's try/catch at [director.ts:285](agents/src/director.ts:285) caught the throw → wrote `curating: failed` + `observer.logError` → exited to idle. The admin "✗" the operator saw is the 2026-05-09 fix working as designed, NOT a regression.
+
+**Critical diagnostic gap surfaced from D1 inspection.** The `pipeline_log.data` row stored ONLY 260 chars (the first 200 of Claude's response via `parse-json.ts:37`'s `text.slice(0, 200)` formatter). The `observer.logLLMCall` token-meter fires AFTER the try/catch at [director.ts:299-309](agents/src/director.ts:299), so the failure path produced **zero persisted detail**: no `stop_reason`, no `tokensOut`, no raw body. Same diagnose-by-inference posture that bit the 2026-05-11 empty-content session.
+
+**Baseline from D1 ruled out the obvious hypothesis.** Pulled 12 recent successful `LLM curator` rows from `observer_events`:
+
+```
+tokens_in: 7449–11732 (median ~7700)
+tokens_out: 2160–2692 (median ~2500)
+duration_ms: 57s–142s
+```
+
+The 8000 `max_tokens` cap is ~3× headroom over the typical output. Hitting truncation would require a >3× jump from baseline; there are no recent calls anywhere near the cap. Truncation hypothesis weakened, not eliminated.
+
+**Most-likely root cause: Sonnet 4.5 stochastic JSON-shape wobble.** Same pattern documented in the 2026-05-05 InteractiveGenerator Layer 3 entry: *"Sonnet 4.5 occasionally dropping opening quotes on long natural-language values."* The visible 200-char head opens a long natural-language `pickReasoning` string — exactly where this class of wobble bites. JSON.parse throws on unterminated/malformed strings without the response needing to be truncated. **Cannot be 100% confirmed today because the failure-path diagnostic data wasn't captured.** The fix is correct regardless of which mechanism fired; the diagnostic capture is what closes the inference gap for future occurrences.
+
+**Two coupled fixes, one commit. Both structural, neither a band-aid.**
+
+### Fix 1 — JSON-repair retry path on parse-fail
+
+Mirrors the 2026-05-05 InteractiveGenerator Layer 3 pattern. Refactored `curate()`:
+
+1. Extracted the Claude call body into a private helper `invokeClaude(client, userMessage): {rawText, stopReason, tokensIn, tokensOut, durationMs}`. Same model, same `max_tokens: 8000`, same streaming (`.stream({...}).finalMessage()` — preserves the 2026-05-09 124s-timeout fix).
+2. Wrapped `extractJson` in try/catch. On first parse-fail, captures `brokenHead = rawText.slice(0, 500)` and re-invokes `invokeClaude` with the new `buildCuratorJsonRepairPrompt`.
+3. Repair prompt re-emits the full candidate context (same shape as the original — Claude re-derives the pick rather than reconstructing the malformed output) plus an explicit instruction: *"Re-emit a fresh curator response as valid JSON. Every string value MUST be enclosed in double quotes — including multi-clause pickReasoning and rejectionReason values that read like natural-language sentences. Escape any embedded double quote inside a string value as `\"`. Do not include any commentary or prose outside the JSON object. Do not wrap the JSON in markdown code fences."*
+4. Token usage from both calls accumulates into the returned `CuratorResult` so `observer.logLLMCall` reflects true cost.
+5. On second parse-fail, throws `CuratorParseFailError` (new exported error class) carrying both raw bodies + stop_reasons + token usage from both attempts.
+
+Why retry is the structural fix rather than "raise the cap":
+
+- Eliminates "single-shot dies → no piece for the day" regardless of cause (wobble, truncation, refusal, transient SDK error).
+- Cost on success: zero. Cost on parse-fail: one extra Claude call (~$0.02). Today's failure burned more than that in wasted scheduled work.
+- Matches an existing pattern in this codebase (InteractiveGenerator Layer 3).
+- No regression surface on healthy runs (only fires when extractJson throws).
+
+### Fix 2 — Diagnostic capture on terminal fail
+
+New `observer.logCuratorParseFail({...})` method writes one `observer_events` row with title `Curator parse-fail diagnostic`, severity `warn`. Body is a structured multi-section text dump (per-attempt: stop_reason / tokens_in / tokens_out / parse_error / raw_text). Context carries the same fields in JSON for programmatic queries.
+
+Director's existing catch at [director.ts:285](agents/src/director.ts:285) calls this on `err instanceof CuratorParseFailError` AFTER the existing `observer.logError` row, so terminal Curator parse-fails produce TWO rows: (a) the standard generic Error row (admin feed compatibility), (b) the new structured diagnostic row (root-cause data).
+
+Next occurrence (rate unknown — today is the first measured occurrence) writes complete `stop_reason=...` / `tokensOut=...` / `raw_text=<full body>` into D1, retiring this category of post-mortem-by-inference.
+
+### What deliberately stayed
+
+- `max_tokens: 8000` UNCHANGED. The 12-call baseline shows steady ~2500 tokens out; raising the cap would mask the wobble class without protecting against it.
+- Response shape UNCHANGED — `rejectionReason` still on top 10, all rejections still carry `rejectionCategory`.
+- The defensive `?.` empty-content guard from 2026-05-11 is preserved (now lives in `invokeClaude`). Empty content still falls back to `'{}'` which parses cleanly into the existing skip-vs-pick branch.
+- Director's generic `observer.logError` row from the existing catch is preserved — `CuratorParseFailError` is additive, not replacing.
+- The `extractJson` helper at `agents/src/shared/parse-json.ts` is unchanged — the retry lives in Curator, not the shared parser, so other agents (Voice Auditor / Structure Editor / etc.) retain their fail-soft posture.
+
+### Verification
+
+- New verifier `agents/scripts/verify-curator-parse-retry.mjs` with 4 cases:
+  1. Attempt 1 parses → no repair call, single attempt, brief returned cleanly.
+  2. Attempt 1 parse-fail → repair attempt 2 parses → brief returned, tokens accumulated from both calls.
+  3. Both attempts parse-fail → `CuratorParseFailError` thrown with both raw bodies + stop_reasons + token usage preserved on the error instance.
+  4. Empty-content fallback (`'{}'`) parses cleanly without firing repair.
+- All 4 cases pass. All 10 pre-existing verifier scripts re-run green (`verify-parse-retry` is the InteractiveGenerator Layer 3 verifier — the precedent this one mirrors).
+- `pnpm verify-contracts-fresh` ✓ (no contract change; the repair prompt is operational prose, not rule body — same pattern as `INTERACTIVE_GENERATOR_PROMPT`'s `buildJsonRepairPrompt`).
+- Agents `tsc --noEmit` shows 26 errors total, all 26 pre-existing `src/server.ts` Durable Object set, zero new errors from the four touched files (curator.ts, curator-prompt.ts, director.ts, observer.ts).
+
+### Today's piece c01ab251
+
+Run is wedged; needs admin retrigger to re-drive once the fix deploys. Scanner output is intact; the wobble is stochastic so the next call has a high chance of parsing cleanly even before the fix lands.
+
+**Files (4 + 1 verifier + 1 package.json + 2 docs):** `agents/src/curator.ts` (CuratorParseFailError class + invokeClaude helper + two-stage parse-with-repair refactor), `agents/src/curator-prompt.ts` (new buildCuratorJsonRepairPrompt + extracted buildCuratorUserMessage helper), `agents/src/director.ts` (import CuratorParseFailError + dedicated diagnostic-logging branch in catch), `agents/src/observer.ts` (new logCuratorParseFail method); `agents/scripts/verify-curator-parse-retry.mjs` (new verifier with 4 cases); `agents/package.json` (verify-curator-parse-retry script entry); CLAUDE.md (this session's "Latest session" entry), DECISIONS.md (this entry). No migration. No contract change. No codegen rerun. No new D1 column. No agent renaming. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
 ## 2026-05-11: Homepage meta description rewrite + explicit PNG favicon hints — SEO copy drops invented specifics
 
 **Trigger.** Operator screenshotted Google's SERP for `dailylila.com` showing two problems: (a) the cached snippet reading *"Daily teaching anchored in today's news, written and audited by 16 autonomous agents. Each piece teaches the system behind the headline."* — operator's call: "not powerful, don't want '16 autonomous agents' on the most-crawled surface"; (b) the old Zeemish-Z favicon still rendering in the result row despite the 2026-05-07 rebrand.

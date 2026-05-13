@@ -16,6 +16,7 @@
     "verify-categoriser-floor": "node scripts/verify-categoriser-floor.mjs",
     "verify-interactive-voice": "node scripts/verify-interactive-voice.mjs",
     "verify-parse-retry": "node scripts/verify-parse-retry.mjs",
+    "verify-curator-parse-retry": "node scripts/verify-curator-parse-retry.mjs",
     "verify-pair-slug": "node scripts/verify-pair-slug.mjs",
     "verify-fact-checker": "node scripts/verify-fact-checker.mjs"
   },
