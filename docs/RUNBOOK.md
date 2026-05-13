@@ -437,6 +437,40 @@ ORDER BY tbl;
 
 If a writer table shows fewer DISTINCT run_id values than pipeline_log, that writer's threading regressed; investigate.
 
+### Operator queries: Curator parse-fail diagnostics
+
+Read-only queries. Each row is the full diagnostic capture from a Curator parse-fail that exhausted the retry path (initial call + repair retry both produced non-JSON). Surfaced 2026-05-13 — closes the diagnostic gap exposed by the 2026-05-13 c01ab251 incident where the failure path persisted only 200 chars of the broken response.
+
+```sql
+-- Last 10 Curator parse-fail diagnostics with attempt summaries:
+SELECT created_at, piece_id,
+       json_extract(context, '$.attempt1.stop_reason') AS attempt1_stop,
+       json_extract(context, '$.attempt1.tokens_out') AS attempt1_tokens_out,
+       json_extract(context, '$.attempt2.stop_reason') AS attempt2_stop,
+       json_extract(context, '$.attempt2.tokens_out') AS attempt2_tokens_out
+FROM observer_events
+WHERE title = 'Curator parse-fail diagnostic'
+ORDER BY created_at DESC LIMIT 10;
+
+-- Full body of the most recent parse-fail (read this to see the actual
+-- broken JSON Claude returned — `tokens_out` near the 8000 cap suggests
+-- truncation; well below cap suggests Sonnet wobble on a long string):
+SELECT created_at, piece_id, body
+FROM observer_events
+WHERE title = 'Curator parse-fail diagnostic'
+ORDER BY created_at DESC LIMIT 1;
+
+-- Stop-reason breakdown across all captured parse-fails (refusal /
+-- max_tokens / end_turn distribution tells you which failure mode
+-- dominates):
+SELECT json_extract(context, '$.attempt1.stop_reason') AS reason, COUNT(*) AS n
+FROM observer_events
+WHERE title = 'Curator parse-fail diagnostic'
+GROUP BY reason ORDER BY n DESC;
+```
+
+If diagnostics start accumulating at a meaningful rate (>1 per week sustained), the next investigation is whether to (a) raise `max_tokens` (if `tokens_out` regularly hits the cap), (b) tighten the response shape (if Sonnet wobble is the dominant mode and the repair retry isn't recovering), or (c) ship the Anthropic tool-calling structured-output path (the option (a) from the 2026-05-05 InteractiveGenerator FOLLOWUPS entry).
+
 ### Operator queries: Retention worker health
 
 Read-only queries. Run after the 04:00 UTC cron has fired at least once.

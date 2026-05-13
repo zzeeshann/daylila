@@ -84,31 +84,72 @@ export function buildCuratorPrompt(
   recentCategoryCounts: Array<{ name: string; count: number }> = [],
   recentDomainCounts: Array<{ domain: string; count: number }> = [],
 ): string {
+  // Soft-preference signal — Curator already has hard SAME-EVENT and
+  // SAME-CONCEPT skip rules in the contract. The category-concentration
+  // and domain-concentration blocks below add the missing memory layer:
+  // distribution of the last 30 days' picks across the library taxonomy
+  // (post-publish, via CategoriserAgent) and the 10-domain teachability
+  // taxonomy (at pick time, via Curator's pick_domain self-classification
+  // shipped 2026-05-09 PR #1). Rule body for what to do with the data
+  // lives in content/curator-contract.md.
+  return buildCuratorUserMessage(candidates, recentPieces, recentCategoryCounts, recentDomainCounts);
+}
+
+/**
+ * Build the user-message for a JSON-repair retry round — used when the
+ * first Curator call returned text that did NOT parse as valid JSON
+ * (almost always a Sonnet 4.5 wobble on a long natural-language string
+ * value; same pattern as the 2026-05-05 InteractiveGenerator Layer 3
+ * fix). Re-emits the full candidate context (same shape as the original
+ * call) so Claude can pick freshly; quotes back the broken head so
+ * Claude can see what went wrong; instructs to return valid JSON only.
+ *
+ * The system prompt is unchanged (CURATOR_PROMPT); only the user
+ * message differs. Same model, same max_tokens.
+ *
+ * See DECISIONS 2026-05-13 "Curator parse-fail diagnostic + repair-on-
+ * parse-fail" for the precedent and reasoning.
+ */
+export function buildCuratorJsonRepairPrompt(
+  brokenHead: string,
+  candidates: DailyCandidate[],
+  recentPieces: Array<{ headline: string; underlyingSubject: string }>,
+  recentCategoryCounts: Array<{ name: string; count: number }> = [],
+  recentDomainCounts: Array<{ domain: string; count: number }> = [],
+): string {
+  const previousBlock = `## Previous attempt — DID NOT parse as valid JSON
+
+The head of what you returned:
+
+\`\`\`
+${brokenHead}
+\`\`\``;
+
+  const instruction = `## What to do
+
+Re-emit a fresh curator response as valid JSON. Every string value MUST be enclosed in double quotes — including multi-clause pickReasoning and rejectionReason values that read like natural-language sentences. Escape any embedded double quote inside a string value as \\". Do not include any commentary or prose outside the JSON object. Do not wrap the JSON in markdown code fences.
+
+Re-derive the pick from the candidates below as you would on a fresh attempt; do not try to reconstruct the malformed previous output. The response shape and selectedCandidateId / pickDomain / rejectionCategory rules from the system prompt all still apply.`;
+
+  return `${previousBlock}\n\n${instruction}\n\n${buildCuratorUserMessage(candidates, recentPieces, recentCategoryCounts, recentDomainCounts)}`;
+}
+
+function buildCuratorUserMessage(
+  candidates: DailyCandidate[],
+  recentPieces: Array<{ headline: string; underlyingSubject: string }>,
+  recentCategoryCounts: Array<{ name: string; count: number }>,
+  recentDomainCounts: Array<{ domain: string; count: number }>,
+): string {
   const recentBlock = recentPieces.length > 0
     ? recentPieces
         .map((p) => `- "${p.headline}"\n  Underlying subject: ${p.underlyingSubject}`)
         .join('\n\n')
     : 'None yet.';
-  // Soft-preference signal — Curator already has hard SAME-EVENT and
-  // SAME-CONCEPT skip rules in the contract. This adds the missing
-  // memory layer: category concentration over the last 30 days. Verbatim
-  // from prod D1 sums via Director.getRecentCategoryCounts(30); excludes
-  // the hidden patterns-yet-to-cluster fallback. Rule body for what to
-  // do with the data lives in content/curator-contract.md.
   const categoryBlock = recentCategoryCounts.length > 0
     ? recentCategoryCounts
         .map((c) => `- ${c.name}: ${c.count} ${c.count === 1 ? 'piece' : 'pieces'}`)
         .join('\n')
     : 'None yet.';
-  // Domain concentration — Curator's self-classification pick_domain
-  // (PR #1, 2026-05-09). Distinct from category concentration above:
-  // CATEGORY = library taxonomy assigned post-publish by CategoriserAgent
-  // (Science / Governance / Trade / etc.); DOMAIN = the 10-domain
-  // teachability taxonomy from the Curator contract (inner-life / meaning
-  // / expression / etc.) classified by Curator itself at pick time.
-  // The domain signal lets Curator notice "9 hard-science picks in 30 days
-  // and 0 expression picks" — exactly the pattern that the upstream feed
-  // expansion of 2026-05-01 produced.
   const domainBlock = recentDomainCounts.length > 0
     ? recentDomainCounts
         .map((d) => `- ${d.domain}: ${d.count} ${d.count === 1 ? 'piece' : 'pieces'}`)

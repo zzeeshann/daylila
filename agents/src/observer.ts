@@ -106,6 +106,80 @@ export class ObserverAgent extends Agent<Env, ObserverState> {
     });
   }
 
+  /** Curator parse-fail with full diagnostic capture from both
+   *  attempts (initial call + repair retry). Carries the full raw
+   *  response text + stop_reason + token usage from each call so the
+   *  next investigation has the data it needs without inference.
+   *
+   *  Body is a structured multi-section text dump suitable for human
+   *  reading in the admin feed; context carries the same fields in
+   *  JSON for programmatic queries. Severity is warn (not escalation)
+   *  because Curator's catch already wrote an Error row and a manual
+   *  admin retrigger typically succeeds (Sonnet 4.5 wobble is
+   *  stochastic).
+   *
+   *  See DECISIONS 2026-05-13 "Curator parse-fail diagnostic +
+   *  repair-on-parse-fail". */
+  async logCuratorParseFail(fields: {
+    rawTextAttempt1: string;
+    rawTextAttempt2: string;
+    stopReasonAttempt1: string;
+    stopReasonAttempt2: string;
+    tokensInAttempt1: number;
+    tokensOutAttempt1: number;
+    tokensInAttempt2: number;
+    tokensOutAttempt2: number;
+    attempt1ParseError: string;
+    attempt2ParseError: string;
+    pieceId: string | null;
+    runId: string | null;
+  }): Promise<void> {
+    const body =
+      `Curator parse-fail across both attempts.\n\n` +
+      `## Attempt 1 (initial call)\n` +
+      `stop_reason: ${fields.stopReasonAttempt1}\n` +
+      `tokens_in: ${fields.tokensInAttempt1}\n` +
+      `tokens_out: ${fields.tokensOutAttempt1}\n` +
+      `parse_error: ${fields.attempt1ParseError}\n` +
+      `raw_text (${fields.rawTextAttempt1.length} chars):\n` +
+      `${fields.rawTextAttempt1}\n\n` +
+      `## Attempt 2 (repair retry)\n` +
+      `stop_reason: ${fields.stopReasonAttempt2}\n` +
+      `tokens_in: ${fields.tokensInAttempt2}\n` +
+      `tokens_out: ${fields.tokensOutAttempt2}\n` +
+      `parse_error: ${fields.attempt2ParseError}\n` +
+      `raw_text (${fields.rawTextAttempt2.length} chars):\n` +
+      `${fields.rawTextAttempt2}`;
+
+    await this.writeEvent({
+      severity: 'warn',
+      title: 'Curator parse-fail diagnostic',
+      body,
+      context: {
+        source: 'curator',
+        kind: 'parse_fail_diagnostic',
+        attempt1: {
+          stop_reason: fields.stopReasonAttempt1,
+          tokens_in: fields.tokensInAttempt1,
+          tokens_out: fields.tokensOutAttempt1,
+          raw_text_len: fields.rawTextAttempt1.length,
+          parse_error: fields.attempt1ParseError,
+          raw_text: fields.rawTextAttempt1,
+        },
+        attempt2: {
+          stop_reason: fields.stopReasonAttempt2,
+          tokens_in: fields.tokensInAttempt2,
+          tokens_out: fields.tokensOutAttempt2,
+          raw_text_len: fields.rawTextAttempt2.length,
+          parse_error: fields.attempt2ParseError,
+          raw_text: fields.rawTextAttempt2,
+        },
+      },
+      piece_id: fields.pieceId,
+      run_id: fields.runId,
+    });
+  }
+
   /** Daily run entered triggerDailyPiece, passed Phase 3's hourly
    *  cadence gate, but found a piece already published within the
    *  current slot window. Expected protective behaviour when a cron
