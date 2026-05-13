@@ -1,0 +1,59 @@
+{
+  "slug": "diagnostic-categories-as-systems",
+  "type": "quiz",
+  "title": "Diagnostic Categories as Systems",
+  "concept": "Medical diagnoses are organizing tools that determine which specialists patients see, which tests get ordered, and which treatments insurance covers—when the category's structure is wrong, the entire care pathway misdirects even competent practitioners.",
+  "interactiveId": "94d6e781-522e-45ac-8353-6ca8b6bce781",
+  "sourcePieceId": "35cc7ceb-6d53-4db5-a76e-7dac2ea9e03b",
+  "publishedAt": 1778681023173,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What makes a diagnostic category in medicine different from a scientific fact?",
+        "options": [
+          "Categories are provisional theories that get revised as evidence accumulates",
+          "Categories are organizing tools that shape how care systems route patients and resources",
+          "Categories reflect political consensus among professional organizations",
+          "Categories distinguish real diseases from psychosomatic complaints"
+        ],
+        "correctIndex": 1,
+        "explanation": "Diagnostic categories function as infrastructure—they determine specialist referrals, test protocols, and insurance coverage. When the category's structure is wrong, it systematically misdirects care regardless of individual doctor skill. Option A mistakes diagnosis for hypothesis-testing; the category shapes action, not just belief."
+      },
+      {
+        "question": "Why does naming a condition after its most visible symptom create structural problems for treatment?",
+        "options": [
+          "Visible symptoms are usually the least medically serious",
+          "The name points diagnosis toward what's observable rather than what's causal",
+          "Patients focus on cosmetic concerns instead of underlying health",
+          "Insurance companies deny coverage for symptom-focused diagnoses"
+        ],
+        "correctIndex": 1,
+        "explanation": "Naming after a visible feature—even if that feature isn't always present—embeds a lens that directs which tests get ordered, which specialists see the patient, and where treatment focuses. The diagnostic pathway follows the category's structure. Option C blames patients; the misdirection happens at the system level."
+      },
+      {
+        "question": "What threshold must be met to justify renaming an established diagnostic category?",
+        "options": [
+          "Majority vote among practicing specialists in the relevant field",
+          "Evidence that the original name causes measurable patient harm",
+          "Overwhelming evidence that the category's organizing logic is structurally wrong, not just incomplete",
+          "Development of a new treatment that the old name doesn't accommodate"
+        ],
+        "correctIndex": 2,
+        "explanation": "Renaming requires justifying the cost of rebuilding infrastructure—retraining specialists, rewriting insurance protocols, updating care pathways. The evidence must show the original structure was fundamentally misdirecting care, not that we learned more details. Option B is too narrow; harm follows from misdirection, but the standard is structural wrongness."
+      },
+      {
+        "question": "A condition primarily causes hormone imbalance and insulin resistance, but its name focuses on a downstream side effect most patients don't have. What determines whether treatment succeeds?",
+        "options": [
+          "Whether doctors are trained to recognize the symptoms despite the misleading name",
+          "Whether the diagnostic pathway routes patients to specialists who treat the actual mechanism",
+          "Whether patients research their condition and request the correct tests",
+          "Whether the side effect is treated aggressively enough to prevent the underlying problem"
+        ],
+        "correctIndex": 1,
+        "explanation": "The category determines the pathway—which specialist, which tests, which interventions. When the name encodes the wrong structure, even skilled doctors following standard care protocols will focus on the wrong target. Option A assumes individual competence can override systemic misdirection; it can't at scale. Option D reverses causality—treating downstream effects doesn't fix upstream drivers."
+      }
+    ]
+  }
+}
