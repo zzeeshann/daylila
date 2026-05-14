@@ -1,0 +1,59 @@
+{
+  "slug": "error-classification-thresholds",
+  "type": "quiz",
+  "title": "Error Classification Thresholds",
+  "concept": "Systems that judge whether to retry or accept an outcome use classification rules to separate mistakes that matter from mistakes that don't—the threshold determines whether small errors trigger expensive reversals or get absorbed as noise.",
+  "interactiveId": "be4c88ae-adcc-4816-9c81-74d3d7bb105e",
+  "sourcePieceId": "41970d90-a746-4831-88ad-b712c8ae776b",
+  "publishedAt": 1778724369689,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why don't quality-control systems flag every deviation from the ideal specification?",
+        "options": [
+          "Because inspectors lack the tools to detect minor deviations accurately",
+          "Because small deviations cost less to fix than large ones and should be handled differently",
+          "Because flagging everything would halt production without improving the final output meaningfully",
+          "Because regulations only require inspection of major defects, not minor ones"
+        ],
+        "correctIndex": 2,
+        "explanation": "Systems distinguish errors that change outcomes from errors that don't. Stopping production for every tiny variance wastes resources without making the product better. The threshold exists to protect flow while catching breaks that matter."
+      },
+      {
+        "question": "When a bank's fraud detection system reviews a disputed transaction, what determines whether it reverses the charge?",
+        "options": [
+          "Whether the merchant followed every procedural step in the payment authorization flow",
+          "Whether the error likely caused the customer to lose money they wouldn't have lost otherwise",
+          "Whether the customer files a formal complaint within the required timeframe",
+          "Whether reversing the transaction costs the bank less than investigating further"
+        ],
+        "correctIndex": 1,
+        "explanation": "The system asks: did this mistake change the outcome? A procedural deviation that didn't affect whether fraud occurred is harmless. Reversals happen when the error likely tipped the result—when following the rules would have prevented the loss."
+      },
+      {
+        "question": "Why does a passport application get rejected for a smudged signature but not for a date written in European format instead of American?",
+        "options": [
+          "Because signature verification is legally required while date format is administrative preference",
+          "Because the smudge prevents confirming the applicant's identity, while the date format doesn't block processing",
+          "Because rejection rates are tracked separately for security errors versus clerical errors",
+          "Because smudged signatures indicate fraudulent applications more often than format mistakes"
+        ],
+        "correctIndex": 1,
+        "explanation": "Classification separates errors that break the core function from errors that don't. A smudged signature blocks identity verification—the document can't do its job. A date in the wrong format is readable and doesn't prevent processing. One crosses the threshold; the other doesn't."
+      },
+      {
+        "question": "When does protecting finality stop mattering in a review system?",
+        "options": [
+          "When the cost of redoing the work is lower than the cost of leaving the error in place",
+          "When the original decision-maker no longer works for the organization",
+          "When the error broke the structure that legitimized the original decision in the first place",
+          "When enough time has passed that stakeholders no longer remember the original outcome"
+        ],
+        "correctIndex": 2,
+        "explanation": "Finality protects efficiency and stability—most outcomes stick. But when the decision process itself was broken in a way that undermines trust in the result, finality loses. The system's legitimacy depends on the process working; a structural break forces a retry."
+      }
+    ]
+  }
+}
