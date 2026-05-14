@@ -1,0 +1,59 @@
+{
+  "slug": "simultaneous-context-design",
+  "type": "quiz",
+  "title": "Simultaneous Context Design",
+  "concept": "When a single performance must land in multiple viewing contexts at once, each design choice splits attention between incompatible constraints—what works in one frame undermines another, forcing trade-offs that expose which audience the creator prioritized.",
+  "interactiveId": "4439bcd8-4653-4214-bfc8-f9a02b91f040",
+  "sourcePieceId": "2b79eccc-dce1-480d-9fd4-ae958883d6ef",
+  "publishedAt": 1778767388142,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a performance designed for one viewing context often fail in another?",
+        "options": [
+          "Different contexts use different equipment that can't sync",
+          "Each context requires incompatible design choices—what registers as scale in one reads as clutter in another",
+          "Audiences in different contexts have different cultural preferences",
+          "The time delay between contexts makes coordination impossible"
+        ],
+        "correctIndex": 1,
+        "explanation": "A design optimized for spatial immersion (360-degree views, vertical scale) confuses a broadcast director who needs tight frames and clean shots. The same 15 minutes can't maximize both without trade-offs that reveal which audience the creator chose to serve."
+      },
+      {
+        "question": "What constraint forces every creative choice when building a performance under a fixed time window?",
+        "options": [
+          "The number of people who can work simultaneously without interfering with each other",
+          "The clock—every element must assemble, perform, and disassemble within the window, so complexity is bounded by setup speed",
+          "The budget allocated to the performance by the event organizers",
+          "The energy and stamina of the performers during the window"
+        ],
+        "correctIndex": 1,
+        "explanation": "When the stage must be built and struck in 15 minutes while leaving no trace, the time budget caps how many acts, costume changes, and technical elements fit. More ambitious creative ideas die not because they're bad, but because they can't be executed within the window."
+      },
+      {
+        "question": "Why does adding a third context (global audiences across cultures) multiply the design difficulty?",
+        "options": [
+          "Translation delays mean different regions see the performance at different times",
+          "Each new context adds constraints that conflict with the existing ones—a symbol that reads as celebration in one culture reads as offense in another",
+          "Global audiences demand higher production quality than local ones",
+          "Performers must learn different choreography for each cultural group"
+        ],
+        "correctIndex": 1,
+        "explanation": "Designing for a stadium audience requires spatial scale; designing for broadcast requires tight camera control; designing for global cultural legibility requires avoiding region-specific references that alienate viewers elsewhere. Each constraint narrows the design space—three contexts at once leave very few choices that satisfy all."
+      },
+      {
+        "question": "What reveals whether a designer prioritized in-person or remote audiences?",
+        "options": [
+          "The ticket price ratio between stadium seats and broadcast subscriptions",
+          "Whether the performance uses vertical scale or tight choreography—vertical elements favor stadium viewers, close formations favor cameras",
+          "The language spoken during the performance",
+          "How many social media posts the performance generates afterward"
+        ],
+        "correctIndex": 1,
+        "explanation": "A flat stage with tight formations gives broadcast directors clean frames but bores stadium viewers in the nosebleeds who see tiny figures. A 360-degree stage with vertical towers thrills stadium viewers from every angle but confuses broadcast cameras that can't find a clean shot. The design choice exposes the priority."
+      }
+    ]
+  }
+}
