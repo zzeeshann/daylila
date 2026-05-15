@@ -1,0 +1,59 @@
+{
+  "slug": "standing-as-procedural-gate",
+  "type": "quiz",
+  "title": "Standing as Procedural Gate",
+  "concept": "Courts require plaintiffs to show concrete personal harm before they can challenge a rule—this gatekeeper doctrine prevents every policy disagreement from becoming a lawsuit by separating who feels injured from who is injured.",
+  "interactiveId": "07ec92ae-b48b-4aee-84ab-bd83cdf1bd6c",
+  "sourcePieceId": "eabae8c5-70bd-487a-af75-569ae41120e3",
+  "publishedAt": 1778810683185,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why do courts require a plaintiff to show personal harm before they can sue over a government rule?",
+        "options": [
+          "To reduce the workload on judges by filtering out cases where people simply disagree with the policy",
+          "To protect the government from criticism by making it harder for citizens to object",
+          "To ensure only experts can challenge technical decisions made by regulators",
+          "To prevent wealthy organizations from using lawsuits to delay regulations they dislike"
+        ],
+        "correctIndex": 0,
+        "explanation": "Standing doctrine filters cases by requiring concrete injury to the plaintiff. Without this rule, anyone who dislikes a policy could sue, turning every regulation into endless litigation. The doctrine separates disapproval from harm—only the latter gets you into court."
+      },
+      {
+        "question": "A bakery occasionally treats customers who get sick from shellfish sold at the grocery store next door. Can the bakery sue to block the grocery store's seafood license?",
+        "options": [
+          "Yes, because treating sick customers costs the bakery time and resources",
+          "No, because the bakery's role is responding to problems caused by someone else's legal activity",
+          "Yes, if the bakery can show a pattern of illness linked to the grocery store",
+          "No, unless the bakery can prove the grocery store violated safety standards"
+        ],
+        "correctIndex": 1,
+        "explanation": "The bakery isn't harmed by the license—it's doing its normal business of serving customers. Occasionally responding to problems caused by a neighbor's legal activity doesn't create standing. The bakery would need to show the license directly injured it, not that it dealt with indirect effects."
+      },
+      {
+        "question": "What happens when standing doctrine is too loose and anyone who dislikes a rule can sue?",
+        "options": [
+          "More perspectives get heard, making regulations better and fairer over time",
+          "Courts become clogged with cases where the plaintiff has no personal stake in the outcome",
+          "Agencies stop issuing new rules because they fear immediate legal challenges",
+          "Judges gain more power to review government decisions on their merits"
+        ],
+        "correctIndex": 1,
+        "explanation": "Loose standing turns every policy dispute into potential litigation. Courts fill with plaintiffs who object to rules but aren't personally harmed by them. Standing doctrine exists precisely to prevent this—it's the line between 'I disagree' and 'I'm injured,' ensuring courts hear cases where someone actually has something at stake."
+      },
+      {
+        "question": "A company sues over a labor rule that affects only its competitor's workers. Under standing doctrine, what question determines if the case proceeds?",
+        "options": [
+          "Whether the rule is good policy that protects workers or bad policy that raises costs",
+          "Whether the company can demonstrate the rule directly harms its business operations",
+          "Whether the rule was issued following proper regulatory procedure and public comment",
+          "Whether the company has standing in the community as an employer and taxpayer"
+        ],
+        "correctIndex": 1,
+        "explanation": "Standing asks one question: is the plaintiff concretely injured? The company must show the rule harms it directly—not that it objects to the policy, not that it followed procedure, not that it's a respected employer. Without personal injury, there's no case, regardless of the rule's merits."
+      }
+    ]
+  }
+}
