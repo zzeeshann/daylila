@@ -1,0 +1,59 @@
+{
+  "slug": "strict-liability-bright-lines",
+  "type": "quiz",
+  "title": "Bright-Line Rules",
+  "concept": "A system that applies consequences when a threshold is crossed—regardless of intent, severity, or harm—trades individual fairness for predictable enforcement and eliminates the judgment calls that introduce inconsistency.",
+  "interactiveId": "9ce4f6ac-b1bd-4d2c-bce6-e89cccd8d53b",
+  "sourcePieceId": "ec75ac58-e7b1-4d56-8a00-773de424c954",
+  "publishedAt": 1778853849418,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What makes a bright-line rule different from a judgment-based rule?",
+        "options": [
+          "It requires less training for enforcers to apply correctly",
+          "The consequence follows automatically when a condition is met, without weighing circumstances",
+          "It produces fairer outcomes because it treats everyone the same",
+          "It prevents people from breaking rules by making consequences more severe"
+        ],
+        "correctIndex": 1,
+        "explanation": "A bright-line rule triggers when a threshold is crossed—no hearing, no context evaluation. The mechanism is automatic application, not severity or fairness. Judgment-based rules ask why the line was crossed; bright-line rules only ask whether it was."
+      },
+      {
+        "question": "Why would a system choose automatic enforcement over case-by-case decisions?",
+        "options": [
+          "To prevent people from lying about their reasons for breaking the rule",
+          "To make the penalty match how much harm was caused",
+          "To eliminate the arguments and inconsistency that come from comparing circumstances",
+          "To reduce the total number of rule violations over time"
+        ],
+        "correctIndex": 2,
+        "explanation": "The trade-off is consistency versus proportionality. Bright-line rules remove the need to compare excuses or judge which reasons count—every case gets the same treatment. This makes enforcement faster and more uniform, but it also means one minute over the line costs the same as ten."
+      },
+      {
+        "question": "A parking meter expires at 3:15 PM. You return at 3:17 PM and find a ticket issued at 3:16 PM. What does this example show about bright-line systems?",
+        "options": [
+          "The system assumes you knew the expiration time and chose to ignore it",
+          "Enforcement works faster when officials don't have to listen to explanations",
+          "The penalty is designed to be painful enough that you won't be late again",
+          "The condition—meter expired—triggered the consequence without asking why you were late or how late you were"
+        ],
+        "correctIndex": 3,
+        "explanation": "The meter expiring is the bright line. Once crossed, the ticket applies automatically—no hearing about traffic, meetings, or how close you came to making it back in time. The second-most-tempting option (faster enforcement) is a benefit of the design, but not the mechanism itself."
+      },
+      {
+        "question": "When does a bright-line rule fail as a design choice?",
+        "options": [
+          "When people figure out how to exploit the exact threshold without crossing it",
+          "When small violations far from the line receive the same penalty as large violations, and the system loses legitimacy because the consequences feel unjust",
+          "When enforcement becomes expensive because officials have to monitor every threshold constantly",
+          "When the rule applies to situations the designers didn't anticipate"
+        ],
+        "correctIndex": 1,
+        "explanation": "The core trade-off is consistency for proportionality. A bright-line rule breaks down when people stop accepting that the same penalty should apply to vastly different violations—when a system built for speed starts to look arbitrary rather than fair, compliance weakens and challenges mount."
+      }
+    ]
+  }
+}
