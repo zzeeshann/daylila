@@ -20,8 +20,34 @@
  *  may invoke `web_search` up to this many times across all claims
  *  in one fact-check call. Tunable per FOLLOWUPS escalation note —
  *  drop from 8 to 4 if cost runs above $30/month. Site side does
- *  not consume this — only the agents side calls Anthropic's API. */
+ *  not consume this — only the agents side calls Anthropic's API.
+ *
+ *  As of 2026-05-16 (Tavily re-architecture) this is read ONLY by
+ *  fact-checker-anthropic.ts, kept dormant for 30 days as the
+ *  git-revert reference. The live path (fact-checker-tavily.ts) uses
+ *  the TAVILY_* constants below instead. */
 export const WEB_SEARCH_MAX_USES = 8;
+
+/** Tavily Search API config — read by agents/src/fact-checker-tavily.ts
+ *  and agents/src/shared/tavily-client.ts. 2026-05-16 re-architecture.
+ *
+ *  TAVILY_SEARCH_DEPTH: 'basic' (1 credit, $0.008) vs 'advanced'
+ *    (2 credits, $0.016). Basic is sufficient for the per-claim
+ *    grounding shape we use — Tavily returns ranked snippets either
+ *    way; advanced just searches more sources. Bump to 'advanced' if
+ *    verification accuracy is weak in the post-deploy spot-check.
+ *
+ *  TAVILY_MAX_RESULTS: snippets per claim returned to the Verify step.
+ *    3 keeps the Verify prompt compact (~12k tokens total for ~10 claims)
+ *    while giving Claude enough corroboration to spot contradictions.
+ *
+ *  TAVILY_CACHE_TTL_DAYS: rows in `claim_verifications` older than this
+ *    are treated as cache-miss on lookup. 30 days = evergreen facts
+ *    (boiling point of water) stay reusable across pieces, news-cycle
+ *    claims (today's headline) naturally age out. */
+export const TAVILY_SEARCH_DEPTH: 'basic' | 'advanced' = 'basic';
+export const TAVILY_MAX_RESULTS = 3;
+export const TAVILY_CACHE_TTL_DAYS = 30;
 
 /** Cutoff-confession trigger substrings. Mirrored to
  *  `src/lib/fact-check-thresholds.ts` for the drawer's render-time

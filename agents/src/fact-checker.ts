@@ -1,10 +1,6 @@
 import { Agent } from 'agents';
-import Anthropic from '@anthropic-ai/sdk';
 import type { Env, FactFailureReason } from './types';
-import { FACT_FAILURE_REASONS } from './types';
-import { extractJson } from './shared/parse-json';
-import { FACT_CHECKER_PROMPT } from './fact-checker-prompt';
-import { WEB_SEARCH_MAX_USES } from './shared/fact-check-thresholds';
+import { checkViaTavily } from './fact-checker-tavily';
 
 /**
  * Result of fact-checking a draft.
@@ -13,42 +9,39 @@ import { WEB_SEARCH_MAX_USES } from './shared/fact-check-thresholds';
  * Unverified claims are allowed (asymmetric with voice/structure gates —
  * intentional, since LLMs can flag anything they can't fully confirm).
  *
- * The two boolean flags encode the web-search leg's state:
- * - `searchUsed: true,  searchAvailable: true`  — Claude invoked
- *   web_search at least once and got results back. The norm for
- *   news-anchored daily pieces.
- * - `searchUsed: false, searchAvailable: true`  — Claude judged every
- *   claim verifiable from training data alone (general science, well-
- *   known facts) and didn't search. Acceptable on the rare
- *   pure-evergreen piece.
- * - `searchUsed: false, searchAvailable: false` — at least one
- *   web_search invocation returned `unavailable` from Anthropic. Real
- *   infrastructure problem. Director logs an Observer warn.
+ * The two boolean flags encode the search leg's state:
+ * - `searchUsed: true,  searchAvailable: true`  — Tavily was queried
+ *   for at least one claim (most runs). For the pre-2026-05-16
+ *   Anthropic path, this meant the SDK invoked web_search at least
+ *   once and got results back.
+ * - `searchUsed: false, searchAvailable: true`  — every claim resolved
+ *   from the per-claim cache (claim_verifications) without a fresh
+ *   Tavily roundtrip. Common on R2/R3 audits of multi-round pieces
+ *   once the cache warmed during R1.
+ * - `searchUsed: false, searchAvailable: false` — Tavily failed for
+ *   every claim attempted (all 4xx/5xx) AND every claim's verdict
+ *   defaulted to unverified-with-search-failed. Real infrastructure
+ *   problem. Director's existing observer.logError fires.
  *
- * Replaced the 2026-04-19 DDG Instant Answer integration on 2026-04-30
- * after the Venter piece exposed cutoff-confessing notes ("this appears
- * to be speculative fiction set in 2026") on real news. DDG IA only
- * resolved ~5% of news claims; Anthropic's native web_search tool is
- * search-grounded and citation-backed.
+ * 2026-05-16 re-architecture: replaced the single-pass Anthropic
+ * web_search call with a decoupled extract → search → verify pipeline
+ * using Tavily as the search backend. See fact-checker-tavily.ts.
+ * The old code lives at fact-checker-anthropic.ts (dormant, ~30 days
+ * as git-revert reference).
  *
- * Path A (2026-05-01 evening) replaced Phase F's per-claim
- * Claude-self-reported `sources` field. Anthropic's web_search response
- * already carries the URLs as auto-attached `web_search_result_location`
- * citation metadata on text blocks; the agent harvests them server-side
- * into a flat `sources: string[]` (deduped by URL) on this result. Per-
- * claim sources field deleted from `FactClaim` (Phase F's drawer
- * sub-section was 0% populated in production — empty transparency
- * theatre). The drawer's "Sources consulted" line reads from the flat
- * `sources` field via the audit_results.notes JSON.
+ * The shape below is UNCHANGED from the pre-2026-05-16 version so
+ * Director / Integrator / Director.saveAuditResults / made-drawer all
+ * consume identical fields. The audit-contract failure_reasons enum
+ * and per-claim status enum are unchanged.
  */
 export interface FactCheckResult {
   passed: boolean;
   claims: FactClaim[];
   searchUsed: boolean;
   searchAvailable: boolean;
-  /** Flat dedup-by-URL list of every citation Anthropic web_search
-   *  returned across this audit. Drawer renders a "Sources consulted"
-   *  line from this list. */
+  /** Flat dedup-by-URL list of evidence URLs from Tavily snippets for
+   *  this run (pre-2026-05-16: Anthropic web_search citation URLs).
+   *  Drawer renders a "Sources consulted" line from this list. */
   sources: string[];
   /** Foundation Fix Task 08 PR 08c (2026-05-07). Closed-enum tokens
    *  for the fact-check failure kinds. Empty array on pass. Validated
@@ -57,9 +50,12 @@ export interface FactCheckResult {
   failureReasons: FactFailureReason[];
   parseError?: string | null;
   /** Per-call usage. Director forwards to observer.logLLMCall.
-   *  tokensIn includes web_search tool-result content blocks that
-   *  bounce back into the conversation — for fact-checking on
-   *  current-event pieces this can dwarf the prompt itself. */
+   *  Post-2026-05-16: this is the SUM of the Extract step's tokens
+   *  and the Verify step's tokens. Tavily HTTP roundtrips don't
+   *  consume Anthropic tokens; only wall-clock is captured in
+   *  durationMs. The total is still much lower than the pre-2026-05-16
+   *  Anthropic-web_search bouncing case (where 105k input tokens on a
+   *  single round was normal). */
   tokensIn: number;
   tokensOut: number;
   durationMs: number;
@@ -76,179 +72,24 @@ interface FactCheckerState {
 }
 
 /**
- * FactCheckerAgent — verifies factual claims in lesson drafts using
- * Anthropic's server-side web_search tool.
+ * FactCheckerAgent — verifies factual claims in lesson drafts.
  *
- * Single-pass: Claude extracts claims, decides per-claim whether to
- * search, runs searches inside the same Messages turn, and returns one
- * JSON verdict. The pre-2026-04-30 two-pass DDG architecture is gone.
+ * 2026-05-16: replaced single-pass Anthropic web_search with a
+ * decoupled Tavily pre-fetch pipeline. The DO class stays the same;
+ * the body now delegates to checkViaTavily() in fact-checker-tavily.ts.
+ *
+ * Director's call site (`fact-checker.check(currentMdx)`) is unchanged.
+ * sourcePieceId is the optional second parameter: when supplied,
+ * claim_verifications cache rows populate source_piece_id so the
+ * made-drawer can join back to the originating piece for the
+ * "Sources consulted" line. Director threads pieceId in as the next
+ * parameter in the same commit that ships this change.
  */
 export class FactCheckerAgent extends Agent<Env, FactCheckerState> {
   initialState: FactCheckerState = { lastResult: null };
 
-  async check(mdx: string): Promise<FactCheckResult> {
-    const client = new Anthropic({ apiKey: this.env.ANTHROPIC_API_KEY });
-    const today = new Date().toISOString().slice(0, 10);
-
-    const callStart = Date.now();
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 4000,
-      system: FACT_CHECKER_PROMPT,
-      tools: [
-        {
-          type: 'web_search_20250305',
-          name: 'web_search',
-          max_uses: WEB_SEARCH_MAX_USES,
-        } as unknown as Anthropic.Messages.Tool,
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: `Today is ${today}. Fact-check this lesson:\n\n${mdx}`,
-        },
-      ],
-    });
-    const durationMs = Date.now() - callStart;
-
-    return this.parseResponse(response, durationMs);
-  }
-
-  /**
-   * Walks the assistant message's content blocks once, collecting:
-   *   - concatenated text (for JSON extraction)
-   *   - searchUsed flag (any `server_tool_use` invocation)
-   *   - searchAvailable flag (`unavailable` error from web_search tool)
-   *   - citation URLs from any `web_search_result_location` block
-   *     attached to a text block
-   *
-   * The flat `result.sources` is the deduplicated list of citation
-   * URLs. Per-claim cross-reference / hallucination defense was removed
-   * in Path A (2026-05-01) — Anthropic's citation metadata is the only
-   * input now, no Claude self-report layer to defend against.
-   *
-   * Public for the verifier harness — `agents/scripts/verify-fact-checker.mjs`
-   * calls a JS mirror of this logic.
-   */
-  parseResponse(response: Anthropic.Messages.Message, durationMs = 0): FactCheckResult {
-    let textCombined = '';
-    let searchUsed = false;
-    let searchAvailable = true;
-    const sources = new Set<string>();
-    const tokensIn = response.usage?.input_tokens ?? 0;
-    const tokensOut = response.usage?.output_tokens ?? 0;
-
-    for (const block of response.content) {
-      if (block.type === 'text') {
-        textCombined += block.text;
-        const citations = (block as { citations?: unknown[] }).citations;
-        if (Array.isArray(citations)) {
-          for (const raw of citations) {
-            const c = raw as { type?: string; url?: string };
-            if (c.type === 'web_search_result_location' && typeof c.url === 'string' && c.url.length > 0) {
-              sources.add(c.url);
-            }
-          }
-        }
-      } else if (block.type === 'server_tool_use') {
-        searchUsed = true;
-      } else if (block.type === 'web_search_tool_result') {
-        const inner = (block as { content?: unknown }).content as
-          | { type?: string; error_code?: string }
-          | unknown[]
-          | undefined;
-        if (Array.isArray(inner)) {
-          // Harvest URLs from search hits. Per Anthropic's web_search
-          // docs, every successful search returns a content[] array of
-          // `web_search_result` items with {url, title, page_age,
-          // encrypted_content}. This is the always-populated track —
-          // text-block citations only attach when Claude explicitly
-          // references a result, which paraphrased summary notes
-          // don't trigger. Walking the search hits directly gives a
-          // guaranteed-populated source list (subject to web_search
-          // actually returning results).
-          for (const result of inner) {
-            const r = result as { type?: string; url?: string };
-            if (r.type === 'web_search_result' && typeof r.url === 'string' && r.url.length > 0) {
-              sources.add(r.url);
-            }
-          }
-        } else if (inner && !Array.isArray(inner)) {
-          const errBlock = inner as { type?: string; error_code?: string };
-          if (errBlock.type === 'web_search_tool_result_error' && errBlock.error_code === 'unavailable') {
-            searchAvailable = false;
-          }
-        }
-      }
-    }
-
-    const flatSources = Array.from(sources);
-
-    let parsed: {
-      passed?: boolean;
-      claims?: Array<{ claim?: string; status?: string; note?: string }>;
-      failure_reasons?: unknown;
-    };
-    try {
-      parsed = extractJson(textCombined);
-    } catch (err) {
-      console.warn(`[fact-checker] could not extract JSON from response: ${err instanceof Error ? err.message : String(err)}`);
-      const result: FactCheckResult = {
-        passed: true,
-        claims: [],
-        searchUsed,
-        searchAvailable,
-        sources: flatSources,
-        failureReasons: [],
-        parseError: `Fact checker response was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
-        tokensIn,
-        tokensOut,
-        durationMs,
-      };
-      this.setState({ lastResult: result });
-      return result;
-    }
-
-    const rawClaims = Array.isArray(parsed.claims) ? parsed.claims : [];
-    const claims: FactClaim[] = rawClaims.map((rc) => {
-      const claimText = typeof rc.claim === 'string' ? rc.claim : '';
-      const status = (rc.status === 'verified' || rc.status === 'unverified' || rc.status === 'incorrect')
-        ? rc.status
-        : 'unverified';
-      const note = typeof rc.note === 'string' ? rc.note : '';
-      return { claim: claimText, status, note };
-    });
-
-    const hasIncorrect = claims.some((c) => c.status === 'incorrect');
-
-    // Validate failure_reasons against the closed enum. Same posture
-    // as VoiceAuditor + StructureEditor (Task 08 PR 08c).
-    const rawReasons = Array.isArray(parsed.failure_reasons) ? parsed.failure_reasons : [];
-    const failureReasons: FactFailureReason[] = [];
-    let droppedCount = 0;
-    for (const token of rawReasons) {
-      if (typeof token === 'string' && FACT_FAILURE_REASONS.has(token as FactFailureReason)) {
-        failureReasons.push(token as FactFailureReason);
-      } else {
-        droppedCount += 1;
-      }
-    }
-
-    const result: FactCheckResult = {
-      passed: !hasIncorrect,
-      claims,
-      searchUsed,
-      searchAvailable,
-      sources: flatSources,
-      failureReasons,
-      parseError: droppedCount > 0
-        ? `Fact checker dropped ${droppedCount} unknown failure_reason token(s) from the response`
-        : null,
-      tokensIn,
-      tokensOut,
-      durationMs,
-    };
-
+  async check(mdx: string, sourcePieceId: string | null = null): Promise<FactCheckResult> {
+    const result = await checkViaTavily(this.env, mdx, sourcePieceId);
     this.setState({ lastResult: result });
     return result;
   }

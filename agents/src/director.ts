@@ -512,7 +512,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       const [voiceResult, structureResult, factResult] = await Promise.all([
         (await this.subAgent(VoiceAuditorAgent, `voice-daily-r${round}`)).audit(currentMdx),
         (await this.subAgent(StructureEditorAgent, `struct-daily-r${round}`)).review(currentMdx),
-        (await this.subAgent(FactCheckerAgent, `fact-daily-r${round}`)).check(currentMdx),
+        (await this.subAgent(FactCheckerAgent, `fact-daily-r${round}`)).check(currentMdx, pieceId),
       ]);
 
       lastFactResult = factResult;

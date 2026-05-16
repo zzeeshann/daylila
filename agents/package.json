@@ -18,7 +18,8 @@
     "verify-parse-retry": "node scripts/verify-parse-retry.mjs",
     "verify-curator-parse-retry": "node scripts/verify-curator-parse-retry.mjs",
     "verify-pair-slug": "node scripts/verify-pair-slug.mjs",
-    "verify-fact-checker": "node scripts/verify-fact-checker.mjs"
+    "verify-fact-checker": "node scripts/verify-fact-checker.mjs",
+    "verify-tavily-pipeline": "node scripts/verify-tavily-pipeline.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
