@@ -1,0 +1,59 @@
+{
+  "slug": "exit-cost-asymmetry",
+  "type": "quiz",
+  "title": "Exit Cost Asymmetry",
+  "concept": "In a standoff where both sides lose money daily, the side that can afford to wait longer extracts better terms—but when a third party absorbs immediate harm they cannot postpone, they collapse the timeline by pressuring whoever is easiest to reach.",
+  "interactiveId": "12a6f377-32e4-47f7-9d53-f5f0dec54b0e",
+  "sourcePieceId": "f59b30d5-0acb-43b9-a9c3-f118e6e67478",
+  "publishedAt": 1778940360712,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does the side that can endure losses longer usually win a standoff?",
+        "options": [
+          "They have more legal protection from penalties",
+          "The other side accepts worse terms to stop the bleeding",
+          "Public opinion always shifts to support whoever holds out",
+          "Regulators force the weaker party to compromise first"
+        ],
+        "correctIndex": 1,
+        "explanation": "When both sides lose money daily, whoever breaks first takes the worse deal to end the pain. Resources help you wait, but political exposure or cash-flow panic can force a well-funded party to fold while a cash-poor one holds the line."
+      },
+      {
+        "question": "What changes when someone outside the negotiation absorbs the immediate cost?",
+        "options": [
+          "The dispute resolves slower because more parties complicate the talks",
+          "Both negotiators must now split the third party's losses equally",
+          "The clock speeds up—the harmed party pressures whoever they can reach first",
+          "The third party gains formal veto power over any settlement"
+        ],
+        "correctIndex": 2,
+        "explanation": "The harmed party doesn't sit at the table, but they can make noise—and they'll hammer whoever is easiest to pressure. That collapses the timeline because now someone with zero endurance is screaming for resolution."
+      },
+      {
+        "question": "A grocery distributor and a regional warehouse are locked in a pricing dispute. Stores run low on fresh produce, and shoppers flood local news with complaints. Why might this resolve faster than if only the distributor and warehouse faced costs?",
+        "options": [
+          "Shoppers will pressure elected officials who regulate the warehouse, forcing a deal",
+          "The distributor loses revenue from empty shelves and caves to restore supply",
+          "Market competition lets shoppers switch to other stores, removing pressure",
+          "News coverage always sides with consumers, giving them negotiating leverage"
+        ],
+        "correctIndex": 1,
+        "explanation": "The distributor depends on selling product—empty shelves mean lost revenue now, not later. The warehouse can wait because they're paid to store, not sell. Shopper anger might influence politicians, but the direct financial pain hits the distributor first, so they fold."
+      },
+      {
+        "question": "In a standoff where a third party cannot postpone the harm, who usually gets pressured into settling?",
+        "options": [
+          "Whichever side caused the dispute to start",
+          "The side most visible to the harmed party or most vulnerable to their backlash",
+          "Both sides equally, because shared blame forces compromise",
+          "The side with fewer resources, because they break under financial strain first"
+        ],
+        "correctIndex": 1,
+        "explanation": "The harmed party yells at whoever they can reach—voters call their mayor, patients lobby hospital boards, customers threaten to switch vendors. Visibility and exposure matter more than who started it or who has more cash."
+      }
+    ]
+  }
+}
