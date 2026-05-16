@@ -94,6 +94,12 @@ wrangler secret put ANTHROPIC_API_KEY   # For Claude API calls
 wrangler secret put GITHUB_TOKEN        # For Publisher commits
 wrangler secret put ELEVENLABS_API_KEY  # For Audio-Producer TTS
 wrangler secret put ADMIN_SECRET        # For trigger endpoint auth
+wrangler secret put TAVILY_API_KEY      # For Fact Checker Tavily pipeline (since 2026-05-16)
+                                        #   Get key at https://tavily.com (free Researcher
+                                        #   plan: 1,000 credits/month, $0.008/credit beyond).
+                                        #   If unset: fact-check returns soft-fail with
+                                        #   parseError; Director's existing
+                                        #   observer.logError fires once per call.
 ```
 
 ### Optional agents-worker settings
@@ -107,7 +113,7 @@ wrangler secret put SCANNER_RSS_FEEDS_JSON
 ## D1 Database
 
 ### Run migrations
-There are 31 migrations (`0001_init.sql` … `0031_curator_reasoning.sql`) defining 22 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
+There are 44 migrations (`0001_init.sql` … `0044_claim_verifications.sql`) defining 27 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
 Apply them (idempotent — skips any already recorded in `d1_migrations`):
 ```bash
 wrangler d1 migrations apply zeemish --remote
@@ -499,6 +505,50 @@ WHERE title LIKE 'Retention guard tripped:%'
 ORDER BY created_at DESC LIMIT 5;
 -- Any rows here are bugs — the policy SQL has drifted.
 ```
+
+### Operator queries: Tavily fact-checker cache health
+
+Read-only queries against `claim_verifications` (migration 0044). Run any time post-deploy of the Tavily re-architecture (2026-05-16).
+
+```sql
+-- Recent cache rows + verdict distribution:
+SELECT verdict, COUNT(*) AS rows, SUM(hit_count) AS total_hits
+FROM claim_verifications
+GROUP BY verdict
+ORDER BY rows DESC;
+
+-- Cache reuse signal (total_hits / total_rows; 1.0 = each row used exactly once, >1.0 = reuse):
+SELECT COUNT(*) AS rows, SUM(hit_count) AS hits,
+       ROUND(CAST(SUM(hit_count) AS REAL) / COUNT(*), 2) AS reuse_ratio
+FROM claim_verifications
+WHERE last_used_at >= strftime('%s','now','-30 days') * 1000;
+
+-- Hottest claims (highest hit_count = most reused across pieces):
+SELECT substr(claim_text, 1, 80) AS claim, verdict, hit_count,
+       datetime(last_used_at/1000,'unixepoch') AS last_used
+FROM claim_verifications
+ORDER BY hit_count DESC LIMIT 20;
+
+-- Stale rows (past 30-day TTL — ignored on lookup, refetched on next sighting; not deleted):
+SELECT COUNT(*) AS stale_rows
+FROM claim_verifications
+WHERE last_used_at < strftime('%s','now','-30 days') * 1000;
+
+-- Verdict drift detector (any `unknown` indicates a Tavily/Claude response token we haven't seen):
+SELECT COUNT(*) AS unknown_rows
+FROM claim_verifications
+WHERE verdict = 'unknown';
+
+-- Per-claim audit transcript for one piece (joins claim_verifications via search_query to
+-- daily_audit_claims for the per-piece, per-round record):
+SELECT dac.round, dac.status, substr(dac.claim_text, 1, 60) AS claim,
+       substr(dac.note, 1, 50) AS note
+FROM daily_audit_claims dac
+WHERE dac.piece_id = '<PIECE_UUID>'
+ORDER BY dac.round, dac.claim_index;
+```
+
+**Tavily credit usage** is tracked on the Tavily dashboard (https://tavily.com), not in D1 — the agent doesn't persist per-search credit cost. Per-claim cost is `$0.008 × cache misses`, so check `claim_verifications` row growth vs Tavily dashboard counter for the same period.
 
 ### Flip retention worker out of DRY_RUN mode
 

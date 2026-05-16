@@ -13,6 +13,50 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-16: Tavily cache hit-rate climb over the next ~10 pieces
+
+**Surfaced:** 2026-05-16 evening, alongside the Tavily Fact Checker re-architecture ([daylila#57](https://github.com/zzeeshann/daylila/pull/57)). The new pipeline replaces Anthropic's `web_search_20250305` server tool with an extract→search→verify pipeline where Tavily is the search backend and per-claim verdicts are cached in `claim_verifications` (migration 0044) globally across pieces.
+
+**What to watch:** the cost projection assumed cache hit-rate climbs from ~0% (first piece, cold cache) to ~60% on R2/R3 within a piece (revision rounds re-extracting mostly the same claims) and to a smaller but cumulative cross-piece hit-rate over time (evergreen claims like "Hydrogen absorbs at 121.6 nanometers" cached on a physics piece satisfy any future astronomy/chemistry piece's check). End-to-end verification on 2026-05-16 evening's first run already shows hit_count=2 on one claim (R2 hit R1's cache within the same piece) — reuse ratio 1.11 on day 1.
+
+**Probe plan:** weekly run the cache-health query from `docs/RUNBOOK.md` "Operator queries: Tavily fact-checker cache health":
+```sql
+SELECT COUNT(*) AS rows, SUM(hit_count) AS hits,
+       ROUND(CAST(SUM(hit_count) AS REAL) / COUNT(*), 2) AS reuse_ratio
+FROM claim_verifications
+WHERE last_used_at >= strftime('%s','now','-30 days') * 1000;
+```
+
+Expected trajectory:
+- Week 1 (after ~7 pieces): reuse_ratio 1.1–1.3 — within-piece reuse dominant
+- Week 4 (after ~30 pieces): reuse_ratio 1.4–1.8 — first cross-piece evergreen claim hits start landing
+- Week 12 (after ~90 pieces): reuse_ratio 1.8–2.5 — cross-piece reuse stabilises; Tavily credits used per piece drops further
+
+**Unblock trigger:** if reuse_ratio plateaus below 1.3 at week 4, that's the signal that claim fingerprinting is too strict — adjacent pieces aren't fingerprint-matching on claims they SHOULD share. Investigation hint: dump the top 20 cache rows by claim_text similarity, look for fingerprint collisions that should have merged but didn't (the fingerprint includes search_query, so Claude generating slightly different queries for the same claim across pieces is the dominant collision mode). Tuning options: drop search_query from the fingerprint (collisions on different claims with same query become risk), or normalise the search_query more aggressively (lowercase + stem) before fingerprinting.
+
+**Priority:** medium. Cost is already well below the pre-PR baseline ($0.87/piece vs $1.78); cache reuse is the lever for further compression — not a regression to fix, an optimisation to track.
+
+---
+
+## [observing] 2026-05-16: Tavily-vs-Anthropic verdict quality comparison over ~30 pieces
+
+**Surfaced:** 2026-05-16 evening, alongside the Tavily Fact Checker re-architecture ([daylila#57](https://github.com/zzeeshann/daylila/pull/57)). The pre-PR Anthropic-web_search single-pass call was Claude's "primary fact-check brain"; the post-PR Tavily pipeline gives Claude only the snippets Tavily returns (no adaptive search refinement, no curated index). The architecture trade-off was 95% cost reduction in exchange for "no Anthropic search backend, no Claude reasoning during search."
+
+**What to watch:** are claim verdicts on the new pipeline materially worse than the old? Specifically: are claims marked `verified` that an operator reading the snippets would mark `unverified` or `contradicted`? Or `unverified` that should have been `verified`?
+
+**Probe plan:** weekly spot-check the made-drawer of the past 3-5 published pieces. For each piece, the drawer's "Facts" section shows per-claim status + note. Sanity-read the note vs the linked snippet URLs (also in the drawer's "Sources consulted" line):
+- Claims marked `verified`: does the note actually substantiate the claim from the snippets, or is Claude leaning on training data?
+- Claims marked `unverified`: would more focused search have settled them? Or is the snippet quality genuinely insufficient?
+- Claims marked `incorrect`: do the snippets actually contradict, or did Claude misread?
+
+**Unblock trigger:** if ≥3 of any 30 published pieces have a clearly-wrong verdict (operator's own read disagrees with the drawer's status), the trade-off has tipped. Investigation hint: bump `TAVILY_SEARCH_DEPTH = 'basic'` to `'advanced'` (2 credits per search instead of 1; Tavily searches more sources and ranks more carefully). If still wrong, the next option is Architecture B from the original plan — hybrid keeping Anthropic web_search for R1 + caching its snippets for R2/R3 reuse. Or revert the architecture entirely via `git revert` of the merge commit (the Anthropic-path code is preserved DORMANT in `agents/src/fact-checker-anthropic.ts` for ~30 days).
+
+**Calendar trigger:** ~2026-06-15 (30 days post-merge). If verdict quality has held by then, this entry can be `[resolved]`; if not, escalate per the unblock trigger above.
+
+**Priority:** medium. Quality regression on fact-check is the failure mode that matters most — better to catch a slow-burn quality drift early than to find out at the 6-month review.
+
+---
+
 ## [followup] 2026-05-11: Update book chapter(s) to reflect drawer surfacing of Foundation Fix Phase 2 data
 
 **Surfaced:** 2026-05-11, alongside commit `99daa9a` ([daylila#49](https://github.com/zzeeshann/daylila/pull/49)) — the drawer expansion that surfaces pick reasoning (T03), the read-side of the learning loop (T04), audio audit + per-beat duration/size (T05), and per-round integrator decisions (T06).
@@ -607,7 +651,13 @@ The Manto rollback is also recent enough (2026-04-28) that the operator has fres
 
 ---
 
-## [observing] 2026-04-30: FactChecker rewrite — verify next 5–10 cron pieces actually search
+## [resolved] 2026-04-30: FactChecker rewrite — verify next 5–10 cron pieces actually search
+
+**Resolved 2026-05-16 evening** ([daylila#57](https://github.com/zzeeshann/daylila/pull/57)). Superseded by the Tavily Fact Checker re-architecture. The Anthropic `web_search_20250305` server-tool path is now DORMANT in `agents/src/fact-checker-anthropic.ts` (kept ~30 days as git-revert reference); the live path is the extract→search→verify pipeline using Tavily. All the criteria below were verification gates for the now-dormant code; the observing entry's purpose is closed. The successor observing entries are above: "[observing] 2026-05-16: Tavily cache hit-rate climb" and "[observing] 2026-05-16: Tavily-vs-Anthropic verdict quality comparison." The escalation paths below (max_uses tunable, search-availability fallback) no longer apply to the live system — they remain only as reference for what the dormant Anthropic-path was instrumented to do.
+
+---
+
+## [observing] 2026-04-30: FactChecker rewrite — verify next 5–10 cron pieces actually search (dormant — see [resolved] entry above)
 
 **Surfaced 2026-04-30** (after Close-beat). FactChecker rewritten to replace DuckDuckGo Instant Answer with Anthropic's `web_search_20250305` server tool. Triggered by the J. Craig Venter piece's drawer rendering "this appears to be speculative fiction set in 2026" on a real death the model didn't know about (cutoff). Plus Phase B drawer cutoff-confession filter (defense-in-depth) + Phase H ClaimReview JSON-LD + Phase I per-claim audit table.
 
