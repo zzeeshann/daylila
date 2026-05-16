@@ -33,8 +33,8 @@ database_id = "f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4"
 # limiter reset on every isolate recycle — effectively no limit.
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "47638cd187a240ddb5d446770be144ea"
-preview_id = "5756895b3c6b491c9760ef8c38eb16b6"
+id = "fb64829d2eb94b4b88b359692ea1e330"
+preview_id = "a40e2f02097144feb99c1d86cf0f189b"
 
 # Service binding to the agents worker.
 # Workers on .workers.dev cannot fetch each other via HTTP (Cloudflare
