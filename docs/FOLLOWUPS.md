@@ -177,21 +177,23 @@ Format per entry:
 
 ---
 
-## [open] 2026-05-14: Drop `pipeline_log_backup_20260507` after retention worker has run for ≥7 days in DRY_RUN mode
+## [resolved] 2026-05-14: Drop `pipeline_log_backup_20260507` after retention worker has run for ≥7 days in DRY_RUN mode
 
 - **Surfaced:** 2026-05-07 alongside migration 0037 (Foundation Fix Task 08 PR 08a/b). The pipeline_log rebuild created a snapshot table `pipeline_log_backup_20260507` as rollback insurance for the column-rename + new run_id UUID column. Same pattern as the 0014/0015 backup tables, all of which were dropped at the 7-day mark per FOLLOWUPS housekeeping discipline.
 - **Hypothesis:** None — housekeeping. Drop on or after 2026-05-14 once: (a) the new `run_date` column is feeding all 4 site-side queries cleanly, (b) the new `run_id` UUID column has populated on at least 7 days of new pipeline runs, and (c) the retention worker's first DRY_RUN observer events have been reviewed without surprises.
 - **Investigation hints:** before dropping, verify `SELECT COUNT(*) FROM pipeline_log_backup_20260507` matches the expected pre-rebuild row count, and `SELECT run_date, COUNT(*) FROM pipeline_log GROUP BY run_date ORDER BY run_date DESC LIMIT 14` shows clean day-grouping.
 - **Priority:** Low.
+- **Resolved:** 2026-05-16 — gates verified: (a) `SELECT COUNT(*) FROM pipeline_log_backup_20260507` returned 1175 rows; (b) `SELECT run_date, COUNT(*) FROM pipeline_log GROUP BY run_date ORDER BY run_date DESC LIMIT 14` returned clean YYYY-MM-DD `run_date` values for the trailing 14 days, 42–110 rows/day; (c) 9 days of DRY_RUN observer events reviewed, zero `Retention guard tripped:`, zero `escalation`, zero `Retention DELETE failed:`. Drop pending Phase 3 verification (next 04:00 UTC live run) — operator runs `npx wrangler d1 execute zeemish --remote --command "DROP TABLE pipeline_log_backup_20260507;"` after the first `Retention pruned: …` events land.
 
 ---
 
-## [open] 2026-05-14: Flip retention worker out of DRY_RUN mode
+## [resolved] 2026-05-14: Flip retention worker out of DRY_RUN mode
 
 - **Surfaced:** 2026-05-07 alongside the retention worker landing in PR 08a/b. The worker ships in DRY_RUN mode (`agents/wrangler.toml` `[vars] RETENTION_DRY_RUN = "true"`) for the first 7 days post-deploy as a safety rail — first run fires 04:00 UTC the day after deploy.
 - **Hypothesis:** None — operational rollout. After 7 days of DRY_RUN observer events have been reviewed and the candidate counts look correct (no published-piece counts in the candidates, no surprises in row counts vs schema understanding), flip to live via `wrangler secret put RETENTION_DRY_RUN false` (or remove the `[vars]` line and redeploy). Memory `feedback_non_destructive.md` applies — confirm with the user before flipping; auto-mode does not cover this transition.
 - **Investigation hints:** see `docs/RETENTION.md` "Flipping to live mode" + the operator queries section. The 7-day review window is a soft target; longer is fine if anything looks off.
 - **Priority:** Medium. Until flipped, the worker logs but doesn't prune — `observer_events` will continue to grow unboundedly.
+- **Resolved:** 2026-05-16 — `agents/wrangler.toml:35` `RETENTION_DRY_RUN = "true"` → `"false"`, committed + deployed via GitHub Actions. 9 days of clean DRY_RUN events reviewed beforehand (every `candidateCount = 0` because the system is too young to have rows outside the 90-day window — destructive cost on first live run is literally zero). Pre-flip review surfaced four `Retention SELECT failed: engagement` warns from 2026-05-08 → 2026-05-11 (the `date(?/1000, 'unixepoch')` bug fixed 2026-05-11 in the "Three forward fixes" session); clean from 2026-05-12 onward. Phase 3 verification (next 04:00 UTC fire returning `Retention pruned:` rows instead of `Retention dry-run:`) is the post-deploy gate — operator re-runs the same `wrangler d1 execute` query post-fire and confirms zero `escalation`, zero `Retention DELETE failed:`, zero `Retention guard tripped:`. First substantive prune lands ~2026-07-17 when the earliest 90-day-window rows age out.
 
 ---
 
