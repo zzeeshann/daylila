@@ -1,0 +1,59 @@
+{
+  "slug": "inference-from-shadow",
+  "type": "quiz",
+  "title": "Inference from Shadow",
+  "concept": "When the thing you want to measure does not emit a signal, you can still map its structure by watching what it blocks.",
+  "interactiveId": "f8261810-2b10-4a28-a1e9-1b7746a3cfac",
+  "sourcePieceId": "f64aeef7-dff4-40dd-a35c-a8e331f44164",
+  "publishedAt": 1778962668095,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does measuring by absorption instead of emission work when the target is invisible?",
+        "options": [
+          "Because absorption creates a stronger signal than emission",
+          "Because you need the target to glow before you can measure it",
+          "Because a bright background shows what the invisible target removes from the light passing through it",
+          "Because absorption methods magnify faint objects until they become visible"
+        ],
+        "correctIndex": 2,
+        "explanation": "A background source provides the signal—the invisible target leaves a fingerprint by removing specific wavelengths. The target never glows; you read its shape from what it blocks."
+      },
+      {
+        "question": "What makes this method fail if the background source is too dim?",
+        "options": [
+          "The target becomes too dense to see through",
+          "The absorption signature gets drowned out by noise in the weak signal",
+          "Dim sources emit the wrong wavelengths for absorption to occur",
+          "The target stops absorbing when illuminated by faint light"
+        ],
+        "correctIndex": 1,
+        "explanation": "You need enough photons to detect which wavelengths are missing. If the background is faint, the absorption dips vanish into measurement noise—like trying to see a shadow in near-darkness."
+      },
+      {
+        "question": "Why does this approach require many lines of sight instead of one?",
+        "options": [
+          "One line of sight tells you something is there but not its shape—many lines map the structure",
+          "Multiple measurements cancel out errors in the data",
+          "The target moves between measurements so you need redundant checks",
+          "Background sources flicker so you average many snapshots"
+        ],
+        "correctIndex": 0,
+        "explanation": "A single sightline gives you a one-dimensional slice—density along that path. Mapping structure in two or three dimensions requires sampling from different angles, like building a topographic map from elevation transects."
+      },
+      {
+        "question": "When would measuring emission work better than measuring absorption?",
+        "options": [
+          "When the target is denser than the background",
+          "When the target glows brightly enough that you do not need a backlight",
+          "When you want higher spatial resolution",
+          "When the background source is too far away"
+        ],
+        "correctIndex": 1,
+        "explanation": "If the target emits its own light—like a hot gas cloud or a glowing nebula—you point the camera directly at it. Absorption methods only make sense when the target is optically silent but sits between you and something bright."
+      }
+    ]
+  }
+}
