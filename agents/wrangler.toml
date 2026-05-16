@@ -27,12 +27,14 @@ enabled = true
 [triggers]
 crons = ["0 4 * * *"]
 
-# Retention worker safety rail. First-deploy default is 'true' (count
-# rows, log, delete nothing); operator unsets the var or flips to
-# 'false' via `wrangler secret put RETENTION_DRY_RUN` only after a
-# 7-day dry-run review window.
+# Retention worker safety rail. Flipped to 'false' on 2026-05-16 after
+# 9 days of clean dry-run review (every candidateCount=0 because the
+# system is too young to have rows outside the 90-day window; flip
+# removes the warning-state indicator and primes the worker for when
+# data starts aging past the windows ~2026-07-17 onward). Flip back to
+# 'true' here + commit to re-enter dry-run if anything looks off.
 [vars]
-RETENTION_DRY_RUN = "true"
+RETENTION_DRY_RUN = "false"
 
 # Durable Object bindings — one per agent class
 [[durable_objects.bindings]]

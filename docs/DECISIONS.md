@@ -2,6 +2,30 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-16: Retention worker flipped out of DRY_RUN — 9 days of clean dry-run review, every candidateCount=0 because the database is too young
+
+**Trigger.** Two `[open]` FOLLOWUPS entries dated 2026-05-14 (line 180 + 189) overdue. Retention worker shipped 2026-05-07 in DRY_RUN mode as a 7-day safety rail (Foundation Fix Task 08 PR 08a/b); 9 days in DRY_RUN as of today. Per docs/RETENTION.md the flip is destructive and confirmation-required.
+
+**Pre-flight review against prod D1.** Three operator queries from docs/RETENTION.md:
+
+- **Q1 — last 60 `Retention %` observer events.** 9 days of dry-run rows (2026-05-08 → 2026-05-16), all 7 windowed rules firing daily (`daily_candidates (selected=0)`, `observer_events (severity info|warn)`, `observer_events (severity escalation)`, `pipeline_log`, `audit_results (drafts never published)`, `draft_revisions (drafts never published)`, `engagement`). **Every `candidateCount = 0`.** Zero `Retention guard tripped:`, zero `escalation`, zero `Retention DELETE failed:`. Four `Retention SELECT failed: engagement` warns from 2026-05-08 → 2026-05-11 — that was the `WHERE created_at < ?` bug against the `date TEXT` column, fixed in the 2026-05-11 "Three forward fixes" session via `date(?/1000, 'unixepoch')`. Clean engagement rows from 2026-05-12 onward (5 days post-fix).
+- **Q2 — backup table integrity.** `SELECT COUNT(*) FROM pipeline_log_backup_20260507` → 1175 rows. Real snapshot.
+- **Q3 — pipeline_log `run_date` grouping.** 14 days of clean YYYY-MM-DD values (42–110 rows/day). The 0037 rename took; the 4 site-side queries are feeding from the right column.
+
+**The candidateCount=0 observation matters.** The system launched 2026-04-18; the oldest possible row is ~28 days old, comfortably inside the 90-day window. The destructive cost of the first live run is **literally zero rows**. Flip is operationally a no-op today but primes the worker for ~2026-07-17 onward when 90-day-window rows start aging out. The 5 days of post-engagement-bugfix clean dry-run is short of the brief's 7-day soft target, but every candidateCount being zero means the SELECT-and-delete logic has nothing to act on incorrectly. Operator's call to flip rather than wait another 2 days.
+
+**Change.** [agents/wrangler.toml:35](agents/wrangler.toml:35) `RETENTION_DRY_RUN = "true"` → `"false"`. The accompanying inline comment is rewritten to record the flip date, the 9-day dry-run review, the candidateCount=0 context, and the one-line revert path (flip back to `"true"`, commit). Picked Path B (wrangler.toml edit + git-visible commit) over Path A (`wrangler secret put`) for audit-trail visibility — matches the codebase's "diff is the audit trail" culture; secret-store overrides would leave the live state invisible to future readers.
+
+**What deliberately stayed.** Retention worker itself ([agents/src/retention.ts](agents/src/retention.ts)) is untouched. The only env-var read is `env.RETENTION_DRY_RUN !== 'false'`. Policy SQL untouched. Guards untouched. Cron schedule untouched. No new migration. No new tooling.
+
+**Phase 3 verification waits for 2026-05-17 04:00 UTC.** Operator re-runs the Q1 query post-fire and confirms: rows with `title` starting `Retention pruned:` instead of `Retention dry-run:`; `deletedCount=0` (today's reality given candidateCount=0); zero `escalation`; zero `Retention DELETE failed:`; zero `Retention guard tripped:`. If anything looks off, one-line revert (flip `"false"` → `"true"` in wrangler.toml + commit) puts the worker back in dry-run on the next 04:00 UTC fire.
+
+**Phase 4 — drop the backup.** Gated on Phase 3 clean. Operator runs `npx wrangler d1 execute zeemish --remote --command "DROP TABLE pipeline_log_backup_20260507;"`. 1175 rows discarded; D1's `wrangler d1 time-travel` covers 30-day point-in-time restore if recovery is ever needed.
+
+**Files (1 + 2 docs):** `agents/wrangler.toml`; CLAUDE.md (this entry), DECISIONS.md (this entry), FOLLOWUPS.md (two `[open]` 2026-05-14 entries flipped `[resolved]`). No migration. No contract change. No agent change. No codegen. Migration count: 43 (unchanged). Table count: 26 (unchanged).
+
+---
+
 ## 2026-05-13: Curator parse-fail diagnostic + repair-on-parse-fail retry — closes the single-shot-dies failure class
 
 **Trigger.** Operator opened admin and reported piece c01ab251 wedged at Curator with `Could not extract JSON from response: ` ```json { "selectedCandidateId": "7561c529-040b-4a4b-8d8e-2906d2e25436", "pickReasoning": "Ordinary day connection is strong: rodent exposure happens everywhere from cruise ships to cabins to city"...` — asked to investigate, not patch. Operator's exact directive: *"find the problem first what is the problem why thi happend dont gues give me plan tell me why it happend and what is the recomended solution, no just temp fix"*.
