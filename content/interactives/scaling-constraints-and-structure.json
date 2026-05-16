@@ -1,0 +1,59 @@
+{
+  "slug": "scaling-constraints-and-structure",
+  "type": "quiz",
+  "title": "Scaling Constraints and Structure",
+  "concept": "When an object grows larger, its volume increases faster than its surface area, forcing structural changes—doubling height means eight times the weight but only four times the strength, so things that work small break when scaled up unless their proportions shift.",
+  "interactiveId": "87ba34da-b9be-4d79-a063-3ee28beedf49",
+  "sourcePieceId": "5f4e05cb-f9f3-4081-b503-17c8e0132d1d",
+  "publishedAt": 1778897137656,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why can't you just make something bigger by multiplying all its dimensions by the same number?",
+        "options": [
+          "Volume grows as the cube of size while surface area grows as the square, creating a mismatch between mass and load-bearing capacity",
+          "Larger objects require different materials that aren't available at every scale",
+          "Manufacturing tools can't handle dimensions beyond a certain threshold",
+          "Gravity becomes stronger as objects get bigger, changing the physics"
+        ],
+        "correctIndex": 0,
+        "explanation": "Volume scales with length × width × height (cubed), while cross-sectional strength scales with width × height (squared). Double the size and you get 8× the weight but only 4× the strength—the load grows faster than the capacity to carry it. Gravity stays constant; the geometry mismatch is what breaks things."
+      },
+      {
+        "question": "An engineer wants to build a bridge ten times longer than an existing design. If she just scales up every dimension by 10×, what breaks first?",
+        "options": [
+          "The supporting columns, because they'd be carrying 1,000 times the weight but only have 100 times the cross-sectional strength",
+          "The roadway surface, because it would be too thin to handle traffic loads",
+          "The foundation, because soil compression limits don't scale linearly",
+          "Nothing breaks—scaling all dimensions equally preserves structural integrity"
+        ],
+        "correctIndex": 0,
+        "explanation": "10× longer in every direction means 10 × 10 × 10 = 1,000× the volume (and weight). But the column's load-bearing strength grows with its cross-section: 10 × 10 = 100×. The columns would buckle under weight they can't support. The only fix is to make columns thicker than the proportional scaling would suggest."
+      },
+      {
+        "question": "A toy car has thin axles. A real car the same shape would need axles the width of tree trunks. Why?",
+        "options": [
+          "Real cars carry passengers and the toy doesn't, so the load is fundamentally different",
+          "Metal behaves differently at larger scales due to crystalline structure changes",
+          "The axle must support weight that grows with volume (cubed) while its strength grows with cross-section (squared), forcing disproportionate thickening",
+          "Manufacturing tolerances require thicker parts to maintain the same precision ratios"
+        ],
+        "correctIndex": 2,
+        "explanation": "If you scale the toy car up 100× in length, the car's mass goes up 100³ = 1,000,000×. But the axle's cross-sectional strength only goes up 100² = 10,000×. To carry the load, the axle must thicken far beyond what proportional scaling would give—hence tree-trunk axles on a shape that had toothpicks at toy size."
+      },
+      {
+        "question": "A small animal can fall from a height with no injury. A larger animal of the same shape dies from the same fall. What changed?",
+        "options": [
+          "Larger animals have more fragile bones due to reduced bone density with age",
+          "Air resistance becomes negligible at larger sizes, so the larger animal hits harder",
+          "Impact force scales with mass (volume, cubed) while bone strength scales with cross-section (squared), so the skeleton can't absorb the proportionally larger shock",
+          "The larger animal's organs are less protected by surrounding tissue"
+        ],
+        "correctIndex": 2,
+        "explanation": "The small animal weighs little, so impact force is low—its bones handle it fine. Scale up the shape and mass grows faster than bone strength. Same fall, same velocity at impact, but the force on landing (proportional to mass) overwhelms the bones (whose strength grows more slowly). Air resistance matters somewhat, but the core problem is the cube-square mismatch."
+      }
+    ]
+  }
+}
