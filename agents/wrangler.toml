@@ -180,3 +180,8 @@ database_id = "f3cdccbf-7cea-4af1-b524-20f6a6fe1dd4"
 
 # Secrets (set via: wrangler secret put ANTHROPIC_API_KEY)
 # ANTHROPIC_API_KEY — required for Claude API calls
+# TAVILY_API_KEY    — required by the 2026-05-16 Tavily fact-checker
+#                     re-architecture. See agents/src/fact-checker-tavily.ts.
+#                     If unset, fact-check returns soft-fail (parseError populated,
+#                     Director's existing observer.logError fires once).
+#                     Set via: wrangler secret put TAVILY_API_KEY

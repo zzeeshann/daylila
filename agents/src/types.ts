@@ -43,6 +43,18 @@ export interface Env {
    * and docs/RETENTION.md.
    */
   RETENTION_DRY_RUN?: string;
+  /**
+   * Tavily Search API key. Required by the 2026-05-16 fact-checker
+   * re-architecture (Tavily replaces Anthropic's web_search server tool
+   * as the search backend; see agents/src/fact-checker-tavily.ts).
+   * Set via `wrangler secret put TAVILY_API_KEY` against zeemish-agents.
+   * Free tier (1,000 credits/month) covers most months once the
+   * per-claim cache in `claim_verifications` warms up; PAYG at
+   * $0.008/credit beyond. If unset, FactCheckerAgent throws on the
+   * first call — Director's existing try/catch logs once via
+   * observer.logError and the audit_results row carries parseError.
+   */
+  TAVILY_API_KEY?: string;
 }
 
 /** Plan for a single beat within a piece */
@@ -453,4 +465,89 @@ export interface IntegratorRoundSnapshot {
  *  (`AudioAuditorState.lastResult` etc.). */
 export interface IntegratorState {
   lastSnapshot: IntegratorRoundSnapshot | null;
+}
+
+/** A single claim the Extract step pulled out of a draft. The
+ *  Verify step receives the same `claim_id` back so the per-claim
+ *  verdict can be threaded into FactCheckResult.claims in the original
+ *  draft order. `search_query` is what we send to Tavily — Claude
+ *  generates a focused, decontextualised query (e.g. "femur dinosaur
+ *  Thailand 2026 weight estimate" rather than the raw claim prose) so
+ *  the same evergreen claim across two pieces fingerprints identically.
+ *
+ *  2026-05-16 Tavily re-architecture. */
+export interface ExtractedClaim {
+  claim_id: string;
+  claim_text: string;
+  search_query: string;
+}
+
+/** Closed enum of claim verdicts the Tavily-backed fact-checker can
+ *  emit. Mirrors the existing FactClaim.status enum (`verified` |
+ *  `unverified` | `incorrect`) but renames `incorrect` to the
+ *  `contradicted` token used in the audit-contract's failure_reasons
+ *  enum — the same shape in two places caused enough confusion that the
+ *  Tavily pipeline canonicalises on the contract's vocabulary. The
+ *  agent translates `contradicted` back to `incorrect` when filling
+ *  FactClaim.status so the existing FactClaim → daily_audit_claims
+ *  persistence path doesn't have to change.
+ *
+ *  `cutoff_confession_attempted` flags the case where Claude tried to
+ *  emit a cutoff-confession verdict (forbidden by the contract) — the
+ *  agent translates this to `unverified` for FactClaim.status and adds
+ *  `cutoff_confession` to FactCheckResult.failureReasons.
+ *
+ *  `unknown` is reserved for forward-compat — drift surfaces via the
+ *  same `failure_reasons LIKE '%unknown%'` operator query the other
+ *  closed-enum auditors use. */
+export type TavilyClaimVerdict =
+  | 'verified'
+  | 'unverified'
+  | 'contradicted'
+  | 'cutoff_confession_attempted'
+  | 'unknown';
+
+export const TAVILY_CLAIM_VERDICTS: ReadonlySet<TavilyClaimVerdict> = new Set<TavilyClaimVerdict>([
+  'verified',
+  'unverified',
+  'contradicted',
+  'cutoff_confession_attempted',
+  'unknown',
+]);
+
+/** A single Tavily search result snippet. Mirrors the relevant slice of
+ *  Tavily's response.results[N] — only the fields the Verify step needs.
+ *  Stored in claim_verifications.tavily_snippets as JSON. Kept compact
+ *  on purpose; raw HTML and image fields are not persisted. */
+export interface TavilySnippet {
+  title: string;
+  url: string;
+  content: string;
+  score: number;
+}
+
+/** Row shape for the claim_verifications table (migration 0044). Read
+ *  by fact-checker-tavily.ts on cache lookup; written after a fresh
+ *  Tavily search + Verify pass produces a verdict. Cache TTL is checked
+ *  at READ time (rows with last_used_at older than
+ *  TAVILY_CACHE_TTL_DAYS are treated as miss); no separate eviction
+ *  worker yet — stale rows just take space until a retention pass is
+ *  added.
+ *
+ *  Fingerprint key: sha256(normalised_claim_text + '|' + search_query).
+ *  Normalisation: lowercase, collapse whitespace, strip trailing
+ *  punctuation. Both fields included so a paraphrased claim with the
+ *  same search query still fingerprints distinctly. */
+export interface CachedClaimVerification {
+  id: string;
+  claim_fingerprint: string;
+  claim_text: string;
+  search_query: string;
+  tavily_snippets: TavilySnippet[];
+  verdict: TavilyClaimVerdict;
+  evidence_urls: string[];
+  source_piece_id: string | null;
+  hit_count: number;
+  created_at: number;
+  last_used_at: number;
 }
