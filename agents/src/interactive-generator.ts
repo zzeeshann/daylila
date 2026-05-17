@@ -1649,9 +1649,11 @@ export class InteractiveGeneratorAgent extends Agent<Env, InteractiveGeneratorSt
       score: number | null;
       notes: string[];
     };
-    // Quiz path leaves score undefined on structure/essence/factual
-    // (binary pass/fail) → null in the row. HTML path populates all
-    // four scores. Same row shape covers both.
+    // Both quiz and HTML paths leave score undefined on structure /
+    // essence / factual since 2026-05-17 Lab Renewal (binary pass/
+    // fail with named violations). Voice score is populated on both
+    // paths. The `?? null` coalescing below persists NULL for any
+    // absent score; the D1 column accepts NULL.
     const rows: Row[] = [
       {
         dimension: 'voice',
@@ -1943,11 +1945,13 @@ function summariseAudit(audit: InteractiveAuditResult): FinalAuditSummary {
 
 /**
  * Convert an InteractiveAuditResult into the RevisionFeedback shape
- * the prompt builder expects. Quiz auditor leaves structure/essence/
- * factual scores undefined (binary pass/fail); HTML auditor sets
- * them — the prompt builder ignores `score` on the binary
- * dimensions either way (the score field is voice-only in the
- * RevisionDimensionFeedback type).
+ * the prompt builder expects. Both quiz auditor and HTML auditor
+ * leave structure / essence / factual scores undefined (binary
+ * pass/fail with named violations since 2026-05-17 Lab Renewal —
+ * pre-Renewal HTML auditor scored them 0–100). Voice is scored on
+ * both paths. The prompt builder's dimensionBlock helper renders
+ * `(score N)` only when score is defined, so it cleanly handles
+ * either shape.
  */
 function buildAuditFeedback(audit: InteractiveAuditResult): RevisionFeedback {
   return {

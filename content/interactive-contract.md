@@ -18,6 +18,7 @@ The piece is the SOURCE of a concept. The concept is the SUBJECT of the artefact
 4. Do not write "according to the piece", "as described", "in the article", "as we saw above". There is no piece as far as the reader knows.
 5. Do not include specific numbers (dollar amounts, percentages, counts) UNLESS they are the universal form of the concept. "A human body is ~60% water" is the concept. "$18.2 billion in quarterly losses" is the piece.
 6. Do not name an industry/domain in a way a reader would recognise AS the piece's industry. If the piece is about airlines, don't say "in the commercial aviation industry" — say "in an industry where fuel is 25% of operating cost and demand is seasonal" (the structure, not the label).
+7. **Standard units of measurement are universal, never piece-references.** SI units, time units, currency units, common physical/scientific units — nm, GHz, kelvin, decibels, days, hours, seconds, USD, EUR, watts, joules, mph — are units, not references, even when the source piece uses them. The *value* the piece names ("121.6 nm", "$18.2 billion") is the piece; the *unit* is always allowed. A wavelength slider for a spectroscopy concept may use nm freely; a coordination-cost lab for a labour dispute may use days freely.
 
 ## Plain English split rule (applies inside artefact prose)
 
@@ -71,25 +72,27 @@ Both questions test the same idea. The second one a teenager reads once and answ
 
 The interactive must render as one cohesive teaching artefact, not a pile of widgets:
 
-- **One clear interactive surface.** The reader can identify the thing they're meant to manipulate without guessing — a single slider, a clear pair of toggles, a labelled scrub track, a small simulation with one input. Multiple controls are fine *if* they share an obvious purpose (two sliders that compose into one model output) and bad if they fragment the page into disconnected demos.
 - **A clear teaching label.** Above or alongside the interactive surface, in plain words, what concept the manipulation teaches. The reader doesn't have to infer.
 - **Cohesive layout.** Title, surface, output, explanation read top-to-bottom (or left-to-right) without the reader hunting.
 - **Mobile-respectable.** The interactive doesn't break at 375 px width. Use viewport meta and responsive CSS.
 - **Sensible defaults.** Initial state shows something teaching — not a blank canvas requiring three clicks before anything happens.
-- **Stable on input.** Moving the slider from min to max doesn't break the layout, throw a visible error, or render NaN.
+- **Stable on input.** Manipulating the surface from edge to edge doesn't break the layout, throw a visible error, or render NaN.
 - **Pedagogy hooks.** The reader can tell what happened when they manipulated something — output changed, a label updated, a chart redrew, a value flipped.
-- **Manipulation embodies the mechanism.** The mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place. The reader's hand on the control should feel the shape of the idea. This is the primary essence bar — an interactive that fails it is decorative, not teaching.
 
-The canonical reference is `docs/examples/interactive-reference.html` — a chokepoints worked example that is structural and voice template, not content to copy.
+**Shape diversity.** A slider isn't the only shape. Click sequences, comparison toggles, drag-arrange grids, step-through timelines, 3D scenes, particle systems, audio-reactive visuals, multi-panel canvases — all are valid. Pick the affordance that matches the concept's mechanism. A coordination-failure concept might call for parallel-actor toggles where one's choice flips another's options; a threshold concept might call for a step-through where the system snaps at a value; a flow concept might call for a particle stream the reader rerouted. The shape is part of the teaching.
+
+**Manipulation embodies the mechanism** — strong authorial preference. The mechanism of change in the interactive should mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place. The reader's hand on the control should feel the shape of the idea. This is a strong authorial preference, not a numeric pass/fail gate. The hard floor for essence is the seven prohibitions above. A lab that respects those and teaches the underlying pattern in any form passes essence.
+
+The repository includes a chokepoints worked example at `docs/examples/interactive-reference.html` as one design vocabulary. It's not a template to copy — every concept has its own shape, and copying the slider+bars pattern when the concept calls for something else weakens the lab.
 
 ### HTML validator constraints
 
 The file runs inside `<iframe sandbox="allow-scripts">`. The validator at `agents/src/interactive-validator.ts` is the gate; it checks eight rules pre-audit:
 
-- `size-cap` — 50 KB hard cap on the inline HTML/CSS/JS. D3 v7 loaded externally from cdnjs does NOT count against this.
+- `size-cap` — 50 KB hard cap on the inline HTML/CSS/JS. Libraries loaded externally from cdnjs do NOT count against this.
 - `storage-api` — no `localStorage`, `sessionStorage`, `indexedDB`. Sandbox without `allow-same-origin` throws SecurityError. State lives in memory for the session.
 - `dynamic-code` — no `eval(...)`, `new Function(...)`, or string-form `setTimeout("...", ...)` / `setInterval("...", ...)`. Function references are fine; the string form is forbidden.
-- `external-script-allowlist` — external `<script src=...>` is allowed ONLY for D3 v7 from cdnjs (`https://cdnjs.cloudflare.com/ajax/libs/d3/7.<minor>.<patch>/d3.min.js`). Anything else fails the validator. Inline `<script>` is fully allowed.
+- `external-script-allowlist` — external `<script src=...>` is allowed from cdnjs for a curated set of well-known sandbox-safe libraries: **D3 v7** (data viz), **Three.js** (3D scenes), **Pixi.js** (2D canvas, sprites, particles), **p5.js** (creative coding), **Tone.js** (audio synthesis), **GSAP** (animation timelines), **Plotly.js** (interactive charts), **Howler.js** (sound effects), **Anime.js** (lightweight animation). All loaded from `https://cdnjs.cloudflare.com/ajax/libs/<lib>/...`. Anything else fails the validator. Inline `<script>` is fully allowed. None of these libraries are required — many labs need no library at all.
 - `network-call` — no `fetch(...)`, `new XMLHttpRequest()`, `new WebSocket(...)`, `new EventSource(...)`, `navigator.sendBeacon(...)`. Every byte the interactive needs ships in the file.
 - `nested-iframe` — no `<iframe>` inside the interactive.
 - `form-element` — no `<form>` element. Sandbox disallows submission; it would be visible-but-broken UI.
@@ -105,10 +108,11 @@ The file runs inside `<iframe sandbox="allow-scripts">`. The validator at `agent
 
 - **InteractiveGenerator (quiz path)** writes the JSON quiz; reads this contract via `${INTERACTIVE_CONTRACT}` injection in its system prompt. Adds one quiz-specific anti-pattern inline: *no "Which of the following best describes what happened in…" stems — there is no "what happened" as far as the reader knows.*
 - **InteractiveGenerator (HTML path)** writes the JSON HTML interactive; reads this contract via `${INTERACTIVE_CONTRACT}` injection.
-- **InteractiveAuditor (quiz path)** judges the quiz on four dimensions (voice, structure / pedagogy, essence-not-reference, factual); reads this contract via `${INTERACTIVE_CONTRACT}` injection.
-- **InteractiveAuditor (HTML path)** judges the HTML on the same four dimensions, with structure / essence / factual scored 0–100 instead of binary; reads this contract via `${INTERACTIVE_CONTRACT}` injection.
+- **InteractiveAuditor (quiz path)** judges the quiz on four dimensions (voice, structure / pedagogy, essence-not-reference, factual); reads this contract via `${INTERACTIVE_CONTRACT}` injection. Voice scored 0–100 (≥85 passes); structure / essence / factual binary pass/fail.
+- **InteractiveAuditor (HTML path)** judges the HTML on the same four dimensions. Voice scored 0–100 (≥85 passes). Structure / essence / factual are **binary pass/fail** — the auditor either names a specific concrete violation (proper noun X appears, factually wrong claim Y, manipulation does literally nothing) or passes. No numeric scoring on those three dimensions. Reads this contract via `${INTERACTIVE_CONTRACT}` injection.
 - **`agents/scripts/verify-interactive-voice.mjs`** is a regression mirror of the Plain English split rule + jargon flag list; hand-synced with this contract (same convention as the rest of the verify-* family).
 
 ## Change log
 
 - 2026-05-05 — v1.0 — extracted from `agents/src/interactive-generator-prompt.ts` and `agents/src/interactive-auditor-prompt.ts` (Foundation Fix Task 02 third extraction session, branch `foundation-fix-02-extraction-quiz`). Behaviour-preserving — rule values + canonical phrasings unchanged.
+- 2026-05-17 — v1.1 — Lab Renewal. Three coordinated changes: (1) Hard prohibition #7 added — standard units of measurement (nm, GHz, kelvin, decibels, days, USD, etc.) are universal, never piece-references, closing the structural tension that produced the cosmic-web piece's round 3 essence drop. (2) "Manipulation embodies the mechanism" demoted from primary essence bar (numeric gate at 75) to strong authorial preference; hard essence floor is the seven prohibitions. Shape diversity language added — sliders are one shape among many. The "One clear interactive surface" sub-rule removed (multiple surfaces are also valid; the rule was producing slider+bars homogeneity). (3) HTML auditor's structure / essence / factual dimensions move from numeric 0–100 scoring (75 floor) to binary pass/fail with named specific violations, matching the healthy quiz auditor. Validator allowlist expanded from D3-only to nine curated cdnjs libraries (Three.js, Pixi.js, p5.js, Tone.js, GSAP, Plotly, Howler, Anime alongside D3). Canonical chokepoints HTML reference no longer injected into the Generator prompt — file remains on disk as one design vocabulary, not a template to copy. Triggered by the 2026-05-16 cosmic-web piece's flagged-low HTML lab and the broader 35% HTML flag-low rate across the prior 14 days. Behaviour-changing for HTML labs only; quiz pipeline untouched.

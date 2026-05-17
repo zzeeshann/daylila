@@ -13,6 +13,74 @@ Format per entry:
 
 ---
 
+## [observing] 2026-05-17: HTML lab flag-low rate, shape diversity, and library use after Lab Renewal
+
+**Surfaced:** 2026-05-17, alongside the Lab Renewal commit. Three coordinated changes (drop canonical HTML reference; widen validator allowlist 1→9 cdnjs libraries; HTML auditor essence/structure/factual binary not numeric) ship together. Pre-deploy state: 35% HTML flag-low rate over the prior 14 days (46/54 audit fails were essence, clustered at scores 68 and 62).
+
+**What to watch over the next 7–14 days (≈7–14 fresh HTML labs from the daily cron).**
+
+1. **Flag-low rate drops.** Target: ≤15% of HTML labs ship with `qualityFlag: 'low'`. Current 35% baseline came primarily from essence-score hairsplitting that the new binary auditor doesn't produce. If the rate stays at 35%, the auditor is finding real concrete violations (proper-noun leaks, decorative manipulations, factual errors) — different problem, different fix. If the rate drops below 15%, the simplification worked as predicted.
+
+2. **Shape diversity rises.** Visual spot-check on each fresh HTML lab. Count single-slider-with-bar-outputs designs — pre-deploy fraction is essentially 100% (the canonical reference's pattern). Target: <50% by day 14. Look for genuine variety — click sequences, comparison toggles, drag-arrange grids, step-through timelines, 3D scenes (Three.js), particle systems (Pixi.js), animation timelines (GSAP).
+
+3. **Library use beyond D3.** At least one lab should use a library beyond D3 (Three.js / Pixi.js / p5.js / Tone.js / GSAP / Plotly.js / Howler.js / Anime.js) within the first 14 days. If zero labs use the new libraries, the Generator is anchoring to D3 even without an example; the prompt may need a worked positive example for a non-D3 shape. If usage is heavy (>50% of labs pull a library), watch for over-engineering — Tone.js audio synthesis for a coordination-failure concept is probably wrong fit.
+
+4. **Auditor signal quality.** `interactive_audit_results.notes` for failed HTML audits should contain SPECIFIC concrete violations (a proper noun quoted, a decorative manipulation cited, a factual error pointed to) rather than the pre-deploy "manipulation doesn't quite embody the mechanism" prose. Operator can read the notes and tell at a glance what's real vs what was hairsplitting.
+
+5. **Prohibition compliance.** Scan each fresh lab's HTML for the source piece's slug, title, and proper nouns. Target: 0 matches. The auditor's binary essence judgment will catch these; the validator doesn't.
+
+**D1 verification query (run from `/Users/zi/pro/zeemish-v2` site root, post-deploy):**
+
+```sql
+SELECT iar.dimension, iar.passed, COUNT(*) AS n,
+       AVG(LENGTH(iar.notes)) AS avg_notes_chars
+FROM interactive_audit_results iar
+JOIN interactives i ON i.id = iar.interactive_id
+WHERE i.type='html'
+  AND iar.created_at > strftime('%s', '2026-05-17')*1000
+GROUP BY iar.dimension, iar.passed
+ORDER BY iar.dimension, iar.passed;
+```
+
+Expect: structure / essence / factual rows show `passed = 1` predominantly; failed rows have `avg_notes_chars > 50` (specific violations are longer than empty arrays); voice rows still show numeric scores in the `score` column.
+
+**Escalation triggers.**
+
+- **35% flag-low rate persists** for 14 days → investigate which specific violations the auditor is finding. If most are "manipulation does nothing meaningful" on essence, reinstate "manipulation embodies the mechanism" as a binary essence check (cite the control and its absent effect). If most are proper-noun leaks, tighten the Generator prompt with worked anti-pattern examples for the leak class.
+- **Visible regression in lab quality** — operator opens a fresh lab and it looks broken / chaotic / decorative → add a short "design with restraint and clarity" paragraph to the Generator prompt. The validator catches sandbox safety; the auditor catches the seven prohibitions; the gap is aesthetic discipline.
+- **Real proper-noun / factual leaks ship** that the old auditor would have caught → the binary judgment is too permissive; tighten the prompt's "fail with a SPECIFIC violation" criteria.
+- **Token cost on HTML labs rises** despite the prompt trim → investigate which library is being pulled at scale; some (Three.js, Plotly) are large and cache-eligible but increase per-call output tokens.
+
+**Rollback (if any of the above triggers fire):**
+
+```
+git revert <commit-sha>
+cd agents && node scripts/codegen-contracts.mjs
+git push
+```
+
+System returns to pre-Renewal behaviour in ~2 minutes via the deploy pipeline.
+
+**Resolution gate:** at 14 days post-deploy with the watch metrics holding (flag-low ≤15%, shape diversity rising, library use ≥1, audit notes specific, prohibition compliance 100%), flip to `[resolved]` with the commit SHA. If any metric misses, the entry remains `[observing]` and an escalation entry surfaces.
+
+---
+
+## [open] 2026-05-17: Generator writes auditor parse-failed scores into published JSON
+
+**Surfaced:** 2026-05-17, during Lab Renewal investigation. The HTML lab `content/interactives/multi-species-transmission-chains-html.json` has `voiceScore: 0` + `qualityFlag: 'low'`. D1 audit history shows: round 1 returned voice=90, structure=85, essence=60, factual=85 (normal — essence fail at 60); round 2 returned `passed:0, score:0, notes:[]` on all four dimensions — the auditor parse-fail fallback (Claude returned non-JSON, the safe-read helpers defaulted to 0/false/empty arrays).
+
+**The bug.** `runHtmlLoop` at `agents/src/interactive-generator.ts` (commit path at the bottom) writes `voiceScore: lastAudit?.voice.score ?? undefined` into the published JSON. When the most recent round's audit parse-failed, `lastAudit.voice.score` is 0 (the parse-fail default), and the published JSON shows voice 0 — misleading to operators and readers (the lab probably scored 90 on the only round that completed cleanly).
+
+**Hypothesis.** The Generator should detect parse-failed audits (signature: all four dimensions `passed:false` with `score:0` and `notes:[]`) and either (a) skip them when writing the published voiceScore — preserve the last clean audit's score — or (b) treat the parse-fail as a round failure that doesn't update `lastAudit` (cleaner; matches how validator failures work). Currently parse-failed audits propagate into the published artefact metadata.
+
+**Investigation hints.**
+- The fallback shape is detectable: all four `passed: false` simultaneously + `score: 0` on voice + `notes: []` (empty arrays) is structurally distinct from a real fail (which has at least one specific violation in `notes`).
+- Alternative: catch the auditor parse-fail at the call site in `runHtmlLoop` and skip updating `lastAudit`. The auditor's `audit()` method already throws on parse-fail (`throw new Error('audit: Claude returned non-JSON output (html path)')`); some catch path is swallowing it into a zero-score audit object. Trace where.
+
+**Priority:** low. Cosmetic effect on the published JSON; doesn't change reader experience (qualityFlag is what triggers the "Rough" tag, not voiceScore alone). The Lab Renewal's binary auditor reduces the surface — most HTML labs will ship with `qualityFlag: null` after deploy, so the bug rarely surfaces. Worth fixing for data hygiene.
+
+---
+
 ## [observing] 2026-05-16: Tavily cache hit-rate climb over the next ~10 pieces
 
 **Surfaced:** 2026-05-16 evening, alongside the Tavily Fact Checker re-architecture ([daylila#57](https://github.com/zzeeshann/daylila/pull/57)). The new pipeline replaces Anthropic's `web_search_20250305` server tool with an extract→search→verify pipeline where Tavily is the search backend and per-claim verdicts are cached in `claim_verifications` (migration 0044) globally across pieces.
