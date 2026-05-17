@@ -1,0 +1,59 @@
+{
+  "slug": "dual-scoring-convergence",
+  "type": "quiz",
+  "title": "Dual Scoring and Convergence",
+  "concept": "When two independent evaluation systems—one rewarding technical execution, one rewarding emotional impact—both select the same output, that convergence signals the output satisfies distinct criteria simultaneously, making it robust across different audiences with different priorities.",
+  "interactiveId": "117148c6-0769-4c17-b017-83d59f829b7e",
+  "sourcePieceId": "f92afa3d-d1f8-4c45-ba47-3db6b0e48db0",
+  "publishedAt": 1778987602479,
+  "voiceScore": 90,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a dual-scoring system produce more robust winners than a single aggregate score?",
+        "options": [
+          "Because averaging two scores smooths out extremes and produces moderate results",
+          "Because each system filters for different qualities, so passing both means meeting unrelated standards",
+          "Because voters trust a process with multiple steps more than a single vote",
+          "Because splitting votes across two systems prevents any single faction from dominating"
+        ],
+        "correctIndex": 1,
+        "explanation": "Two independent scoring systems check for different things—one might measure craft, the other emotional resonance. An output that scores high in both isn't just 'average good'—it satisfies two separate sets of criteria, making it less likely to collapse when tested by a different audience. The first option confuses averaging (which does smooth extremes) with dual filtering (which requires passing distinct tests)."
+      },
+      {
+        "question": "A film festival uses critic panels and audience ballots to award its top prize. A documentary wins both. What does that dual win tell you about the film?",
+        "options": [
+          "It appeals equally to casual and expert viewers",
+          "It satisfies technical standards critics value and produces moments audiences remember",
+          "It must have been made with both groups in mind from the start",
+          "It is the most popular entry overall"
+        ],
+        "correctIndex": 1,
+        "explanation": "Dual scoring reveals the output met distinct evaluation criteria—critics might assess composition and editing rigor, while audiences respond to emotional beats and narrative clarity. Scoring high in both means it worked on multiple registers, not that it 'appeals equally' or was intentionally designed for dual systems. The fourth option conflates dual-system success with single-axis popularity."
+      },
+      {
+        "question": "When do dual-scoring systems produce the most divergent winners?",
+        "options": [
+          "When one system rewards risk-taking and the other rewards consistency",
+          "When the two scoring groups come from different cultural backgrounds",
+          "When the thing being judged can optimize for one criterion at the expense of the other",
+          "When voters in one system don't understand what the other system is measuring"
+        ],
+        "correctIndex": 2,
+        "explanation": "Divergence happens when an output can maximize one score by sacrificing the other—highly technical work that bores general audiences, or crowd-pleasing work that cuts corners on craft. When both dimensions can be satisfied simultaneously, convergence becomes possible. The first option names a real contrast but doesn't explain why winners split—outputs can be both risky and consistent if the risk is in execution, not structure."
+      },
+      {
+        "question": "A hiring process scores candidates on a coding test and a team-fit interview. Why might this dual system fail to identify strong hires?",
+        "options": [
+          "Because coding skill and interpersonal skill are unrelated, so high scorers in both are statistically rare",
+          "Because the two tests might measure overlapping traits under different names, leaving gaps unchecked",
+          "Because splitting evaluation across two systems takes longer and candidates accept other offers",
+          "Because interviewers unconsciously weight coding scores when judging team fit"
+        ],
+        "correctIndex": 1,
+        "explanation": "A dual-scoring system only strengthens selection if the two scores check genuinely independent qualities. If both tests happen to reward confidence or communication speed, the system has two measurements of the same underlying trait—leaving other important dimensions (like how someone handles ambiguity or learns from mistakes) unexamined. The first option assumes independence is the problem, when lack of independence is the real failure mode."
+      }
+    ]
+  }
+}
