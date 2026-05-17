@@ -26,6 +26,11 @@ import {
 import { AUDIO_BEATS_PER_CHUNK as MAX_BEATS_PER_CHUNK } from './shared/audio-thresholds';
 import { CATEGORISER_FALLBACK_SLUG } from './shared/categoriser-thresholds';
 import { filterDuplicateCandidates } from './shared/dedup-headlines';
+import {
+  isDirectorDisabled,
+  recordOperationStart,
+  recordOperationComplete,
+} from './director-guardrails';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
 import { REJECTION_CATEGORIES } from './types';
 import type { VoiceAuditResult } from './voice-auditor';
@@ -92,6 +97,21 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    */
   async dailyRun() {
     try {
+      // ── Kill switch check — see docs/CAP-INCIDENT-2026-05-17.md.
+      // admin_settings.director_disabled='1' halts all activity
+      // immediately. Operator flips this via the admin UI or
+      // `wrangler d1 execute "UPDATE admin_settings SET value='1'
+      // WHERE key='director_disabled';"`. Works during a CF DO cap
+      // because D1 writes don't go through DO duration. The watchdog
+      // cron at HH:30 also auto-trips this if any operation has run
+      // longer than director_max_operation_minutes (default 15) — the
+      // self-healing layer that catches the bug class where a DO is
+      // pinned active by stuck async work.
+      if (await isDirectorDisabled(this.env)) {
+        console.warn('[director.dailyRun] disabled via admin_settings.director_disabled');
+        return;
+      }
+
       // ── Gate: is this slot's hour one we should fire on? ──────────
       // Anchored to hour 2 UTC so the current 02:00 ritual is preserved
       // at any interval. Non-divisors of 24 fall back to 24 inside
@@ -138,6 +158,15 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    *   want to test end-to-end even after today's piece has published.
    */
   async triggerDailyPiece(force = false): Promise<{ brief: DailyPieceBrief; mdx: string } | null> {
+    // Kill switch — same posture as dailyRun. See docs/CAP-INCIDENT-2026-05-17.md.
+    // Bypasses force=true intentionally: when the system is in a known-bad
+    // state, even admin retriggers should be inert until the operator
+    // explicitly resumes by clearing the flag.
+    if (await isDirectorDisabled(this.env)) {
+      console.warn('[director.triggerDailyPiece] disabled via admin_settings.director_disabled');
+      return null;
+    }
+
     // Keep the Director DO alive across the multi-phase pipeline. Agents
     // SDK documents eviction "after ~70-140s of inactivity" and our text
     // pipeline alone runs ~100-110s — audio always straddled the cliff.
@@ -146,6 +175,13 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // disposer stops the heartbeat so the DO can hibernate normally when
     // we're done. See DECISIONS 2026-04-19 "DO eviction root cause".
     const keepAliveDispose = await this.keepAlive();
+    // Cross-restart operation tracker — see docs/CAP-INCIDENT-2026-05-17.md.
+    // D1-backed, survives DO code-resets (unlike in-memory _keepAliveRefs).
+    // The watchdog cron at HH:30 reads stale 'running' rows and trips the
+    // kill switch if any operation has been active >threshold-minutes.
+    // pieceId is minted below; the operation is recorded after the slot
+    // guard so we don't track skipped runs.
+    let operationId: string | null = null;
     try {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -208,6 +244,13 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         return null;
       }
     }
+
+    // Record this operation in director_health now that we've passed
+    // the slot guard and are definitely proceeding. The finally block
+    // marks it completed. If the DO is reset before the finally runs
+    // (e.g. mid-pipeline code push — see CAP-INCIDENT-2026-05-17), the
+    // row stays in status='running' and the HH:30 watchdog catches it.
+    operationId = await recordOperationStart(this.env, 'triggerDailyPiece', pieceId);
 
     // ─── Phase 1: Scanner ────────────────────────────────────────────
     this.enterPhase('scanner', `daily/${today}`);
@@ -1028,6 +1071,12 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     return { brief, mdx: currentMdx };
     } finally {
+      if (operationId) {
+        // Best-effort — never block keepAlive disposal on D1 latency.
+        recordOperationComplete(this.env, operationId).catch((err) => {
+          console.error('[director.triggerDailyPiece] recordOperationComplete failed:', err);
+        });
+      }
       keepAliveDispose();
     }
   }
@@ -2000,10 +2049,17 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       throw new Error(`retryAudioFresh: invalid pieceId "${pieceId}"`);
     }
 
+    // Kill switch check — see docs/CAP-INCIDENT-2026-05-17.md.
+    if (await isDirectorDisabled(this.env)) {
+      console.warn('[director.retryAudioFresh] disabled via admin_settings.director_disabled');
+      return;
+    }
+
     // keepAlive is reference-counted inside the SDK — nesting with the
     // inner retryAudio() call is safe; the heartbeat stops only when all
     // refs are disposed.
     const keepAliveDispose = await this.keepAlive();
+    const operationId = await recordOperationStart(this.env, 'retryAudioFresh', pieceId);
     try {
       // `daily_piece_audio` is the authoritative source for this piece's
       // audio state (post-Phase-1 PK is (piece_id, beat_name)). Iterate
@@ -2042,6 +2098,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // Delegate to existing retryAudio — it handles MDX read + audio pipeline
       await this.retryAudio(pieceId);
     } finally {
+      recordOperationComplete(this.env, operationId).catch((err) => {
+        console.error('[director.retryAudioFresh] recordOperationComplete failed:', err);
+      });
       keepAliveDispose();
     }
   }
@@ -2089,7 +2148,14 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       return;
     }
 
+    // Kill switch check — see docs/CAP-INCIDENT-2026-05-17.md.
+    if (await isDirectorDisabled(this.env)) {
+      console.warn('[director.retryAudioBeat] disabled via admin_settings.director_disabled');
+      return;
+    }
+
     const keepAliveDispose = await this.keepAlive();
+    const operationId = await recordOperationStart(this.env, 'retryAudioBeat', pieceId);
     try {
       await this.env.AUDIO_BUCKET.delete(row.r2_key);
       await this.env.DB
@@ -2101,6 +2167,9 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // Publisher (no-op if already 1).
       await this.retryAudio(pieceId, /* force */ true);
     } finally {
+      recordOperationComplete(this.env, operationId).catch((err) => {
+        console.error('[director.retryAudioBeat] recordOperationComplete failed:', err);
+      });
       keepAliveDispose();
     }
   }

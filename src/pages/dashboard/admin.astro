@@ -280,6 +280,39 @@ try {
   driftUnknownCount = driftRow?.unknown_count ?? 0;
 } catch { /* D1 may be empty in dev */ }
 
+// ── System guardrails — cap-incident prevention (2026-05-17). ─────
+// See docs/CAP-INCIDENT-2026-05-17.md. The kill switch flag halts
+// every Director alarm/method when set. The director_health table
+// tracks active long-running operations; the watchdog cron at HH:30
+// trips the kill switch automatically if any operation exceeds the
+// max-operation-minutes threshold.
+let directorDisabled = false;
+let directorMaxOperationMinutes = 15;
+let runningOperations: { operation_id: string; operation_type: string; piece_id: string | null; started_at: number; age_minutes: number }[] = [];
+try {
+  const flagRow = await db
+    .prepare("SELECT value FROM admin_settings WHERE key = 'director_disabled' LIMIT 1")
+    .first<{ value: string }>();
+  directorDisabled = flagRow?.value === '1';
+
+  const thresholdRow = await db
+    .prepare("SELECT value FROM admin_settings WHERE key = 'director_max_operation_minutes' LIMIT 1")
+    .first<{ value: string }>();
+  const parsedMin = thresholdRow?.value ? parseInt(thresholdRow.value, 10) : NaN;
+  if (Number.isFinite(parsedMin) && parsedMin > 0) {
+    directorMaxOperationMinutes = parsedMin;
+  }
+
+  const runningRes = await db
+    .prepare("SELECT operation_id, operation_type, piece_id, started_at FROM director_health WHERE status = 'running' ORDER BY started_at")
+    .all<{ operation_id: string; operation_type: string; piece_id: string | null; started_at: number }>();
+  runningOperations = runningRes.results.map((r) => ({
+    ...r,
+    age_minutes: Math.round((nowMs - r.started_at) / 60000),
+  }));
+} catch { /* table may not exist yet pre-migration 0045 */ }
+const anyStaleOp = runningOperations.some((op) => op.age_minutes >= directorMaxOperationMinutes);
+
 // Drift card colour: 0 → primary (clean), 1 → gold (warning, drift exists),
 // >1 → red (over the threshold the brief sets at audit time). Same colour
 // vocabulary as the Escalations card (zee-gold) extended with red for the
@@ -362,6 +395,73 @@ for (const piece of allPieces) {
       <div id="pipeline-steps" class="space-y-2">
         <p class="text-sm text-zee-muted italic">No pipeline run today. Click trigger to start.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- System guardrails (cap-incident prevention 2026-05-17) -->
+  <section class="mb-10">
+    <div class="flex items-center justify-between gap-4 mb-4">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-zee-muted">System guardrails</h2>
+      <button
+        id="director-toggle-btn"
+        data-disabled={directorDisabled ? '1' : '0'}
+        class={`px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 ${directorDisabled ? 'bg-red-600 text-white' : 'bg-zee-primary text-white'}`}
+      >
+        {directorDisabled ? 'Resume Director' : 'Kill switch (stop Director)'}
+      </button>
+    </div>
+    <span id="director-toggle-status" class="block text-xs text-zee-muted mb-3 min-h-[1rem]"></span>
+    <div class="p-5 rounded-xl border border-zee-border space-y-4">
+      <div class="flex flex-wrap items-center gap-6 text-sm">
+        <div>
+          <span class="text-zee-muted">Status:</span>{' '}
+          <span class={directorDisabled ? 'text-red-600 font-medium' : 'text-zee-primary font-medium'}>
+            {directorDisabled ? 'DISABLED — Director is halted' : 'Enabled'}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-zee-muted">Max operation:</span>
+          <input
+            id="director-max-op-input"
+            type="number"
+            min="5"
+            max="240"
+            step="1"
+            value={directorMaxOperationMinutes}
+            class="w-16 border border-zee-border rounded px-2 py-1 text-sm"
+          />
+          <span class="text-zee-muted">min</span>
+          <button
+            id="director-max-op-save"
+            class="px-3 py-1 border border-zee-border rounded text-xs hover:bg-zee-bg/60 transition"
+          >Save</button>
+        </div>
+      </div>
+      <div>
+        <h3 class="text-xs uppercase tracking-widest text-zee-muted mb-2">Currently running operations</h3>
+        {runningOperations.length === 0 ? (
+          <p class="text-sm text-zee-muted italic">No active operations.</p>
+        ) : (
+          <ul class="space-y-1 text-sm">
+            {runningOperations.map((op) => (
+              <li class={op.age_minutes >= directorMaxOperationMinutes ? 'text-red-600' : 'text-zee-ink'}>
+                <span class="font-mono text-xs">{op.operation_type}</span>
+                {op.piece_id ? <span class="text-zee-muted"> · piece {op.piece_id.slice(0, 8)}…</span> : null}
+                <span class="text-zee-muted"> · {op.age_minutes} min old</span>
+                {op.age_minutes >= directorMaxOperationMinutes ? <span class="ml-2 font-medium">⚠ stale</span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        {anyStaleOp && !directorDisabled ? (
+          <p class="text-xs text-zee-gold mt-2">
+            A stale operation is present. The next HH:30 watchdog cron will trip the kill switch automatically.
+          </p>
+        ) : null}
+      </div>
+      <p class="text-xs text-zee-muted">
+        Watchdog cron fires every hour at HH:30. Any operation running &gt; {directorMaxOperationMinutes} min trips the kill switch automatically. See <code class="text-zee-ink">docs/CAP-INCIDENT-2026-05-17.md</code>.
+      </p>
     </div>
   </section>
 
@@ -906,6 +1006,66 @@ for (const piece of allPieces) {
   });
 
   pollPipeline();
+
+  // Director kill switch + threshold (cap-incident prevention 2026-05-17).
+  // Both controls call /api/dashboard/director-guardrails — single
+  // endpoint, two actions distinguished by request body.
+  const directorBtn = document.getElementById('director-toggle-btn') as HTMLButtonElement | null;
+  const directorStatus = document.getElementById('director-toggle-status');
+  const directorMaxInput = document.getElementById('director-max-op-input') as HTMLInputElement | null;
+  const directorMaxSave = document.getElementById('director-max-op-save') as HTMLButtonElement | null;
+
+  if (directorBtn && directorStatus) {
+    directorBtn.addEventListener('click', async () => {
+      const currentlyDisabled = directorBtn.dataset.disabled === '1';
+      const targetDisabled = !currentlyDisabled;
+      const confirmMsg = targetDisabled
+        ? 'Halt the Director DO? All daily-piece pipeline activity will stop until you click Resume.'
+        : 'Resume the Director DO? Pipeline activity will run on the next 02:00 UTC cron (or admin trigger).';
+      if (!window.confirm(confirmMsg)) return;
+      directorBtn.disabled = true;
+      directorStatus.textContent = 'Updating…';
+      try {
+        const res = await fetch('/api/dashboard/director-guardrails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set-disabled', value: targetDisabled }),
+        });
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        directorStatus.textContent = targetDisabled ? 'Director halted.' : 'Director resumed.';
+        // Reload to refresh the section's data + button colour.
+        setTimeout(() => window.location.reload(), 600);
+      } catch (err) {
+        directorStatus.textContent = `Failed: ${err instanceof Error ? err.message : 'unknown'}`;
+        directorBtn.disabled = false;
+      }
+    });
+  }
+
+  if (directorMaxSave && directorMaxInput && directorStatus) {
+    directorMaxSave.addEventListener('click', async () => {
+      const value = parseInt(directorMaxInput.value, 10);
+      if (!Number.isFinite(value) || value < 5 || value > 240) {
+        directorStatus.textContent = 'Enter a value between 5 and 240 minutes.';
+        return;
+      }
+      directorMaxSave.disabled = true;
+      directorStatus.textContent = 'Saving…';
+      try {
+        const res = await fetch('/api/dashboard/director-guardrails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'set-max-minutes', value }),
+        });
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        directorStatus.textContent = `Saved — watchdog now trips at ${value} min.`;
+      } catch (err) {
+        directorStatus.textContent = `Failed: ${err instanceof Error ? err.message : 'unknown'}`;
+      } finally {
+        directorMaxSave.disabled = false;
+      }
+    });
+  }
 
   // Acknowledge observer events. After ack, fade the card to muted state
   // and remove the button — no page reload required.

@@ -13,6 +13,56 @@ Format per entry:
 
 ---
 
+## [open] 2026-05-17: Cap incident — Director DO ran 8h silent + Cloudflare free-tier duration exceeded. Prevention guardrails specified, not yet shipped
+
+**Surfaced:** 2026-05-17, ~12:02 UTC, Cloudflare notification email "Exceeded daily free-tier duration of 13,000 GB-sec". `zeemish-agents_DirectorAgent` namespace billed 19,170 GB-sec across the day (147% of cap), of which ~17k was a flat plateau at ~470 GB-sec/sample from 04:25 UTC to 12:00 UTC. The plateau wrote **zero observer_events** and **zero pipeline_log rows** — completely silent burn. Service degraded until 2026-05-18 00:00 UTC reset.
+
+**Full incident writeup:** `docs/CAP-INCIDENT-2026-05-17.md`.
+
+**Hypothesis:** Two code pushes mid-pipeline (04:11 UTC #61 zombie-fix and 04:45 UTC #62 InteractiveAuditor soft-fail) forced Durable Object resets while pipelines were running. The Agents SDK's `onStart()` runs four restoration steps (`restoreConnectionsFromStorage`, `restoreRpcMcpServers`, `_checkOrphanedWorkflows`, `_checkRunFibers`); one of these may have entered a recovery loop that ran silently for 8 hours. Could also be Cloudflare DO billing including instance-residency time not visible in observability surfaces. **Not verified — investigation hit a wall because the codebase has no logging surface that captures what the SDK does between observer-event writes.**
+
+**Investigation hints:**
+- The cap-incident doc has the full timeline + the four logging surfaces I tried (D1 pipeline_log, observer_events, `wrangler tail`, Cloudflare Workers Logs panel).
+- `agents/node_modules/agents/dist/index.js` is the SDK source — alarm handler at line 1883, `_scheduleNextAlarm` at line 1833, `_checkRunFibers` at line 1800, `keepAlive` at line 1690.
+- `~/.claude/plans/now-research-received-this-whimsical-puppy.md` carries the full investigation breadcrumb trail with timestamps + D1 query results.
+- The two mid-pipeline code pushes are the most suspicious timing signal but not yet causally proven. Reproduce-in-dev plan: push code in a local wrangler dev while a triggerDailyPiece is mid-flight, watch what happens to the in-memory state.
+
+**Prevention work — queued, not yet shipped (4 patches drafted in this branch).**
+
+1. **Kill switch.** `admin_settings.director_disabled` flag (seeded by migration 0045). Director reads it at the top of every alarm callback + public method. Operator flips via `wrangler d1 execute "UPDATE admin_settings SET value='1' WHERE key='director_disabled';"` to halt all activity. Works during a cap because D1 writes don't go through DO duration.
+
+2. **Operation-duration watchdog.** New `director_health` D1 table (migration 0045). Director writes a row at every `keepAlive()` acquire, updates heartbeat, marks complete at dispose. A separate cron at HH:30 reads stale 'running' rows; if any are >30 minutes old without a heartbeat, fires escalation observer event AND trips the kill switch automatically. Self-healing — survives DO restarts because D1 is shared, unlike in-memory `_keepAliveRefs`.
+
+3. **`onStart()` audit.** Director logs `cf_agents_schedules` + `cf_agents_runs` + `cf_agents_workflows` row counts to observer_events on every DO restart. Visibility for spotting accumulation post-incident.
+
+4. **Per-alarm tick observability.** Director.alarm() override logs alarm duration + schedule-table size to observer_events when either exceeds threshold (5s elapsed or 20 schedule rows). Below threshold = silent. Gives us the diagnostic data that didn't exist today.
+
+Helper module at `agents/src/director-guardrails.ts` (drafted in this branch — `isDirectorDisabled`, `recordOperationStart` / `Heartbeat` / `Complete`, `auditStaleOperations`, `snapshotSdkState`). Migration `migrations/0045_director_health.sql` (drafted). **Both need to be wired into `agents/src/director.ts` + a new `HH:30` cron added to `agents/wrangler.toml` + the watchdog implemented in `agents/src/server.ts` `scheduled()` handler.**
+
+**Operator commands for next time (reference):**
+
+```bash
+# Emergency stop — halt all Director activity
+wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='1' WHERE key='director_disabled';"
+
+# Resume
+wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='0' WHERE key='director_disabled';"
+
+# Inspect current operations
+wrangler d1 execute zeemish --remote --command \
+  "SELECT * FROM director_health WHERE status='running' ORDER BY started_at;"
+```
+
+**Don't do these things going forward:**
+- Don't push code while a pipeline is active. Check `/dashboard/admin/` for "running" pipeline rows BEFORE any deploy.
+- Don't upgrade to Workers Paid (PAYG) without these guardrails first — PAYG has no daily cap, so a runaway has no upper bound.
+
+**Priority:** blocker — the next code push mid-pipeline could repeat this. Apply when cap resets at 00:00 UTC tonight, ship before the 02:00 UTC daily cron.
+
+---
+
 ## [observing] 2026-05-17: HTML lab flag-low rate, shape diversity, and library use after Lab Renewal
 
 **Surfaced:** 2026-05-17, alongside the Lab Renewal commit. Three coordinated changes (drop canonical HTML reference; widen validator allowlist 1→9 cdnjs libraries; HTML auditor essence/structure/factual binary not numeric) ship together. Pre-deploy state: 35% HTML flag-low rate over the prior 14 days (46/54 audit fails were essence, clustered at scores 68 and 62).

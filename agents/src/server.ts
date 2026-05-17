@@ -4,7 +4,8 @@ import type { Env } from './types';
 import { DirectorAgent } from './director';
 import { ObserverAgent } from './observer';
 import { LearnerAgent } from './learner';
-import { runRetention } from './retention';
+import { runRetention, logObserverEvent } from './retention';
+import { auditStaleOperations } from './director-guardrails';
 
 // Re-export for Durable Object bindings
 export { DirectorAgent };
@@ -515,20 +516,45 @@ export default {
   },
 
   /**
-   * Cloudflare Cron Trigger handler — Foundation Fix Task 08
-   * (2026-05-07). Wired in `agents/wrangler.toml` `[triggers] crons =
-   * ["0 4 * * *"]`. Fires daily at 04:00 UTC, two hours after the
-   * 02:00 daily-publish slot.
+   * Cloudflare Cron Trigger handler. Dispatches on `controller.cron`.
    *
-   * Currently single-purpose: daily retention pass. If future cron
-   * triggers land, dispatch on `controller.cron` here.
+   * Two crons currently:
+   *
+   *   0 4 * * *   — daily retention pass (Foundation Fix Task 08,
+   *                 2026-05-07). Routes through runRetention.
+   *
+   *   30 * * * *  — hourly Director-health watchdog (cap-incident
+   *                 prevention, 2026-05-17). Reads director_health
+   *                 for stale 'running' rows; if any exist, trips the
+   *                 kill switch and fires an escalation. Runs inside
+   *                 the worker context (not as a DO RPC) so it
+   *                 functions even when the Director DO is cap-blocked
+   *                 — which is the most important time for it to fire.
+   *                 See agents/src/director-guardrails.ts +
+   *                 docs/CAP-INCIDENT-2026-05-17.md.
    *
    * `ctx.waitUntil` keeps the worker alive past `scheduled()`'s
-   * synchronous return so the retention writes finish.
+   * synchronous return so the async work can complete.
    */
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (controller.cron === '0 4 * * *') {
       ctx.waitUntil(runRetention(env));
+      return;
+    }
+    if (controller.cron === '30 * * * *') {
+      ctx.waitUntil(
+        auditStaleOperations(env, async (title, body) => {
+          await logObserverEvent(env.DB, {
+            severity: 'escalation',
+            title,
+            body,
+            context: { source: 'director-health-watchdog' },
+          });
+        }).catch((err) => {
+          console.error('[scheduled] director-health watchdog failed:', err);
+        }),
+      );
+      return;
     }
   },
 } satisfies ExportedHandler<Env>;
