@@ -266,7 +266,45 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
     try {
       parsed = extractJson<Record<string, unknown>>(text);
     } catch {
-      throw new Error('audit: Claude returned non-JSON output (html path)');
+      // 2026-05-17: Sonnet 4.5 stochastically returns non-JSON for the
+      // HTML auditor (same wobble class as Curator 2026-05-13 and the
+      // voice/structure parse-fail soft-fail of 2026-05-11). Pre-fix
+      // this threw, which propagated up through `auditor.audit()` in
+      // InteractiveGenerator's loop and crashed the entire HTML
+      // generation — no commit, no ship. Today's Swatch piece burned
+      // multiple admin retriggers on this. Closes the [open] Lab
+      // Renewal followup "voice=0 parse-fail propagation bug" for the
+      // HTML path: convert the throw to a soft-fail (passed=false on
+      // all four dimensions, empty arrays, zero score). The generator's
+      // loop treats this as a regular failed audit and revises for the
+      // next round; after 3 rounds of audit parse-fails (rare in
+      // practice), the existing ship-as-low path commits the last
+      // validator-passing HTML with quality_flag='low' — same
+      // newspaper-never-skips posture as the audit-score-failed
+      // terminal. The audit_results rows persisted for these rounds
+      // carry passed=0 + empty arrays + score 0, which is a
+      // recognisable diagnostic signature against future similar
+      // incidents. See DECISIONS 2026-05-17.
+      console.warn(
+        `interactive-auditor: HTML audit Claude returned non-JSON; soft-failing this round. Head: ${text.slice(0, 200)}`,
+      );
+      this.setState({
+        auditsPerformed: this.state.auditsPerformed + 1,
+        auditsPassed: this.state.auditsPassed,
+        auditsFailed: this.state.auditsFailed + 1,
+      });
+      return {
+        passed: false,
+        voice: { passed: false, score: 0, violations: [], suggestions: [] },
+        structure: { passed: false, issues: [], suggestions: [] },
+        essence: { passed: false, violations: [], suggestions: [] },
+        factual: { passed: false, issues: [], suggestions: [] },
+        tokensIn: usage.tokensIn,
+        tokensOut: usage.tokensOut,
+        cacheCreateTokens: usage.cacheCreateTokens,
+        cacheReadTokens: usage.cacheReadTokens,
+        durationMs: Date.now() - started,
+      };
     }
 
     const voiceRaw = (parsed.voice ?? {}) as Record<string, unknown>;
