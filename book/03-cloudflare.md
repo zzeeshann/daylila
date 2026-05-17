@@ -52,3 +52,29 @@ This is the new shape of software. No machine to maintain. No operating system t
 Cloudflare is not magic. It has real limits. Workers can't run arbitrary native programs. They have specific time limits per request. They can be expensive once you use a lot of them. And — like any infrastructure — if Cloudflare has a bad day, Daylila has a bad day too. The company has had outages. They happen rarely, but they happen.
 
 For a project like Daylila, the tradeoffs are good. For a project that needed, say, real-time video streaming or a massively complex database, Cloudflare might not be the right choice. Know your tools. The right answer depends on what you're building.
+
+## Free tier and what happens when you hit a limit
+
+Cloudflare's free tier is generous, but it does have caps. Workers can serve 100,000 requests a day for free. Durable Objects get 13,000 GB-seconds of duration a day — a measurement of how much memory the agents used multiplied by how long they ran. On a normal Daylila day, that's about 15% of the cap. Plenty of headroom.
+
+But headroom is not the same as a guarantee. On 2026-05-17, Daylila hit the cap. The cause turned out to be subtle — somewhere inside the Cloudflare Agents SDK, an agent stayed active for about eight hours after its real work had finished. Nothing visible in the logs, nothing the code was obviously asking for. The agent simply did not go to sleep. By midday the daily duration counter was full, Cloudflare started rejecting new agent calls, and Daylila could not publish another piece until the counter reset at midnight UTC.
+
+This is worth thinking about because it tells you something about what "free" really means in cloud infrastructure. Cloudflare didn't charge anything that day — the cap is a hard stop, not a bill. But it also meant the system stopped working for the rest of the day. If Daylila had been on the paid tier, there is no daily cap; the agent would have kept running and Daylila would have paid for the extra time. Not a lot of money, but no automatic stop either. The lesson: **moving to a paid plan removes the cap but also removes the safety net. Whether that's a good trade depends on whether you've built your own safety net first.**
+
+## Building your own kill switch
+
+After 2026-05-17, Daylila grew one. The system now has four things it didn't have before.
+
+**A flag in the database** that says "Director, stop everything." When the flag is set to 1, every agent call checks it at the top and exits immediately. The operator can flip this flag from the admin dashboard or directly from the command line. Even when the agents themselves are stuck or capped, the database accepts the write — these are two different parts of Cloudflare's infrastructure, and one being unhealthy doesn't block the other.
+
+**A health table** that records every long-running operation as it starts and as it finishes. While an operation runs, its row reads `status='running'`. When it ends cleanly, the row flips to `status='completed'`. If something goes wrong and the operation never finishes — the agent crashes, the code is redeployed mid-run, the system enters a state no one designed for — the row sits at `running` forever. That's the breadcrumb.
+
+**A watchdog that fires every hour at minute 30**, separate from any of the agents. It reads the health table. If it finds an operation that has been `running` for longer than the operator's threshold (15 minutes by default, adjustable), it flips that row to `orphaned`, sets the kill-switch flag to 1, and writes a loud escalation event the operator will see. The whole system halts itself. **The watchdog runs in a part of Cloudflare's infrastructure that's separate from the agents themselves — it fires even when the agents are stuck.** That property is the whole point.
+
+**A panel in the admin dashboard** showing the kill-switch status, the threshold, and any currently-running operations. The operator can flip the switch with one click, change the threshold with a save button, and see exactly what's running at any moment.
+
+The first three guard against an agent the operator hasn't noticed yet. The fourth guards against an agent the operator wants to stop right now. Together they mean Daylila can never again burn eight hours of duration silently — at worst it burns forty-five minutes (fifteen-minute threshold plus the wait until the next half-hour watchdog tick), and then it stops.
+
+This is what infrastructure looks like in 2026. The platform gives you most of what you need, then asks you to build the last layer yourself — the layer that's specific to your system, your tolerances, your willingness to stop the world when something looks wrong. Cloudflare can't write that layer for you. They don't know what counts as too long for your workload. But they can give you the parts to build it from: scheduled triggers that fire outside agent context, a database that stays available when the agents don't, a way to read and write flags atomically.
+
+The deeper lesson — for any cloud platform, not just Cloudflare — is that **a generous free tier is not a substitute for designing your own off switch.** If you can't stop your system, you don't really run it.
