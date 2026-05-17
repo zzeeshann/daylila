@@ -349,6 +349,36 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // date-force in MDX frontmatter can never drift from Director's run date,
     // regardless of what Claude put in the brief.
     brief.date = today;
+
+    // 2026-05-17: validate selectedCandidateId BEFORE marking
+    // curating:done. The 2026-05-11 empty-content guard in curator.ts
+    // (`response.content[0]?.type === 'text' ? ... : '{}'`) lets
+    // `extractJson('{}')` parse cleanly into a result with
+    // selectedCandidateId=undefined when Claude returns an empty Message
+    // (refusal, stop_reason=max_tokens-at-zero, stream-cut mid-flight —
+    // the same class the 2026-05-11 19-site sweep was built for). The
+    // guard prevents the crash but leaves the brief unusable. Pre-fix,
+    // Director wrote curating:done unconditionally then wedged at
+    // drafting:running because Drafter was invoked with an empty brief
+    // — admin UI showed a forever-running Drafter step with no terminal
+    // pipeline_log row (same UX failure mode as the 2026-05-11 retryAudio
+    // silent-stall). Mark curating:failed and exit so the dashboard
+    // reflects reality. See DECISIONS 2026-05-17.
+    if (!curatorResult.selectedCandidateId) {
+      await this.logStep(today, pieceId, runId, 'curating', 'failed', {
+        error: 'Curator returned no selectedCandidateId',
+      });
+      const observer = await this.subAgent(ObserverAgent, 'observer');
+      await observer.logError(
+        'curator', 0,
+        `Curator returned no selectedCandidateId — prompt regression or empty candidate list`,
+        pieceId,
+        runId,
+      );
+      this.exitToIdle();
+      return null;
+    }
+
     await this.logStep(today, pieceId, runId,'curating', 'done', {
       headline: brief.headline, subject: brief.underlyingSubject, newsSource: brief.newsSource,
     });
@@ -363,35 +393,25 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // `pick_reasoning` from Curator's output (closes leak L1). The
     // separate batch UPDATE for `rejection_category` + `rejection_reason`
     // below closes leak L2.
-    if (curatorResult.selectedCandidateId) {
-      try {
-        const upd = await this.env.DB
-          .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100, pick_reasoning = ?, run_id = ? WHERE id = ?')
-          .bind(curatorResult.pickReasoning ?? null, runId, curatorResult.selectedCandidateId)
-          .run();
-        if (!upd.meta || upd.meta.changes === 0) {
-          const observer = await this.subAgent(ObserverAgent, 'observer');
-          await observer.logError(
-            'curator', 0,
-            `selectedCandidateId ${curatorResult.selectedCandidateId} matched 0 rows in daily_candidates — id shape drift from Curator`,
-            pieceId,
-            runId,
-          );
-        }
-      } catch (err) {
+    try {
+      const upd = await this.env.DB
+        .prepare('UPDATE daily_candidates SET selected = 1, teachability_score = 100, pick_reasoning = ?, run_id = ? WHERE id = ?')
+        .bind(curatorResult.pickReasoning ?? null, runId, curatorResult.selectedCandidateId)
+        .run();
+      if (!upd.meta || upd.meta.changes === 0) {
         const observer = await this.subAgent(ObserverAgent, 'observer');
         await observer.logError(
           'curator', 0,
-          `Failed to mark selected candidate: ${err instanceof Error ? err.message : String(err)}`,
+          `selectedCandidateId ${curatorResult.selectedCandidateId} matched 0 rows in daily_candidates — id shape drift from Curator`,
           pieceId,
           runId,
         );
       }
-    } else {
+    } catch (err) {
       const observer = await this.subAgent(ObserverAgent, 'observer');
       await observer.logError(
         'curator', 0,
-        `Curator returned no selectedCandidateId — prompt regression or empty candidate list`,
+        `Failed to mark selected candidate: ${err instanceof Error ? err.message : String(err)}`,
         pieceId,
         runId,
       );
