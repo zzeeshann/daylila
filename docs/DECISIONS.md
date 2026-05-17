@@ -2,6 +2,37 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-17: Director zombie `drafting:running` wedge closed — empty-Curator-response no longer strands the admin UI
+
+**Trigger.** Operator opened admin and reported today's 02:00 UTC pipeline stuck. Admin UI labelled the row `266a7c2c…` with Scanner ✓ (20 candidates) / Curator ✓ / Drafter no-checkmark, ~33 minutes elapsed. Pure investigation requested first.
+
+**Identifier mismatch.** The user's `266a7c2c…` prefix is the **piece_id**, not the run_id. Admin UI surfaces piece_id as the per-run row label. Direct D1 lookup confirmed: `SELECT * FROM daily_pieces WHERE id LIKE '266a7c2c%'` returns empty (the daily_pieces INSERT never fired); but the same prefix appears as `observer_events.piece_id`. Run_id is `aaa0b9ac-7f17-428b-9e7e-1e93d4984369`. Director's `triggerDailyPiece` mints both at run-start (Foundation Fix Task 08, 2026-05-07); observer_events carries piece_id from step 1 even when daily_pieces never gets a row.
+
+**D1 evidence.** Five `pipeline_log` rows in 6 seconds, then nothing: `scanning:running` 02:00:00 → `scanning:done` (20 candidates) 02:00:03 → `curating:running` 02:00:03 → `curating:done` 02:00:06 → `drafting:running` 02:00:06 → silence. Observer events for the run_id: pre-Curator dedup info (1 of 20 filtered as Arxiv-slop-headline-already-covered, the 2026-05-16 piece's domain); `LLM curator: (unknown)` row with **tokens in=7458, out=8, latency=2239ms** — output of 8 tokens is the empty-content class smoking gun; warn `Error: curator: Pipeline error: Curator returned no selectedCandidateId — prompt regression or empty candidate list`. **Zero `LLM drafter` rows** — the Drafter Claude call never fired.
+
+**Mechanism, verified not inferred.** The 2026-05-11 19-site empty-content guard at `curator.ts:65` (`response.content[0]?.type === 'text' ? ... : '{}'`) did its job. `extractJson('{}')` parsed cleanly. The destructure at `curator.ts:177-185` returned `{ skip: false, brief: {} as DailyPieceBrief, selectedCandidateId: undefined, ... }`. Director at `director.ts:346-398` wrote `curating:done` UNCONDITIONALLY at line 352, then the if/else at line 366 took the else branch (missing selectedCandidateId), logged the observer warn, **but did not write a terminal pipeline_log row, did not exitToIdle, did not return**. Execution fell through to the rejection persistence block at line 408 (skipped — empty rejections array) then into the Drafter phase at line 466 which wrote `drafting:running` and called `drafter.draft(brief, ...)` with `brief = {} as DailyPieceBrief`. Drafter threw somewhere (brief.headline / brief.beats both undefined); throw propagated through `triggerDailyPiece`'s `try/finally`; finally released `keepAlive` and the throw kept rising — **but the `drafting:running` row was never updated to failed**. Same UX failure mode as the 2026-05-11 retryAudio silent-stall.
+
+**Empty-content occurrence itself is NOT in scope for the fix.** Cadence unknown; first observed empirical case of the class hitting Curator since the 2026-05-11 19-site guard shipped. Guard worked exactly as designed (prevented the crash class). This PR closes only the downstream UX consequence.
+
+**Fix — single file, minimal scope.** `agents/src/director.ts:346-398`: hoist the `!curatorResult.selectedCandidateId` guard ABOVE the `curating:done` write — in the failure branch, write `curating:failed` to pipeline_log with `error: 'Curator returned no selectedCandidateId'`, preserve the existing observer warn message verbatim for grep continuity, call `this.exitToIdle()`, return `null`. Move the `curating:done` write to AFTER the guard (success path only). Remove the now-unreachable else branch at the old line 390 and unwrap the now-always-true `if (curatorResult.selectedCandidateId)` at the old line 366 (the inner UPDATE try/catch body stays as-is at top level). Happy path unchanged. Failure path now writes a terminal row that admin UI can render.
+
+**What deliberately stayed.**
+- The 2026-05-09 Curator try/catch at `director.ts:285` (handles Curator THROW: CuratorParseFailError + arbitrary throws) — unchanged.
+- The 2026-05-13 CuratorParseFailError diagnostic capture — unchanged.
+- The 2026-05-11 empty-content `?.` guard at `curator.ts:65` — unchanged, doing exactly its job today.
+- The rejection persistence block at line 408+ — unchanged; only reachable on the success path now, which is correct (rejections are per-candidate and only meaningful when there IS a selected candidate).
+- No migration. No contract change. No codegen rerun. No new D1 column.
+
+**Why not also add try/catch around `drafter.draft()` at line 468.** Considered; out of scope. The drafting:running zombie state pre-fix was caused by Director reaching the Drafter phase with an empty brief — not by Drafter throwing on a valid brief. With the early-return guard, the Drafter phase is unreachable on missing-brief. A defence-in-depth try/catch on the Drafter call would catch unrelated Drafter throws — separate concern, separate session if it materialises. The 2026-05-09 Curator try/catch precedent applies the same single-step-scope principle.
+
+**Verified.** `npx tsc --noEmit` from `agents/` shows 26 errors total, all 26 pre-existing in `src/server.ts` Durable Object set, **zero new errors** from director.ts. The edit is pure restructure (no new types, no new imports).
+
+**Standing rule applies.** End-to-end verification waits for the next Curator empty-content occurrence — stochastic, can't be triggered on demand. When it next fires, expected: `pipeline_log` shows `curating:failed` row, no `drafting:*` rows; admin UI shows "Curator picks a story" with failed icon, no Drafter row. **Operator triggered admin retrigger same session** to recover today's 02:00 slot — exercises the happy path on a fresh Curator call (stochastic empty-content unlikely to repeat). Recovery verification is operator-driven, not gated on this fix.
+
+**Files (1 + 2 docs):** `agents/src/director.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry). No migration. No contract change. No codegen. No agent renaming. Migration count: 44 (unchanged). Table count: 27 (unchanged).
+
+---
+
 ## 2026-05-17: Lab Renewal — HTML interactive auditor binary on three dimensions, canonical reference dropped, validator allowlist widened
 
 **Trigger.** Operator opened the worktree and asked me to investigate the two interactive types (quiz + HTML lab); the "Interactive(s) shipped (flagged low)" warning from the 2026-05-16 cosmic-web cron run had been queued in the prior Tavily entry. Pure research initially; surfaced that the **HTML lab pipeline flags 35% of artefacts as low quality** (7/20 in the last 7 days) while the **quiz pipeline is healthy** (0/20 flagged-low). Pivoted to deep-dive on HTML.
