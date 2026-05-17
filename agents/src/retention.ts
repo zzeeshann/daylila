@@ -53,7 +53,11 @@ import type { Env } from './types';
  * always null here — retention is a system-level operation, not part
  * of any pipeline run.
  */
-async function logObserverEvent(
+// Exported 2026-05-17 — also used by the Director-health watchdog
+// branch in scheduled() so the cap-incident escalation rows can be
+// written without needing a DO RPC (which would itself be subject to
+// the very cap we're trying to detect).
+export async function logObserverEvent(
   db: D1Database,
   event: {
     severity: 'info' | 'warn' | 'escalation';

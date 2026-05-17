@@ -15,17 +15,30 @@ command = "node scripts/codegen-contracts.mjs"
 [observability]
 enabled = true
 
-# Cloudflare Cron Trigger — daily retention worker (Foundation Fix
-# Task 08, 2026-05-07). Fires at 04:00 UTC daily, two hours after the
-# 02:00 UTC daily-publish cron's first slot. Routes through the
-# scheduled() handler in src/server.ts which calls runRetention from
-# src/retention.ts. Per-table policy lives in retention.ts; the worker
-# starts in DRY_RUN mode (RETENTION_DRY_RUN env var defaulting to
-# 'true') for the first 7 days post-deploy. Operator flips to live
-# only after reviewing 7 days of dry-run observer events. Anything
-# that DELETEs published-piece-linked rows throws (a bug, not retention).
+# Cloudflare Cron Triggers — two scheduled jobs:
+#
+#   0 4 * * *   — daily retention worker (Foundation Fix Task 08,
+#                 2026-05-07). Fires at 04:00 UTC daily, two hours
+#                 after the 02:00 UTC daily-publish cron's first slot.
+#                 Routes through the scheduled() handler in
+#                 src/server.ts which calls runRetention from
+#                 src/retention.ts. Per-table policy lives in
+#                 retention.ts. Anything that DELETEs published-
+#                 piece-linked rows throws (a bug, not retention).
+#
+#   30 * * * *  — hourly Director-health watchdog (cap-incident
+#                 prevention, 2026-05-17). Reads
+#                 admin_settings.director_max_operation_minutes
+#                 (default 15). Any director_health row in
+#                 status='running' older than that without completion
+#                 → trips the kill switch (sets
+#                 admin_settings.director_disabled='1') AND fires an
+#                 escalation observer_event. Fires at HH:30 so it
+#                 interleaves with the hourly Director cron at HH:00.
+#                 See agents/src/director-guardrails.ts
+#                 auditStaleOperations() + docs/CAP-INCIDENT-2026-05-17.md.
 [triggers]
-crons = ["0 4 * * *"]
+crons = ["0 4 * * *", "30 * * * *"]
 
 # Retention worker safety rail. Flipped to 'false' on 2026-05-16 after
 # 9 days of clean dry-run review (every candidateCount=0 because the
