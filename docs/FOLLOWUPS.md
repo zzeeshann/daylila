@@ -79,6 +79,8 @@ System returns to pre-Renewal behaviour in ~2 minutes via the deploy pipeline.
 
 **Priority:** low. Cosmetic effect on the published JSON; doesn't change reader experience (qualityFlag is what triggers the "Rough" tag, not voiceScore alone). The Lab Renewal's binary auditor reduces the surface — most HTML labs will ship with `qualityFlag: null` after deploy, so the bug rarely surfaces. Worth fixing for data hygiene.
 
+**Update 2026-05-17 (separate session, same day):** Today's Swatch piece (`2026-05-17 03:43 UTC` run) hit the OTHER half of this same bug class — `extractJson` itself threw (Sonnet 4.5 wobble producing genuinely non-JSON output, not just field-empty JSON). Pre-fix the auditor's `throw new Error('audit: Claude returned non-JSON output (html path)')` propagated up through `auditor.audit()` in InteractiveGenerator's loop and crashed the entire HTML generation — three admin retriggers, three crashes, no HTML shipped. Fix at [agents/src/interactive-auditor.ts](agents/src/interactive-auditor.ts) converts the throw to a soft-fail return (same shape this FOLLOWUP already describes — `passed:false` everywhere, `score:0`, empty arrays). The "throw-crashes-generator" half of the failure class is closed; the voiceScore-propagation half this FOLLOWUP describes is NOT closed by today's fix and stays [open]. Side-effect: more pieces now hit the propagation path (any audit Claude-returned-non-JSON, not just field-empty JSON) — broader surface for the cosmetic voiceScore=0 bug until the propagation fix lands.
+
 ---
 
 ## [observing] 2026-05-16: Tavily cache hit-rate climb over the next ~10 pieces

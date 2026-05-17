@@ -2,6 +2,41 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-17: InteractiveAuditor HTML parse-fail soft-fail — Swatch piece's HTML lab unblocks (post-Director-zombie continuation)
+
+**Trigger.** Same-day continuation of the Director-zombie session. After PR #61 (Director curating:failed fix) merged + deployed, operator clicked admin retrigger to recover the missed 02:00 UTC slot. Curator + Drafter shipped cleanly across two retriggered runs (3:08 UTC bf2e1605 Bulgarian-banger piece; 3:43 UTC e80d326f Swatch piece). Quiz path worked both times. **Swatch piece's HTML lab failed three admin retriggers in a row** with observer event `Interactive generation failed: Swatch stores shutter... (html) Reason: audit: Claude returned non-JSON output (html path)`.
+
+**D1 evidence.** bf2e1605's HTML lab shipped cleanly at 03:15 (55s, 8.3 KB Dual-Scoring-Convergence lab). e80d326f's HTML lab tried 03:51 (241s — full 3-round budget burned), 03:55 (admin retry), 04:03 (admin retry, 90s) — all crashed with the same `audit: Claude returned non-JSON output (html path)` observer event. HTML latency reported 0ms in each failure summary because the generator's outer summary writes that when audit throws before produce-tokens accumulate.
+
+**Mechanism, verified not inferred.** `agents/src/interactive-auditor.ts:268` (pre-fix) caught `extractJson`'s throw and re-threw `Error('audit: Claude returned non-JSON output (html path)')`. That throw propagated up through `auditor.audit()` in InteractiveGenerator's loop at `interactive-generator.ts:1032` — **no try/catch around the audit call**. The throw bubbled up through `runHtmlLoop`, caught only at the outermost post-publish task wrapper that writes "Interactive generation failed" + escalation observer events.
+
+Net effect: ANY audit Claude returning non-JSON crashes the entire HTML generation. The 3-round produce→audit→revise budget is irrelevant because the loop terminates on round 1's audit throw. Same Sonnet 4.5 stochastic wobble class as Curator 2026-05-13 ("dropped opening quotes on long natural-language values") and voice-auditor 2026-05-11 ("truncated JSON, no closing brace").
+
+**Distinct from the multi-species-transmission-chains FOLLOWUP entry from this morning's Lab Renewal session.** THAT case was Claude returning parseable but field-empty JSON (extractJson succeeded, `asScore(undefined)=0` → silent soft-fail with voice score 0 propagating into the published JSON). TODAY's case was Claude returning genuinely non-JSON (extractJson threw → crash). Two halves of one bug class; today's session closes one half.
+
+**Fix — single file, minimal scope.** `agents/src/interactive-auditor.ts:268`: convert the throw to a soft-fail return — `passed:false` on all four dimensions, voice.score=0, empty violations/issues/suggestions arrays, real tokens/duration/cache counters from the failed call's `response.usage` carried through. Adds one `console.warn` with the first 200 chars of Claude's response for live-tail diagnostics + a `setState` increment on `auditsFailed`.
+
+The generator's loop sees `audit.passed: false` and proceeds to round 2 produce/revise; after 3 rounds of soft-fails the existing ship-as-low path commits `lastHtml` with `quality_flag='low'` — same newspaper-never-skips posture as the audit-score-failed terminal. The `audit_results` rows persisted for these rounds carry `passed=0` + empty arrays + score 0 — a recognisable diagnostic signature for future similar incidents.
+
+**What deliberately stayed.**
+- The InteractiveGenerator loop's audit call site at line 1032 — untouched. No try/catch added there. The fix lands inside the auditor where the throw was constructed; matches the 2026-05-11 voice-auditor / structure-editor parse-fail soft-fail pattern of fixing at the agent's throw site, not at the caller.
+- The 3-round produce→audit→revise budget — untouched.
+- The `parseAndValidateHtml`-throw catch at `generator:971` — untouched. Different bug class (Generator's own JSON parsing, has its own repair-prompt path since 2026-05-05).
+- The `audit_results` persistence in `persistAuditRows` — untouched. Writes the soft-fail row shape transparently.
+- No contract change. No codegen rerun. No migration.
+
+**What deliberately stays [open].** The [open] 2026-05-17 FOLLOWUPS entry "Generator writes auditor parse-failed scores into published JSON" is NOT closed by this fix — it describes the OTHER half of the bug class (voiceScore=0 propagating into the published JSON's metadata when round N's audit was a parse-fail). Today's fix CLOSES the throw-crash half but WIDENS the surface of the propagation half (more audit-parse-fail paths now reach the propagation rather than crashing). The propagation fix needs a separate session — tracking the highest voice score across rounds and only using parse-failed rounds' voiceScore when no clean round exists.
+
+**Why not add a parse-retry pattern (like Curator 2026-05-13).** Considered; deferred. The Curator parse-retry was justified because Curator's failure means "no piece for the day" — a hard zero. The InteractiveAuditor's parse-fail under the new soft-fail returns is "ship as low-quality after 3 rounds" — a softer landing. Adding a per-round audit-parse-retry doubles the audit call count without obvious benefit when the loop already has 3 produce-audit-revise rounds. If we observe sustained audit parse-fails on multiple pieces, revisit.
+
+**Verified.** `pnpm install --frozen-lockfile` in worktree's `agents/` (deps weren't present, standard worktree gap). `npx tsc --noEmit` shows 26 errors total, all 26 pre-existing in `src/server.ts` Durable Object set, **zero new errors** from interactive-auditor.ts. One initial typecheck error from the new setState call missing the `auditsPassed: this.state.auditsPassed` field — caught and fixed in a second Edit. Pure structural change (no new types, no new imports).
+
+**Standing rule applies.** End-to-end verification waits for the next stochastic audit parse-fail. **Operator triggered admin retrigger same session** to retry the Swatch piece's HTML lab post-deploy — exercises (a) the happy path on a fresh audit call AND (b) the new soft-fail path if the audit parse-fails again. Either way the HTML now ships (cleanly if audit clean; flagged-low if audit parse-fails 3 rounds).
+
+**Files (1 + 3 docs):** `agents/src/interactive-auditor.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry), FOLLOWUPS.md (added 2026-05-17 update note to the existing [open] propagation entry). No migration. No contract change. No codegen. No agent renaming. Migration count: 44 (unchanged). Table count: 27 (unchanged).
+
+---
+
 ## 2026-05-17: Director zombie `drafting:running` wedge closed — empty-Curator-response no longer strands the admin UI
 
 **Trigger.** Operator opened admin and reported today's 02:00 UTC pipeline stuck. Admin UI labelled the row `266a7c2c…` with Scanner ✓ (20 candidates) / Curator ✓ / Drafter no-checkmark, ~33 minutes elapsed. Pure investigation requested first.
