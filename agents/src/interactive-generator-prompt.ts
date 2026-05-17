@@ -1,5 +1,16 @@
-import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
+import { VOICE_CONTRACT, INTERACTIVE_CONTRACT } from './shared/generated/contracts';
 
+// INTERACTIVE_HTML_REFERENCE used to be imported here and injected into
+// the HTML system prompt as a structural-and-voice template
+// (docs/examples/interactive-reference.html, the chokepoints worked
+// example, ~6 KB). Dropped 2026-05-17 (Lab Renewal) — the model was
+// copying the slider+bars pattern across every lab regardless of
+// concept fit, producing the homogeneity the auditor then flagged as
+// "manipulation doesn't quite embody the mechanism." Without the
+// anchor, the Generator riffs per-concept. The file stays on disk at
+// docs/examples/interactive-reference.html as one design vocabulary
+// for human readers; not a template to copy.
+//
 // HTML_FILE_BYTES_MAX / HTML_SCRIPT_ALLOWLIST_DESCRIPTION used to be
 // imported here and re-exported. They drove an inline "Sandbox
 // compatibility" section in the HTML system prompt that restated
@@ -28,12 +39,18 @@ import { VOICE_CONTRACT, INTERACTIVE_HTML_REFERENCE, INTERACTIVE_CONTRACT } from
  *     quiz-specific anti-pattern rule; OUTPUT JSON spec.
  *
  * HTML-path system prompt (INTERACTIVE_HTML_GENERATOR_PROMPT):
- *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT},
- *     ${INTERACTIVE_HTML_REFERENCE} (inlined as the chokepoints HTML
- *     reference template, ~12 KB; the only non-markdown contract).
- *   Inline rule bodies: opener; 3 worked examples (essence-not-reference);
- *     engagement-events sentence; diversity-with-past sentence; OUTPUT
- *     JSON spec. Cached as a single ephemeral prompt-cache block.
+ *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT}.
+ *   Inline rule bodies: opener; essence-not-reference framing;
+ *     technical skeleton (DOCTYPE / viewport / library allowlist);
+ *     shape-diversity trust framing; engagement-events sentence;
+ *     diversity-with-past sentence; OUTPUT JSON spec. Cached as a
+ *     single ephemeral prompt-cache block.
+ *   Rebuilt 2026-05-17 (Lab Renewal) — the canonical chokepoints HTML
+ *     reference (~6 KB injection at the bottom of the prompt) was
+ *     removed because it was producing slider+bars homogeneity across
+ *     every lab. The Generator now riffs per-concept under the
+ *     contract's seven prohibitions and the validator's eight sandbox
+ *     rules. Anti-pattern lecturing trimmed in favour of trust framing.
  *
  * Per-call-shape user prompts (build*Prompt helpers): produce / revise
  * / repair shapes for both paths — see helper docstrings below.
@@ -416,12 +433,12 @@ ${recent
 /**
  * System prompt for HTML interactive generation. Stable across every
  * call until the rules genuinely change (then cache invalidates by
- * prefix). Sub-task 2.7 will append a few-shot reference once
- * docs/examples/interactive-reference.html lands.
+ * prefix). Rebuilt 2026-05-17 (Lab Renewal) — see module header for
+ * the why; short version: the chokepoints reference was producing
+ * slider+bars homogeneity, so it's gone, and the prompt now trusts
+ * the model to riff under the contract's rules.
  */
-export const INTERACTIVE_HTML_GENERATOR_PROMPT = `You produce a single self-contained HTML interactive that teaches the UNDERLYING CONCEPT of a just-published Daylila daily piece.
-
-You DO NOT write an interactive about the piece.
+export const INTERACTIVE_HTML_GENERATOR_PROMPT = `You produce a single self-contained HTML interactive teaching artefact for Daylila — a daily learning platform where each piece teaches the system behind a news story. The artefact teaches the underlying concept, not the news story.
 
 Your only output is the JSON described at the bottom (no prose outside the object, no markdown fences). The JSON's \`html\` field carries the full HTML file as a string.
 
@@ -432,71 +449,43 @@ You are shown:
 
 # THE ONE RULE: essence, not reference
 
-The reader of your interactive does not know the piece exists. The interactive must stand alone as a teaching artefact about a concept — useful to a stranger who landed on its URL from a search result, a library chip, or a friend's link. If a reader of the source piece could tell it came from that piece, you failed the rule.
-
-The piece is the SOURCE of a concept. The concept is the SUBJECT of your interactive.
-
-Worked examples (same pattern as the quiz path):
-
-- Piece: a 2026 SEC filing exposing an insider-trading ring at a tech firm.
-  Wrong subject: "SEC enforcement of insider trading".
-  Right subject: an interactive that lets the reader manipulate information distribution between two market actors and watch price formation respond — teaching information asymmetry as mechanism.
-
-- Piece: a power-grid failure during a Texas winter storm.
-  Wrong subject: "Texas power grid vulnerabilities".
-  Right subject: an interactive with a slider that compresses capacity at one node of a network and shows downstream throughput collapse — teaching single-point-of-failure cascades.
-
-- Piece: a Hormuz shipping disruption that spikes oil prices.
-  Wrong subject: "Hormuz strait and global oil".
-  Right subject: an interactive where the reader narrows a chokepoint and feels the system's flow constrain — teaching chokepoints as a class of constraint.
-
-The RIGHT shapes never name the specific trigger. They make the underlying PATTERN tactile through the reader's hand on a control.
+The reader of your interactive does not know the source piece exists. The interactive must stand alone as a teaching artefact about the underlying concept — useful to a stranger who landed on its URL from a search result, a library chip, or a friend's link. The piece is the SOURCE of a concept. The concept is the SUBJECT of your interactive.
 
 # Voice contract
 
-Any in-interactive copy — the title above the iframe, the concept line, control labels, captions, button text, tooltips, status messages — follows the Daylila voice contract:
+Every text surface inside the iframe — title element, concept line, control labels, captions, button text, tooltips, status messages — follows the Daylila voice contract:
 
 ${VOICE_CONTRACT}
 
 # Interactive contract
 
-The full set of rules for shaping a quiz or HTML interactive lives in the contract below. Hard prohibitions (the essence-not-reference list), the Plain English split rule and jargon translation list, the HTML interactive shape (one clear surface, teaching label, cohesive layout, mobile-respectable, sensible defaults, stable on input, pedagogy hooks, manipulation embodies the mechanism), the title / concept / slug rules, and the validator constraints all live here:
+The full set of rules for shaping a quiz or HTML interactive lives in the contract below. The seven hard prohibitions, the Plain English split rule, the HTML interactive shape, the shape-diversity language, the validator constraints, and the title / concept / slug rules all live here. Read it. The hard floor is everything labeled a hard prohibition or a validator rule. Everything else is authorial guidance.
 
 ${INTERACTIVE_CONTRACT}
 
-# Engagement events (optional, future-friendly)
+# Technical skeleton
 
-The parent page listens for \`window.message\` events from the iframe. If you want the interactive to report engagement (e.g. "the reader manipulated the surface"), \`window.parent.postMessage({type: 'interactive_engagement', event: 'manipulated'}, '*')\` is allowed. Don't post on initial load — only on real user interaction. Don't post more than ~once per second.
+Emit a complete HTML5 document. The first non-whitespace must be \`<!DOCTYPE html>\`. Include \`<html lang="en">\`, \`<meta charset="utf-8">\`, \`<meta name="viewport" content="width=device-width, initial-scale=1">\`, and a \`<title>\` element matching your \`title\` field. Inline \`<style>\` and inline \`<script>\` are both fully allowed.
 
-This is not required. Most interactives won't post anything.
+If you need a charting / visualization / audio / animation library, load it from cdnjs — the validator allows D3 (v7), Three.js, Pixi.js, p5.js, Tone.js, GSAP, Plotly.js, Howler.js, Anime.js. URL shape: \`https://cdnjs.cloudflare.com/ajax/libs/<lib>/<version>/<file>(.min).js\`. None of these are required. Many of the best labs use no library at all — inline canvas, inline SVG, inline CSS animations are all valid. Pick the lightest tool that fits the concept.
+
+The validator's full eight rules (sandbox safety) are in the interactive contract above. The 50 KB cap is on inline HTML/CSS/JS only; libraries loaded externally from cdnjs do NOT count.
+
+# Make it beautiful, make it teach, make it immersive
+
+Within the floors above (the seven prohibitions, the validator rules, the voice contract), design freely. Pick the shape that fits THIS concept's mechanism — a slider, a click sequence, a comparison toggle, a drag-arrange grid, a step-through timeline, a 3D scene, a particle system, an audio-reactive visual, a multi-panel canvas. Pick the affordance whose physical shape matches the concept's mechanism. The shape is part of the teaching.
+
+The reader's hand on the control should feel the shape of the idea. A coordination-failure concept might call for parallel-actor toggles where one's choice flips another's options. A threshold concept might call for a step-through where the system snaps at a value. A flow concept might call for a particle stream the reader reroutes. A diffusion concept might call for animated particles spreading from a source. Don't default to a single horizontal slider with bar outputs unless that's genuinely the right physical analogue for THIS concept — many concepts need something else.
+
+Trust your design intuition. The validator catches sandbox safety; the auditor catches concrete violations of the seven prohibitions; voice catches jargon and flattery. Within those, you have full room to make something readers will remember.
+
+# Engagement events (optional)
+
+If you want the interactive to report reader engagement, you may call \`window.parent.postMessage({type: 'interactive_engagement', event: 'manipulated'}, '*')\` on real user interaction. Don't post on initial load. Don't post more than ~once per second. This is not required; most interactives won't post anything.
 
 # Diversity with past interactives
 
-You're shown titles + concepts of the most recent interactives. If your draft's concept duplicates one of them, pick a different angle from the piece — e.g. a piece on an insider-trading ring that already has an "information asymmetry" interactive could instead teach "regulatory response cycles" or "market fragility under trust collapse".
-
-If you genuinely cannot find a non-duplicating teachable concept in this piece — for example the piece's concept is fully covered by recent interactives — decline. Return the empty shape described below.
-
-# Reference example — what a passing HTML interactive looks like
-
-The file below is the canonical reference for shape, voice, structure, and essence. It teaches **chokepoints** — a narrow point in a system constrains what flows through, regardless of upstream supply. One slider compresses the chokepoint; three input lanes stay full while three output lanes shrink in lockstep; the live caption names what's binding ("upstream supply" → "the chokepoint, just barely" → "the chokepoint" → "the chokepoint, severely"). Mobile-respectable via a single \`@media\` query that flips the pipeline from horizontal to vertical at 480px.
-
-Use this as a structural and voice template, NOT as content to copy. If your piece's concept is also chokepoints, build something that teaches the SAME concept differently — a different mechanism, a different control, a different visual. If your piece's concept is something else (asymmetry / threshold / coalition-math / amplification / displacement / etc.), the example shows the SHAPE you should mirror but the actual mechanism must come from your piece's concept.
-
-What to copy from the reference:
-- One clear control. A range slider with a label, a current-value readout, and a generous min-width.
-- Sensible defaults. Initial state shows something teaching, not a blank canvas.
-- Pedagogy hooks. Manipulation produces a visible response in multiple places (lanes shrink, throughput readout updates, caption changes).
-- Voice. Short imperatives ("Drag to compress the chokepoint"), terse labels ("Capacity:", "Inputs", "Outputs"), declarative captions, no flattery, no tribe words.
-- Mobile. A single CSS @media query handling layout flip; nothing more elaborate.
-- Self-contained. Inline CSS in a single \`<style>\`, inline JS in a single \`<script>\`, no external scripts.
-
-What NOT to copy from the reference:
-- The specific concept (chokepoints) — derive from your piece's underlying subject.
-- The specific colours (the reference uses Daylila's gold + teal + cream palette; you can use the same or pick palette-neutral defaults).
-- The specific copy strings — voice rules apply, but text comes from YOUR concept.
-
-\`\`\`html
-${INTERACTIVE_HTML_REFERENCE}\`\`\`
+You're shown titles + concepts of the most recent interactives. If your draft's concept duplicates one of them, pick a different angle from the piece, or shift the shape — a coordination concept that's already been taught with toggles could be taught with a network graph. If you genuinely cannot find a non-duplicating teachable concept in this piece, decline. Return the empty shape described below.
 
 # Response format (strict)
 
@@ -509,9 +498,9 @@ On success, return JSON matching this shape exactly. No prose outside the object
   "html": "<!DOCTYPE html>\\n<html lang=\\"en\\">\\n... full HTML file ...\\n</html>"
 }
 
-The \`html\` field is the entire file as a single string. Start with \`<!DOCTYPE html>\` (must be the first non-whitespace). Include \`<meta charset="utf-8">\` and \`<meta name="viewport" content="width=device-width, initial-scale=1">\`. Include a \`<title>\` matching your \`title\` field. The file must be self-contained: inline CSS in \`<style>\`, inline JS in \`<script>\`, with at most one external script (D3 v7 from cdnjs per the allowlist above).
+The \`html\` field is the entire file as a single string.
 
-To decline (concept too redundant or too narrow to teach in a single interactive), return the empty shape:
+To decline (concept too redundant with recent interactives, or too narrow to teach in a single interactive), return the empty shape:
 
 {
   "slug": "",
@@ -648,14 +637,14 @@ ${validatorViolations
 
 ${dimensionBlock('Voice', feedback.voice)}
 ${dimensionBlock('Structure', feedback.structure)}
-${dimensionBlock('Essence (the primary bar)', feedback.essence)}
+${dimensionBlock('Essence', feedback.essence)}
 ${dimensionBlock('Factual', feedback.factual)}`;
 
   const instruction = `## What to do
 
 Produce a fresh HTML interactive that addresses every issue above. Do NOT incrementally edit the previous file's text — write the file again from scratch in a way that resolves the issues. Same JSON shape as the initial generation, with the full HTML in the \`html\` field.
 
-If the essence dimension failed, you likely need to re-derive the concept from the piece's underlying pattern rather than the surface details that leaked. If structure failed, rethink the interactive surface — fewer controls with a clearer purpose usually beats more controls. If the validator failed, every violation must be gone in the next attempt.
+The auditor names specific concrete violations on essence / structure / factual. Fix each named violation. The auditor also scores voice 0–100 — if voice failed, the in-interactive copy needs rewriting against the voice contract. If the validator failed, every violation must be gone in the next attempt.
 
 If the feedback makes it clear the piece's concept cannot be taught cleanly in a standalone HTML interactive, decline — return the empty shape {"slug":"","title":"","concept":"","html":""}.`;
 

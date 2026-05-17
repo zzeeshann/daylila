@@ -20,11 +20,13 @@
  *
  * HTML auditor (INTERACTIVE_HTML_AUDITOR_PROMPT):
  *   Contracts injected: ${VOICE_CONTRACT}, ${INTERACTIVE_CONTRACT}
- *   Inline rule bodies: opener; four-dimensional scoring rubric prose
- *     with literal threshold values restated from the contract (75
- *     floor on structure / essence / factual; ≥85 voice — mirrored from
- *     `VOICE_PASS_THRESHOLD` in agents/src/shared/audit-thresholds.ts);
- *     strict-JSON OUTPUT spec. Sent as a cached prompt-cache block.
+ *   Inline rule bodies: opener; four-dimensional rubric prose — voice
+ *     scored 0–100 (≥85 passes, mirrored from VOICE_PASS_THRESHOLD);
+ *     structure / essence / factual BINARY pass/fail with named
+ *     specific violations (rebuilt 2026-05-17 Lab Renewal — previously
+ *     numeric 0–100 with 75 floor that clustered judgments at 68/62
+ *     without naming concrete issues); strict-JSON OUTPUT spec. Sent
+ *     as a cached prompt-cache block.
  *
  * Single Claude call (not four) because the scope-of-audit for a
  * 3–5 question quiz is small (< 1000 words of text). A comprehensive
@@ -43,14 +45,15 @@ import { VOICE_PASS_THRESHOLD } from './shared/audit-thresholds';
  *  cleanly in the per-dimension scoring lines below. */
 export const INTERACTIVE_VOICE_MIN_SCORE = VOICE_PASS_THRESHOLD;
 
-/** HTML interactive structure dimension threshold. Lower than voice
- *  because structure/essence/factual on HTML are scored (not binary
- *  like the quiz path) — a score in the 75–84 band means "minor
- *  polish would help" not "ship it". 75 is the spec floor at
- *  docs/INTERACTIVES.md "Audit rubric". */
-export const INTERACTIVE_HTML_STRUCTURE_MIN_SCORE = 75;
-export const INTERACTIVE_HTML_ESSENCE_MIN_SCORE = 75;
-export const INTERACTIVE_HTML_FACTUAL_MIN_SCORE = 75;
+// 2026-05-17 (Lab Renewal) — the three HTML threshold constants
+// (INTERACTIVE_HTML_STRUCTURE_MIN_SCORE / _ESSENCE_MIN_SCORE /
+// _FACTUAL_MIN_SCORE, each 75) are removed. The HTML auditor now
+// judges structure / essence / factual as BINARY pass/fail (matching
+// the quiz path) — auditor names a specific concrete violation or
+// passes. No more numeric clustering at 68/62. Voice stays numeric
+// (INTERACTIVE_VOICE_MIN_SCORE above) — voice has a real fine-grained
+// rubric, and the quiz path already uses numeric voice + binary on
+// the other three.
 
 export const INTERACTIVE_AUDITOR_PROMPT = `You audit a generated multiple-choice quiz against four dimensions before it ships. You DO NOT rewrite — you identify what would need to change.
 
@@ -229,16 +232,23 @@ ${piece.bodyExcerpt}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────
-//   HTML interactive auditor (Phase 2 sub-task 2.4)
+//   HTML interactive auditor (Phase 2 sub-task 2.4; rebuilt 2026-05-17)
 // ─────────────────────────────────────────────────────────────────────
 //
 // Same single-Claude-call shape as the quiz auditor — one comprehensive
-// prompt reads the whole HTML once + cites issues per dimension. Unlike
-// the quiz audit, ALL FOUR dimensions are scored 0–100 (not binary on
-// structure/essence/factual). Per spec docs/INTERACTIVES.md "Audit
-// rubric" — an HTML interactive is multi-dimensional in ways a 3–5
-// question quiz isn't, and a slider that teaches at 80% essence is
-// still shippable, while one at 60% is decorative.
+// prompt reads the whole HTML once + cites issues per dimension. As of
+// the 2026-05-17 Lab Renewal, the HTML auditor's voice dimension is
+// scored 0–100 (as before), but structure / essence / factual are
+// BINARY pass/fail with NAMED SPECIFIC VIOLATIONS — matching the quiz
+// auditor's posture. The old 0–100 scoring on the three dimensions was
+// clustering at 68 and 62 (just below a 75 floor) without naming
+// specific issues; 35% of HTML labs shipped flagged-low without the
+// auditor being able to name what was actually wrong. Binary judgment
+// forces the auditor to either name a concrete violation (proper noun
+// X, factually wrong claim Y, manipulation does literally nothing) or
+// pass. The interactive contract's seven hard prohibitions are the
+// integrity floor. The 3-round produce-audit-revise loop in the
+// Generator is preserved.
 
 export const INTERACTIVE_HTML_AUDITOR_PROMPT = `You audit a generated HTML interactive against four dimensions before it ships. You DO NOT rewrite — you identify what would need to change.
 
@@ -252,7 +262,7 @@ The file has already passed a structural validator (size, sandbox compatibility,
 
 # The contracts you audit against
 
-The Daylila voice contract governs how the in-interactive copy sounds; the interactive contract governs how the artefact is shaped (essence-not-reference, Plain English split, HTML interactive shape, validator constraints, title / concept / slug). Both apply.
+The Daylila voice contract governs how the in-interactive copy sounds; the interactive contract governs how the artefact is shaped (seven hard prohibitions including the universal-units exemption, Plain English split, HTML interactive shape, validator constraints, title / concept / slug). Both apply.
 
 ## Voice contract
 
@@ -262,9 +272,11 @@ ${VOICE_CONTRACT}
 
 ${INTERACTIVE_CONTRACT}
 
-# The four dimensions — ALL FOUR scored 0–100
+# The four dimensions
 
-## 1. Voice (passes at ≥${INTERACTIVE_VOICE_MIN_SCORE})
+**Voice is scored 0–100. Structure / essence / factual are BINARY pass/fail.** For the three binary dimensions, you either name a SPECIFIC concrete violation (with a quote or pointer to the offending part of the HTML or copy) and return \`passed: false\`, or you return \`passed: true\`. No "kind of passes" middle ground. No numeric scoring on those three. If you cannot name a concrete violation, the dimension passes.
+
+## 1. Voice (0–100 score, passes at ≥${INTERACTIVE_VOICE_MIN_SCORE})
 
 Audit the in-interactive copy against the voice contract above, plus the Plain English split rule from the interactive contract.
 
@@ -278,91 +290,70 @@ Audit the in-interactive copy against the voice contract above, plus the Plain E
 
 Score 100 if you'd leave the copy untouched. Score 85 for minor polish. Below 85 for anything a voice-compliant rewrite would visibly improve.
 
-## 2. Structure (passes at ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE})
+## 2. Structure (binary pass/fail)
 
-Audit against the HTML interactive shape rules in the interactive contract above. The HTML must render as one cohesive teaching artefact, not a pile of widgets.
+Audit against the HTML interactive shape rules in the interactive contract above. The HTML must render as one cohesive teaching artefact.
 
-What passes structure (per the contract's eight shape rules):
-- One clear interactive surface — a single slider, a clear pair of toggles, a labelled scrub track, a small simulation with one input. Multiple controls fine if they share an obvious purpose.
-- A clear teaching label — above or alongside the surface, in plain words, what concept the manipulation teaches.
-- Cohesive layout — title, surface, output, explanation read top-to-bottom (or LTR) without the reader hunting.
-- Mobile-respectable — doesn't break visibly at 375px width.
-- Sensible defaults — initial state shows something teaching, not a blank canvas.
-- Stable on input — moving the slider min→max doesn't break layout, throw visible errors, or render NaN.
-- Pedagogy hooks — manipulation produces a visible response (output changed, label updated, chart redrew, value flipped).
+Fail with a SPECIFIC violation only when one of these is concretely true (quote or point to the offending element):
+- **No teaching label.** The reader has no plain-words description of what concept the manipulation teaches; they're left to infer.
+- **Layout breaks visibly at narrow widths.** A specific element overflows, overlaps, or becomes unreadable at 375 px viewport width. Cite the element.
+- **Manipulation produces no visible response.** Moving the control changes nothing the reader can perceive — no output update, no label change, no chart redraw, no value flip. Cite the control and the absent response.
+- **Initial state is broken.** The reader sees a blank canvas, an error message, or NaN before they touch anything. Cite the broken state.
+- **Unstable on input.** A specific input (slider at min, slider at max, rapid input, edge value) breaks the layout, throws a visible error, or renders NaN. Cite the input and the breakage.
 
-What fails structure:
-- Multiple disconnected interactive elements with no shared purpose.
-- No teaching label — the reader has to guess what concept this is about.
-- Decorative animation that runs on its own with no input from the reader.
-- Initial state is blank or broken until the reader does something specific.
-- Layout breaks visibly at narrow widths.
-- Manipulation produces no visible response.
+If none of the above is concretely true, structure passes. Stylistic preferences ("could be cleaner", "minor polish would help") are NOT structure failures — those are suggestions, list them under \`suggestions\` and still return \`passed: true\`. Multiple controls, novel shapes (click sequences, drag-arrange, particle systems, 3D scenes, comparison toggles), unusual layouts — all valid; do not fail structure for shape novelty.
 
-Score 100 if you'd ship it untouched. Score 75 for minor polish. Below 75 for structural problems that would visibly reduce teaching value.
+## 3. Essence — manipulation teaches the concept (binary pass/fail)
 
-## 3. Essence — manipulation teaches the concept (passes at ≥${INTERACTIVE_HTML_ESSENCE_MIN_SCORE})
+The question to answer: *Does manipulating this interactive teach the underlying concept of the piece, or is it broken in a way that prevents teaching?*
 
-THIS IS THE PRIMARY BAR. An HTML interactive that fails essence has nothing to fall back on.
+Per the interactive contract, "manipulation embodies the mechanism" is a strong AUTHORIAL preference, not a numeric gate. Your job here is to catch hard violations, not to grade how perfectly the manipulation mirrors the mechanism.
 
-The question to answer: *Does manipulating this interactive teach the underlying concept of the piece, or is it decorative?*
+Fail with a SPECIFIC violation only when one of these is concretely true:
 
-Per the interactive contract, **manipulation embodies the mechanism**: the mechanism of change in the interactive must mirror the mechanism of the concept. If the piece teaches chokepoints, the slider's effect should compress when capacity is reduced in the right place — that's the concept made tactile. The reader's hand on the control should feel the shape of the idea.
+**Decorative manipulation** — the manipulation produces NO change relevant to the concept. Quote the control and the (absent) effect. "The slider labelled X changes only the colour of an unrelated decorative element" qualifies. "The slider could embody the mechanism more directly" does NOT — that's a preference, not a violation.
 
-What passes essence:
-- The manipulation embodies the mechanism. Moving the slider changes outputs in a way that reflects how the real concept works.
-- The reader can derive the lesson from interaction alone — prose may scaffold, but interaction is enough.
-- A stranger who never read the piece can play with the interactive and learn the underlying concept.
-- Concept-match with the piece is EXPECTED. A chokepoints piece gets a chokepoints interactive. Same-concept teaching is the GOAL, not a violation.
+**Reference leak** — per the seven hard prohibitions in the interactive contract above. Each of these is a binary violation, NOT a degree:
+- A proper noun from the piece appears in the interactive (company name, person, city, country, agency, product name, event name).
+- A specific date, year, or timeframe from the piece appears.
+- A sentence or phrase from the piece is quoted or near-quoted.
+- A label names an industry/domain in a way a piece-reader would recognise AS the piece's industry. ("Crude oil price (USD/barrel)" is fine for an abstract chokepoints widget; "Strait of Hormuz daily throughput" is a leak if the piece is about Hormuz.)
+- "According to", "as described", "in the article", "as we saw above" appears.
+- A specific number from the piece (dollar amount, percentage, count) appears UNLESS that number is the universal form of the concept.
 
-What fails essence — DECORATIVE:
-- The interactive shows a value but the manipulation doesn't change anything mechanism-relevant.
-- The interactive is a chart with a play button — it animates over time without the reader's input mattering.
-- The interactive is a quiz disguised as a widget. (We already have a quiz path.)
-- The "model" behind the manipulation is arbitrary — moving the slider produces numbers, but those numbers don't reflect the concept.
+**Universal units are NOT reference leaks** (per the contract's 7th prohibition). Standard units of measurement — nm, GHz, kelvin, decibels, days, hours, USD, EUR, watts, joules — are universal, never piece-references, even when the source piece uses them. The *value* the piece names ("121.6 nm", "$18.2 billion") is the piece; the *unit* is always allowed. A wavelength slider using nm for a spectroscopy concept passes essence; a coordination-cost lab using days passes essence.
 
-What fails essence — REFERENCE LEAK (per the six hard prohibitions in the interactive contract above):
-- Proper nouns from the piece appear in the interactive (company names, people, cities, countries, agencies, product names, event names).
-- Specific dates, years, or timeframes from the piece appear in the interactive.
-- Sentences or phrases from the piece are quoted or lightly paraphrased.
-- Labels name an industry/domain in a way a piece-reader would recognise AS the piece's industry. ("Crude oil price (USD/barrel)" is fine for an abstract chokepoints widget; "Strait of Hormuz daily throughput" is a leak if the piece is about Hormuz.)
-- The interactive uses "according to", "as described", "in the article", "as we saw above".
-- Specific numbers from the piece (dollar amounts, percentages, counts) appear in the interactive UNLESS that number is the universal form of the concept.
-
-What does NOT fail essence (these are EXPECTED, not violations):
+What does NOT fail essence:
 - Same concept as the piece. That's the point.
 - Generic concept terminology (legitimacy, visibility, threshold, trade-off, bottleneck, asymmetry, compounding).
-- Structural analogies that share a shape with the piece's structure (three groups, two configurations, one binding constraint).
-- Worked numeric examples illustrating a mechanism — \`{1, 2, 3}\` and \`{1, 4, 5}\`, "100 widgets in, X widgets out" — unless those specific numbers are pulled from the piece.
+- Structural analogies that share a shape with the piece's structure.
+- Worked numeric examples illustrating a mechanism, when the numbers are toy/illustrative, not pulled from the piece.
 - Thematic echo — the artefact's tone resonates with the piece's. Good design.
+- The manipulation embodying the mechanism imperfectly. Not every mechanism has a perfect physical analogue in a 50KB single-file HTML; "could embody more directly" is a preference, not a violation.
 
-The test to apply: *Would a stranger who has NEVER read the piece manipulate this interactive and walk away understanding the concept?* If yes, essence passes regardless of whether a piece-reader would feel thematic familiarity.
+The test to apply for the pass branch: *Could a stranger who has NEVER read the piece manipulate this interactive and learn something true about the concept, without recognising the source piece?* If yes, essence passes.
 
-Score 100 if the manipulation is a perfect physical analogue of the mechanism. Score 75 if it teaches the concept with some clunkiness. Below 75 if decorative, misaligned with the concept, or leaks specifics from the piece.
-
-## 4. Factual (passes at ≥${INTERACTIVE_HTML_FACTUAL_MIN_SCORE})
+## 4. Factual (binary pass/fail)
 
 If the interactive contains data, numbers, axis ranges, embedded examples, or claims about the world, those must be true as general statements.
 
-What fails factual:
-- An embedded number is wrong. ("Oil priced in USD since 1791" — false; 1971.)
-- A worked example uses a value outside any reasonable real-world range. (A "central bank policy rate" slider with a max of 500% is fictional; max 25% is defensible.)
-- A label asserts a causal mechanism that doesn't hold in the real world. ("Increasing X always decreases Y" when conditional or non-monotonic.)
-- A computed output uses a formula that doesn't model the concept correctly.
+Fail with a SPECIFIC violation only when one of these is concretely true (cite the claim):
+- **A specific embedded number is wrong.** ("Oil priced in USD since 1791" — false; the answer is 1971. Cite the false claim and the correction.)
+- **A worked example uses a value outside any reasonable real-world range.** A "central bank policy rate" slider with a max of 500% is fictional; max 25% is defensible. Cite the parameter and the range.
+- **A label asserts a causal mechanism that doesn't hold in the real world.** ("Increasing X always decreases Y" when the actual relationship is conditional or non-monotonic.)
+- **A computed output uses a formula that doesn't model the concept correctly.** Cite the formula and the mismatch.
 
 What does NOT fail factual:
 - Purely definitional content ("a chokepoint is a narrow point through which throughput is constrained") — true by definition if internally consistent.
 - Worked numeric examples that are obviously toy. ({1, 2, 3} composing into {1, 4, 5} is a teaching example, not a claim about the world.)
 - Stylised parameter ranges that are clearly illustrative ("0 to 100" rather than real-world units).
-- Uncertainty: if you aren't sure whether a claim is true, flag as "unclear" rather than asserting truth or falsehood.
+- Uncertainty: if you aren't sure whether a claim is true, flag as "unclear" in suggestions rather than failing factual.
 
-No web search. Evaluate against general knowledge.
-
-Score 100 if every claim is verifiably true or clearly toy. Score 75 if a claim is technically defensible but oversimplified. Below 75 for a wrong number, a fictional range, or a misstated mechanism.
+No web search. Evaluate against general knowledge. Default to passing when uncertain; the auditor's job is to catch concrete factual errors, not to demand citations for every claim.
 
 # Overall pass
 
-The interactive passes overall iff ALL FOUR dimensions pass at their respective thresholds (voice ≥${INTERACTIVE_VOICE_MIN_SCORE}; structure / essence / factual ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE} each).
+The interactive passes overall iff voice score is ≥${INTERACTIVE_VOICE_MIN_SCORE} AND each of structure, essence, factual returns \`passed: true\`.
 
 # Response format (strict)
 
@@ -376,25 +367,22 @@ The interactive passes overall iff ALL FOUR dimensions pass at their respective 
   },
   "structure": {
     "passed": true,
-    "score": 88,
     "issues": [],
     "suggestions": []
   },
   "essence": {
     "passed": true,
-    "score": 81,
     "violations": [],
     "suggestions": []
   },
   "factual": {
     "passed": true,
-    "score": 95,
     "issues": [],
     "suggestions": []
   }
 }
 
-On failure, list concrete issues citing specific HTML or copy. Each violations/issues item is one-line actionable feedback the Generator can use to revise. Each suggestions item is a specific fix (optional).
+On a binary-dimension failure, populate \`violations\` (essence) or \`issues\` (structure, factual) with one-line concrete pointers — quote or cite the offending HTML or copy. Each \`suggestions\` item is a specific fix (optional). \`score\` is voice-only; do not emit it for structure / essence / factual.
 
 No prose outside the object. No markdown fences.
 `;

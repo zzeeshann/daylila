@@ -61,14 +61,52 @@ export const HTML_FILE_BYTES_MAX = 50 * 1024;
 
 /** Human-readable description of the external-script allowlist. Used
  *  by prompts and any future admin UI that surfaces the rule. The
- *  regexes below are the source of truth for what actually validates. */
+ *  regexes below are the source of truth for what actually validates.
+ *
+ *  Expanded 2026-05-17 (Lab Renewal) from D3-only to nine curated
+ *  cdnjs libraries — D3 (kept) plus Three.js (3D), Pixi.js (2D canvas /
+ *  particles), p5.js (creative coding), Tone.js (audio synthesis),
+ *  GSAP (animation timelines), Plotly.js (interactive charts),
+ *  Howler.js (sound effects), Anime.js (animation). Sandbox is
+ *  `<iframe sandbox="allow-scripts">` (no allow-same-origin) — script
+ *  context is isolated; loading any of these is no riskier than D3.
+ *  None of these are required — many labs need no library at all.
+ *
+ *  Regex pattern: each library uses the cdnjs convention
+ *    `/ajax/libs/<lib>/<version>/<file>.js` (or .min.js). Per-library
+ *  patterns are tolerant of patch versions but pin the major version
+ *  where the library has had breaking changes (D3 v7+; Three.js
+ *  unpinned; Pixi unpinned; etc.). */
 export const HTML_SCRIPT_ALLOWLIST_DESCRIPTION =
-  'https://cdnjs.cloudflare.com/ajax/libs/d3/7.<minor>.<patch>/d3.min.js (D3 v7 only, cdnjs only)';
+  'cdnjs only — D3 v7, Three.js, Pixi.js, p5.js, Tone.js, GSAP, Plotly.js, Howler.js, Anime.js';
 
 /** Allowlist regexes — each `<script src=...>` URL must match at least
- *  one. cdnjs D3 v7 only as of Phase 2 (per docs/INTERACTIVES.md). */
+ *  one. cdnjs only across all libraries; major-version constraints per
+ *  library where breaking changes are real (D3 pinned to v7).
+ *
+ *  Pattern shape per library:
+ *    `https://cdnjs.cloudflare.com/ajax/libs/<lib>/<version>/<file>`
+ *  with `.js` and `.min.js` both accepted. */
 export const HTML_SCRIPT_ALLOWLIST_REGEXES: readonly RegExp[] = [
-  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/d3\/7\.\d+\.\d+\/d3\.min\.js$/,
+  // D3 v7 — pinned major; published-piece compatibility from the
+  // original allowlist (Phase 2).
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/d3\/7\.\d+\.\d+\/d3(\.min)?\.js$/,
+  // Three.js — 3D scenes. Any version on cdnjs.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/three\.js\/[\w.-]+\/three(\.min)?\.js$/,
+  // Pixi.js — 2D canvas, sprites, particles.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/pixi\.js\/[\w.-]+\/pixi(\.min)?\.js$/,
+  // p5.js — creative coding (canvas + sketch).
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/p5\.js\/[\w.-]+\/p5(\.min)?\.js$/,
+  // Tone.js — audio synthesis.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/tone\/[\w.-]+\/Tone(\.min)?\.js$/,
+  // GSAP — animation timelines.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/gsap\/[\w.-]+\/gsap(\.min)?\.js$/,
+  // Plotly.js — interactive charts.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/plotly\.js\/[\w.-]+\/plotly(\.min)?\.js$/,
+  // Howler.js — sound effects.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/howler\/[\w.-]+\/howler(\.min)?\.js$/,
+  // Anime.js — lightweight animation.
+  /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/animejs\/[\w.-]+\/anime(\.min)?\.js$/,
 ];
 
 /** Cap on the snippet field surfaced inside a Violation. */

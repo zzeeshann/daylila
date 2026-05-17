@@ -7,9 +7,6 @@ import {
   INTERACTIVE_AUDITOR_PROMPT,
   INTERACTIVE_HTML_AUDITOR_PROMPT,
   INTERACTIVE_VOICE_MIN_SCORE,
-  INTERACTIVE_HTML_STRUCTURE_MIN_SCORE,
-  INTERACTIVE_HTML_ESSENCE_MIN_SCORE,
-  INTERACTIVE_HTML_FACTUAL_MIN_SCORE,
   buildAuditorPrompt,
   buildHtmlAuditorPrompt,
   type AuditableQuiz,
@@ -97,9 +94,13 @@ export type AuditableArtefact =
  * Quiz path uses INTERACTIVE_AUDITOR_PROMPT; structure/essence/factual
  * are binary pass/fail (voice scored).
  *
- * HTML path uses INTERACTIVE_HTML_AUDITOR_PROMPT; ALL FOUR dimensions
- * are scored 0–100. Score thresholds: voice ≥${INTERACTIVE_VOICE_MIN_SCORE},
- * structure / essence / factual ≥${INTERACTIVE_HTML_STRUCTURE_MIN_SCORE} each.
+ * HTML path uses INTERACTIVE_HTML_AUDITOR_PROMPT. Voice is scored 0–100
+ * (passes at ≥${INTERACTIVE_VOICE_MIN_SCORE}). Structure / essence / factual
+ * are BINARY pass/fail with named specific violations — matching the
+ * quiz path. Rebuilt 2026-05-17 (Lab Renewal) — previously all four
+ * dimensions were scored 0–100 with a 75 floor on the three non-voice
+ * dimensions, which clustered judgments at 68/62 without naming
+ * concrete issues.
  *
  * Does NOT rewrite. Returns pass/fail + per-dimension feedback. The
  * revise loop lives in InteractiveGeneratorAgent — it reads the audit
@@ -273,28 +274,29 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
     const essenceRaw = (parsed.essence ?? {}) as Record<string, unknown>;
     const factualRaw = (parsed.factual ?? {}) as Record<string, unknown>;
 
+    // 2026-05-17 Lab Renewal: HTML auditor switched from numeric 0–100
+    // grading on all four dimensions to binary pass/fail on structure /
+    // essence / factual (voice stays numeric). The auditor either names
+    // a specific concrete violation or passes — no score-threshold
+    // hairsplitting at 68/62. Score field for the three binary
+    // dimensions is no longer populated in the response shape (kept on
+    // voice).
     const voiceScore = asScore(voiceRaw.score);
     const voiceViolations = asStringArray(voiceRaw.violations);
     const voiceSuggestions = asStringArray(voiceRaw.suggestions);
     const voicePassed = asBool(voiceRaw.passed, false) && voiceScore >= INTERACTIVE_VOICE_MIN_SCORE;
 
-    const structureScore = asScore(structureRaw.score);
     const structureIssues = asStringArray(structureRaw.issues);
     const structureSuggestions = asStringArray(structureRaw.suggestions);
-    const structurePassed =
-      asBool(structureRaw.passed, false) && structureScore >= INTERACTIVE_HTML_STRUCTURE_MIN_SCORE;
+    const structurePassed = asBool(structureRaw.passed, false);
 
-    const essenceScore = asScore(essenceRaw.score);
     const essenceViolations = asStringArray(essenceRaw.violations);
     const essenceSuggestions = asStringArray(essenceRaw.suggestions);
-    const essencePassed =
-      asBool(essenceRaw.passed, false) && essenceScore >= INTERACTIVE_HTML_ESSENCE_MIN_SCORE;
+    const essencePassed = asBool(essenceRaw.passed, false);
 
-    const factualScore = asScore(factualRaw.score);
     const factualIssues = asStringArray(factualRaw.issues);
     const factualSuggestions = asStringArray(factualRaw.suggestions);
-    const factualPassed =
-      asBool(factualRaw.passed, false) && factualScore >= INTERACTIVE_HTML_FACTUAL_MIN_SCORE;
+    const factualPassed = asBool(factualRaw.passed, false);
 
     const passed = voicePassed && structurePassed && essencePassed && factualPassed;
 
@@ -314,19 +316,16 @@ export class InteractiveAuditorAgent extends Agent<Env, InteractiveAuditorState>
       },
       structure: {
         passed: structurePassed,
-        score: structureScore,
         issues: structureIssues,
         suggestions: structureSuggestions,
       },
       essence: {
         passed: essencePassed,
-        score: essenceScore,
         violations: essenceViolations,
         suggestions: essenceSuggestions,
       },
       factual: {
         passed: factualPassed,
-        score: factualScore,
         issues: factualIssues,
         suggestions: factualSuggestions,
       },

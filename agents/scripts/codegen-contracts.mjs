@@ -42,11 +42,15 @@ const SOURCES = [
     path: '../../content/voice-contract.md',
     label: 'content/voice-contract.md',
   },
-  {
-    name: 'INTERACTIVE_HTML_REFERENCE',
-    path: '../../docs/examples/interactive-reference.html',
-    label: 'docs/examples/interactive-reference.html',
-  },
+  // INTERACTIVE_HTML_REFERENCE removed 2026-05-17 (Lab Renewal). The
+  // canonical chokepoints HTML example used to be injected into the
+  // HTML Generator's system prompt as a structural-and-voice template;
+  // empirically the model was copying its slider+bar pattern across
+  // every lab, producing the homogeneity the auditor then flagged as
+  // "manipulation doesn't quite embody the mechanism." Dropping the
+  // injection lets the Generator riff per-concept. The file stays on
+  // disk at docs/examples/interactive-reference.html as one design
+  // vocabulary for human readers — not a template to copy.
   {
     name: 'BEAT_CONTRACT',
     path: '../../content/beat-contract.md',
