@@ -1,0 +1,59 @@
+{
+  "slug": "physical-throughput-bottlenecks",
+  "type": "quiz",
+  "title": "Physical Throughput Bottlenecks",
+  "concept": "When demand for a physical good arrives faster than a fixed-capacity system can process transactions, the building itself becomes the constraint—no amount of willing buyers can speed up checkout lanes, expand floor space, or add staff in real time.",
+  "interactiveId": "d867ce98-bcc5-475a-8139-4557e164a141",
+  "sourcePieceId": "37119a9e-0e3e-4c98-83bc-55b4f9b07b27",
+  "publishedAt": 1778989617150,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "A concert venue can process 50 ticket-holders per minute through its entry gates. 3,000 people arrive in the 30 minutes before showtime. What determines when the last person gets in?",
+        "options": [
+          "How many staff are checking tickets",
+          "Gate processing speed and total arrivals—the building can only move people through at 50/min regardless of crowd size outside",
+          "How early people arrived to queue",
+          "How motivated the crowd is to get inside quickly"
+        ],
+        "correctIndex": 1,
+        "explanation": "The venue's gate throughput is fixed at 50 per minute. 3,000 people take 60 minutes to process even if all arrive at once. Motivation, queue position, and staffing might affect experience, but the hard limit is the physical flow rate—the building cannot absorb arrivals faster than its processing constraint allows."
+      },
+      {
+        "question": "A coffee shop has 4 baristas and can complete 15 drinks per hour per barista. On a cold morning, 100 customers arrive in one hour wanting drinks. Why can't the shop just 'work faster' to clear the queue?",
+        "options": [
+          "The baristas are not trying hard enough",
+          "Each drink takes physical time to prepare—heating water, steaming milk, pouring—and that time per unit sets an upper limit on total output",
+          "The queue would move faster if customers ordered simpler drinks",
+          "The shop needs better management to organize the workflow"
+        ],
+        "correctIndex": 1,
+        "explanation": "Effort and workflow help, but they hit a floor: the physical steps of making a drink take time. 4 baristas at 15 drinks/hour = 60 total drinks per hour maximum. The 101st customer waits no matter how motivated the staff are, because the constraint is not will—it is the time each transaction requires."
+      },
+      {
+        "question": "A store during a surge release has two choices: let everyone in and risk chaos, or close the doors temporarily and reopen when the current group clears. What trade-off does closing the doors make?",
+        "options": [
+          "Loses immediate sales to preserve safety and control—rationing by resetting flow instead of by first-come-first-served",
+          "Punishes customers who waited longest by making them wait even longer",
+          "Improves fairness by giving latecomers a chance to enter",
+          "Signals the product is more exclusive and raises its perceived value"
+        ],
+        "correctIndex": 0,
+        "explanation": "Closing stops entry to prevent overcrowding and preserve order. The trade is revenue now for safety and controlled transaction flow. It does not improve fairness to latecomers—it just prevents the building from exceeding the headcount it can safely hold. Exclusivity signaling might happen, but the mechanism is rationing throughput, not branding."
+      },
+      {
+        "question": "Why does a physical store face a bottleneck an online store does not when the same number of buyers arrive at the same time?",
+        "options": [
+          "Online stores have better software for managing queues",
+          "Servers can be added in minutes; floor space, registers, and staff cannot—digital systems scale capacity by deploying more identical units, physical stores cannot",
+          "Physical stores require customers to travel, so demand spreads out naturally",
+          "Online stores do not run out of inventory as quickly"
+        ],
+        "correctIndex": 1,
+        "explanation": "The difference is not software or inventory—it is the ability to add processing capacity in real time. Servers spin up in minutes to handle load spikes. A physical store's transaction capacity is set by its building, checkout lanes, and staff count—all fixed at the moment the surge arrives."
+      }
+    ]
+  }
+}
