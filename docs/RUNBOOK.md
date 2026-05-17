@@ -113,7 +113,7 @@ wrangler secret put SCANNER_RSS_FEEDS_JSON
 ## D1 Database
 
 ### Run migrations
-There are 44 migrations (`0001_init.sql` … `0044_claim_verifications.sql`) defining 27 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
+There are 45 migrations (`0001_init.sql` … `0045_director_health.sql`) defining 27 tables. Note: `0019_piece_id_backfill.sql` is a manual-only migration (commented UPDATEs — auto-apply is a no-op; run via `wrangler d1 execute --file` if you need to backfill a fresh DB).
 Apply them (idempotent — skips any already recorded in `d1_migrations`):
 ```bash
 wrangler d1 migrations apply zeemish --remote
@@ -549,6 +549,76 @@ ORDER BY dac.round, dac.claim_index;
 ```
 
 **Tavily credit usage** is tracked on the Tavily dashboard (https://tavily.com), not in D1 — the agent doesn't persist per-search credit cost. Per-claim cost is `$0.008 × cache misses`, so check `claim_verifications` row growth vs Tavily dashboard counter for the same period.
+
+### Director kill switch + watchdog (cap-incident prevention)
+
+Added 2026-05-17 after the Cloudflare DO free-tier daily duration cap-trip. See `docs/CAP-INCIDENT-2026-05-17.md` for the full incident writeup. Four operator surfaces:
+
+**Status panel: `/dashboard/admin/` → "System guardrails" section.** Between Today's run and System state. Shows kill-switch status (teal "Enabled" / red "DISABLED"), editable max-operation-minutes input (5-240, default 15), and a live table of currently-running operations from `director_health`. Stale operations (older than the threshold) render in red with a ⚠ flag.
+
+**Emergency stop (admin UI):** click the red "Kill switch (stop Director)" button → confirm dialog → page reloads. Status flips to red "DISABLED — Director is halted". Every Director alarm, cron, and admin retrigger checks the flag at entry and exits immediately when set. The hourly cron at `0 * * * *` still fires but bails at the top of `dailyRun()` without doing pipeline work. Audio retries, interactive regenerations, and Zita synthesis are all gated. **The flag is sticky across DO restarts** because it lives in D1, not memory.
+
+**Emergency stop (D1 direct — works even when admin UI is down):**
+```bash
+# Halt
+npx wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='1' WHERE key='director_disabled';"
+
+# Resume
+npx wrangler d1 execute zeemish --remote --command \
+  "UPDATE admin_settings SET value='0' WHERE key='director_disabled';"
+```
+
+**Adjust the watchdog threshold (admin UI):** in the "System guardrails" section, change the number in the max-operation input (5-240 min), click Save. The next watchdog fire at HH:30 uses the new value. Default 15 min — the longest legitimate Director operation (audio pipeline at full retry budget across 12 beats) is ~10-15 min; raise to 20-30 if false positives appear, lower to 10 if confident operations always complete faster.
+
+**Inspect current operations:**
+```bash
+# Active long-running operations (should be 0-1 most of the day):
+npx wrangler d1 execute zeemish --remote --command \
+  "SELECT * FROM director_health WHERE status='running' ORDER BY started_at;"
+
+# Recent operation history (audit trail):
+npx wrangler d1 execute zeemish --remote --command \
+  "SELECT operation_type, piece_id, datetime(started_at/1000,'unixepoch') AS started, \
+   datetime(completed_at/1000,'unixepoch') AS completed, status \
+   FROM director_health ORDER BY started_at DESC LIMIT 20;"
+
+# Watchdog escalations (when did the auto-trip fire?):
+npx wrangler d1 execute zeemish --remote --command \
+  "SELECT datetime(created_at/1000,'unixepoch') AS ts, title, body \
+   FROM observer_events WHERE title LIKE 'Director watchdog tripped%' \
+   ORDER BY created_at DESC LIMIT 10;"
+
+# Read current settings:
+npx wrangler d1 execute zeemish --remote --command \
+  "SELECT key, value FROM admin_settings WHERE key IN ('director_disabled', 'director_max_operation_minutes');"
+```
+
+**End-to-end test the watchdog (DESTRUCTIVE — will trip the kill switch; clean up after):**
+```bash
+# 1. Inject a fake stale operation (started 30 min ago):
+NOW_MS=$(($(date -u +%s) * 1000))
+STALE_MS=$((NOW_MS - 1800000))
+npx wrangler d1 execute zeemish --remote --command \
+  "INSERT INTO director_health(operation_id, operation_type, piece_id, started_at, last_heartbeat_at, status) \
+   VALUES('test-stale-001', 'triggerDailyPiece', NULL, $STALE_MS, $STALE_MS, 'running');"
+
+# 2. Wait for the next HH:30 watchdog fire (max 30 min). Then verify:
+npx wrangler d1 execute zeemish --remote --command \
+  "SELECT status FROM director_health WHERE operation_id='test-stale-001'; \
+   SELECT value FROM admin_settings WHERE key='director_disabled'; \
+   SELECT title FROM observer_events WHERE title LIKE '%Director watchdog tripped%' ORDER BY created_at DESC LIMIT 1;"
+# Expected: status='orphaned', director_disabled='1', escalation title present.
+
+# 3. Cleanup:
+npx wrangler d1 execute zeemish --remote --command \
+  "DELETE FROM director_health WHERE operation_id='test-stale-001'; \
+   UPDATE admin_settings SET value='0' WHERE key='director_disabled';"
+```
+
+**Standing rules:**
+- **Never push agents-worker code while a pipeline is running.** Check `/dashboard/admin/` for active pipeline rows BEFORE any deploy. The 2026-05-17 cap incident's two mid-pipeline code resets at 04:11 and 04:45 UTC are the suspected (unverified) trigger for the 8-hour silent plateau.
+- **Don't upgrade to Workers Paid before these guardrails ship.** Free-tier with cap-trips is strictly safer than PAYG without guardrails — a runaway on PAYG has no upper bound.
 
 ### Flip retention worker out of DRY_RUN mode
 
