@@ -1,0 +1,59 @@
+{
+  "slug": "upstream-versus-downstream-filtering",
+  "type": "quiz",
+  "title": "Upstream versus Downstream Filtering",
+  "concept": "A system can stop bad inputs before they enter or remove them after they arrive—the choice depends on how cheap production becomes and how fast pollution spreads compared to how fast cleaners can work.",
+  "interactiveId": "5ed15e85-fb7a-4c34-a039-55c98ba95c80",
+  "sourcePieceId": "94bf18c5-035c-4c32-9f23-2d19466a2c1a",
+  "publishedAt": 1778981372015,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does a system shift from cleaning up bad inputs after they arrive to blocking them before entry?",
+        "options": [
+          "The system has more resources to spend on prevention",
+          "The inputs are becoming more harmful over time",
+          "Bad inputs arrive faster than the system can remove them",
+          "The people running the system prefer stricter rules"
+        ],
+        "correctIndex": 2,
+        "explanation": "When production cost drops to near-zero, pollution floods in faster than moderators can clean. The system fills with junk before removal happens. Blocking at entry—upstream filtering—becomes necessary because downstream cleanup cannot keep pace with volume."
+      },
+      {
+        "question": "A platform allows anyone to post, then removes rule-breaking posts within 24 hours. What happens when the cost of posting drops to seconds per post?",
+        "options": [
+          "The platform becomes more efficient because automation handles removal",
+          "Users see mostly clean content because bad posts are removed quickly",
+          "The platform fills with junk during the 24-hour window faster than removal can clear it",
+          "The platform attracts higher-quality users who value open access"
+        ],
+        "correctIndex": 2,
+        "explanation": "When posting costs seconds, one person can flood the platform with thousands of posts per day. A 24-hour removal window means each bad post lives long enough to be seen, shared, and pollute search results. Cleanup cannot outrun production. The illusion that '24 hours is fast' breaks when volume explodes."
+      },
+      {
+        "question": "Why does banning repeat offenders differ from rejecting individual bad submissions?",
+        "options": [
+          "Banning sends a stronger public message about values",
+          "Rejecting individual posts does not stop someone who can produce hundreds more immediately",
+          "Banning is legally safer because it avoids content-based decisions",
+          "Repeat offenders are more morally blameworthy than one-time violators"
+        ],
+        "correctIndex": 1,
+        "explanation": "When production cost is near-zero, rejecting one bad post is irrelevant—the submitter can generate a hundred more in the time it takes to read the rejection. Banning the identity stops the production line. Rejection targets output; banning targets the source of infinite cheap output."
+      },
+      {
+        "question": "A quality-control system that worked for decades suddenly fails. What changed?",
+        "options": [
+          "The standards became unclear over time",
+          "The people enforcing the rules became less skilled",
+          "The cost of producing something that passes initial inspection dropped sharply",
+          "The community lost trust in the gatekeepers"
+        ],
+        "correctIndex": 2,
+        "explanation": "Systems designed for downstream cleanup assume bad inputs are rare because they are expensive to produce. When technology makes production cheap—AI text generation, automated spam, template-based fraud—volume overwhelms the cleaners. The filter did not weaken; the economics of pollution changed."
+      }
+    ]
+  }
+}
