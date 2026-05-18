@@ -262,6 +262,13 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
     durationMs: number;
   }> {
     const callStart = Date.now();
+    // Diagnostic logs (visible via `wrangler tail`) bracketing the
+    // streaming call. If `[curator] stream start` appears in tail but
+    // `[curator] stream end` never does, the Claude streaming call is
+    // the wedge point — same diagnostic gap as Integrator R2 wedge
+    // 2026-05-18 morning + Curator wedge 2026-05-18 post-fix. See
+    // docs/FOLLOWUPS.md "Integrator R2 silent wedge".
+    console.log('[curator] stream start');
     const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 8000,
@@ -269,6 +276,7 @@ export class CuratorAgent extends Agent<Env, CuratorState> {
       messages: [{ role: 'user', content: userMessage }],
     }).finalMessage();
     const durationMs = Date.now() - callStart;
+    console.log(`[curator] stream end · ${durationMs}ms · stop=${response.stop_reason ?? 'unknown'} · tokensOut=${response.usage?.output_tokens ?? 0}`);
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
     // Empty-content guard via optional chaining matches the 2026-05-11

@@ -2,6 +2,54 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-18 (later): Silent-wedge diagnostic logging + director_health retention rule
+
+**Trigger.** Same-day continuation. PR #65 closed two real bugs (heartbeat wiring + in-flight guard) and verified end-to-end (14:00 UTC auto-cron shipped "Brief hard workouts" piece cleanly with 90s of heartbeat advance, voice 90, single round). But two pre-existing wedges from earlier in the day stayed unexplained: morning piece 2 (e4f02570 — Integrator R2 wedge) and post-fix piece 7b5b1675 (Curator wedge). Both shared a structural pattern: `director_health.last_heartbeat_at - started_at = 0` meaning the setInterval(30s) heartbeat **never fired even once** before the watchdog caught them at HH:30. That implies the JS event loop is paused (DO hibernation, blocked syscall, network egress paused, etc.) — none of which we have observability into. Operator's directive: solve all open issues.
+
+**Priority 3 (Voice Auditor max_tokens) dropped from list.** Quick D1 query showed 44 LLM voice-auditor calls in last 14 days, avg 144 tokens out, max 528 — well below the 1500 cap. The 2026-05-11 cap bump (800→1500) holds. No tuning needed.
+
+**Two fixes in this PR — both small, both additive:**
+
+**Fix 1 — Diagnostic logging for the silent-wedge bug class.** Three `console.log` insertions, visible via `wrangler tail --format pretty`:
+
+(1) `agents/src/director.ts` — `startOperationHeartbeat()`: inside the setInterval callback BEFORE the D1 write, log `[director.heartbeat] tick #N for operation X` (counter increments each tick). Disposer logs `[director.heartbeat] disposed (N ticks fired)`. Without this, we can't tell whether setInterval is firing — the morning's bug had `hb_advance=0` which could mean (a) setInterval never fired OR (b) it fired but D1 writes silently failed. After this PR, those two cases are distinguishable from tail.
+
+(2) `agents/src/curator.ts` — `invokeClaude()`: `[curator] stream start` immediately before `client.messages.stream(...).finalMessage()`; `[curator] stream end · NNms · stop=R · tokensOut=N` immediately after. The Curator wedge on piece 7b5b1675 hung between Scanner-done and the Curator's `LLM curator` observer log — this brackets exactly that window.
+
+(3) `agents/src/integrator.ts` — `revise()`: `[integrator] stream start round=N pieceId=X`; `[integrator] stream end · round=N · NNms · stop=R · tokensOut=N`. Same shape, brackets the Integrator R2 wedge window.
+
+**Why console.log not observer_events.** Three reasons: (a) wrangler tail is the diagnostic surface that captures things D1 writes miss (network hangs, 499s, DO state transitions); (b) at 30s setInterval cadence the heartbeat log would generate ~6 observer rows per pipeline at high write volume, polluting the admin feed; (c) the silent-wedge bug may include D1 writes failing — observer_events writes might not land either, but console.log routes via Cloudflare's worker logging which is independent of D1.
+
+**Fix 2 — Retention rule for director_health table.** New rule in `agents/src/retention.ts` RETENTION_RULES array, between draft_revisions and engagement:
+
+```
+{
+  table: 'director_health (completed/orphaned/aborted)',
+  windowDays: 30,
+  selectSql: "SELECT COUNT(*) FROM director_health WHERE status != 'running' AND started_at < ?",
+  deleteSql: "DELETE FROM director_health WHERE status != 'running' AND started_at < ?",
+  guardSql: null,  // no published-piece linkage
+}
+```
+
+`status='running'` rows are NEVER pruned — the HH:30 watchdog is the authority on those; pruning a running row would lose the watchdog's ability to detect a stale operation. 30-day window matches the audit-trail need (operator queries past operations) without unbounded growth. No guardSql because director_health has no published-piece foreign-key.
+
+**The new piece domain mix today is also worth noting (not the fix, but the empirical signal).** Three pieces shipped, three different `pick_domain` values: `skills` (Aaron Rai PGA), `technology` (ChatGPT bank accounts), `body` (Brief hard workouts). The 2026-05-09 feed-mix overhaul (4 breadth feeds added: entertainment, sports, food, personal-finance) is finally producing diverse picks. Library category assignments equally clean: Skill / Security / Biology.
+
+**Next reproduction test (what to watch for).** Operator opens `wrangler tail --format pretty` in one terminal, admin-retriggers a fact-heavy story in another (e.g. the next news cycle with a "first since 1919"-shaped headline). If a wedge reproduces, tail tells us:
+- `[director.heartbeat] tick #N` count — how many ticks fired before the wedge
+- `[curator] stream start` without matching `stream end` — Curator's Claude call is the wedge
+- `[integrator] stream start` without matching `stream end` — Integrator's Claude call is the wedge
+- Neither start log — the wedge is upstream of the streaming call (parse-fail-loop, persistence-bug, etc.)
+
+**Why no proactive timeout on the streaming call.** Considered + deferred. CF Workers has a 125s subrequest idle limit; the SDK's `messages.stream()` has no `signal: AbortSignal.timeout()` parameter (it accepts `AbortSignal` but the wrapper doesn't propagate cleanly through `.finalMessage()`). Adding an external `Promise.race([stream, timeout])` would mask the actual hang behaviour we're trying to diagnose. Adding the timeout is the FIX once we know the root cause; for now, observability first.
+
+**Verification.** Agents `npx tsc --noEmit`: 26 errors, all 26 pre-existing in `src/server.ts` Durable Object set — zero new from the four touched files. `npx wrangler deploy --dry-run` clean, all 16 DO bindings + both crons accepted. No migration. No D1 schema change. No contract change. No codegen. Table count: 27 (unchanged). Migration count: 45 (unchanged).
+
+**Files (4 + 2 docs).** `agents/src/director.ts`, `agents/src/curator.ts`, `agents/src/integrator.ts`, `agents/src/retention.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry), FOLLOWUPS.md (silent-wedge entry updated with diagnostic-log details).
+
+---
+
 ## 2026-05-18: Director heartbeat wiring + in-flight guard (closes two bugs from PR #63)
 
 **Trigger.** Operator opened admin at ~02:11 UTC, after the cap reset at 00:00 UTC, to check if today's 02:00 UTC cron had fired. It hadn't — last activity in `pipeline_log` / `observer_events` was 2026-05-17 04:25 UTC. Director DO had been hibernating since the cap incident. Operator clicked "Trigger daily piece" from admin. **The click woke the DO, which then dispatched BOTH the overdue 02:00 cron alarm AND the admin trigger at the exact same millisecond (02:11:44 UTC).** Two pipelines started in parallel, both picked the same Aaron Rai PGA story (different Curator headline phrasings). Piece 1 shipped clean (single round, voice 90, audio + interactive at 02:18:04). Piece 2 wedged on Integrator R2 — 9+ min of complete silence on the streaming Claude call. The 02:30 UTC watchdog read `last_heartbeat_at < (02:30 - 15min = 02:15)`, found piece 2's row (heartbeat stuck at 02:11:44), marked it orphaned, tripped the kill switch, and fired escalation. **Self-defense worked exactly as designed.**
