@@ -219,6 +219,22 @@ const RETENTION_RULES: RetentionRule[] = [
          AND piece_id NOT IN (SELECT id FROM daily_pieces)`,
   },
   {
+    table: 'director_health (completed/orphaned/aborted)',
+    description:
+      'Director operation tracker rows in a final status older than 30 days. ' +
+      "Rows in status='running' are NEVER pruned — the watchdog (HH:30 cron) " +
+      'handles those by marking orphaned. No published-piece linkage so no ' +
+      'guardSql needed. Added 2026-05-18 after the orphaned-row accumulation ' +
+      'surfaced by the dual-fire + Curator-wedge incidents. See PR #65 + ' +
+      'docs/DECISIONS.md 2026-05-18.',
+    windowDays: 30,
+    selectSql:
+      "SELECT COUNT(*) AS n FROM director_health WHERE status != 'running' AND started_at < ?",
+    deleteSql:
+      "DELETE FROM director_health WHERE status != 'running' AND started_at < ?",
+    guardSql: null,
+  },
+  {
     table: 'engagement',
     description: 'Reader engagement aggregates older than 1 year.',
     windowDays: 365,

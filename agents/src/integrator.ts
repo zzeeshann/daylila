@@ -111,6 +111,12 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
     // subrequest idle reasoning as Curator + Drafter. See DECISIONS
     // 2026-05-09 "Curator 124s 499 timeout regression".
     const callStart = Date.now();
+    // Diagnostic logs (visible via `wrangler tail`) bracketing the
+    // streaming call. If `[integrator] stream start round=N` appears in
+    // tail but `[integrator] stream end` never does, the Claude streaming
+    // call is the wedge point — same diagnostic gap as the 2026-05-18
+    // Integrator R2 wedge. See docs/FOLLOWUPS.md "Integrator R2 silent wedge".
+    console.log(`[integrator] stream start round=${revisionRound} pieceId=${pieceId}`);
     const response = await client.messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 8000,
@@ -123,6 +129,7 @@ export class IntegratorAgent extends Agent<Env, IntegratorState> {
       ],
     }).finalMessage();
     const durationMs = Date.now() - callStart;
+    console.log(`[integrator] stream end · round=${revisionRound} · ${durationMs}ms · stop=${response.stop_reason ?? 'unknown'} · tokensOut=${response.usage?.output_tokens ?? 0}`);
     const tokensIn = response.usage?.input_tokens ?? 0;
     const tokensOut = response.usage?.output_tokens ?? 0;
 

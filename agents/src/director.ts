@@ -101,12 +101,25 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    * until the disposer runs (typically in a finally block).
    */
   private startOperationHeartbeat(operationId: string): () => void {
+    let tickCount = 0;
     const intervalId = setInterval(() => {
+      tickCount += 1;
+      // Diagnostic log (visible via `wrangler tail`) — fires BEFORE
+      // the D1 write. If tail shows ticks but director_health.last_heartbeat_at
+      // doesn't bump, the D1 UPDATE is failing silently. If tail shows
+      // no ticks at all, setInterval isn't firing — meaning the JS event
+      // loop is paused (DO hibernation, blocked syscall, etc.). This is
+      // the diagnostic gap that defeated yesterday's cap-incident
+      // investigation. See docs/FOLLOWUPS.md "Integrator R2 silent wedge".
+      console.log(`[director.heartbeat] tick #${tickCount} for operation ${operationId}`);
       recordOperationHeartbeat(this.env, operationId).catch((err) => {
         console.error('[director.startOperationHeartbeat] tick failed:', err);
       });
     }, 30_000);
-    return () => clearInterval(intervalId);
+    return () => {
+      console.log(`[director.heartbeat] disposed (${tickCount} ticks fired) for operation ${operationId}`);
+      clearInterval(intervalId);
+    };
   }
 
   /**

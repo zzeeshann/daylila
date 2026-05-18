@@ -30,6 +30,8 @@ Format per entry:
 
 **Priority:** medium. The watchdog now catches this class in ~45 min worst case (HH:30 cadence + 15-min threshold). Not blocking but worth diagnosing — if Task 09's prompt-size doubling is the cause, every multi-round piece is exposed.
 
+**Update 2026-05-18 (later):** PR #66 adds `console.log` diagnostic statements visible via `wrangler tail` at three points: (a) `[director.heartbeat] tick #N for operation X` fires every 30s inside the setInterval callback BEFORE the D1 write — tells us whether the JS event loop is paused (no ticks) or D1 writes are failing (ticks but no heartbeat advance); (b) `[curator] stream start` + `[curator] stream end · NNms · stop=R · tokensOut=N` bracket Curator's Claude streaming call; (c) `[integrator] stream start round=N pieceId=X` + `[integrator] stream end · round=N · NNms · stop=R · tokensOut=N` bracket Integrator's Claude streaming call. Next wedge reproduction: operator runs `wrangler tail --format pretty` against `zeemish-agents` during a fresh admin retrigger of a story likely to multi-round (facts-heavy news). If tail shows `start` but never `end`, the streaming call is the wedge. If tail shows `start` + `end` but no heartbeat ticks fired during the call, JS event loop got starved. If neither start nor end shows up, the DO never reached the streaming call — different bug class entirely.
+
 ---
 
 ## [open] 2026-05-17: Cap incident — Director DO ran 8h silent + Cloudflare free-tier duration exceeded. Prevention guardrails specified, not yet shipped
