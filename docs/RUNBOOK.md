@@ -620,6 +620,32 @@ npx wrangler d1 execute zeemish --remote --command \
 - **Never push agents-worker code while a pipeline is running.** Check `/dashboard/admin/` for active pipeline rows BEFORE any deploy. The 2026-05-17 cap incident's two mid-pipeline code resets at 04:11 and 04:45 UTC are the suspected (unverified) trigger for the 8-hour silent plateau.
 - **Don't upgrade to Workers Paid before these guardrails ship.** Free-tier with cap-trips is strictly safer than PAYG without guardrails — a runaway on PAYG has no upper bound.
 
+### Diagnose a silent wedge via `wrangler tail`
+
+When a pipeline operation is stuck in `running` state in admin's "Currently running operations" panel but no pipeline_log progress for several minutes — the silent-wedge bug class (twice on 2026-05-18: morning Integrator R2 + post-fix Curator). PR #66 (2026-05-18) added diagnostic `console.log` statements visible via `wrangler tail` at three key points. Run tail in one terminal, reproduce the wedge in another (admin retrigger of a fact-heavy story):
+
+```sh
+cd agents
+npx wrangler tail --format pretty
+# Requires CLOUDFLARE_API_TOKEN env var (OAuth doesn't work for tail in
+# non-interactive). Generate one at:
+# https://dash.cloudflare.com/profile/api-tokens with "Workers Read" scope.
+```
+
+Watch for these log patterns:
+
+| Log line | Means |
+|---|---|
+| `[director.heartbeat] tick #1 for operation X` (every 30s) | ✅ JS event loop alive; setInterval firing |
+| `[director.heartbeat] disposed (N ticks fired) for operation X` | Operation completed cleanly; N ticks bumped `last_heartbeat_at` |
+| Ticks fire but `director_health.last_heartbeat_at` doesn't advance in D1 | 🔍 D1 writes failing silently — different bug class |
+| **No** `[director.heartbeat]` ticks at all during a long-running op | 🚨 JS event loop paused (DO hibernation despite keepAlive, blocked syscall, etc.) — the silent-wedge bug |
+| `[curator] stream start` but **no** matching `[curator] stream end` | 🚨 Curator's Claude streaming call is the wedge point |
+| `[integrator] stream start round=N pieceId=X` but **no** matching `stream end` | 🚨 Integrator's Claude streaming call is the wedge point |
+| Neither `stream start` nor `stream end` for the wedged stage | 🔍 Wedge is upstream of the streaming call (parse-fail loop, persistence bug, etc.) |
+
+The first `stream start` log without a matching `stream end` IS the wedge point. Once we know which Claude call hangs, we can add a real timeout (currently deferred — the SDK's `messages.stream()` doesn't propagate `AbortSignal` cleanly through `finalMessage()`, and adding `Promise.race([stream, timeout])` would mask the hang behaviour we're trying to diagnose).
+
 ### Flip retention worker out of DRY_RUN mode
 
 > **Destructive — confirm with user before running.** The retention worker ships in DRY_RUN mode (`agents/wrangler.toml` `[vars] RETENTION_DRY_RUN = "true"`). After a 7-day review window of dry-run observer events, flip to live:
