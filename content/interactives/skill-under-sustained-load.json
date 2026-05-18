@@ -1,0 +1,59 @@
+{
+  "slug": "skill-under-sustained-load",
+  "type": "quiz",
+  "title": "Skill Under Sustained Load",
+  "concept": "Elite performance across extended high-stakes environments requires building mental and physical systems that maintain decision quality when fatigue accumulates and pressure compounds—not brilliance in a single moment, but stability across hundreds of sequential choices where one breakdown cascades.",
+  "interactiveId": "17081bbf-5ae8-4560-84a4-fc67182e0205",
+  "sourcePieceId": "0938e67e-859b-4779-8b2d-0b06ee9f4695",
+  "publishedAt": 1779070495837,
+  "voiceScore": 88,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does cumulative scoring across multiple days reward different skills than single-session performance?",
+        "options": [
+          "It allows recovery time between sessions, making physical stamina less important",
+          "It punishes volatility—one catastrophic error in 288 decisions eliminates you even if the other 287 are excellent",
+          "It rewards aggressive risk-taking because you have more chances to recover from mistakes",
+          "It removes mental pressure because you can't lose everything in one moment"
+        ],
+        "correctIndex": 1,
+        "explanation": "Extended scoring formats make consistency the primary asset—a single blowup hole collapses your position even if everything else is strong. The tempting wrong answer (more chances to recover) misses that cumulative formats amplify mistakes rather than diluting them."
+      },
+      {
+        "question": "What does 'mental routine that resets after mistakes' actually mean in practice?",
+        "options": [
+          "Taking a break between high-pressure decisions to clear your mind",
+          "Treating each new decision as independent—not letting prior errors contaminate the next choice",
+          "Reviewing what went wrong before moving forward so you don't repeat the mistake",
+          "Lowering your expectations after a failure to reduce pressure on yourself"
+        ],
+        "correctIndex": 1,
+        "explanation": "The reset skill is treating each choice as a clean slate—prior errors don't leak into the next decision's quality. The tempting wrong answer (reviewing the mistake) actually does the opposite: it keeps you anchored to what just failed instead of clearing the channel for the next call."
+      },
+      {
+        "question": "Why does simulated pressure in practice build performance systems that hold under real stakes?",
+        "options": [
+          "It conditions your body to physical stress so you're less tired during competition",
+          "It trains decision-making under mental load—when practice replicates the cognitive drain of real stakes, the patterns transfer",
+          "It builds confidence by proving you can succeed, which reduces anxiety during actual performance",
+          "It familiarizes you with the venue so execution feels automatic on game day"
+        ],
+        "correctIndex": 1,
+        "explanation": "Simulated pressure works because it trains the brain to make quality calls while under cognitive load—the mental fatigue and decision density of real competition. Confidence (option C) is a side effect, not the mechanism; the core transfer is patterned decision-making under strain."
+      },
+      {
+        "question": "When does 'consistency under pressure' break down even in highly trained performers?",
+        "options": [
+          "When the stakes are higher than anything they've trained for, overwhelming their preparation",
+          "When mental fatigue accumulates faster than they've conditioned for—their focus frays before the task ends",
+          "When they face an opponent who is objectively more skilled, making their consistency irrelevant",
+          "When external conditions (weather, equipment failure) introduce randomness their routine can't control"
+        ],
+        "correctIndex": 1,
+        "explanation": "The system breaks when the duration or density of decisions exceeds what you've trained your attention to sustain—your focus collapses before the task ends. Higher stakes (option A) don't break trained systems if the load matches preparation; the failure mode is endurance, not magnitude."
+      }
+    ]
+  }
+}
