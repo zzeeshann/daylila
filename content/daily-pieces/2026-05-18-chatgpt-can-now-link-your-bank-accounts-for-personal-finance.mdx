@@ -1,0 +1,72 @@
+---
+title: "What 'Link Your Bank Account' Actually Means"
+date: "2026-05-18"
+underlyingSubject: "How permission systems work in software"
+estimatedTime: 7
+beatCount: 7
+description: "ChatGPT can now link bank accounts. What does 'link' actually mean, what data flows, and how do you evaluate whether convenience justifies exposure?"
+voiceScore: 95
+publishedAt: 1779072720704
+pieceId: "1115dd57-fd1c-4cdd-9fd2-a70c0e77f611"
+sourceUrl: "https://news.google.com/rss/articles/CBMinAJBVV95cUxObExrdEtyMXplVUh3eW1EUkRzcG9ndDRMMl9BeVZZUmItT2ZxaS11aTQ1VUdOY3BRUkhpdkJyWlVfRmdRVUstYTNsSnhVU2ltWTdoY0lWaDd3TWZvaUcxM1NqRHNmd1Z3OXlSa0VBdy05VWY2U3o3Y1M3TlhZbTJMdUttcnpxVS1HSm9FR2Q4RXpmY0o3S0dPQ0hJV1cwNlBvNGpyTDA2VXJ1UFVWbS1OMDNhZzk4THIzWDJFMXg3VGM3Y0V1T0RKQUNuNE5ZeFYtZXlDOS1OSzR1TzlUemNOQzVJWGthSmF1VWtRaGQxS2tiazNDZUJiT2hGaFJRQjN5cWFyRmpBajdTRlVMN05YUHl5VXJoU29oOWpGQw?oc=5"
+newsSource: "Tom's Guide"
+claimReviews: ["ChatGPT can now link your bank accounts. The feature launched this week"]
+---
+
+## hook
+
+ChatGPT can now link your bank accounts. The feature launched this week and the internet's reaction was immediate: "what sane individual feels comfortable giving this level of access?"
+
+People want help managing money — tracking spending, finding subscriptions they forgot about, spotting tax deductions. But "access to my bank account" sounds risky. It feels like handing over the keys.
+
+The question isn't whether linking is reckless or safe. The question is: what does linking actually mean, and how do you decide if the tradeoff serves you?
+
+## what-linking-means
+
+When you "link" a bank account to an app, you're granting API access via OAuth. The app gets a token — a temporary permission slip — that lets it read your transaction data without ever seeing your password.
+
+This is different from older methods. Some apps used to ask for your actual bank login credentials and then "screen scrape" — log in as you and pull data by reading the webpage. That meant the app had your password. OAuth replaced that: your bank generates a token, hands it to the app, and the app uses that token to request data. You can revoke the token anytime without changing your password.
+
+There are two kinds of access: read-only and transactional. Read-only means the app can see your balance and transaction history but can't move money. Transactional access means the app can start transfers or payments. Most linking flows default to read-only. Check which kind you're granting — the permission screen should say.
+
+## what-the-app-sees
+
+Once linked, the app sees transaction history, account balances, merchant names, dates, and amounts. Not just "you spent $50" but "you bought groceries at Whole Foods on Tuesday at 3:47 PM."
+
+The app builds a detailed map of your financial life. That detail is why it works — you can't get useful budgeting advice from "you spent money somewhere." The app needs to know where, when, and how much to spot patterns.
+
+But that same detail is exposure. Your transaction history reveals where you live, what you buy, who you support, and where you go. Recurring charges show your neighborhood. Pharmacy purchases and therapy copays show health patterns. Donations and subscriptions show values. Gas stations and tolls show routes. This data is valuable — to you for managing finances, to advertisers for targeting, to data brokers for resale.
+
+## revocation-and-persistence
+
+You can revoke access by logging into your bank's app or website and disconnecting the linked app. That cuts off future data flow — the app can't pull new transactions after you revoke the token.
+
+But data already pulled typically stays on the app's servers unless you explicitly delete it. Revoking the token and deleting your data are two separate actions. Most apps have a "delete my account" option in settings. Use both if you want a clean exit.
+
+Revoking stops the flow. Deleting erases the map. Both are under your control, but neither happens automatically when you uninstall the app.
+
+## evaluating-the-tradeoff
+
+Start with the problem: what are you trying to solve? Budgeting? Tracking subscriptions you forgot about? Preparing for taxes?
+
+Then ask: does this app need live bank data to solve it, or could you achieve the same goal with manual entry or CSV uploads? Manual entry takes time. CSV uploads (downloading transactions from your bank and uploading them to the app) give you the same analysis without ongoing access.
+
+More automation means more data sharing. You're choosing where on that line you're comfortable. If the app saves you two hours a month and you trust its security, linking might be worth it. If you're using it once to check something, manual entry or a CSV upload might make more sense.
+
+## trust-question
+
+You're trusting two things: the app's security (can they protect your data from breaches?) and their business model (how do they make money?).
+
+Free tool companies often make money from data in ways paid tools don't. Read the privacy policy — specifically the "how we use your data" and "third-party sharing" sections. "We don't sell your data" doesn't mean "we don't use your data." The app might share aggregated insights with advertisers, or use your spending patterns to train models, or sell anonymized datasets to researchers.
+
+Paid apps usually make money from subscriptions, so they have less reason to make money from your data. But "paid" doesn't guarantee "private" — check the policy either way.
+
+Look for: Does the app encrypt data in transit and at rest? Has it had breaches? Does it share data with third parties? How does it make money?
+
+## close
+
+Linking isn't inherently reckless or safe. It depends on what you're getting and what you're giving up.
+
+The "what sane individual" reaction makes sense when you don't understand the system. Now you do: you know what access means, what data flows, how to revoke it, and how to evaluate whether the tradeoff serves you.
+
+The choice is still yours. Now it's informed.
