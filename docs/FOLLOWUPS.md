@@ -13,6 +13,25 @@ Format per entry:
 
 ---
 
+## [open] 2026-05-18: Integrator R2 silent wedge — Aaron Rai PGA piece 2 (e4f02570) hung 9+ min on revising_r2 with no observability signal
+
+**Surfaced:** 2026-05-18, ~02:14 UTC. Dual-fire incident shipped piece 1 cleanly; piece 2 picked the same Aaron Rai PGA story, failed facts on R1 + R2, started revising_r2 at 02:14:18 UTC and went completely silent. Zero new pipeline_log rows, zero new observer_events, zero `LLM integrator` log for R2. The 02:30 UTC watchdog correctly caught it (operation 19 min old vs the 15-min threshold), marked it orphaned, tripped the kill switch, fired escalation.
+
+**Hypothesis (unverified):**
+1. Anthropic streaming Claude call on the Integrator R2 prompt genuinely slow — possible but normally surfaces a 499 at the CF Workers 125s subrequest idle limit, not 9+ min of silence.
+2. **Task 09 "previous round audit summary" doubling the R2 prompt size.** The Integrator's R2 user message now contains both R1 + R2 audit results (per the regression-awareness work shipped 2026-05-07). On a piece where R1 + R2 both fail on facts with 5+ contradicted_claim tokens each, the prompt could push past Anthropic's slow path. The `LLM integrator` log for R1 appeared at 02:14:02 (~28s for the call); R2 should be similar shape.
+3. DO got reset mid-stream and silently re-entered some recovery state — same shape as yesterday's 8-hour plateau but caught much faster by the new watchdog.
+
+**Investigation hints:**
+- The wedge is reproducible: rerun the Aaron Rai story with `force=true`, watch `wrangler tail --format pretty` for the Integrator R2 Claude stream behaviour. Tail surfaces what observer_events miss (raw worker logs, 499 errors, etc.).
+- Check Anthropic Console for the Integrator's R2 request — did it 499? Did it return slowly? Did the API ever receive the request?
+- Compare Integrator R1 vs R2 token shape via `observer_events WHERE title LIKE 'LLM integrator: %English golfer%'` — R1 fired at 02:14:02, R2 never fired.
+- The wedge happened post-PR #65 fix-deploy timing (heartbeat + in-flight guard). The dual-fire bug is closed; the Integrator hang is a separate root cause.
+
+**Priority:** medium. The watchdog now catches this class in ~45 min worst case (HH:30 cadence + 15-min threshold). Not blocking but worth diagnosing — if Task 09's prompt-size doubling is the cause, every multi-round piece is exposed.
+
+---
+
 ## [open] 2026-05-17: Cap incident — Director DO ran 8h silent + Cloudflare free-tier duration exceeded. Prevention guardrails specified, not yet shipped
 
 **Surfaced:** 2026-05-17, ~12:02 UTC, Cloudflare notification email "Exceeded daily free-tier duration of 13,000 GB-sec". `zeemish-agents_DirectorAgent` namespace billed 19,170 GB-sec across the day (147% of cap), of which ~17k was a flat plateau at ~470 GB-sec/sample from 04:25 UTC to 12:00 UTC. The plateau wrote **zero observer_events** and **zero pipeline_log rows** — completely silent burn. Service degraded until 2026-05-18 00:00 UTC reset.
