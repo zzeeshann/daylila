@@ -1,0 +1,59 @@
+{
+  "slug": "read-versus-transact-permissions",
+  "type": "quiz",
+  "title": "Read Versus Transact Permissions",
+  "concept": "Software access divides into layers where some permissions let you observe data while others let you act on it—knowing which layer you grant determines what happens when trust breaks.",
+  "interactiveId": "e503e87e-1ef1-412d-8fa6-0fa65ce6565f",
+  "sourcePieceId": "1115dd57-fd1c-4cdd-9fd2-a70c0e77f611",
+  "publishedAt": 1779072814058,
+  "voiceScore": 90,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What is the key difference between read-only and transactional access in a permission system?",
+        "options": [
+          "Read-only access is temporary while transactional access is permanent",
+          "Read-only lets you see data while transactional lets you change or move it",
+          "Read-only requires a password while transactional uses a token",
+          "Read-only works offline while transactional requires internet"
+        ],
+        "correctIndex": 1,
+        "explanation": "Read-only permission lets software observe information without altering it; transactional permission lets software initiate actions like moving money or changing records. The first is a window, the second is a lever."
+      },
+      {
+        "question": "Why do permission systems split access into different layers instead of making it all-or-nothing?",
+        "options": [
+          "To make the interface more complicated and secure-looking",
+          "Because older systems only supported one permission level",
+          "To let you grant enough access for a task without granting more than needed",
+          "To allow apps to request permissions gradually over time"
+        ],
+        "correctIndex": 2,
+        "explanation": "Layered permissions let you match what you give to what the task requires—a budgeting tool needs to see transactions but not move money. All-or-nothing access would mean choosing between full control or no help at all."
+      },
+      {
+        "question": "When you revoke read-only access to data, what risk remains?",
+        "options": [
+          "The app can still read new data for 30 days",
+          "The app already has a copy of everything it read while connected",
+          "The app keeps a backup token that reactivates automatically",
+          "Your bank must manually delete the app's access logs"
+        ],
+        "correctIndex": 1,
+        "explanation": "Revocation stops future reads but does not erase past ones. If an app read three years of transactions before you disconnected, it still has that data unless it deletes it—and you cannot force deletion remotely."
+      },
+      {
+        "question": "Why does detailed transaction data create more exposure than just knowing total spending?",
+        "options": [
+          "Banks charge higher fees for accessing itemized data",
+          "Detailed data shows patterns like where you go and what you value, not just how much you spent",
+          "Aggregate totals are encrypted while itemized data is transmitted in plain text",
+          "More data takes longer to process, increasing the chance of a breach during transmission"
+        ],
+        "correctIndex": 1,
+        "explanation": "Line-item detail—merchant names, timestamps, locations—reveals behavior, routines, and affiliations. Knowing you spent $200 is one thing; knowing you spent it at a specific pharmacy on a specific day reveals far more about your life."
+      }
+    ]
+  }
+}
