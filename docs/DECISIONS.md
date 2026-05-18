@@ -2,6 +2,36 @@
 
 Append-only. Never edit old entries. Entries below from before 2026-05-06 reference the prior brand "Zeemish" by design — that name was true at the time.
 
+## 2026-05-18: Director heartbeat wiring + in-flight guard (closes two bugs from PR #63)
+
+**Trigger.** Operator opened admin at ~02:11 UTC, after the cap reset at 00:00 UTC, to check if today's 02:00 UTC cron had fired. It hadn't — last activity in `pipeline_log` / `observer_events` was 2026-05-17 04:25 UTC. Director DO had been hibernating since the cap incident. Operator clicked "Trigger daily piece" from admin. **The click woke the DO, which then dispatched BOTH the overdue 02:00 cron alarm AND the admin trigger at the exact same millisecond (02:11:44 UTC).** Two pipelines started in parallel, both picked the same Aaron Rai PGA story (different Curator headline phrasings). Piece 1 shipped clean (single round, voice 90, audio + interactive at 02:18:04). Piece 2 wedged on Integrator R2 — 9+ min of complete silence on the streaming Claude call. The 02:30 UTC watchdog read `last_heartbeat_at < (02:30 - 15min = 02:15)`, found piece 2's row (heartbeat stuck at 02:11:44), marked it orphaned, tripped the kill switch, and fired escalation. **Self-defense worked exactly as designed.**
+
+**Two real bugs surfaced, both introduced by PR #63 (2026-05-17 cap-incident guardrails).**
+
+**Bug 1 — heartbeat never wired in.** `director-guardrails.ts` exported `recordOperationHeartbeat(env, operationId)` but **no caller ever invoked it.** PR #63's doc-comment claimed the `keepAlive()` 30s tick would update `director_health.last_heartbeat_at`, but the wiring was never added. Consequence: the field stayed at `started_at` forever. The watchdog reads `last_heartbeat_at < cutoff` so ANY operation past 15 min trips it falsely. Today the watchdog caught a real wedge (piece 2 IS stuck), but a healthy 16-min pipeline (e.g. an audio retry at full retry budget) would have died the same way tomorrow.
+
+**Bug 2 — no in-flight guard on `triggerDailyPiece`.** `triggerDailyPiece` had a "today already published" slot-aware guard but no "another invocation is already running" guard. The dual-fire today is the empirical demonstration. The Director DO had been hibernating; an admin click woke it; the SDK's alarm dispatcher saw the overdue 02:00 cron alarm in its queue and fired it; the HTTP `/daily-trigger` handler also fired `triggerDailyPiece(true)`. Both ran concurrently in the JS event loop. Each saw no `director_health` row when it queried, each INSERTed its own, each picked the same news story.
+
+**Fix — single file, additive scope.** `agents/src/director.ts`:
+
+(1) **Heartbeat helper.** New `private startOperationHeartbeat(operationId): () => void` on `DirectorAgent`. Uses `setInterval(30_000)` to call `recordOperationHeartbeat(env, operationId)`. Returns a `clearInterval` disposer. setInterval works because `keepAlive()` prevents DO eviction during the operation; the JS event loop stays alive until the disposer runs in a `finally` block. Wired into all three `recordOperationStart` call sites: `triggerDailyPiece`, `retryAudioFresh`, `retryAudioBeat`. New import of `recordOperationHeartbeat` from `./director-guardrails`.
+
+(2) **In-flight guard.** New `private _triggerInFlight = false` field. Checked **synchronously** at the top of `triggerDailyPiece` (no `await` before the check — race-proof against intra-DO concurrency in single-threaded JS). Set immediately, cleared in an outer `finally`. Bypasses `force=true` intentionally — admin double-clicks should not run pipelines in parallel on the same story.
+
+**Why in-memory not D1 for the in-flight guard.** A D1-backed check has a race window: two concurrent invocations both query, both see no `running` row, both INSERT, both proceed. Resolving that race requires either a UNIQUE constraint with `INSERT OR IGNORE` semantics or a multi-statement transaction — both heavier than the JS in-memory flag. The in-memory flag is race-proof within a single DO instance (JS event loop is single-threaded; the synchronous check + set runs atomically before any await yields). The cross-restart case (DO restart mid-flight loses the flag) is theoretical and rare (only happens on code deploys); the HH:30 watchdog — now fed by real heartbeats — is the cross-restart safety net.
+
+**Why setInterval over `this.schedule()` for the heartbeat.** `this.schedule(30, 'heartbeatTick')` would create a proper SDK alarm row that survives evictions. But it adds a row to the cf_agents_schedules table for every tick, increasing the SDK state surface and complicating cancellation (need to remember the schedule id to cancel on dispose). setInterval is simpler, lives only within the keepAlive scope, and clears cleanly via the returned disposer. The downside (interval doesn't survive eviction) is fine — if the DO is evicted mid-flight, the heartbeat stops, the operation row stays in `running`, and the watchdog catches it. That's the correct behaviour.
+
+**What this fix does NOT close.** Does NOT fix whatever caused piece 2's Integrator R2 to wedge silently. Most likely candidates: (a) Anthropic streaming genuinely slow on this prompt; (b) the new Task 09 "previous round audit summary" doubling the prompt size on R2 pushed the response generation past CF Workers' 125s subrequest idle limit (but a 499 would have surfaced an error, not silence); (c) DO got reset mid-stream and silently re-entered. Separate session — needs `wrangler tail` during a reproduction. Queued as `[open] 2026-05-18` in FOLLOWUPS.
+
+**Verification.** Agents `npx tsc --noEmit` shows 26 errors total, all 26 pre-existing in the `src/server.ts` Durable Object set — **zero new errors from director.ts**. `npx wrangler deploy --dry-run` clean, all 16 DO bindings + both crons accepted. No migration. No contract change. No codegen. Table count: 27 (unchanged). Migration count: 45 (unchanged).
+
+**Standing rule reinforced.** "After any PR sequence touching the agents pipeline, run one full pipeline via admin retrigger BEFORE declaring the sequence done." PR #63's "Agents `wrangler deploy --dry-run` clean — all 16 DO bindings + new `30 * * * *` cron accepted" verification didn't catch the heartbeat-wiring gap — dry-run only validates the bundle compiles, not that the new helper functions are actually called. **End-to-end live test against the watchdog (inject a stale row, watch it caught) is the only test that would have surfaced bug 1 pre-deploy.** That test was documented in PR #63's RUNBOOK but not executed (operator's call at the time: "low value during a cap when no pipeline can run anyway"). Today's incident is the cost of that gap.
+
+**Files (1 + 2 docs).** `agents/src/director.ts`; CLAUDE.md (this entry), DECISIONS.md (this entry). **PR #65** open. Migration count: 45 (unchanged). Table count: 27 (unchanged).
+
+---
+
 ## 2026-05-17: Cap incident + Director kill-switch / watchdog / admin guardrails (post-InteractiveAuditor-soft-fail same-day)
 
 **Trigger.** ~12:02 UTC operator received `Cloudflare <noreply@notify.cloudflare.com>` email "Exceeded daily Cloudflare Durable Objects free tier limit of 2147483647 duration." Service degraded for `zeemish-agents_DirectorAgent` until 2026-05-18 00:00 UTC. Operator's directive: investigate, but the answer is not "buy more resources" — prevention.
