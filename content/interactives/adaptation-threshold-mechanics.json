@@ -1,0 +1,59 @@
+{
+  "slug": "adaptation-threshold-mechanics",
+  "type": "quiz",
+  "title": "Adaptation Threshold Mechanics",
+  "concept": "Biological systems adapt when a stimulus crosses a threshold that signals the current capacity is insufficient—time spent below that line maintains what exists, while time above it triggers the body to build new infrastructure.",
+  "interactiveId": "938a25fc-e0bc-42a5-a7c8-0a41487ec502",
+  "sourcePieceId": "a61e9496-f6f2-48f4-a02b-e94d0f8eba8c",
+  "publishedAt": 1779113000233,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does your body build new capacity instead of just maintaining what it already has?",
+        "options": [
+          "Because cells naturally wear out over time and need constant replacement",
+          "Because crossing a demand threshold signals current infrastructure is inadequate",
+          "Because repeated activity of any kind automatically triggers growth",
+          "Because the body prioritizes efficiency and always seeks to improve"
+        ],
+        "correctIndex": 1,
+        "explanation": "Your body builds new capacity when demand exceeds what current systems can handle—the threshold crossing is the signal. Activity that stays comfortably below capacity doesn't tell your cells they need more machinery."
+      },
+      {
+        "question": "What makes alternating between hard work and recovery more effective than continuous moderate effort?",
+        "options": [
+          "Recovery burns more calories than working does",
+          "The rest periods allow toxins to clear from muscles",
+          "Recovery lets you revisit the threshold multiple times without premature fatigue",
+          "Alternating confuses the body into adapting faster"
+        ],
+        "correctIndex": 2,
+        "explanation": "Recovery intervals prevent burnout so you can hit the high-demand zone repeatedly in one session—more total time above threshold means a stronger signal to adapt. Continuous moderate effort never crosses the line that triggers capacity growth."
+      },
+      {
+        "question": "Why doesn't doubling the time spent at low intensity produce the same result as brief time at high intensity?",
+        "options": [
+          "Low intensity doesn't cross the threshold that signals the need for new infrastructure",
+          "The body can only adapt during the first 30 minutes of any session",
+          "Low intensity burns the wrong type of fuel for adaptation",
+          "Longer sessions cause overtraining and suppress growth hormones"
+        ],
+        "correctIndex": 0,
+        "explanation": "Volume below the adaptation threshold maintains current capacity but doesn't push the system to build more—like running a factory at 40% capacity for twice as long instead of running it at 95% briefly. The signal that triggers new construction comes from demand level, not total hours."
+      },
+      {
+        "question": "A runner training for an ultramarathon spends most training time at moderate pace. Does this contradict the threshold principle?",
+        "options": [
+          "Yes—they should do only high-intensity intervals to maximize fitness",
+          "No—duration builds endurance and teaches fuel systems; different goals need different stimuli",
+          "Yes—any training below threshold is wasted time",
+          "No—ultramarathons don't require cardiovascular adaptation"
+        ],
+        "correctIndex": 1,
+        "explanation": "The threshold principle explains capacity growth, not all training goals. Ultra distance requires teaching your body to burn fat efficiently and conditioning joints over hours—adaptations that need duration, not intensity spikes. The tradeoff is real: intensity builds ceiling, duration builds base."
+      }
+    ]
+  }
+}
