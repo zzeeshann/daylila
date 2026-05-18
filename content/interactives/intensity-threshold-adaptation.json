@@ -1,0 +1,59 @@
+{
+  "slug": "intensity-threshold-adaptation",
+  "type": "quiz",
+  "title": "Intensity Thresholds and Adaptation",
+  "concept": "Physical systems adapt when demand crosses a threshold that triggers structural change—moderate load maintains current capacity while high-intensity load signals the body to build more capacity, making the ceiling of what's possible rise.",
+  "interactiveId": "d4efea9a-15d3-4d61-beb1-f349cccbfdf4",
+  "sourcePieceId": "a61e9496-f6f2-48f4-a02b-e94d0f8eba8c",
+  "publishedAt": 1779112972470,
+  "voiceScore": 90,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "Why does crossing an intensity threshold trigger adaptation while staying below it does not?",
+        "options": [
+          "Below the threshold, the system burns calories; above it, the system builds new structures",
+          "Below the threshold, the system uses existing capacity; above it, the demand signals insufficient capacity and triggers building more",
+          "Below the threshold, duration matters most; above it, only intensity matters",
+          "Below the threshold, recovery happens; above it, damage accumulates until repair begins"
+        ],
+        "correctIndex": 1,
+        "explanation": "Adaptation happens when demand exceeds what current structures can handle comfortably—the system interprets crossing the threshold as a signal that capacity is insufficient and responds by building more. Staying below the threshold uses existing capacity without triggering growth."
+      },
+      {
+        "question": "What role does recovery play in a system that alternates high demand with rest?",
+        "options": [
+          "Recovery allows the system to visit high-demand zones repeatedly without early collapse",
+          "Recovery is when adaptation actually happens, making it more important than the hard intervals",
+          "Recovery prevents damage that would otherwise accumulate during high demand",
+          "Recovery dilutes the intensity signal, requiring longer total sessions to compensate"
+        ],
+        "correctIndex": 0,
+        "explanation": "Recovery lets the system return to high-demand zones multiple times in one session—without it, fatigue would end the session after a single hard push, limiting total time spent crossing the threshold. Recovery isn't wasted time; it's what makes accumulating enough threshold-crossing demand possible."
+      },
+      {
+        "question": "How does the intensity-duration trade-off shape what different training patterns build?",
+        "options": [
+          "Longer sessions at any intensity always build more capacity than shorter sessions",
+          "High intensity builds the ceiling of what's possible; longer duration builds the ability to sustain effort at current capacity",
+          "Duration determines how much fuel you burn; intensity determines how sore you get afterward",
+          "Intensity and duration are interchangeable—ten minutes hard equals thirty minutes moderate"
+        ],
+        "correctIndex": 1,
+        "explanation": "Intensity and duration produce different adaptations—high intensity pushes the ceiling upward by signaling the need for more capacity, while longer duration at moderate levels builds endurance and trains the system to operate efficiently at its current ceiling. The stimuli aren't interchangeable; they serve different roles."
+      },
+      {
+        "question": "Why might brief hard effort produce similar cardiovascular gains to much longer moderate effort?",
+        "options": [
+          "Brief hard effort burns the same total calories in less time",
+          "Brief hard effort crosses the adaptation threshold repeatedly while moderate effort never crosses it",
+          "Brief hard effort causes more muscle damage, forcing stronger repair",
+          "Brief hard effort raises heart rate higher, making the average intensity equal to long moderate sessions"
+        ],
+        "correctIndex": 1,
+        "explanation": "The gains come from crossing the threshold that triggers structural changes—brief hard effort does this multiple times, signaling the need for more capacity, while moderate effort may never reach that threshold no matter how long it continues. Time spent above the threshold matters more than total session time."
+      }
+    ]
+  }
+}
