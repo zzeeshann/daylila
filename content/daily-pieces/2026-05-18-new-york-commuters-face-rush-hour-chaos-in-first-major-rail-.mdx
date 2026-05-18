@@ -1,0 +1,78 @@
+---
+title: "Why a Transit Strike Hurts More Than a Power Outage"
+date: "2026-05-18"
+underlyingSubject: "Infrastructure resilience and single-point-of-failure design"
+estimatedTime: 6
+beatCount: 7
+description: "When rail stops, commuters can't reroute like electricity or data packets. Learn why transit systems fail harder than other infrastructure—and what resilience actually means."
+voiceScore: 75
+publishedAt: 1779117199234
+pieceId: "2369fa71-80e3-4bab-a509-f67456c70dae"
+sourceUrl: "https://news.google.com/rss/articles/CBMiVEFVX3lxTE5EUG11NUpQcXJ3Y3R0enpLalFNam11RnBneE00VmhZTU1KS1ljV1ZwYVV5NjMwZFU1TGZ5YVU0eEZaOHA4UlVFRGhuUTdjZnU0TnVuTQ?oc=5"
+newsSource: "BBC"
+claimReviews: ["New York built its first subway line in 1904"]
+qualityFlag: "low"
+---
+
+## hook
+
+You're standing on a subway platform at 7:45 AM. The display board says "No service." Around you, fifty people pull out phones and open map apps. The answer, for most of them, is no. The roads are already full. The buses that are running are packed. There's no spare capacity anywhere.
+
+When the power goes out, electricity reroutes around the problem. When a server goes down, your data finds another path. But when the trains stop, the people have nowhere to go.
+
+## what-resilience-means
+
+Resilience in infrastructure is the system's ability to keep working when part of it fails. Not working perfectly—just working.
+
+Resilient infrastructure works two ways. The first is *redundancy*: you have backup capacity. Power grids reroute electricity through parallel lines when one goes down. The internet sends packets along alternate routes when a server fails. Water systems have reserve tanks that kick in during main-line breaks.
+
+The second way is *graceful degradation*: the system loses capability gradually rather than all at once. A building loses one elevator but the others keep running. A highway loses one lane but traffic still flows, just slower.
+
+Resilient systems have at least one of these. Most have both.
+
+## why-transit-is-different
+
+A person occupies physical space and moves at a fixed speed. When ten thousand commuters need to get from the Bronx to Midtown by 9:00 AM, they need a specific amount of capacity—rail cars, or bus seats, or road lanes. That capacity has to physically exist.
+
+During rush hour, roads are already at capacity. Every lane is full. Buses are running their maximum number of trips. When rail goes down, those ten thousand people still need to get to work, but there's no spare volume anywhere else in the system.
+
+The commuters don't disappear. They just get stuck.
+
+## single-point-of-failure
+
+Many cities built transit as the primary artery, then built density around it. Hudson Yards went up around the 7 extension terminus in 2015—16,000 new residential units assuming daily rail service. The assumption was that the trains would always run.
+
+<lesson-compare>
+<lesson-state label="Primary artery fails">
+No alternative route can handle the volume. System collapses.
+</lesson-state>
+<lesson-state label="Parallel capacity exists">
+Load shifts to other modes. System degrades but functions.
+</lesson-state>
+</lesson-compare>
+
+When the primary artery closes, the secondary routes—roads, buses—can't handle the load. That's a *single point of failure*: one component whose absence breaks the whole system.
+
+Cities that designed for modal redundancy from the start fare better. Amsterdam has rail, trams, buses, bike lanes, and roads as independent parallel systems. When one fails, the others absorb some of the load. New York built rail as the backbone, then added everything else as an afterthought.
+
+## why-graceful-degradation-is-hard
+
+If you can't have redundancy—parallel systems that can take over—you need graceful degradation: partial failure that doesn't cascade into total collapse.
+
+Buses could provide this. Even if the subway's down, buses can still run. But only if they have dedicated infrastructure that doesn't compete with cars for road space.
+
+In Los Angeles, 94% of bus routes share lanes with cars. When rail goes down and everyone tries to drive, roads clog. Buses get stuck in the same traffic as cars. The backup system fails because it depends on the same resource—road space—that's already overloaded.
+
+Graceful degradation requires designing the backup to work independently of the primary system. Transit rarely has this.
+
+## the-design-assumption
+
+Resilient systems are designed assuming parts will fail. They have parallel capacity or they fail in steps rather than all at once.
+
+Transit systems often have neither, because they grew incrementally rather than being designed for failure from the start. New York built its first subway line in 1904. It worked. Ridership grew. They added another line in 1920. It worked. By 2026, the whole city depends on the network, but no one ever designed what happens when it stops.
+
+The strike exposes what was always true: the system has no backup plan. It runs on the assumption that daily service will always be available. When that assumption breaks, everything breaks.
+
+## close
+
+Transit fails harder than other infrastructure because it can't reroute load and has no spare capacity. The strike reveals what was always true: the system assumes it will never stop.
