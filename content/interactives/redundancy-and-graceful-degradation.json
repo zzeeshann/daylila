@@ -1,0 +1,59 @@
+{
+  "slug": "redundancy-and-graceful-degradation",
+  "type": "quiz",
+  "title": "Redundancy and Graceful Degradation",
+  "concept": "Systems stay usable during failure either by having backup capacity that takes over when the primary path fails, or by losing capability gradually instead of collapsing all at once—most robust designs use both.",
+  "interactiveId": "83850370-2087-4454-a72d-403f44c9a5fe",
+  "sourcePieceId": "2369fa71-80e3-4bab-a509-f67456c70dae",
+  "publishedAt": 1779117250444,
+  "voiceScore": 95,
+  "content": {
+    "type": "quiz",
+    "questions": [
+      {
+        "question": "What does redundancy mean in system design?",
+        "options": [
+          "The system has backup capacity that can take over when the primary component fails",
+          "The system automatically repairs itself when damage occurs",
+          "The system warns users before failure happens",
+          "The system stores extra data to prevent information loss"
+        ],
+        "correctIndex": 0,
+        "explanation": "Redundancy means having parallel capacity—alternate routes, backup servers, reserve tanks—that keep the system working when the primary path goes down. It's not self-repair or early warning; it's spare infrastructure already in place."
+      },
+      {
+        "question": "Why does graceful degradation make a system more resilient?",
+        "options": [
+          "It prevents any component from ever failing",
+          "It lets the system keep functioning at reduced capacity instead of collapsing entirely",
+          "It automatically replaces failed parts with new ones",
+          "It spreads damage evenly across all components"
+        ],
+        "correctIndex": 1,
+        "explanation": "Graceful degradation means losing capability gradually—one elevator breaks but others keep running, one lane closes but traffic still flows. The system doesn't work perfectly, but it doesn't collapse. Option A is wrong because degradation assumes something already failed."
+      },
+      {
+        "question": "A city's public transit carries 80% of rush-hour commuters, and the roads are already at capacity during peak hours. What happens when transit shuts down?",
+        "options": [
+          "Road congestion increases but the city stays functional",
+          "Commuters spread evenly across all remaining options and delays are minor",
+          "The whole system collapses because there's no spare capacity to absorb the load",
+          "Employers adjust work hours and the problem solves itself"
+        ],
+        "correctIndex": 2,
+        "explanation": "When roads are already full and transit carries most of the load, there's no backup capacity. The people don't disappear—they need to get to work—but there's nowhere for them to go. That's a single point of failure: one component whose absence breaks everything. Option A assumes spare road capacity that doesn't exist."
+      },
+      {
+        "question": "Which system design has both redundancy and graceful degradation?",
+        "options": [
+          "A building with one elevator that runs diagnostics daily",
+          "A power grid with backup lines that reroute electricity when one fails",
+          "A server that logs errors before crashing",
+          "A highway with real-time traffic cameras"
+        ],
+        "correctIndex": 1,
+        "explanation": "The power grid has redundancy (backup lines) and graceful degradation (reroutes around failures instead of going dark everywhere at once). Option A has monitoring but no backup. Options C and D have visibility, not alternate capacity."
+      }
+    ]
+  }
+}
