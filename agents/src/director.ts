@@ -29,6 +29,7 @@ import { filterDuplicateCandidates } from './shared/dedup-headlines';
 import {
   isDirectorDisabled,
   recordOperationStart,
+  recordOperationHeartbeat,
   recordOperationComplete,
 } from './director-guardrails';
 import type { Env, DirectorState, DirectorPhase, DailyPieceBrief } from './types';
@@ -61,6 +62,52 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     lastDailyPiece: null,
     error: null,
   };
+
+  /**
+   * In-memory dual-fire guard for `triggerDailyPiece`. Set synchronously
+   * before any `await` in `triggerDailyPiece`, cleared in the outer
+   * `finally`. Single-threaded JS guarantees this is race-proof for
+   * concurrent invocations within the same DO instance.
+   *
+   * Why: 2026-05-18 the Director DO had been hibernating since the
+   * cap incident. An admin click + the overdue 02:00 cron alarm both
+   * fired `triggerDailyPiece` at the exact same millisecond (02:11:44).
+   * Both picked the same Aaron Rai PGA story; piece 1 shipped clean,
+   * piece 2 wedged on Integrator R2 and the watchdog tripped the kill
+   * switch. See docs/DECISIONS.md 2026-05-18 entry.
+   *
+   * Note: only defends against intra-DO concurrency. A DO restart
+   * mid-flight loses this flag — the watchdog at HH:30 is the
+   * cross-restart safety net.
+   */
+  private _triggerInFlight = false;
+
+  /**
+   * Start a 30-second heartbeat that updates
+   * `director_health.last_heartbeat_at` for the given operation.
+   * Returns a disposer that clears the interval.
+   *
+   * Required by the watchdog cron at HH:30 to distinguish healthy
+   * long-running operations from genuinely stuck ones. PR #63
+   * (2026-05-17 cap-incident work) added `recordOperationHeartbeat()`
+   * but never wired it in — without this helper, the heartbeat field
+   * stayed at `started_at` forever, so ANY operation past 15 min
+   * tripped the watchdog falsely. Today's wedged piece 2 was caught
+   * correctly (it really was stuck), but a healthy 16-min run would
+   * have been killed the same way.
+   *
+   * setInterval is safe here because `keepAlive()` prevents DO
+   * eviction during the operation; the JS event loop stays alive
+   * until the disposer runs (typically in a finally block).
+   */
+  private startOperationHeartbeat(operationId: string): () => void {
+    const intervalId = setInterval(() => {
+      recordOperationHeartbeat(this.env, operationId).catch((err) => {
+        console.error('[director.startOperationHeartbeat] tick failed:', err);
+      });
+    }, 30_000);
+    return () => clearInterval(intervalId);
+  }
 
   /**
    * Set up the hourly cron. Cron schedules in the Agents SDK are
@@ -158,6 +205,20 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
    *   want to test end-to-end even after today's piece has published.
    */
   async triggerDailyPiece(force = false): Promise<{ brief: DailyPieceBrief; mdx: string } | null> {
+    // SYNC in-flight guard — must be the first statement, no `await`
+    // before it, to be race-proof against concurrent invocations within
+    // the same DO instance. See `_triggerInFlight` doc-comment above.
+    // Bypasses force=true intentionally: an admin retrigger while a
+    // run is already in flight is almost always a double-click, not a
+    // legitimate request to run two pipelines in parallel on the same
+    // story.
+    if (this._triggerInFlight) {
+      console.warn('[director.triggerDailyPiece] skipped — in-flight guard tripped (another triggerDailyPiece is already running in this DO)');
+      return null;
+    }
+    this._triggerInFlight = true;
+
+    try {
     // Kill switch — same posture as dailyRun. See docs/CAP-INCIDENT-2026-05-17.md.
     // Bypasses force=true intentionally: when the system is in a known-bad
     // state, even admin retriggers should be inert until the operator
@@ -182,6 +243,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // pieceId is minted below; the operation is recorded after the slot
     // guard so we don't track skipped runs.
     let operationId: string | null = null;
+    let stopHeartbeat: (() => void) | null = null;
     try {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -250,7 +312,10 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // marks it completed. If the DO is reset before the finally runs
     // (e.g. mid-pipeline code push — see CAP-INCIDENT-2026-05-17), the
     // row stays in status='running' and the HH:30 watchdog catches it.
+    // Heartbeat ticks every 30s to update last_heartbeat_at so a
+    // healthy long-running pipeline isn't falsely marked stale.
     operationId = await recordOperationStart(this.env, 'triggerDailyPiece', pieceId);
+    stopHeartbeat = this.startOperationHeartbeat(operationId);
 
     // ─── Phase 1: Scanner ────────────────────────────────────────────
     this.enterPhase('scanner', `daily/${today}`);
@@ -1071,6 +1136,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     return { brief, mdx: currentMdx };
     } finally {
+      if (stopHeartbeat) stopHeartbeat();
       if (operationId) {
         // Best-effort — never block keepAlive disposal on D1 latency.
         recordOperationComplete(this.env, operationId).catch((err) => {
@@ -1078,6 +1144,11 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
         });
       }
       keepAliveDispose();
+    }
+    } finally {
+      // Outer finally — always release the in-flight guard, even if
+      // the kill-switch early-return bailed before keepAlive was held.
+      this._triggerInFlight = false;
     }
   }
 
@@ -2060,6 +2131,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
     // refs are disposed.
     const keepAliveDispose = await this.keepAlive();
     const operationId = await recordOperationStart(this.env, 'retryAudioFresh', pieceId);
+    const stopHeartbeat = this.startOperationHeartbeat(operationId);
     try {
       // `daily_piece_audio` is the authoritative source for this piece's
       // audio state (post-Phase-1 PK is (piece_id, beat_name)). Iterate
@@ -2098,6 +2170,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // Delegate to existing retryAudio — it handles MDX read + audio pipeline
       await this.retryAudio(pieceId);
     } finally {
+      stopHeartbeat();
       recordOperationComplete(this.env, operationId).catch((err) => {
         console.error('[director.retryAudioFresh] recordOperationComplete failed:', err);
       });
@@ -2156,6 +2229,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
 
     const keepAliveDispose = await this.keepAlive();
     const operationId = await recordOperationStart(this.env, 'retryAudioBeat', pieceId);
+    const stopHeartbeat = this.startOperationHeartbeat(operationId);
     try {
       await this.env.AUDIO_BUCKET.delete(row.r2_key);
       await this.env.DB
@@ -2167,6 +2241,7 @@ export class DirectorAgent extends Agent<Env, DirectorState> {
       // Publisher (no-op if already 1).
       await this.retryAudio(pieceId, /* force */ true);
     } finally {
+      stopHeartbeat();
       recordOperationComplete(this.env, operationId).catch((err) => {
         console.error('[director.retryAudioBeat] recordOperationComplete failed:', err);
       });
